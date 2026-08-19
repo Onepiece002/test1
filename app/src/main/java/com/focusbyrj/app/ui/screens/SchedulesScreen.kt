@@ -1,0 +1,620 @@
+/*
+ * Copyright (C) 2024-2026 Focus by Rj
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+package com.focusbyrj.app.ui.screens
+
+import com.focusbyrj.app.ui.theme.MidnightBlack
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.Image
+import com.focusbyrj.app.util.ImageUtils
+import android.app.TimePickerDialog
+import android.content.pm.PackageManager
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.focusbyrj.app.ui.theme.*
+import com.focusbyrj.app.ui.viewmodels.FocusViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.util.Calendar
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SchedulesScreen(viewModel: FocusViewModel) {
+    val schedules by viewModel.schedules.collectAsStateWithLifecycle()
+    var showCreateScreen by remember { mutableStateOf(false) }
+    var scheduleToEdit by remember { mutableStateOf<com.focusbyrj.app.data.FocusSchedule?>(null) }
+
+    if (showCreateScreen || scheduleToEdit != null) {
+        CreateRoutineScreen(
+            scheduleToEdit = scheduleToEdit,
+            onBack = { 
+                showCreateScreen = false
+                scheduleToEdit = null
+            },
+            onSave = { name, startH, startM, endH, endM, days, mode, apps ->
+                if (scheduleToEdit != null) {
+                    viewModel.updateSchedule(scheduleToEdit!!.copy(
+                        name = name, startHour = startH, startMinute = startM,
+                        endHour = endH, endMinute = endM, daysOfWeek = days,
+                        mode = mode, appsToBlock = apps
+                    ))
+                } else {
+                    viewModel.addSchedule(name, startH, startM, endH, endM, days, mode, apps)
+                }
+                showCreateScreen = false
+                scheduleToEdit = null
+            }
+        )
+    } else {
+        Scaffold(
+            floatingActionButton = {
+                FloatingActionButton(
+                    onClick = { showCreateScreen = true },
+                    containerColor = AccentCyan,
+                    contentColor = MidnightBlack
+                ) {
+                    Icon(Icons.Filled.Add, contentDescription = "Add Schedule")
+                }
+            },
+            containerColor = MaterialTheme.colorScheme.background
+        ) { padding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(horizontal = 24.dp)
+            ) {
+                Spacer(modifier = Modifier.height(24.dp))
+                
+                Text(
+                    text = "Routines",
+                    style = MaterialTheme.typography.displayLarge,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                Text(
+                    text = "Automated focus windows",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                
+                Spacer(modifier = Modifier.height(32.dp))
+                
+                if (schedules.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("No routines active.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 16.sp)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text("Tap + to automate your boundaries.", color = Color.Gray, fontSize = 14.sp)
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        contentPadding = PaddingValues(bottom = 100.dp)
+                    ) {
+                        items(schedules) { schedule ->
+                            RoutineCard(
+                                schedule = schedule, 
+                                onEdit = { scheduleToEdit = schedule },
+                                onDelete = { viewModel.deleteSchedule(schedule) }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun RoutineCard(schedule: com.focusbyrj.app.data.FocusSchedule, onEdit: () -> Unit, onDelete: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(28.dp))
+            .background(SurfaceDark)
+            .border(1.dp, BorderGlass, RoundedCornerShape(28.dp))
+            .padding(24.dp)
+    ) {
+        Column {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text(schedule.name, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold), color = Color(0xFFCBD5E1))
+                Row {
+                    IconButton(onClick = onEdit) {
+                        Icon(Icons.Filled.Edit, contentDescription = "Edit", tint = Color.White)
+                    }
+                    IconButton(onClick = onDelete) {
+                        Icon(Icons.Filled.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            val timeString = "${String.format("%02d:%02d", schedule.startHour, schedule.startMinute)} - ${String.format("%02d:%02d", schedule.endHour, schedule.endMinute)}"
+            Text(timeString, style = MaterialTheme.typography.titleMedium, color = AccentCyan)
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                val days = listOf("S", "M", "T", "W", "T", "F", "S")
+                val activeDays = schedule.daysOfWeek.split(",")
+                days.forEachIndexed { index, day ->
+                    val isActive = activeDays.contains((index + 1).toString())
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(if (isActive) AccentViolet else SurfaceVariantDark)
+                            .border(1.dp, if (isActive) AccentViolet else BorderGlass, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(day, color = if (isActive) Color.White else Color.Gray, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            val appCount = if (schedule.appsToBlock.isEmpty()) 0 else schedule.appsToBlock.split(",").size
+            Text("$appCount Apps • ${schedule.mode} Mode", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CreateRoutineScreen(
+    scheduleToEdit: com.focusbyrj.app.data.FocusSchedule? = null,
+    onBack: () -> Unit,
+    onSave: (String, Int, Int, Int, Int, String, String, String) -> Unit
+) {
+    val context = LocalContext.current
+    var name by remember { mutableStateOf(scheduleToEdit?.name ?: "Deep Focus") }
+    var startHour by remember { mutableStateOf(scheduleToEdit?.startHour ?: 9) }
+    var startMinute by remember { mutableStateOf(scheduleToEdit?.startMinute ?: 0) }
+    var endHour by remember { mutableStateOf(scheduleToEdit?.endHour ?: 17) }
+    var endMinute by remember { mutableStateOf(scheduleToEdit?.endMinute ?: 0) }
+    var selectedDays by remember { 
+        mutableStateOf(
+            scheduleToEdit?.daysOfWeek?.split(",")?.mapNotNull { it.toIntOrNull() }?.toSet() ?: setOf(2,3,4,5,6)
+        ) 
+    } 
+    var mode by remember { mutableStateOf(scheduleToEdit?.mode ?: "HARD") }
+    var selectedApps by remember { 
+        mutableStateOf(
+            scheduleToEdit?.appsToBlock?.split(",")?.filter { it.isNotBlank() }?.toSet() ?: setOf<String>()
+        ) 
+    }
+    
+    var showAppSelector by remember { mutableStateOf(false) }
+
+    if (showAppSelector) {
+        MultiAppSelectorScreen(
+            selectedApps = selectedApps,
+            onClose = { showAppSelector = false },
+            onSave = { newSelection ->
+                selectedApps = newSelection
+                showAppSelector = false
+            }
+        )
+        return
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            Text("Create Routine", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold), color = Color(0xFFCBD5E1))
+        }
+
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp),
+            contentPadding = PaddingValues(bottom = 100.dp)
+        ) {
+            item {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Routine Name", color = Color.Gray) },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = AccentCyan,
+                        unfocusedBorderColor = BorderGlass,
+                        focusedTextColor = Color(0xFFCBD5E1),
+                        unfocusedTextColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(16.dp)
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+                
+                Text("TIME WINDOW", style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 1.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    TimePickerBox("Start Time", startHour, startMinute, modifier = Modifier.weight(1f)) { h, m -> startHour = h; startMinute = m }
+                    TimePickerBox("End Time", endHour, endMinute, modifier = Modifier.weight(1f)) { h, m -> endHour = h; endMinute = m }
+                }
+                
+                Spacer(modifier = Modifier.height(24.dp))
+                Text("REPEAT", style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 1.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    val days = listOf("S", "M", "T", "W", "T", "F", "S")
+                    days.forEachIndexed { index, day ->
+                        val isSelected = selectedDays.contains(index + 1)
+                        Box(
+                            modifier = Modifier
+                                .size(42.dp)
+                                .clip(CircleShape)
+                                .background(if (isSelected) AccentViolet else SurfaceDark)
+                                .border(1.dp, if (isSelected) AccentViolet else BorderGlass, CircleShape)
+                                .clickable {
+                                    val newSet = selectedDays.toMutableSet()
+                                    if (isSelected) newSet.remove(index + 1) else newSet.add(index + 1)
+                                    selectedDays = newSet
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(day, color = if (isSelected) Color.White else Color.Gray, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(24.dp))
+                Text("RESTRICTION MODE", style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 1.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    ModeSelectorBox("SOFT", "Allows dismissing", mode == "SOFT", modifier = Modifier.weight(1f)) { mode = "SOFT" }
+                    ModeSelectorBox("HARD", "No way out", mode == "HARD", modifier = Modifier.weight(1f)) { mode = "HARD" }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+                Text("APPS TO SHIELD", style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 1.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(SurfaceDark)
+                        .border(1.dp, BorderGlass, RoundedCornerShape(20.dp))
+                        .clickable { showAppSelector = true }
+                        .padding(24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(if (selectedApps.isEmpty()) "Tap to select apps" else "${selectedApps.size} apps selected", color = AccentCyan, fontWeight = FontWeight.Bold)
+                }
+
+                Spacer(modifier = Modifier.height(48.dp))
+                Button(
+                    onClick = {
+                        val daysString = selectedDays.sorted().joinToString(",")
+                        val appsString = selectedApps.joinToString(",")
+                        onSave(name, startHour, startMinute, endHour, endMinute, daysString, mode, appsString)
+                    },
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = MidnightBlack),
+                    shape = RoundedCornerShape(28.dp),
+                    enabled = name.isNotBlank() && selectedDays.isNotEmpty()
+                ) {
+                    Text("Save Routine", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun TimePickerBox(label: String, hour: Int, minute: Int, modifier: Modifier = Modifier, onTimeSelected: (Int, Int) -> Unit) {
+    val context = LocalContext.current
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(20.dp))
+            .background(SurfaceDark)
+            .border(1.dp, BorderGlass, RoundedCornerShape(20.dp))
+            .clickable {
+                TimePickerDialog(context, { _, h, m -> onTimeSelected(h, m) }, hour, minute, true).show()
+            }
+            .padding(16.dp)
+    ) {
+        Column {
+            Text(label, color = Color.Gray, fontSize = 12.sp)
+            Spacer(modifier = Modifier.height(4.dp))
+            Text("${String.format("%02d:%02d", hour, minute)}", color = Color(0xFFCBD5E1), style = MaterialTheme.typography.titleLarge)
+        }
+    }
+}
+
+@Composable
+fun ModeSelectorBox(title: String, desc: String, isSelected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(20.dp))
+            .background(if (isSelected) AccentViolet.copy(alpha=0.3f) else SurfaceDark)
+            .border(2.dp, if (isSelected) AccentViolet else BorderGlass, RoundedCornerShape(20.dp))
+            .clickable { onClick() }
+            .padding(16.dp)
+    ) {
+        Column {
+            Text(title, color = if (isSelected) Color.White else Color.Gray, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(desc, color = Color.Gray, fontSize = 10.sp)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MultiAppSelectorScreen(
+    selectedApps: Set<String>,
+    onClose: () -> Unit,
+    onSave: (Set<String>) -> Unit
+) {
+    val context = LocalContext.current
+    var installedApps by remember { mutableStateOf<List<InstalledApp>>(emptyList()) }
+    var currentSelection by remember { mutableStateOf(selectedApps) }
+    var isLoading by remember { mutableStateOf(true) }
+    var selectedCategory by remember { mutableStateOf<CategoryOption>(CategoryOption.Default(AppCategory.ALL)) }
+    
+    val customCategories by com.focusbyrj.app.util.CustomCategoryManager.categories.collectAsState(initial = emptyList())
+    var showCustomCategoryEditor by remember { mutableStateOf(false) }
+    var editingCustomCategory by remember { mutableStateOf<com.focusbyrj.app.util.CustomCategory?>(null) }
+
+    LaunchedEffect(Unit) {
+        withContext(Dispatchers.IO) {
+            val pm = context.packageManager
+            val packages = pm.getInstalledApplications(PackageManager.GET_META_DATA)
+            val appsList = packages.mapNotNull { info ->
+                val appName = pm.getApplicationLabel(info).toString()
+                if (info.packageName != context.packageName && pm.getLaunchIntentForPackage(info.packageName) != null) {
+                    InstalledApp(info.packageName, appName, getCategoryForApp(info, info.packageName))
+                } else null
+            }.sortedBy { it.appName.lowercase() }
+            
+            withContext(Dispatchers.Main) {
+                installedApps = appsList
+                isLoading = false
+            }
+        }
+    }
+
+    if (showCustomCategoryEditor) {
+        CustomCategoryEditor(
+            context = context,
+            installedApps = installedApps,
+            editingCategory = editingCustomCategory,
+            onSave = { name, pkgs ->
+                com.focusbyrj.app.util.CustomCategoryManager.saveCategory(context, editingCustomCategory?.id, name, pkgs)
+                showCustomCategoryEditor = false
+                editingCustomCategory = null
+            },
+            onDismiss = {
+                showCustomCategoryEditor = false
+                editingCustomCategory = null
+            }
+        )
+    }
+
+    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White) }
+            Text("Select Apps", style = MaterialTheme.typography.titleMedium, color = Color(0xFFCBD5E1))
+            TextButton(onClick = { onSave(currentSelection) }) {
+                Text("Done", color = AccentCyan, fontWeight = FontWeight.Bold)
+            }
+        }
+
+        if (isLoading) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = AccentCyan) }
+        } else {
+            LazyRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                val standardOptions = AppCategory.entries.map { CategoryOption.Default(it) }
+                val customOptions = customCategories.map { CategoryOption.Custom(it) }
+                val allOptions = standardOptions + customOptions
+
+                items(allOptions) { option ->
+                    val isCatSelected = selectedCategory == option
+                    val title = when (option) {
+                        is CategoryOption.Default -> option.category.title
+                        is CategoryOption.Custom -> option.custom.name
+                    }
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(if (isCatSelected) AccentViolet else SurfaceDark)
+                            .clickable { selectedCategory = option }
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = title,
+                                color = if (isCatSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                            )
+                            if (option is CategoryOption.Custom && isCatSelected) {
+                                Spacer(Modifier.width(8.dp))
+                                Icon(
+                                    Icons.Filled.Edit, 
+                                    contentDescription = "Edit", 
+                                    tint = Color.White,
+                                    modifier = Modifier.size(16.dp).clickable {
+                                        editingCustomCategory = option.custom
+                                        showCustomCategoryEditor = true
+                                    }
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Icon(
+                                    Icons.Filled.Delete, 
+                                    contentDescription = "Delete", 
+                                    tint = Color(0xFFF44336),
+                                    modifier = Modifier.size(16.dp).clickable {
+                                        com.focusbyrj.app.util.CustomCategoryManager.deleteCategory(context, option.custom.id)
+                                        selectedCategory = CategoryOption.Default(AppCategory.ALL)
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+                
+                item {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(SurfaceDark)
+                            .border(1.dp, AccentCyan, RoundedCornerShape(20.dp))
+                            .clickable { 
+                                editingCustomCategory = null
+                                showCustomCategoryEditor = true
+                            }
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    ) {
+                        Text(
+                            text = "+ Custom",
+                            color = AccentCyan,
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                    }
+                }
+            }
+            
+            val filteredApps = remember(installedApps, selectedCategory) {
+                when (val cat = selectedCategory) {
+                    is CategoryOption.Default -> {
+                        if (cat.category == AppCategory.ALL) installedApps
+                        else installedApps.filter { it.category == cat.category }
+                    }
+                    is CategoryOption.Custom -> {
+                        installedApps.filter { cat.custom.packages.contains(it.packageName) }
+                    }
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "${filteredApps.size} apps",
+                    color = Color.Gray,
+                    style = MaterialTheme.typography.labelMedium
+                )
+                Row {
+                    val filteredPackages = filteredApps.map { it.packageName }.toSet()
+                    val allSelected = filteredPackages.isNotEmpty() && currentSelection.containsAll(filteredPackages)
+                    if (allSelected) {
+                        TextButton(
+                            onClick = { currentSelection = currentSelection - filteredPackages }
+                        ) {
+                            Text("Deselect All", color = Color(0xFFF44336))
+                        }
+                    } else {
+                        TextButton(
+                            onClick = { currentSelection = currentSelection + filteredPackages }
+                        ) {
+                            Text("Select All", color = AccentCyan)
+                        }
+                    }
+                }
+            }
+
+            LazyColumn(
+                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(filteredApps) { app ->
+                    val pm = context.packageManager
+                    val icon = remember(app.packageName) { ImageUtils.getAppIcon(pm, app.packageName) }
+                    val isSelected = currentSelection.contains(app.packageName)
+                    
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(if (isSelected) AccentViolet.copy(alpha = 0.15f) else SurfaceDark)
+                            .border(1.dp, if (isSelected) AccentViolet else BorderGlass, RoundedCornerShape(16.dp))
+                            .clickable {
+                                val newSet = currentSelection.toMutableSet()
+                                if (isSelected) newSet.remove(app.packageName) else newSet.add(app.packageName)
+                                currentSelection = newSet
+                            }
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (icon != null) {
+                                Image(bitmap = icon, contentDescription = null, modifier = Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)))
+                                Spacer(modifier = Modifier.width(16.dp))
+                            }
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(app.appName, color = Color.White, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold))
+                                Text(app.category.title, color = Color.Gray, style = MaterialTheme.typography.labelMedium)
+                            }
+                            if (isSelected) {
+                                Icon(androidx.compose.material.icons.Icons.Filled.CheckCircle, contentDescription = "Selected", tint = AccentCyan, modifier = Modifier.size(28.dp))
+                            } else {
+                                Box(modifier = Modifier.size(28.dp).border(2.dp, Color.Gray.copy(alpha = 0.5f), CircleShape))
+                            }
+                        }
+                    }
+                }
+                item {
+                    Spacer(modifier = Modifier.height(32.dp))
+                }
+            }
+        }
+    }
+}
+
