@@ -3,6 +3,7 @@ package com.focusbyrj.app.ui.components
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,6 +23,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Shield
+import androidx.compose.ui.res.painterResource
+import com.focusbyrj.app.R
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -83,20 +86,19 @@ fun SetupPermissionsDialog(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Spacer(modifier = Modifier.height(64.dp))
-
+                
                 Box(
                     modifier = Modifier
-                        .size(64.dp)
+                        .size(96.dp)
                         .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.05f))
-                        .border(1.dp, Color.White.copy(alpha = 0.1f), CircleShape),
+                        .background(Color.Black)
+                        .border(1.5.dp, Color.White.copy(alpha = 0.15f), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = Icons.Filled.Shield,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(28.dp)
+                    Image(
+                        painter = painterResource(id = R.drawable.ic_app_logo),
+                        contentDescription = "App Logo",
+                        modifier = Modifier.size(56.dp)
                     )
                 }
 

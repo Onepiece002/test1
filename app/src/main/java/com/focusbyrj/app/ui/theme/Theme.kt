@@ -6,32 +6,34 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
-
-val MinimalColorScheme = darkColorScheme(
-    primary = AccentEmerald,
-    secondary = AccentEmerald,
-    tertiary = AccentEmerald,
-    background = MidnightBlack,
-    surface = SurfaceDark,
-    surfaceVariant = SurfaceVariantDark,
-    onPrimary = MidnightBlack,
-    onSecondary = TextPrimary,
-    onBackground = TextPrimary,
-    onSurface = TextPrimary,
-    onSurfaceVariant = TextSecondary,
-    outline = BorderGlass
-)
+import com.focusbyrj.app.util.AppThemeManager
 
 @Composable
 fun FocusByRjTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = MinimalColorScheme
+    val currentAppTheme by AppThemeManager.themeFlow.collectAsState()
+    val colorScheme = darkColorScheme(
+        primary = currentAppTheme.primary,
+        secondary = currentAppTheme.secondary,
+        tertiary = currentAppTheme.tertiary,
+        background = MidnightBlack,
+        surface = SurfaceDark,
+        surfaceVariant = SurfaceVariantDark,
+        onPrimary = MidnightBlack,
+        onSecondary = TextPrimary,
+        onBackground = TextPrimary,
+        onSurface = TextPrimary,
+        onSurfaceVariant = TextSecondary,
+        outline = BorderGlass
+    )
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {

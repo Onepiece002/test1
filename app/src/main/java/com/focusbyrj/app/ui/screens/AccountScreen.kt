@@ -377,7 +377,7 @@ fun ProfileCard(
     
     val currentLevelXp = FocusEconomyManager.requiredXpForLevel(profile.level)
     val nextLevelXp = FocusEconomyManager.requiredXpForLevel(profile.level + 1)
-    val targetXpProgress = if (profile.level >= 100) 1f else (profile.xp - currentLevelXp).toFloat() / (nextLevelXp - currentLevelXp).toFloat()
+    val targetXpProgress = if (profile.level >= 200) 1f else ((profile.xp - currentLevelXp).toFloat() / (nextLevelXp - currentLevelXp).toFloat()).coerceIn(0f, 1f)
     
     val xpProgress by androidx.compose.animation.core.animateFloatAsState(
         targetValue = targetXpProgress,
@@ -477,7 +477,11 @@ fun ProfileCard(
         
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("Level ${profile.level}", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold), color = Color.White)
-            Text("${profile.xp} / $nextLevelXp XP", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+            if (profile.level >= 200) {
+                Text("MAX LEVEL", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = AccentCyan)
+            } else {
+                Text("${profile.xp} / $nextLevelXp XP", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+            }
         }
         Spacer(modifier = Modifier.height(8.dp))
         LinearProgressIndicator(

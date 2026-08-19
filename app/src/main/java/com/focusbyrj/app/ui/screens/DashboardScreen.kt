@@ -17,6 +17,9 @@
 
 package com.focusbyrj.app.ui.screens
 
+import com.focusbyrj.app.ui.components.CustomRestrictionSection
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import com.focusbyrj.app.ui.theme.MidnightBlack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
@@ -811,6 +814,9 @@ fun EditRestrictionBottomSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val coroutineScope = rememberCoroutineScope()
     var selectedMode by remember { mutableStateOf(app.mode) }
+    var restrictionMode by remember { mutableStateOf(if (app.restrictionMode.isNotBlank()) app.restrictionMode else "SIMPLE") }
+    var timeLimitMinutes by remember { mutableIntStateOf(if (app.timeLimitMinutes > 0) app.timeLimitMinutes else 15) }
+    var clickLimitCount by remember { mutableIntStateOf(if (app.clickLimitCount > 0) app.clickLimitCount else 5) }
     var customQuote by remember { mutableStateOf(app.customQuote) }
     var isShieldActive by remember { mutableStateOf(app.isRestricted) }
     val context = LocalContext.current
@@ -839,6 +845,7 @@ fun EditRestrictionBottomSheet(
                 .fillMaxWidth()
                 .background(sheetBackground)
                 .padding(horizontal = 24.dp, vertical = 8.dp)
+                .verticalScroll(rememberScrollState())
                 .navigationBarsPadding()
         ) {
             Row(
@@ -964,7 +971,7 @@ fun EditRestrictionBottomSheet(
             Spacer(modifier = Modifier.height(20.dp))
 
             Text(
-                text = "RESTRICTION MODE",
+                text = "BLOCKING STRICTNESS",
                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
                 color = AccentCyan,
                 letterSpacing = 1.2.sp,
@@ -990,6 +997,17 @@ fun EditRestrictionBottomSheet(
                     modifier = Modifier.weight(1f)
                 )
             }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            CustomRestrictionSection(
+                restrictionMode = restrictionMode,
+                onRestrictionModeChange = { restrictionMode = it },
+                timeLimitMinutes = timeLimitMinutes,
+                onTimeLimitChange = { timeLimitMinutes = it },
+                clickLimitCount = clickLimitCount,
+                onClickLimitChange = { clickLimitCount = it }
+            )
 
             Spacer(modifier = Modifier.height(20.dp))
 
@@ -1024,6 +1042,9 @@ fun EditRestrictionBottomSheet(
                     coroutineScope.launch {
                         val updated = app.copy(
                             mode = selectedMode,
+                            restrictionMode = restrictionMode,
+                            timeLimitMinutes = if (restrictionMode == "TIME_LIMIT") timeLimitMinutes else 0,
+                            clickLimitCount = if (restrictionMode == "CLICK_LIMIT") clickLimitCount else 0,
                             customQuote = customQuote.trim(),
                             isRestricted = isShieldActive
                         )
@@ -1108,8 +1129,13 @@ fun AppRestrictionCard(app: AppRestriction, onToggle: () -> Unit) {
                                 .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
                                 .padding(horizontal = 6.dp, vertical = 2.dp)
                         ) {
+                            val badgeText = when (app.restrictionMode) {
+                                "TIME_LIMIT" -> if (app.timeLimitMinutes > 0) "${app.timeLimitMinutes}m" else "TIME"
+                                "CLICK_LIMIT" -> if (app.clickLimitCount > 0) "${app.clickLimitCount}x" else "LIMIT"
+                                else -> app.mode.uppercase()
+                            }
                             Text(
-                                text = app.mode.uppercase(),
+                                text = badgeText,
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.primary,
                                 fontSize = 9.sp,

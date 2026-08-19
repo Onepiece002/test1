@@ -29,6 +29,9 @@ data class FocusSchedule(
     val endHour: Int,
     val endMinute: Int,
     val daysOfWeek: String, // Comma separated e.g., "1,2,3,4,5" (Mon-Fri)
-    val mode: String = "HARD", // HARD or SOFT
+    val mode: String = "HARD",
+    val restrictionMode: String = "SIMPLE",
+    val timeLimitMinutes: Int = 0,
+    val clickLimitCount: Int = 0,
     val appsToBlock: String = "" // Comma separated package names
 )

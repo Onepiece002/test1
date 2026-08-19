@@ -26,6 +26,7 @@ class FocusApplication : Application() {
     
     override fun onCreate() {
         super.onCreate()
+        com.focusbyrj.app.util.AppThemeManager.init(this)
         com.focusbyrj.app.util.FocusStatsManager.init(this)
         com.focusbyrj.app.util.FocusEconomyManager.init(this)
         com.focusbyrj.app.util.CustomCategoryManager.init(this)

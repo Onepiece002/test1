@@ -339,18 +339,68 @@ class FocusBlockerService : Service() {
 
         val restriction = db.appRestrictionDao().getRestriction(packageName)
         if (restriction != null && restriction.isRestricted) {
-            shouldBlock = true
-            blockQuote = FocusQuotes.getQuoteOrDefault(restriction.customQuote)
-            blockMode = restriction.mode
+            when (restriction.restrictionMode) {
+                "TIME_LIMIT" -> {
+                    if (restriction.timeLimitMinutes > 0) {
+                        val usageMins = com.focusbyrj.app.util.UsageStatsHelper.getTodayUsageMinutesForPackage(applicationContext, packageName)
+                        if (usageMins >= restriction.timeLimitMinutes) {
+                            shouldBlock = true
+                            blockQuote = FocusQuotes.getQuoteOrDefault(restriction.customQuote)
+                            blockMode = restriction.mode
+                        }
+                    }
+                }
+                "CLICK_LIMIT" -> {
+                    if (restriction.clickLimitCount > 0) {
+                        val launches = com.focusbyrj.app.util.UsageStatsHelper.getTodayLaunchCountForPackage(applicationContext, packageName)
+                        if (launches > restriction.clickLimitCount) {
+                            shouldBlock = true
+                            blockQuote = FocusQuotes.getQuoteOrDefault(restriction.customQuote)
+                            blockMode = restriction.mode
+                        }
+                    }
+                }
+                else -> {
+                    shouldBlock = true
+                    blockQuote = FocusQuotes.getQuoteOrDefault(restriction.customQuote)
+                    blockMode = restriction.mode
+                }
+            }
         }
 
         if (!shouldBlock) {
             for (schedule in activeRoutines.values) {
                 if (schedule.appsToBlock.split(",").contains(packageName)) {
-                    shouldBlock = true
-                    blockQuote = "Routine '${schedule.name}' is active."
-                    blockMode = schedule.mode
-                    break
+                    when (schedule.restrictionMode) {
+                        "TIME_LIMIT" -> {
+                            if (schedule.timeLimitMinutes > 0) {
+                                val usageMins = com.focusbyrj.app.util.UsageStatsHelper.getTodayUsageMinutesForPackage(applicationContext, packageName)
+                                if (usageMins >= schedule.timeLimitMinutes) {
+                                    shouldBlock = true
+                                    blockQuote = "Routine '${schedule.name}' time limit exceeded."
+                                    blockMode = schedule.mode
+                                    break
+                                }
+                            }
+                        }
+                        "CLICK_LIMIT" -> {
+                            if (schedule.clickLimitCount > 0) {
+                                val launches = com.focusbyrj.app.util.UsageStatsHelper.getTodayLaunchCountForPackage(applicationContext, packageName)
+                                if (launches > schedule.clickLimitCount) {
+                                    shouldBlock = true
+                                    blockQuote = "Routine '${schedule.name}' open limit exceeded."
+                                    blockMode = schedule.mode
+                                    break
+                                }
+                            }
+                        }
+                        else -> {
+                            shouldBlock = true
+                            blockQuote = "Routine '${schedule.name}' is active."
+                            blockMode = schedule.mode
+                            break
+                        }
+                    }
                 }
             }
         }

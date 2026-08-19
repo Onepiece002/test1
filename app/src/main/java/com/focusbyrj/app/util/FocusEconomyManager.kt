@@ -118,16 +118,22 @@ object FocusEconomyManager {
     // Formula: (Level-1) * 100 + (Level-1)^2 * 25
     fun calculateLevel(xp: Int): Int {
         var level = 1
-        while (requiredXpForLevel(level + 1) <= xp) {
+        while (level < 200 && requiredXpForLevel(level + 1) <= xp) {
             level++
-            if (level >= 100) break // Cap at 50
         }
         return level
     }
 
     fun requiredXpForLevel(level: Int): Int {
         if (level <= 1) return 0
-        return (level - 1) * 100 + ((level - 1) * (level - 1)) * 25
+        val baseAt100 = 99 * 100 + (99 * 99) * 25 // 254,925 XP
+        val constantDeltaAfter100 = (99 * 100 + 99 * 99 * 25) - (98 * 100 + 98 * 98 * 25) // 5,025 XP
+        
+        return if (level <= 100) {
+            (level - 1) * 100 + ((level - 1) * (level - 1)) * 25
+        } else {
+            baseAt100 + (level - 100) * constantDeltaAfter100
+        }
     }
 
     
@@ -137,8 +143,10 @@ object FocusEconomyManager {
             in 11..25 -> 1.2f
             in 26..50 -> 1.5f
             in 51..75 -> 2.0f
-            in 76..99 -> 2.5f
-            else -> 3.0f
+            in 76..100 -> 2.5f
+            in 101..150 -> 3.0f
+            in 151..199 -> 3.5f
+            else -> 4.0f
         }
     }
 

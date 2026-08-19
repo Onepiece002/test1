@@ -23,6 +23,13 @@ object CustomCategoryManager {
         _categories.value = parseCategories(jsonString)
     }
 
+    fun getCategories(context: Context): List<CustomCategory> {
+        if (_categories.value.isEmpty()) {
+            init(context)
+        }
+        return _categories.value
+    }
+
     fun saveCategory(context: Context, id: String?, name: String, packages: Set<String>) {
         val currentList = _categories.value.toMutableList()
         val finalId = id ?: UUID.randomUUID().toString()

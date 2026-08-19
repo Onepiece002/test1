@@ -43,6 +43,7 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -293,6 +294,22 @@ fun MainAppScreen(viewModel: FocusViewModel) {
                     onClick = {
                         scope.launch { drawerState.close() }
                         navController.navigate(Screen.Settings.route) {
+                            popUpTo(navController.graph.startDestinationId) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                    colors = NavigationDrawerItemDefaults.colors(unselectedContainerColor = Color.Transparent)
+                )
+
+                NavigationDrawerItem(
+                    icon = { Icon(Icons.Filled.Star, contentDescription = null, tint = AccentViolet) },
+                    label = { Text("Subscription", color = Color.White, style = MaterialTheme.typography.bodyLarge) },
+                    selected = false,
+                    onClick = {
+                        scope.launch { drawerState.close() }
+                        navController.navigate(Screen.Subscription.route) {
                             popUpTo(navController.graph.startDestinationId) { saveState = true }
                             launchSingleTop = true
                             restoreState = true

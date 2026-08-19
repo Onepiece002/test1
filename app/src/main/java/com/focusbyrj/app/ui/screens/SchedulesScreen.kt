@@ -49,6 +49,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.focusbyrj.app.ui.components.CustomRestrictionSection
 import com.focusbyrj.app.ui.theme.*
 import com.focusbyrj.app.ui.viewmodels.FocusViewModel
 import kotlinx.coroutines.Dispatchers
@@ -69,15 +70,18 @@ fun SchedulesScreen(viewModel: FocusViewModel) {
                 showCreateScreen = false
                 scheduleToEdit = null
             },
-            onSave = { name, startH, startM, endH, endM, days, mode, apps ->
+            onSave = { name, startH, startM, endH, endM, days, mode, apps, restrictionMode, timeLimitMinutes, clickLimitCount ->
                 if (scheduleToEdit != null) {
                     viewModel.updateSchedule(scheduleToEdit!!.copy(
                         name = name, startHour = startH, startMinute = startM,
                         endHour = endH, endMinute = endM, daysOfWeek = days,
-                        mode = mode, appsToBlock = apps
+                        mode = mode, appsToBlock = apps,
+                        restrictionMode = restrictionMode,
+                        timeLimitMinutes = timeLimitMinutes,
+                        clickLimitCount = clickLimitCount
                     ))
                 } else {
-                    viewModel.addSchedule(name, startH, startM, endH, endM, days, mode, apps)
+                    viewModel.addSchedule(name, startH, startM, endH, endM, days, mode, apps, restrictionMode, timeLimitMinutes, clickLimitCount)
                 }
                 showCreateScreen = false
                 scheduleToEdit = null
@@ -200,7 +204,7 @@ fun RoutineCard(schedule: com.focusbyrj.app.data.FocusSchedule, onEdit: () -> Un
 fun CreateRoutineScreen(
     scheduleToEdit: com.focusbyrj.app.data.FocusSchedule? = null,
     onBack: () -> Unit,
-    onSave: (String, Int, Int, Int, Int, String, String, String) -> Unit
+    onSave: (String, Int, Int, Int, Int, String, String, String, String, Int, Int) -> Unit
 ) {
     val context = LocalContext.current
     var name by remember { mutableStateOf(scheduleToEdit?.name ?: "Deep Focus") }
@@ -213,6 +217,9 @@ fun CreateRoutineScreen(
             scheduleToEdit?.daysOfWeek?.split(",")?.mapNotNull { it.toIntOrNull() }?.toSet() ?: setOf(2,3,4,5,6)
         ) 
     } 
+    var restrictionMode by remember { mutableStateOf(scheduleToEdit?.restrictionMode ?: "SIMPLE") }
+    var timeLimitMinutes by remember { mutableIntStateOf(if (scheduleToEdit?.timeLimitMinutes != null && scheduleToEdit.timeLimitMinutes > 0) scheduleToEdit.timeLimitMinutes else 15) }
+    var clickLimitCount by remember { mutableIntStateOf(if (scheduleToEdit?.clickLimitCount != null && scheduleToEdit.clickLimitCount > 0) scheduleToEdit.clickLimitCount.coerceIn(1, 20) else 5) }
     var mode by remember { mutableStateOf(scheduleToEdit?.mode ?: "HARD") }
     var selectedApps by remember { 
         mutableStateOf(
@@ -304,6 +311,19 @@ fun CreateRoutineScreen(
                 }
                 
                 Spacer(modifier = Modifier.height(24.dp))
+                
+                // Custom Restrictions (Simple, Time Limit, Click Limit)
+                CustomRestrictionSection(
+                    restrictionMode = restrictionMode,
+                    onRestrictionModeChange = { restrictionMode = it },
+                    timeLimitMinutes = timeLimitMinutes,
+                    onTimeLimitChange = { timeLimitMinutes = it },
+                    clickLimitCount = clickLimitCount,
+                    onClickLimitChange = { clickLimitCount = it },
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+
+                Spacer(modifier = Modifier.height(20.dp))
                 Text("RESTRICTION MODE", style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 1.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(modifier = Modifier.height(12.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -333,7 +353,19 @@ fun CreateRoutineScreen(
                     onClick = {
                         val daysString = selectedDays.sorted().joinToString(",")
                         val appsString = selectedApps.joinToString(",")
-                        onSave(name, startHour, startMinute, endHour, endMinute, daysString, mode, appsString)
+                        onSave(
+                            name,
+                            startHour,
+                            startMinute,
+                            endHour,
+                            endMinute,
+                            daysString,
+                            mode,
+                            appsString,
+                            restrictionMode,
+                            if (restrictionMode == "TIME_LIMIT") timeLimitMinutes else 0,
+                            if (restrictionMode == "CLICK_LIMIT") clickLimitCount else 0
+                        )
                     },
                     modifier = Modifier.fillMaxWidth().height(56.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = MidnightBlack),
@@ -386,6 +418,11 @@ fun ModeSelectorBox(title: String, desc: String, isSelected: Boolean, modifier: 
     }
 }
 
+sealed interface ScheduleCategoryOption {
+    data class Default(val category: AppCategory) : ScheduleCategoryOption
+    data class Custom(val custom: com.focusbyrj.app.util.CustomCategory) : ScheduleCategoryOption
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MultiAppSelectorScreen(
@@ -397,7 +434,7 @@ fun MultiAppSelectorScreen(
     var installedApps by remember { mutableStateOf<List<InstalledApp>>(emptyList()) }
     var currentSelection by remember { mutableStateOf(selectedApps) }
     var isLoading by remember { mutableStateOf(true) }
-    var selectedCategory by remember { mutableStateOf<CategoryOption>(CategoryOption.Default(AppCategory.ALL)) }
+    var selectedCategory by remember { mutableStateOf<ScheduleCategoryOption>(ScheduleCategoryOption.Default(AppCategory.ALL)) }
     
     val customCategories by com.focusbyrj.app.util.CustomCategoryManager.categories.collectAsState(initial = emptyList())
     var showCustomCategoryEditor by remember { mutableStateOf(false) }
@@ -460,15 +497,15 @@ fun MultiAppSelectorScreen(
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                val standardOptions = AppCategory.entries.map { CategoryOption.Default(it) }
-                val customOptions = customCategories.map { CategoryOption.Custom(it) }
+                val standardOptions = AppCategory.entries.map { ScheduleCategoryOption.Default(it) }
+                val customOptions = customCategories.map { ScheduleCategoryOption.Custom(it) }
                 val allOptions = standardOptions + customOptions
 
                 items(allOptions) { option ->
                     val isCatSelected = selectedCategory == option
                     val title = when (option) {
-                        is CategoryOption.Default -> option.category.title
-                        is CategoryOption.Custom -> option.custom.name
+                        is ScheduleCategoryOption.Default -> option.category.title
+                        is ScheduleCategoryOption.Custom -> option.custom.name
                     }
                     Box(
                         modifier = Modifier
@@ -483,7 +520,7 @@ fun MultiAppSelectorScreen(
                                 color = if (isCatSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
                                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
                             )
-                            if (option is CategoryOption.Custom && isCatSelected) {
+                            if (option is ScheduleCategoryOption.Custom && isCatSelected) {
                                 Spacer(Modifier.width(8.dp))
                                 Icon(
                                     Icons.Filled.Edit, 
@@ -501,7 +538,7 @@ fun MultiAppSelectorScreen(
                                     tint = Color(0xFFF44336),
                                     modifier = Modifier.size(16.dp).clickable {
                                         com.focusbyrj.app.util.CustomCategoryManager.deleteCategory(context, option.custom.id)
-                                        selectedCategory = CategoryOption.Default(AppCategory.ALL)
+                                        selectedCategory = ScheduleCategoryOption.Default(AppCategory.ALL)
                                     }
                                 )
                             }
@@ -532,11 +569,11 @@ fun MultiAppSelectorScreen(
             
             val filteredApps = remember(installedApps, selectedCategory) {
                 when (val cat = selectedCategory) {
-                    is CategoryOption.Default -> {
+                    is ScheduleCategoryOption.Default -> {
                         if (cat.category == AppCategory.ALL) installedApps
                         else installedApps.filter { it.category == cat.category }
                     }
-                    is CategoryOption.Custom -> {
+                    is ScheduleCategoryOption.Custom -> {
                         installedApps.filter { cat.custom.packages.contains(it.packageName) }
                     }
                 }
@@ -575,7 +612,7 @@ fun MultiAppSelectorScreen(
                 modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(filteredApps) { app ->
+                items(filteredApps, key = { it.packageName }) { app ->
                     val pm = context.packageManager
                     val icon = remember(app.packageName) { ImageUtils.getAppIcon(pm, app.packageName) }
                     val isSelected = currentSelection.contains(app.packageName)

@@ -61,10 +61,25 @@ class FocusViewModel(private val repository: AppRepository, application: Applica
             for (pkg in pkgs) {
                 if (!map.containsKey(pkg)) {
                     val appName = try { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() } catch(e: Exception) { pkg }
-                    map[pkg] = AppRestriction(pkg, appName, isActiveNow, s.mode, "")
+                    map[pkg] = AppRestriction(
+                        packageName = pkg,
+                        appName = appName,
+                        isRestricted = isActiveNow,
+                        mode = s.mode,
+                        restrictionMode = s.restrictionMode,
+                        timeLimitMinutes = s.timeLimitMinutes,
+                        clickLimitCount = s.clickLimitCount,
+                        customQuote = ""
+                    )
                 } else if (isActiveNow) {
                     val existing = map[pkg]!!
-                    map[pkg] = existing.copy(isRestricted = true, mode = s.mode)
+                    map[pkg] = existing.copy(
+                        isRestricted = true,
+                        mode = s.mode,
+                        restrictionMode = s.restrictionMode,
+                        timeLimitMinutes = s.timeLimitMinutes,
+                        clickLimitCount = s.clickLimitCount
+                    )
                 }
             }
         }
@@ -77,7 +92,19 @@ class FocusViewModel(private val repository: AppRepository, application: Applica
     
     val schedules: StateFlow<List<FocusSchedule>> = repository.allSchedules.stateIn(scope = viewModelScope, started = SharingStarted.WhileSubscribed(5000), initialValue = emptyList())
 
-    fun addSchedule(name: String, startHour: Int, startMinute: Int, endHour: Int, endMinute: Int, daysOfWeek: String, mode: String, appsToBlock: String) {
+    fun addSchedule(
+        name: String,
+        startHour: Int,
+        startMinute: Int,
+        endHour: Int,
+        endMinute: Int,
+        daysOfWeek: String,
+        mode: String,
+        appsToBlock: String,
+        restrictionMode: String = "SIMPLE",
+        timeLimitMinutes: Int = 0,
+        clickLimitCount: Int = 0
+    ) {
         viewModelScope.launch {
             repository.insertSchedule(
                 FocusSchedule(
@@ -88,7 +115,10 @@ class FocusViewModel(private val repository: AppRepository, application: Applica
                     endMinute = endMinute,
                     daysOfWeek = daysOfWeek,
                     mode = mode,
-                    appsToBlock = appsToBlock
+                    appsToBlock = appsToBlock,
+                    restrictionMode = restrictionMode,
+                    timeLimitMinutes = timeLimitMinutes,
+                    clickLimitCount = clickLimitCount
                 )
             )
         }

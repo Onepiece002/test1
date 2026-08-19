@@ -129,4 +129,83 @@ object UsageStatsHelper {
 
         return dayUsageMap
     }
+
+    fun getTodayUsageMinutesForPackage(context: Context, packageName: String): Int {
+        val usm = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager ?: return 0
+        val calendar = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val startTime = calendar.timeInMillis
+        val endTime = System.currentTimeMillis()
+
+        var usageStatsMs = 0L
+        kotlin.runCatching {
+            val stats = usm.queryUsageStats(
+                UsageStatsManager.INTERVAL_DAILY,
+                startTime,
+                endTime
+            ) ?: emptyList()
+            usageStatsMs = stats.filter { it.packageName == packageName }.sumOf { it.totalTimeInForeground }
+        }
+
+        var eventsMs = 0L
+        kotlin.runCatching {
+            val events = usm.queryEvents(startTime, endTime)
+            val event = android.app.usage.UsageEvents.Event()
+            var lastResumeTime = 0L
+            while (events.hasNextEvent()) {
+                events.getNextEvent(event)
+                if (event.packageName == packageName) {
+                    if (event.eventType == android.app.usage.UsageEvents.Event.ACTIVITY_RESUMED ||
+                        event.eventType == android.app.usage.UsageEvents.Event.MOVE_TO_FOREGROUND) {
+                        lastResumeTime = event.timeStamp
+                    } else if ((event.eventType == android.app.usage.UsageEvents.Event.ACTIVITY_PAUSED ||
+                                event.eventType == android.app.usage.UsageEvents.Event.ACTIVITY_STOPPED) && lastResumeTime > 0L) {
+                        eventsMs += (event.timeStamp - lastResumeTime)
+                        lastResumeTime = 0L
+                    }
+                }
+            }
+            if (lastResumeTime > 0L) {
+                eventsMs += (endTime - lastResumeTime)
+            }
+        }
+
+        val totalMs = kotlin.math.max(usageStatsMs, eventsMs)
+        return (totalMs / (1000 * 60)).toInt()
+    }
+
+    fun getTodayLaunchCountForPackage(context: Context, packageName: String): Int {
+        val usm = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager ?: return 0
+        val calendar = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val startTime = calendar.timeInMillis
+        val endTime = System.currentTimeMillis()
+
+        var count = 0
+        var lastResumeTimestamp = 0L
+        kotlin.runCatching {
+            val events = usm.queryEvents(startTime, endTime)
+            val event = android.app.usage.UsageEvents.Event()
+            while (events.hasNextEvent()) {
+                events.getNextEvent(event)
+                if (event.packageName == packageName && 
+                    (event.eventType == android.app.usage.UsageEvents.Event.ACTIVITY_RESUMED ||
+                     event.eventType == android.app.usage.UsageEvents.Event.MOVE_TO_FOREGROUND)) {
+                    if (event.timeStamp - lastResumeTimestamp > 2500L) {
+                        count++
+                        lastResumeTimestamp = event.timeStamp
+                    }
+                }
+            }
+        }
+        return count
+    }
 }
