@@ -1,5 +1,6 @@
 package com.focusbyrj.app.ui.components
 
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -95,7 +96,7 @@ fun FocusBottomBar(
                             Icon(
                                 imageVector = screen.icon,
                                 contentDescription = screen.title,
-                                tint = if (isSelected) Color.White else TextSecondary,
+                                tint = if (isSelected) MaterialTheme.colorScheme.primary else TextSecondary,
                                 modifier = Modifier.size(24.dp)
                             )
                         }
@@ -111,7 +112,7 @@ fun FocusBottomBar(
                                     modifier = Modifier
                                         .size(4.dp)
                                         .clip(CircleShape)
-                                        .background(Color.White)
+                                        .background(MaterialTheme.colorScheme.primary)
                                 )
                             }
                         }

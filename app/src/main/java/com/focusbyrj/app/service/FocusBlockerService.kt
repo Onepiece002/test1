@@ -208,6 +208,7 @@ class FocusBlockerService : Service() {
                 if (notifyEnabled) {
                     val scheduleName = activeRoutines[activeId]?.name ?: "Routine"
                     sendRoutineNotification("Routine Ended", "$scheduleName has ended.")
+                    com.focusbyrj.app.util.FocusEconomyManager.addRewards(100, 25)
                 }
             }
         }
@@ -370,7 +371,19 @@ class FocusBlockerService : Service() {
 
         if (!shouldBlock) {
             for (schedule in activeRoutines.values) {
-                if (schedule.appsToBlock.split(",").contains(packageName)) {
+                var matched = false
+                var appMode = schedule.mode
+                for (entry in schedule.appsToBlock.split(",").filter { it.isNotBlank() }) {
+                    val parts = entry.split("|")
+                    if (parts[0] == packageName) {
+                        matched = true
+                        if (parts.size > 1) {
+                            appMode = parts[1]
+                        }
+                        break
+                    }
+                }
+                if (matched) {
                     when (schedule.restrictionMode) {
                         "TIME_LIMIT" -> {
                             if (schedule.timeLimitMinutes > 0) {
@@ -378,7 +391,7 @@ class FocusBlockerService : Service() {
                                 if (usageMins >= schedule.timeLimitMinutes) {
                                     shouldBlock = true
                                     blockQuote = "Routine '${schedule.name}' time limit exceeded."
-                                    blockMode = schedule.mode
+                                    blockMode = appMode
                                     break
                                 }
                             }
@@ -389,7 +402,7 @@ class FocusBlockerService : Service() {
                                 if (launches > schedule.clickLimitCount) {
                                     shouldBlock = true
                                     blockQuote = "Routine '${schedule.name}' open limit exceeded."
-                                    blockMode = schedule.mode
+                                    blockMode = appMode
                                     break
                                 }
                             }
@@ -397,7 +410,7 @@ class FocusBlockerService : Service() {
                         else -> {
                             shouldBlock = true
                             blockQuote = "Routine '${schedule.name}' is active."
-                            blockMode = schedule.mode
+                            blockMode = appMode
                             break
                         }
                     }
@@ -424,6 +437,14 @@ class FocusBlockerService : Service() {
         }
     }
 
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        val prefs = applicationContext.getSharedPreferences("focus_prefs", Context.MODE_PRIVATE)
+        prefs.edit().putBoolean("isSessionActive", false).apply()
+        com.focusbyrj.app.util.DndHelper.setDndMode(applicationContext, false)
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         return START_STICKY
     }
@@ -432,6 +453,9 @@ class FocusBlockerService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        val prefs = applicationContext.getSharedPreferences("focus_prefs", Context.MODE_PRIVATE)
+        prefs.edit().putBoolean("isSessionActive", false).apply()
+        com.focusbyrj.app.util.DndHelper.setDndMode(applicationContext, false)
         kotlin.runCatching { unregisterReceiver(screenReceiver) }
         job.cancel()
     }

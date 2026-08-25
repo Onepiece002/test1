@@ -17,12 +17,14 @@
 
 package com.focusbyrj.app
 
+import androidx.compose.material3.MaterialTheme
 import android.content.Context
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -51,7 +53,6 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationDrawerItem
@@ -95,16 +96,24 @@ import com.focusbyrj.app.ui.screens.SecurityScreen
 import com.focusbyrj.app.ui.screens.SettingsScreen
 import com.focusbyrj.app.ui.screens.SubscriptionScreen
 import com.focusbyrj.app.ui.screens.TimeScreen
-import com.focusbyrj.app.ui.theme.AccentCyan
-import com.focusbyrj.app.ui.theme.AccentEmerald
-import com.focusbyrj.app.ui.theme.AccentViolet
 import com.focusbyrj.app.ui.theme.BorderGlass
 import com.focusbyrj.app.ui.theme.FocusByRjTheme
-import com.focusbyrj.app.ui.theme.NeonGreen
 import com.focusbyrj.app.ui.viewmodels.FocusViewModel
 import com.focusbyrj.app.ui.viewmodels.FocusViewModelFactory
 import com.focusbyrj.app.util.PermissionUtils
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.delay
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import com.focusbyrj.app.util.FocusEconomyManager
+import com.focusbyrj.app.util.EconomyEvent
 
 class MainActivity : FragmentActivity() {
 
@@ -173,6 +182,18 @@ fun MainAppScreen(viewModel: FocusViewModel) {
     val allConfigured = hasUsageStats && hasOverlay && isBatteryUnrestricted
 
     var showSetupDialog by remember { mutableStateOf(!hasSeenOnboarding && !allConfigured) }
+
+    var currentEconomyEvent by remember { mutableStateOf<EconomyEvent?>(null) }
+    
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        FocusEconomyManager.economyEvents.collect { event ->
+            currentEconomyEvent = event
+            delay(4000)
+            currentEconomyEvent = null
+            delay(500)
+        }
+    }
+
 
     androidx.compose.runtime.LaunchedEffect(showSetupDialog) {
         if (showSetupDialog) {
@@ -243,7 +264,7 @@ fun MainAppScreen(viewModel: FocusViewModel) {
                 Spacer(modifier = Modifier.height(8.dp))
 
                 NavigationDrawerItem(
-                    icon = { Icon(Icons.Filled.Security, contentDescription = null, tint = AccentEmerald) },
+                    icon = { Icon(Icons.Filled.Security, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
                     label = { Text("Security", color = Color.White, style = MaterialTheme.typography.bodyLarge) },
                     selected = false,
                     onClick = {
@@ -259,7 +280,7 @@ fun MainAppScreen(viewModel: FocusViewModel) {
                 )
 
                 NavigationDrawerItem(
-                    icon = { Icon(Icons.Filled.Lock, contentDescription = null, tint = AccentViolet) },
+                    icon = { Icon(Icons.Filled.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.secondary) },
                     label = {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -268,7 +289,7 @@ fun MainAppScreen(viewModel: FocusViewModel) {
                         ) {
                             Text("Permissions", color = Color.White, style = MaterialTheme.typography.bodyLarge)
                             if (allConfigured) {
-                                Icon(Icons.Filled.CheckCircle, contentDescription = "Configured", tint = NeonGreen, modifier = Modifier.size(16.dp))
+                                Icon(Icons.Filled.CheckCircle, contentDescription = "Configured", tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(16.dp))
                             } else {
                                 Icon(Icons.Filled.Warning, contentDescription = "Action needed", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
                             }
@@ -288,7 +309,7 @@ fun MainAppScreen(viewModel: FocusViewModel) {
                 )
 
                 NavigationDrawerItem(
-                    icon = { Icon(Icons.Filled.Palette, contentDescription = null, tint = AccentCyan) },
+                    icon = { Icon(Icons.Filled.Palette, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
                     label = { Text("App Settings", color = Color.White, style = MaterialTheme.typography.bodyLarge) },
                     selected = false,
                     onClick = {
@@ -304,7 +325,7 @@ fun MainAppScreen(viewModel: FocusViewModel) {
                 )
 
                 NavigationDrawerItem(
-                    icon = { Icon(Icons.Filled.Star, contentDescription = null, tint = AccentViolet) },
+                    icon = { Icon(Icons.Filled.Star, contentDescription = null, tint = MaterialTheme.colorScheme.secondary) },
                     label = { Text("Subscription", color = Color.White, style = MaterialTheme.typography.bodyLarge) },
                     selected = false,
                     onClick = {
@@ -388,11 +409,11 @@ fun MainAppScreen(viewModel: FocusViewModel) {
                 }
             }
         ) { innerPadding ->
-            NavHost(
-                navController = navController,
-                startDestination = Screen.Dashboard.route,
-                modifier = Modifier.padding(innerPadding)
-            ) {
+            Box(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
+                NavHost(
+                    navController = navController,
+                    startDestination = Screen.Dashboard.route
+                ) {
                 composable(Screen.Dashboard.route) {
                     val restrictions by viewModel.combinedRestrictions.collectAsStateWithLifecycle()
                     val timeRemaining by viewModel.timeRemaining.collectAsStateWithLifecycle()
@@ -435,6 +456,64 @@ fun MainAppScreen(viewModel: FocusViewModel) {
                     SubscriptionScreen(navController)
                 }
             }
+            
+            // Economy Popup
+            AnimatedVisibility(
+                visible = currentEconomyEvent != null,
+                enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
+                exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut(),
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = 16.dp).padding(horizontal = 16.dp)
+            ) {
+                currentEconomyEvent?.let { event ->
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(24.dp))
+                            .background(Color(0xFF1E1E1E))
+                            .border(1.dp, Color(0x55FFFFFF), RoundedCornerShape(24.dp))
+                            .padding(16.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            val iconRes = when (event) {
+                                is EconomyEvent.AchievementUnlocked -> R.drawable.ic_achievement_century_club // generic for now if none provided
+                                is EconomyEvent.RewardsEarned -> R.drawable.ic_achievement_wealthy
+                            }
+                            
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha=0.2f))
+                                    .border(1.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(16.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    painter = painterResource(id = iconRes),
+                                    contentDescription = null,
+                                    tint = Color.Unspecified,
+                                    modifier = Modifier.size(32.dp)
+                                )
+                            }
+                            
+                            Spacer(modifier = Modifier.width(16.dp))
+                            
+                            Column {
+                                when (event) {
+                                    is EconomyEvent.AchievementUnlocked -> {
+                                        Text("Achievement Unlocked!", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                                        Text(event.title, style = MaterialTheme.typography.titleMedium, color = Color.White, fontWeight = FontWeight.Bold)
+                                    }
+                                    is EconomyEvent.RewardsEarned -> {
+                                        Text(event.source, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                                        Text("+${event.xp} XP  •  +${event.gold} Gold", style = MaterialTheme.typography.titleMedium, color = Color.White, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
         }
     }
 }

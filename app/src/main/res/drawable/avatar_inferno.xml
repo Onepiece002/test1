@@ -1,0 +1,26 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="96dp"
+    android:height="96dp"
+    android:viewportWidth="96"
+    android:viewportHeight="96">
+    <!-- Background Circle -->
+    <path
+        android:fillColor="#381308"
+        android:pathData="M48,48m-44,0a44,44 0 1,1 88,0a44,44 0 1,1 -88,0" />
+    <path
+        android:strokeColor="#F97316"
+        android:strokeWidth="2"
+        android:pathData="M48,48m-44,0a44,44 0 1,1 88,0a44,44 0 1,1 -88,0" />
+    <!-- Outer Flame -->
+    <path
+        android:fillColor="#EA580C"
+        android:pathData="M48,16 C48,16 62,32 62,48 C62,64 56,76 48,78 C40,76 34,64 34,48 C34,36 42,26 48,16 Z" />
+    <!-- Inner Flame -->
+    <path
+        android:fillColor="#F97316"
+        android:pathData="M48,30 C48,30 58,42 58,54 C58,66 53,74 48,76 C43,74 38,66 38,54 C38,44 44,38 48,30 Z" />
+    <!-- Core Bright Flame -->
+    <path
+        android:fillColor="#FDE047"
+        android:pathData="M48,46 C48,46 54,54 54,62 C54,70 51,74 48,75 C45,74 42,70 42,62 C42,56 46,51 48,46 Z" />
+</vector>

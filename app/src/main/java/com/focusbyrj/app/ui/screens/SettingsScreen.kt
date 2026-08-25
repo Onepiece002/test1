@@ -346,7 +346,7 @@ fun SettingsScreen(navController: NavController) {
             // --- HEATMAP COLOUR OPTIONS ---
             Text(
                 text = "Heatmap Colour Options",
-                style = MaterialTheme.typography.titleMedium.copy(color = AccentCyan, letterSpacing = 1.sp),
+                style = MaterialTheme.typography.titleMedium.copy(color = MaterialTheme.colorScheme.primary, letterSpacing = 1.sp),
                 modifier = Modifier.padding(bottom = 12.dp)
             )
             Box(

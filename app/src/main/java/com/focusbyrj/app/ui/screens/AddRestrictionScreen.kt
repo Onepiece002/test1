@@ -142,7 +142,7 @@ fun AddRestrictionScreen(
     var selectedCategory by remember { mutableStateOf<Any>(AppCategory.ALL) }
     var selectedApps by remember { mutableStateOf<Set<InstalledApp>>(emptySet()) }
     var searchQuery by remember { mutableStateOf("") }
-    var selectedMode by remember { mutableStateOf("HARD") }
+    var appModes by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var restrictionMode by remember { mutableStateOf("SIMPLE") }
     var timeLimitMinutes by remember { mutableIntStateOf(15) }
     var clickLimitCount by remember { mutableIntStateOf(5) }
@@ -207,7 +207,7 @@ fun AddRestrictionScreen(
                         Button(
                             onClick = { currentStep = 2 },
                             modifier = Modifier.fillMaxWidth().height(56.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = AccentViolet, contentColor = MidnightBlack),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary, contentColor = MaterialTheme.colorScheme.onPrimary),
                             shape = RoundedCornerShape(28.dp)
                         ) {
                             Text("Configure Shield (${selectedApps.size} Apps)", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
@@ -227,7 +227,7 @@ fun AddRestrictionScreen(
                                 AppRestriction(
                                     packageName = app.packageName,
                                     appName = app.appName,
-                                    mode = selectedMode,
+                                    mode = appModes[app.packageName] ?: "HARD",
                                     restrictionMode = restrictionMode,
                                     timeLimitMinutes = if (restrictionMode == "TIME_LIMIT") timeLimitMinutes else 0,
                                     clickLimitCount = if (restrictionMode == "CLICK_LIMIT") clickLimitCount else 0,
@@ -239,7 +239,7 @@ fun AddRestrictionScreen(
                             navController.popBackStack()
                         },
                         modifier = Modifier.fillMaxWidth().height(56.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = MidnightBlack),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = MaterialTheme.colorScheme.onPrimary),
                         shape = RoundedCornerShape(28.dp)
                     ) {
                         Text("Enable Shield for ${selectedApps.size} Apps", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
@@ -280,7 +280,7 @@ fun AddRestrictionScreen(
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedContainerColor = SurfaceDark,
                                 unfocusedContainerColor = SurfaceDark,
-                                focusedBorderColor = AccentViolet,
+                                focusedBorderColor = MaterialTheme.colorScheme.secondary,
                                 unfocusedBorderColor = BorderGlass,
                                 focusedTextColor = Color(0xFFCBD5E1),
                                 unfocusedTextColor = Color.White
@@ -300,8 +300,8 @@ fun AddRestrictionScreen(
                                 Box(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(20.dp))
-                                        .background(if (isSelected) AccentViolet else SurfaceDark)
-                                        .border(1.dp, if (isSelected) AccentViolet else BorderGlass, RoundedCornerShape(20.dp))
+                                        .background(if (isSelected) MaterialTheme.colorScheme.secondary else SurfaceDark)
+                                        .border(1.dp, if (isSelected) MaterialTheme.colorScheme.secondary else BorderGlass, RoundedCornerShape(20.dp))
                                         .clickable { selectedCategory = category }
                                         .padding(horizontal = 16.dp, vertical = 8.dp)
                                 ) {
@@ -318,8 +318,8 @@ fun AddRestrictionScreen(
                                 Box(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(20.dp))
-                                        .background(if (isSelected) AccentCyan else SurfaceDark)
-                                        .border(1.dp, if (isSelected) AccentCyan else BorderGlass, RoundedCornerShape(20.dp))
+                                        .background(if (isSelected) MaterialTheme.colorScheme.primary else SurfaceDark)
+                                        .border(1.dp, if (isSelected) MaterialTheme.colorScheme.primary else BorderGlass, RoundedCornerShape(20.dp))
                                         .clickable { selectedCategory = cat }
                                         .padding(horizontal = 16.dp, vertical = 8.dp)
                                 ) {
@@ -358,11 +358,11 @@ fun AddRestrictionScreen(
                                         .padding(horizontal = 16.dp, vertical = 8.dp)
                                 ) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Filled.Add, contentDescription = "Add Filter", tint = AccentCyan, modifier = Modifier.size(16.dp))
+                                        Icon(Icons.Filled.Add, contentDescription = "Add Filter", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                                         Spacer(modifier = Modifier.width(4.dp))
                                         Text(
                                             text = "New Filter",
-                                            color = AccentCyan,
+                                            color = MaterialTheme.colorScheme.primary,
                                             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
                                         )
                                     }
@@ -389,7 +389,7 @@ fun AddRestrictionScreen(
 
                         if (isLoading) {
                             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                CircularProgressIndicator(color = AccentCyan)
+                                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                             }
                         } else {
                             LazyColumn(
@@ -423,7 +423,7 @@ fun AddRestrictionScreen(
                                             TextButton(
                                                 onClick = { selectedApps = selectedApps + filteredApps }
                                             ) {
-                                                Text("Select All", color = AccentCyan)
+                                                Text("Select All", color = MaterialTheme.colorScheme.primary)
                                             }
                                         }
                                     }
@@ -438,10 +438,10 @@ fun AddRestrictionScreen(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .clip(RoundedCornerShape(16.dp))
-                                            .background(if (isSelected) AccentViolet.copy(alpha = 0.15f) else SurfaceDark)
+                                            .background(if (isSelected) MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f) else SurfaceDark)
                                             .border(
                                                 1.dp,
-                                                if (isSelected) AccentViolet else BorderGlass,
+                                                if (isSelected) MaterialTheme.colorScheme.secondary else BorderGlass,
                                                 RoundedCornerShape(16.dp)
                                             )
                                             .clickable {
@@ -486,7 +486,7 @@ fun AddRestrictionScreen(
                                                 Icon(
                                                     Icons.Filled.CheckCircle,
                                                     contentDescription = "Selected",
-                                                    tint = AccentCyan,
+                                                    tint = MaterialTheme.colorScheme.primary,
                                                     modifier = Modifier.size(24.dp)
                                                 )
                                             } else {
@@ -512,56 +512,26 @@ fun AddRestrictionScreen(
                             .verticalScroll(scrollState)
                             .padding(horizontal = 16.dp, vertical = 8.dp)
                     ) {
-                        Text(
-                            text = "SELECTED APPS (${selectedApps.size})",
-                            style = MaterialTheme.typography.labelMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 1.5.sp
-                            ),
-                            color = AccentCyan,
-                            modifier = Modifier.padding(bottom = 12.dp)
+                        val hardApps = selectedApps.filter { appModes[it.packageName] != "SOFT" }
+                        val softApps = selectedApps.filter { appModes[it.packageName] == "SOFT" }
+
+                        com.focusbyrj.app.ui.components.AppModeDropZone(
+                            title = "HARD MODE",
+                            description = "No bypass allowed",
+                            apps = hardApps,
+                            onAppClick = { appModes = appModes + (it.packageName to "SOFT") },
+                            borderColor = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(bottom = 16.dp)
                         )
-                        
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 20.dp)
-                        ) {
-                            items(selectedApps.toList()) { app ->
-                                val pm = context.packageManager
-                                val icon = remember(app.packageName) { ImageUtils.getAppIcon(pm, app.packageName) }
-                                
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    modifier = Modifier.width(72.dp)
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(64.dp)
-                                            .clip(RoundedCornerShape(16.dp))
-                                            .background(SurfaceVariantDark)
-                                            .border(1.dp, BorderGlass, RoundedCornerShape(16.dp)),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        if (icon != null) {
-                                            Image(
-                                                bitmap = icon,
-                                                contentDescription = null,
-                                                modifier = Modifier.size(42.dp).clip(RoundedCornerShape(10.dp))
-                                            )
-                                        }
-                                    }
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                    Text(
-                                        text = app.appName,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = Color(0xFFCBD5E1),
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        textAlign = TextAlign.Center
-                                    )
-                                }
-                            }
-                        }
+
+                        com.focusbyrj.app.ui.components.AppModeDropZone(
+                            title = "SOFT MODE",
+                            description = "10 sec wait bypass",
+                            apps = softApps,
+                            onAppClick = { appModes = appModes + (it.packageName to "HARD") },
+                            borderColor = MaterialTheme.colorScheme.secondary,
+                            modifier = Modifier.padding(bottom = 24.dp)
+                        )
                         
                         // CUSTOM RESTRICTIONS (3 boxes: Simple, Time Limit, Click Limit)
                         CustomRestrictionSection(
@@ -574,33 +544,6 @@ fun AddRestrictionScreen(
                             modifier = Modifier.padding(bottom = 24.dp)
                         )
 
-                        Text(
-                            text = "RESTRICTION MODE",
-                            style = MaterialTheme.typography.labelMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 1.5.sp
-                            ),
-                            color = AccentCyan,
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
-                        
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            ModeSelector(
-                                title = "HARD MODE",
-                                description = "No bypass allowed",
-                                isSelected = selectedMode == "HARD",
-                                onClick = { selectedMode = "HARD" },
-                                modifier = Modifier.weight(1f)
-                            )
-                            ModeSelector(
-                                title = "SOFT MODE",
-                                description = "10 sec wait bypass",
-                                isSelected = selectedMode == "SOFT",
-                                onClick = { selectedMode = "SOFT" },
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-
                         Spacer(modifier = Modifier.height(24.dp))
 
                         Text(
@@ -609,7 +552,7 @@ fun AddRestrictionScreen(
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = 1.5.sp
                             ),
-                            color = AccentCyan,
+                            color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.padding(bottom = 8.dp)
                         )
                         
@@ -622,7 +565,7 @@ fun AddRestrictionScreen(
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedContainerColor = SurfaceDark,
                                 unfocusedContainerColor = SurfaceDark,
-                                focusedBorderColor = AccentViolet,
+                                focusedBorderColor = MaterialTheme.colorScheme.secondary,
                                 unfocusedBorderColor = BorderGlass,
                                 focusedTextColor = Color(0xFFCBD5E1),
                                 unfocusedTextColor = Color.White
@@ -656,356 +599,39 @@ fun AddRestrictionScreen(
     }
 }
 
+
 @Composable
 fun ModeSelector(
-    title: String, 
-    description: String, 
-    isSelected: Boolean, 
-    onClick: () -> Unit, 
+    title: String,
+    description: String,
+    isSelected: Boolean,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val backgroundColor = if (isSelected) Color(0xFF231D38) else Color(0xFF191C2B)
-    val borderColor = if (isSelected) AccentViolet else Color(0xFF282D42)
-    val titleColor = if (isSelected) Color.White else Color(0xFFCBD5E1)
-    val subtitleColor = if (isSelected) Color(0xFFCBD5E1) else Color(0xFF94A3B8)
-
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(18.dp))
-            .background(backgroundColor)
-            .border(if (isSelected) 2.dp else 1.dp, borderColor, RoundedCornerShape(18.dp))
-            .clickable { onClick() }
-            .padding(16.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else SurfaceVariantDark)
+            .border(
+                1.dp,
+                if (isSelected) MaterialTheme.colorScheme.primary else BorderGlass,
+                RoundedCornerShape(12.dp)
+            )
+            .clickable(onClick = onClick)
+            .padding(12.dp)
     ) {
         Column {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    title,
-                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                    color = titleColor
-                )
-                if (isSelected) {
-                    Icon(
-                        Icons.Filled.Check,
-                        contentDescription = null,
-                        tint = AccentCyan,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(4.dp))
             Text(
-                description,
-                style = MaterialTheme.typography.bodySmall,
-                color = subtitleColor
+                text = title,
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White
             )
-        }
-    }
-}
-
-@Composable
-fun CustomCategoryEditor(
-    context: Context,
-    installedApps: List<InstalledApp>,
-    editingCategory: CustomCategory?,
-    onSave: (String, Set<String>) -> Unit,
-    onDismiss: () -> Unit
-) {
-    var name by remember { mutableStateOf(editingCategory?.name ?: "") }
-    var packages by remember { mutableStateOf(editingCategory?.packages ?: emptySet()) }
-    var showPicker by remember { mutableStateOf(false) }
-
-    if (showPicker) {
-        AppPicker(
-            context = context,
-            installedApps = installedApps,
-            initialSelection = packages,
-            onConfirm = { 
-                packages = it
-                showPicker = false
-            },
-            onDismiss = { showPicker = false }
-        )
-    } else {
-        androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
-            Surface(
-                shape = RoundedCornerShape(28.dp),
-                color = Color(0xFF161824),
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
-            ) {
-                Column(modifier = Modifier.padding(24.dp).fillMaxWidth()) {
-                    Text(
-                        text = if (editingCategory == null) "Create Filter" else "Edit Filter", 
-                        color = Color.White, 
-                        style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold)
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        text = "Group specific apps together to block them quickly.",
-                        color = Color.Gray,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Spacer(Modifier.height(24.dp))
-                    
-                    OutlinedTextField(
-                        value = name,
-                        onValueChange = { name = it },
-                        label = { Text("Category Name") },
-                        placeholder = { Text("e.g., Social Media") },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedBorderColor = AccentCyan,
-                            unfocusedBorderColor = BorderGlass,
-                            focusedLabelColor = AccentCyan,
-                            unfocusedLabelColor = Color.Gray,
-                            focusedContainerColor = SurfaceDark,
-                            unfocusedContainerColor = SurfaceDark
-                        ),
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Spacer(Modifier.height(24.dp))
-                    
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically, 
-                        horizontalArrangement = Arrangement.SpaceBetween, 
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Selected Apps", color = Color.White, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
-                        Text("${packages.size} selected", color = AccentCyan, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
-                    }
-                    
-                    Spacer(Modifier.height(16.dp))
-                    
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        item {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(60.dp)
-                                        .clip(CircleShape)
-                                        .background(AccentCyan.copy(alpha = 0.15f))
-                                        .border(1.dp, AccentCyan, CircleShape)
-                                        .clickable { showPicker = true },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(Icons.Filled.Add, contentDescription = "Add App", tint = AccentCyan, modifier = Modifier.size(28.dp))
-                                }
-                                Spacer(Modifier.height(8.dp))
-                                Text("Add App", color = Color.Gray, style = MaterialTheme.typography.labelSmall)
-                            }
-                        }
-                        
-                        items(packages.toList()) { pkgName ->
-                            val app = installedApps.find { it.packageName == pkgName }
-                            if (app != null) {
-                                val pm = context.packageManager
-                                val icon = remember(app.packageName) { ImageUtils.getAppIcon(pm, app.packageName) }
-                                
-                                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(64.dp)) {
-                                    Box {
-                                        if (icon != null) {
-                                            Image(bitmap = icon, contentDescription = null, modifier = Modifier.size(60.dp).clip(CircleShape))
-                                        } else {
-                                            Box(modifier = Modifier.size(60.dp).background(SurfaceDark, CircleShape))
-                                        }
-                                        
-                                        Box(
-                                            modifier = Modifier
-                                                .align(Alignment.TopEnd)
-                                                .size(22.dp)
-                                                .clip(CircleShape)
-                                                .background(Color(0xFFEF4444))
-                                                .border(2.dp, Color(0xFF161824), CircleShape)
-                                                .clickable { packages = packages - pkgName },
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Icon(Icons.Filled.Close, contentDescription = "Remove", tint = Color.White, modifier = Modifier.size(14.dp))
-                                        }
-                                    }
-                                    Spacer(Modifier.height(8.dp))
-                                    Text(
-                                        app.appName, 
-                                        maxLines = 1, 
-                                        overflow = TextOverflow.Ellipsis, 
-                                        color = Color(0xFFCBD5E1), 
-                                        style = MaterialTheme.typography.labelSmall
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    Spacer(Modifier.height(32.dp))
-                    Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
-                        TextButton(onClick = onDismiss, modifier = Modifier.height(48.dp)) { 
-                            Text("Cancel", color = Color.Gray)
-                        }
-                        Spacer(Modifier.width(12.dp))
-                        Button(
-                            onClick = { if (name.isNotBlank()) onSave(name, packages) },
-                            modifier = Modifier.height(48.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = AccentCyan, contentColor = MidnightBlack)
-                        ) {
-                            Text("Save Filter", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun AppPicker(
-    context: Context,
-    installedApps: List<InstalledApp>,
-    initialSelection: Set<String>,
-    onConfirm: (Set<String>) -> Unit,
-    onDismiss: () -> Unit
-) {
-    var selection by remember { mutableStateOf(initialSelection) }
-    var selectedCategory by remember { mutableStateOf(AppCategory.ALL) }
-    
-    androidx.compose.ui.window.Dialog(
-        onDismissRequest = onDismiss, 
-        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
-    ) {
-        Surface(
-            modifier = Modifier.fillMaxSize(), 
-            color = Color(0xFF0F111A)
-        ) {
-            Column(modifier = Modifier.systemBarsPadding()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(16.dp), 
-                    horizontalArrangement = Arrangement.SpaceBetween, 
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text("Select Apps", color = Color.White, style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold))
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text("Add apps to your custom filter", color = Color.Gray, style = MaterialTheme.typography.bodyMedium)
-                    }
-                    IconButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.background(SurfaceDark, CircleShape)
-                    ) { 
-                        Icon(Icons.Filled.Close, contentDescription = "Close", tint = Color.White) 
-                    }
-                }
-                
-                LazyRow(
-                    modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(AppCategory.entries.toTypedArray()) { category ->
-                        val isSelected = selectedCategory == category
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(20.dp))
-                                .background(if (isSelected) AccentViolet else SurfaceDark)
-                                .clickable { selectedCategory = category }
-                                .padding(horizontal = 16.dp, vertical = 8.dp)
-                        ) {
-                            Text(
-                                text = category.title,
-                                color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
-                            )
-                        }
-                    }
-                }
-                
-                val filteredApps = remember(installedApps, selectedCategory) {
-                    if (selectedCategory == AppCategory.ALL) installedApps
-                    else installedApps.filter { it.category == selectedCategory }
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "${filteredApps.size} apps",
-                        color = Color.Gray,
-                        style = MaterialTheme.typography.labelMedium
-                    )
-                    Row {
-                        val filteredPackages = filteredApps.map { it.packageName }.toSet()
-                        val allSelected = filteredPackages.isNotEmpty() && selection.containsAll(filteredPackages)
-                        if (allSelected) {
-                            TextButton(onClick = { selection = selection - filteredPackages }) {
-                                Text("Deselect All", color = Color(0xFFF44336))
-                            }
-                        } else {
-                            TextButton(onClick = { selection = selection + filteredPackages }) {
-                                Text("Select All", color = AccentCyan)
-                            }
-                        }
-                    }
-                }
-
-                LazyColumn(
-                    modifier = Modifier.weight(1f).padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(filteredApps, key = { it.packageName }) { app ->
-                        val isSelected = selection.contains(app.packageName)
-                        val pm = context.packageManager
-                        val icon = remember(app.packageName) { ImageUtils.getAppIcon(pm, app.packageName) }
-                        
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(if (isSelected) AccentViolet.copy(alpha = 0.15f) else SurfaceDark)
-                                .border(1.dp, if (isSelected) AccentViolet else BorderGlass, RoundedCornerShape(16.dp))
-                                .clickable { selection = if (isSelected) selection - app.packageName else selection + app.packageName }
-                                .padding(horizontal = 16.dp, vertical = 12.dp)
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                if (icon != null) {
-                                    Image(bitmap = icon, contentDescription = null, modifier = Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)))
-                                    Spacer(modifier = Modifier.width(16.dp))
-                                }
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(app.appName, color = Color.White, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold))
-                                    Text(app.category.title, color = Color.Gray, style = MaterialTheme.typography.labelMedium)
-                                }
-                                if (isSelected) {
-                                    Icon(Icons.Filled.CheckCircle, contentDescription = "Selected", tint = AccentCyan, modifier = Modifier.size(28.dp))
-                                } else {
-                                    Box(modifier = Modifier.size(28.dp).border(2.dp, Color.Gray.copy(alpha = 0.5f), CircleShape))
-                                }
-                            }
-                        }
-                    }
-                }
-                
-                Surface(
-                    color = Color(0xFF0F111A).copy(alpha = 0.95f),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Button(
-                        onClick = { onConfirm(selection) },
-                        modifier = Modifier.fillMaxWidth().padding(16.dp).height(56.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = AccentCyan, contentColor = MidnightBlack)
-                    ) {
-                        Text("Confirm ${selection.size} Apps", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
-                    }
-                }
-            }
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodySmall,
+                color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.8f) else Color.Gray
+            )
         }
     }
 }

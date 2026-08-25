@@ -312,7 +312,7 @@ fun DeepWorkCard(
                 TextButton(onClick = {
                     onSetTime(sliderValue.toInt())
                     showDialog = false
-                }) { Text("Save", color = AccentCyan) }
+                }) { Text("Save", color = MaterialTheme.colorScheme.primary) }
             },
             dismissButton = {
                 TextButton(onClick = { showDialog = false }) { Text("Cancel", color = Color.Gray) }
@@ -421,7 +421,7 @@ fun ActiveSessionScreen(timeRemaining: Long, initialTime: Long, onToggleSession:
                 .scale(scale)
                 .background(
                     androidx.compose.ui.graphics.Brush.radialGradient(
-                        colors = listOf(AccentCyan.copy(alpha = glowOpacity), Color.Transparent)
+                        colors = listOf(MaterialTheme.colorScheme.primary.copy(alpha = glowOpacity), Color.Transparent)
                     ),
                     shape = CircleShape
                 )
@@ -431,7 +431,7 @@ fun ActiveSessionScreen(timeRemaining: Long, initialTime: Long, onToggleSession:
             Text(
                 text = "DEEP WORK",
                 style = MaterialTheme.typography.labelMedium,
-                color = AccentCyan,
+                color = MaterialTheme.colorScheme.primary,
                 letterSpacing = 6.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -443,7 +443,7 @@ fun ActiveSessionScreen(timeRemaining: Long, initialTime: Long, onToggleSession:
                     .size(280.dp)
                     .scale(scale)
             ) {
-                
+                val primaryColor = MaterialTheme.colorScheme.primary
                 Canvas(modifier = Modifier.fillMaxSize()) {
                     drawCircle(
                         color = Color(0xFF1E2030),
@@ -452,7 +452,7 @@ fun ActiveSessionScreen(timeRemaining: Long, initialTime: Long, onToggleSession:
                     
                     
                     drawArc(
-                        color = AccentCyan,
+                        color = primaryColor,
                         startAngle = -90f,
                         sweepAngle = 360f * progress,
                         useCenter = false,
@@ -891,7 +891,7 @@ fun EditRestrictionBottomSheet(
                             letterSpacing = 1.2.sp,
                             fontWeight = FontWeight.SemiBold
                         ),
-                        color = AccentCyan
+                        color = MaterialTheme.colorScheme.primary
                     )
                     Text(
                         text = app.appName,
@@ -951,7 +951,7 @@ fun EditRestrictionBottomSheet(
                         Text(
                             text = if (isShieldActive) "Blocking enabled for this app" else "Blocking is currently paused",
                             style = MaterialTheme.typography.bodySmall,
-                            color = if (isShieldActive) NeonGreen else Color(0xFF94A3B8)
+                            color = if (isShieldActive) MaterialTheme.colorScheme.tertiary else Color(0xFF94A3B8)
                         )
                     }
                     Switch(
@@ -973,7 +973,7 @@ fun EditRestrictionBottomSheet(
             Text(
                 text = "BLOCKING STRICTNESS",
                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                color = AccentCyan,
+                color = MaterialTheme.colorScheme.primary,
                 letterSpacing = 1.2.sp,
                 modifier = Modifier.padding(bottom = 8.dp)
             )
@@ -1014,7 +1014,7 @@ fun EditRestrictionBottomSheet(
             Text(
                 text = "CUSTOM QUOTE (OPTIONAL)",
                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                color = AccentCyan,
+                color = MaterialTheme.colorScheme.primary,
                 letterSpacing = 1.2.sp,
                 modifier = Modifier.padding(bottom = 8.dp)
             )
@@ -1028,7 +1028,7 @@ fun EditRestrictionBottomSheet(
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedContainerColor = cardBackground,
                     unfocusedContainerColor = cardBackground,
-                    focusedBorderColor = AccentViolet,
+                    focusedBorderColor = MaterialTheme.colorScheme.secondary,
                     unfocusedBorderColor = cardBorder,
                     focusedTextColor = Color(0xFFCBD5E1),
                     unfocusedTextColor = Color.White

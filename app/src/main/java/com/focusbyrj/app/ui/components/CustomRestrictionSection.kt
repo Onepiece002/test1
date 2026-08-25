@@ -70,7 +70,7 @@ fun CustomRestrictionSection(
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 1.5.sp
             ),
-            color = AccentCyan,
+            color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(bottom = 12.dp)
         )
 
@@ -125,7 +125,7 @@ fun CustomRestrictionSection(
             Surface(
                 shape = RoundedCornerShape(20.dp),
                 color = SurfaceDark,
-                border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.4f)),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 12.dp)
@@ -165,13 +165,13 @@ fun CustomRestrictionSection(
 
                             Surface(
                                 shape = RoundedCornerShape(10.dp),
-                                color = AccentCyan.copy(alpha = 0.2f),
-                                border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.6f))
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
                             ) {
                                 Text(
                                     text = "${timeLimitMinutes.coerceAtLeast(1)} min",
                                     style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                                    color = AccentCyan,
+                                    color = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
                                 )
                             }
@@ -195,8 +195,8 @@ fun CustomRestrictionSection(
                         onValueChange = { onTimeLimitChange(it.toInt().coerceAtLeast(1)) },
                         valueRange = 1f..120f,
                         colors = SliderDefaults.colors(
-                            thumbColor = AccentCyan,
-                            activeTrackColor = AccentCyan,
+                            thumbColor = MaterialTheme.colorScheme.primary,
+                            activeTrackColor = MaterialTheme.colorScheme.primary,
                             inactiveTrackColor = Color.DarkGray
                         ),
                         modifier = Modifier.fillMaxWidth()
@@ -213,8 +213,8 @@ fun CustomRestrictionSection(
                             val isSelected = timeLimitMinutes == preset
                             Surface(
                                 shape = RoundedCornerShape(10.dp),
-                                color = if (isSelected) AccentCyan else SurfaceVariantDark,
-                                border = BorderStroke(1.dp, if (isSelected) AccentCyan else BorderGlass),
+                                color = if (isSelected) MaterialTheme.colorScheme.primary else SurfaceVariantDark,
+                                border = BorderStroke(1.dp, if (isSelected) MaterialTheme.colorScheme.primary else BorderGlass),
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(10.dp))
                                     .clickable { onTimeLimitChange(preset) }
@@ -241,7 +241,7 @@ fun CustomRestrictionSection(
             Surface(
                 shape = RoundedCornerShape(20.dp),
                 color = SurfaceDark,
-                border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.4f)),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 12.dp)
@@ -281,13 +281,13 @@ fun CustomRestrictionSection(
 
                             Surface(
                                 shape = RoundedCornerShape(10.dp),
-                                color = AccentCyan.copy(alpha = 0.2f),
-                                border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.6f))
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
                             ) {
                                 Text(
                                     text = "${clickLimitCount.coerceAtLeast(1)} ${if (clickLimitCount == 1) "open" else "opens"}",
                                     style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                                    color = AccentCyan,
+                                    color = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
                                 )
                             }
@@ -312,8 +312,8 @@ fun CustomRestrictionSection(
                         valueRange = 1f..20f,
                         steps = 18,
                         colors = SliderDefaults.colors(
-                            thumbColor = AccentCyan,
-                            activeTrackColor = AccentCyan,
+                            thumbColor = MaterialTheme.colorScheme.primary,
+                            activeTrackColor = MaterialTheme.colorScheme.primary,
                             inactiveTrackColor = Color.DarkGray
                         ),
                         modifier = Modifier.fillMaxWidth()
@@ -330,8 +330,8 @@ fun CustomRestrictionSection(
                             val isSelected = clickLimitCount == preset
                             Surface(
                                 shape = RoundedCornerShape(10.dp),
-                                color = if (isSelected) AccentCyan else SurfaceVariantDark,
-                                border = BorderStroke(1.dp, if (isSelected) AccentCyan else BorderGlass),
+                                color = if (isSelected) MaterialTheme.colorScheme.primary else SurfaceVariantDark,
+                                border = BorderStroke(1.dp, if (isSelected) MaterialTheme.colorScheme.primary else BorderGlass),
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(10.dp))
                                     .clickable { onClickLimitChange(preset) }
@@ -362,10 +362,10 @@ private fun CompactRestrictionBox(
 ) {
     Surface(
         shape = RoundedCornerShape(18.dp),
-        color = if (isSelected) AccentViolet.copy(alpha = 0.22f) else SurfaceDark,
+        color = if (isSelected) MaterialTheme.colorScheme.secondary.copy(alpha = 0.22f) else SurfaceDark,
         border = BorderStroke(
             if (isSelected) 1.8.dp else 1.dp,
-            if (isSelected) AccentCyan else BorderGlass
+            if (isSelected) MaterialTheme.colorScheme.primary else BorderGlass
         ),
         modifier = modifier
             .clip(RoundedCornerShape(18.dp))
@@ -382,13 +382,13 @@ private fun CompactRestrictionBox(
                 modifier = Modifier
                     .size(36.dp)
                     .clip(CircleShape)
-                    .background(if (isSelected) AccentCyan.copy(alpha = 0.25f) else SurfaceVariantDark),
+                    .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.25f) else SurfaceVariantDark),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = title,
-                    tint = if (isSelected) AccentCyan else Color.LightGray,
+                    tint = if (isSelected) MaterialTheme.colorScheme.primary else Color.LightGray,
                     modifier = Modifier.size(18.dp)
                 )
             }
@@ -415,7 +415,7 @@ private fun CompactRestrictionBox(
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Normal
                 ),
-                color = if (isSelected) AccentCyan else Color.Gray,
+                color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Gray,
                 textAlign = TextAlign.Center,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis

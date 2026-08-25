@@ -1,0 +1,37 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="96dp"
+    android:height="96dp"
+    android:viewportWidth="96"
+    android:viewportHeight="96">
+    <!-- Background Circle -->
+    <path
+        android:fillColor="#132E27"
+        android:pathData="M48,48m-44,0a44,44 0 1,1 88,0a44,44 0 1,1 -88,0" />
+    <path
+        android:strokeColor="#10B981"
+        android:strokeWidth="2"
+        android:pathData="M48,48m-44,0a44,44 0 1,1 88,0a44,44 0 1,1 -88,0" />
+    <!-- Scholar / Owl Eyes & Laurel -->
+    <!-- Scroll / Book Base -->
+    <path
+        android:fillColor="#047857"
+        android:pathData="M30,52 L48,60 L66,52 L66,66 L48,74 L30,66 Z" />
+    <path
+        android:fillColor="#34D399"
+        android:pathData="M30,50 L48,58 L66,50 L48,42 Z" />
+    <!-- Scholar Cap / Mortarboard -->
+    <path
+        android:fillColor="#065F46"
+        android:pathData="M48,22 L72,32 L48,42 L24,32 Z" />
+    <path
+        android:fillColor="#10B981"
+        android:pathData="M48,26 L66,33 L48,40 L30,33 Z" />
+    <!-- Tassel -->
+    <path
+        android:strokeColor="#FBBF24"
+        android:strokeWidth="2"
+        android:pathData="M48,33 C40,35 34,42 34,50" />
+    <path
+        android:fillColor="#FBBF24"
+        android:pathData="M32,50 L36,50 L35,56 L33,56 Z" />
+</vector>

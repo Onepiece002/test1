@@ -124,7 +124,7 @@ fun PermissionsScreen(navController: NavController) {
                         description = "Required to show mindful pause & lock overlays immediately.",
                         isGranted = hasOverlay,
                         icon = Icons.Filled.Layers,
-                        iconColor = AccentViolet,
+                        iconColor = MaterialTheme.colorScheme.secondary,
                         onAction = { PermissionUtils.requestOverlayPermission(context) }
                     )
                     
@@ -174,10 +174,10 @@ fun PermissionsScreen(navController: NavController) {
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(12.dp))
-                                    .background(NeonGreen.copy(alpha = 0.15f))
+                                    .background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.15f))
                                     .padding(horizontal = 10.dp, vertical = 6.dp)
                             ) {
-                                Text("Unrestricted ✓", color = NeonGreen, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Text("Unrestricted ✓", color = MaterialTheme.colorScheme.tertiary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             }
                         } else {
                             Button(
@@ -291,10 +291,10 @@ fun PermissionSecurityRow(
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(12.dp))
-                    .background(NeonGreen.copy(alpha = 0.15f))
+                    .background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.15f))
                     .padding(horizontal = 10.dp, vertical = 6.dp)
             ) {
-                Text("Granted ✓", color = NeonGreen, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text("Granted ✓", color = MaterialTheme.colorScheme.tertiary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
         } else {
             Button(

@@ -1,0 +1,28 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="96dp"
+    android:height="96dp"
+    android:viewportWidth="96"
+    android:viewportHeight="96">
+    <!-- Background Circle -->
+    <path
+        android:fillColor="#091E2A"
+        android:pathData="M48,48m-44,0a44,44 0 1,1 88,0a44,44 0 1,1 -88,0" />
+    <path
+        android:strokeColor="#00E5FF"
+        android:strokeWidth="2"
+        android:pathData="M48,48m-44,0a44,44 0 1,1 88,0a44,44 0 1,1 -88,0" />
+    <!-- Ninja Cowl / Mask -->
+    <path
+        android:fillColor="#0F172A"
+        android:pathData="M28,34 C28,22 36,18 48,18 C60,18 68,22 68,34 L68,60 C68,72 58,78 48,80 C38,78 28,72 28,60 Z" />
+    <path
+        android:fillColor="#1E293B"
+        android:pathData="M32,36 C32,26 38,22 48,22 C58,22 64,26 64,36 L64,58 C64,68 56,74 48,76 C40,74 32,68 32,58 Z" />
+    <!-- Cyber Neon Visor -->
+    <path
+        android:fillColor="#00E5FF"
+        android:pathData="M30,42 L66,42 L62,50 L34,50 Z" />
+    <path
+        android:fillColor="#E0F7FA"
+        android:pathData="M36,44 L60,44 L58,48 L38,48 Z" />
+</vector>

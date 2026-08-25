@@ -1,2 +1,0 @@
-sed -i 's/import androidx.compose.material.icons.filled.Shield/import androidx.compose.material.icons.filled.Shield\nimport androidx.compose.ui.res.painterResource\nimport com.focusbyrj.app.R/g' app/src/main/java/com/focusbyrj/app/ui/components/PermissionsDialog.kt
-sed -i 's/imageVector = Icons.Filled.Shield/painter = painterResource(id = R.drawable.ic_launcher_foreground)/g' app/src/main/java/com/focusbyrj/app/ui/components/PermissionsDialog.kt

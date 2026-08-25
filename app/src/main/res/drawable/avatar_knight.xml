@@ -1,0 +1,31 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="96dp"
+    android:height="96dp"
+    android:viewportWidth="96"
+    android:viewportHeight="96">
+    <!-- Background Circle -->
+    <path
+        android:fillColor="#1E293B"
+        android:pathData="M48,48m-44,0a44,44 0 1,1 88,0a44,44 0 1,1 -88,0" />
+    <path
+        android:strokeColor="#94A3B8"
+        android:strokeWidth="2"
+        android:pathData="M48,48m-44,0a44,44 0 1,1 88,0a44,44 0 1,1 -88,0" />
+    <!-- Knight Great Helm -->
+    <!-- Crest / Plume -->
+    <path
+        android:fillColor="#38BDF8"
+        android:pathData="M44,14 C44,14 48,22 48,28 C48,22 52,14 52,14 C56,18 58,26 48,32 C38,26 40,18 44,14 Z" />
+    <!-- Helmet Dome -->
+    <path
+        android:fillColor="#475569"
+        android:pathData="M30,34 C30,26 38,24 48,24 C58,24 66,26 66,34 L66,54 C66,66 58,74 48,78 C38,74 30,66 30,54 Z" />
+    <!-- Faceplate Highlight -->
+    <path
+        android:fillColor="#64748B"
+        android:pathData="M36,36 C36,30 42,28 48,28 C54,28 60,30 60,36 L60,52 C60,62 54,68 48,72 C42,68 36,62 36,52 Z" />
+    <!-- Cross Visor Slit -->
+    <path
+        android:fillColor="#0EA5E9"
+        android:pathData="M34,44 L62,44 L62,48 L50,48 L50,64 L46,64 L46,48 L34,48 Z" />
+</vector>

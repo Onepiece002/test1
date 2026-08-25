@@ -1,149 +1,75 @@
 package com.focusbyrj.app.ui.screens
-import androidx.compose.material.icons.filled.Favorite
-
-
-
-
-
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.lazy.items
-
 import androidx.compose.foundation.lazy.grid.items
-
-
 import androidx.compose.animation.core.animateFloatAsState
-
 import androidx.compose.foundation.ExperimentalFoundationApi
-
 import androidx.compose.foundation.background
-
 import androidx.compose.foundation.border
-
 import androidx.compose.foundation.clickable
-
 import androidx.compose.foundation.layout.*
-
 import androidx.compose.foundation.lazy.grid.GridCells
-
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-
-import androidx.compose.foundation.lazy.grid.items
-
 import androidx.compose.foundation.pager.HorizontalPager
-
 import androidx.compose.foundation.pager.rememberPagerState
-
 import androidx.compose.foundation.rememberScrollState
-
 import androidx.compose.foundation.shape.CircleShape
-
 import androidx.compose.foundation.shape.RoundedCornerShape
-
 import androidx.compose.foundation.text.BasicTextField
-
 import androidx.compose.foundation.verticalScroll
-
 import androidx.compose.material.icons.Icons
-
 import androidx.compose.material.icons.filled.Check
-
 import androidx.compose.material.icons.filled.Edit
-
 import androidx.compose.material.icons.filled.Lock
-
 import androidx.compose.material.icons.filled.Person
-
 import androidx.compose.material.icons.filled.Shield
-
 import androidx.compose.material.icons.filled.MonetizationOn
-
 import androidx.compose.material.icons.filled.Star
-
-
 import androidx.compose.material.icons.filled.DirectionsWalk
-
 import androidx.compose.material.icons.filled.Adjust
-
 import androidx.compose.material.icons.filled.AutoAwesome
-
 import androidx.compose.material.icons.filled.MilitaryTech
-
 import androidx.compose.material.icons.filled.HourglassEmpty
-
 import androidx.compose.material.icons.filled.Whatshot
-
-import androidx.compose.material.icons.filled.Shield
-
 import androidx.compose.material.icons.filled.Toll
-
 import androidx.compose.material.icons.filled.EmojiEvents
-
 import androidx.compose.material.icons.filled.MenuBook
-
 import androidx.compose.material.icons.filled.Security
-
 import androidx.compose.material.icons.filled.AccountBalance
-
-
 import androidx.compose.material.icons.filled.CheckCircle
-
 import androidx.compose.material.icons.filled.Face
-
 import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Warning
-
 import androidx.compose.material3.*
-
 import androidx.compose.material3.HorizontalDivider
-
 import androidx.compose.runtime.*
-
 import androidx.compose.ui.Alignment
-
 import androidx.compose.ui.Modifier
-
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.alpha
-
 import androidx.compose.ui.graphics.Color
-
 import androidx.compose.ui.graphics.SolidColor
-
 import androidx.compose.ui.graphics.vector.ImageVector
-
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
-
 import androidx.compose.ui.text.font.FontWeight
-
 import androidx.compose.ui.text.style.TextAlign
-
 import androidx.compose.ui.unit.dp
-
 import androidx.compose.ui.unit.sp
-
 import com.focusbyrj.app.ui.theme.MidnightBlack
 
-import com.focusbyrj.app.ui.theme.AccentCyan
-
 import com.focusbyrj.app.ui.theme.BorderGlass
-
 import com.focusbyrj.app.ui.theme.SurfaceDark
-
 import com.focusbyrj.app.util.FocusEconomyManager
-
 import com.focusbyrj.app.util.FocusStatsManager
-
-
-import androidx.compose.foundation.lazy.items
-
-import androidx.compose.foundation.lazy.grid.items
-
+import com.focusbyrj.app.util.ProfileAvatar
+import com.focusbyrj.app.util.ProfileAvatarManager
 import com.focusbyrj.app.util.UserProfile
-
 import kotlinx.coroutines.launch
 
 
@@ -169,54 +95,47 @@ fun AccountScreen() {
         FocusStatsManager.refreshStats(context)
     }
 
-    if (profile.pendingXp > 0 || profile.pendingGold > 0) {
-        androidx.compose.material3.AlertDialog(
-            onDismissRequest = { /* Force claim */ },
-            containerColor = Color(0xFF1B1D28),
-            titleContentColor = Color.White,
-            textContentColor = Color.LightGray,
-            title = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.EmojiEvents, contentDescription = null, tint = Color(0xFFFFD700), modifier = Modifier.size(28.dp))
-                    Spacer(Modifier.width(12.dp))
-                    Text("Focus Rewards!")
-                }
-            },
-            text = {
-                Column {
-                    Text("Excellent work during your focus session. Here are your rewards:")
-                    Spacer(Modifier.height(16.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Color(0xFF2A2C3A)).padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceEvenly
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("+${profile.pendingXp}", color = AccentCyan, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-                            Text("XP Gained", fontSize = 12.sp, color = Color.Gray)
-                        }
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("+${profile.pendingGold}", color = Color(0xFFFFD700), fontSize = 24.sp, fontWeight = FontWeight.Bold)
-                            Text("Gold Found", fontSize = 12.sp, color = Color.Gray)
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                androidx.compose.material3.Button(
-                    onClick = { FocusEconomyManager.claimPendingRewards() },
-                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = AccentCyan, contentColor = MidnightBlack)
-                ) {
-                    Text("Collect Rewards", color = Color(0xFFCBD5E1), fontWeight = FontWeight.Bold)
-                }
-            }
-        )
-    }
+
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
+        
+        if (profile.pendingXp > 0 || profile.pendingGold > 0) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 8.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(Color(0xFF1E1E1E))
+                    .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(24.dp))
+                    .clickable { FocusEconomyManager.claimPendingRewards() }
+                    .padding(20.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column {
+                        Text("Unclaimed Rewards", style = MaterialTheme.typography.titleMedium, color = Color.White, fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text("${profile.pendingXp} XP • ${profile.pendingGold} Gold", style = MaterialTheme.typography.bodyMedium, color = Color(0xFFFFD700))
+                    }
+                    androidx.compose.material3.Button(
+                        onClick = { FocusEconomyManager.claimPendingRewards() },
+                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        )
+                    ) {
+                        Text("Claim", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
         
         Column(
             modifier = Modifier
@@ -310,7 +229,7 @@ fun AccountScreen() {
             textContentColor = Color.LightGray,
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.Info, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(24.dp))
+                    Icon(Icons.Filled.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
                     Spacer(Modifier.width(12.dp))
                     Text("Economy & Rules", style = MaterialTheme.typography.titleLarge)
                 }
@@ -321,7 +240,7 @@ fun AccountScreen() {
                         title = "Experience (EXP)", 
                         desc = "Earned by completing focus sessions. Every minute of deep focus brings you closer to the next level.",
                         icon = Icons.Filled.Star,
-                        color = AccentCyan
+                        color = MaterialTheme.colorScheme.primary
                     )
                     Spacer(Modifier.height(16.dp))
                     RuleSection(
@@ -342,7 +261,7 @@ fun AccountScreen() {
             confirmButton = {
                 androidx.compose.material3.Button(
                     onClick = { showRulesDialog = false },
-                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = AccentCyan, contentColor = MidnightBlack)
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary)
                 ) {
                     Text("Understood", fontWeight = FontWeight.Bold)
                 }
@@ -399,22 +318,48 @@ fun ProfileCard(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth()
         ) {
+            val currentAvatar = ProfileAvatarManager.getAvatar(profile.selectedAvatar, profile.avatarTier)
             
             Box(
                 modifier = Modifier
-                    .size(80.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF12121A))
-                    .border(3.dp, getAvatarColor(profile.selectedAvatar, profile.avatarTier), CircleShape)
-                    .clickable { onAvatarClick() },
-                contentAlignment = Alignment.Center
+                    .size(84.dp)
+                    .clickable { onAvatarClick() }
             ) {
-                Icon(
-                    imageVector = getAvatarIcon(profile.selectedAvatar, profile.avatarTier),
-                    contentDescription = "Avatar",
-                    tint = getAvatarColor(profile.selectedAvatar, profile.avatarTier),
-                    modifier = Modifier.size(40.dp)
-                )
+                Box(
+                    modifier = Modifier
+                        .size(80.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF12121A))
+                        .border(3.dp, currentAvatar.borderColor, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        painter = painterResource(id = currentAvatar.imageRes),
+                        contentDescription = currentAvatar.title,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(CircleShape)
+                    )
+                }
+                
+                // Edit / Camera Badge indicator
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .size(26.dp)
+                        .clip(CircleShape)
+                        .background(SurfaceDark)
+                        .border(1.5.dp, currentAvatar.borderColor, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Edit,
+                        contentDescription = "Change Avatar",
+                        tint = Color.White,
+                        modifier = Modifier.size(13.dp)
+                    )
+                }
             }
             
             Spacer(modifier = Modifier.width(20.dp))
@@ -457,9 +402,9 @@ fun ProfileCard(
                 Spacer(modifier = Modifier.height(4.dp))
                 
                 Text(
-                    text = getAvatarTitle(profile.selectedAvatar, profile.avatarTier).uppercase(),
+                    text = currentAvatar.title.uppercase(),
                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp),
-                    color = getAvatarColor(profile.selectedAvatar, profile.avatarTier)
+                    color = currentAvatar.borderColor
                 )
             }
             
@@ -478,7 +423,7 @@ fun ProfileCard(
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("Level ${profile.level}", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold), color = Color.White)
             if (profile.level >= 200) {
-                Text("MAX LEVEL", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = AccentCyan)
+                Text("MAX LEVEL", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary)
             } else {
                 Text("${profile.xp} / $nextLevelXp XP", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
             }
@@ -487,7 +432,7 @@ fun ProfileCard(
         LinearProgressIndicator(
             progress = { xpProgress },
             modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
-            color = AccentCyan,
+            color = MaterialTheme.colorScheme.primary,
             trackColor = Color(0xFF12121A)
         )
         
@@ -535,13 +480,13 @@ fun ProfileCard(
             Spacer(modifier = Modifier.height(20.dp))
             androidx.compose.material3.Button(
                 onClick = { FocusEconomyManager.recoverXp(500, 500) },
-                colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = AccentCyan.copy(alpha = 0.1f)),
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth().height(48.dp)
             ) {
-                Icon(androidx.compose.material.icons.Icons.Filled.CheckCircle, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(18.dp))
+                Icon(androidx.compose.material.icons.Icons.Filled.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Recover 500 XP", color = AccentCyan, fontWeight = FontWeight.Bold)
+                Text("Recover 500 XP", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.weight(1f))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("500", color = Color(0xFFFFD700), fontWeight = FontWeight.Bold)
@@ -596,7 +541,7 @@ fun StatsGrid(profile: UserProfile) {
                 title = "Total Focus",
                 value = formatMinutesToHours(profile.lifetimeFocusMins),
                 icon = androidx.compose.material.icons.Icons.Filled.CheckCircle,
-                color = AccentCyan,
+                color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.weight(1f)
             )
             StatCard(
@@ -673,7 +618,7 @@ fun AchievementsPreviewTab(profile: UserProfile, stats: com.focusbyrj.app.util.F
                         Text("$unlockedCount / $totalCount Unlocked", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
                     }
                     androidx.compose.material3.TextButton(onClick = onViewAllClick) {
-                        Text("View All", color = AccentCyan, fontWeight = FontWeight.Bold)
+                        Text("View All", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                     }
                 }
                 
@@ -842,15 +787,10 @@ fun AchievementsTab(profile: UserProfile, stats: com.focusbyrj.app.util.FocusSta
 @Composable
 fun AvatarSelectionSheet(profile: UserProfile) {
     val context = LocalContext.current
-    var avatarToPurchase by remember { mutableStateOf<StoreAvatar?>(null) }
+    var avatarToPurchase by remember { mutableStateOf<ProfileAvatar?>(null) }
     
-    val tiers = listOf(
-        Pair(1, 0),
-        Pair(2, 500),
-        Pair(3, 2000),
-        Pair(4, 10000),
-        Pair(5, 50000)
-    )
+    val tierAvatars = ProfileAvatarManager.tierAvatars
+    val storeAvatars = ProfileAvatarManager.storeAvatars
     
     Column(
         modifier = Modifier
@@ -859,68 +799,95 @@ fun AvatarSelectionSheet(profile: UserProfile) {
             .padding(top = 24.dp, bottom = 48.dp)
             .verticalScroll(rememberScrollState())
     ) {
-        Text("VIP Tiers", style = MaterialTheme.typography.titleLarge, color = Color(0xFFCBD5E1))
-        Text("Unlocked by reaching higher Gold milestones.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+        // VIP Tiers Section
+        Text("VIP Milestones", style = MaterialTheme.typography.titleLarge, color = Color(0xFFCBD5E1), fontWeight = FontWeight.Bold)
+        Text("Unlocked as your Discipline & Gold milestone grows.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
         Spacer(modifier = Modifier.height(16.dp))
         
         LazyVerticalGrid(
             columns = GridCells.Fixed(3),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            modifier = Modifier.heightIn(max = 300.dp)
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+            modifier = Modifier.heightIn(max = 280.dp)
         ) {
-            items(tiers) { (tier, cost) ->
-                val isUnlocked = tier <= profile.avatarTier || profile.avatarTier == 5
-                val isCurrent = profile.selectedAvatar == "tier_$tier" || (profile.selectedAvatar == "tier_1" && profile.selectedAvatar == "tier_$tier")
+            items(tierAvatars) { avatar ->
+                val isUnlocked = avatar.tier <= profile.avatarTier || profile.avatarTier == 5
+                val isCurrent = profile.selectedAvatar == avatar.id || (profile.selectedAvatar == "tier_1" && avatar.id == "tier_1")
                 
                 Box(
                     modifier = Modifier
-                        .aspectRatio(1f)
+                        .aspectRatio(0.85f)
                         .clip(RoundedCornerShape(16.dp))
-                        .background(if (isUnlocked) Color(0xFF2A2A3A) else Color(0xFF1A1A2A))
+                        .background(if (isUnlocked) Color(0xFF222433) else Color(0xFF161722))
                         .border(
                             2.dp, 
-                            if (isCurrent) getTierColor(tier) else Color.Transparent, 
+                            if (isCurrent) avatar.borderColor else if (isUnlocked) Color.White.copy(alpha = 0.08f) else Color.Transparent, 
                             RoundedCornerShape(16.dp)
                         )
                         .clickable(enabled = isUnlocked) {
-                            FocusEconomyManager.equipAvatar("tier_$tier")
-                        },
+                            FocusEconomyManager.equipAvatar(avatar.id)
+                        }
+                        .padding(8.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            imageVector = getTierIcon(tier),
-                            contentDescription = "Tier $tier",
-                            tint = if (isUnlocked) getTierColor(tier) else Color.DarkGray,
-                            modifier = Modifier.size(32.dp)
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(54.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF10111A))
+                                .border(2.dp, if (isUnlocked) avatar.borderColor else Color.DarkGray, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Image(
+                                painter = painterResource(id = avatar.imageRes),
+                                contentDescription = avatar.title,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(CircleShape)
+                                    .alpha(if (isUnlocked) 1f else 0.4f)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = avatar.title,
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold),
+                            color = if (isUnlocked) Color.White else Color.Gray,
+                            maxLines = 1
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(2.dp))
                         if (!isUnlocked) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Filled.Lock, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(12.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(cost.toString(), style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                                Icon(Icons.Filled.Lock, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(11.dp))
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Text(avatar.requiredGold.toString(), style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = Color.Gray)
                             }
                         } else if (isCurrent) {
-                            Text("Equipped", style = MaterialTheme.typography.labelSmall, color = getTierColor(tier))
+                            Text("Equipped", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold), color = avatar.borderColor)
+                        } else {
+                            Text("Equip", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = Color.Gray)
                         }
                     }
                 }
             }
         }
         
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(28.dp))
         
-        Text("Store Avatars", style = MaterialTheme.typography.titleLarge, color = Color(0xFFCBD5E1))
-        Text("Purchase with your earned Gold.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+        // Store Avatars Section
+        Text("Store Avatars", style = MaterialTheme.typography.titleLarge, color = Color(0xFFCBD5E1), fontWeight = FontWeight.Bold)
+        Text("Purchase & unlock unique visual identities with earned Gold.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
         Spacer(modifier = Modifier.height(16.dp))
         
         LazyVerticalGrid(
             columns = GridCells.Fixed(3),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            modifier = Modifier.heightIn(max = 300.dp)
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+            modifier = Modifier.heightIn(max = 420.dp)
         ) {
             items(storeAvatars) { storeAvatar ->
                 val isPurchased = profile.purchasedAvatars.contains(storeAvatar.id)
@@ -929,12 +896,12 @@ fun AvatarSelectionSheet(profile: UserProfile) {
                 
                 Box(
                     modifier = Modifier
-                        .aspectRatio(1f)
+                        .aspectRatio(0.85f)
                         .clip(RoundedCornerShape(16.dp))
-                        .background(if (isPurchased) Color(0xFF2A2A3A) else Color(0xFF1A1A2A))
+                        .background(if (isPurchased) Color(0xFF222433) else Color(0xFF161722))
                         .border(
                             2.dp, 
-                            if (isCurrent) storeAvatar.color else Color.Transparent, 
+                            if (isCurrent) storeAvatar.borderColor else if (isPurchased) Color.White.copy(alpha = 0.08f) else Color.Transparent, 
                             RoundedCornerShape(16.dp)
                         )
                         .clickable {
@@ -943,29 +910,61 @@ fun AvatarSelectionSheet(profile: UserProfile) {
                             } else if (canAfford) {
                                 avatarToPurchase = storeAvatar
                             } else {
-                                android.widget.Toast.makeText(context, "Not enough Gold", android.widget.Toast.LENGTH_SHORT).show()
+                                android.widget.Toast.makeText(context, "Need ${storeAvatar.cost} Gold to unlock", android.widget.Toast.LENGTH_SHORT).show()
                             }
-                        },
+                        }
+                        .padding(8.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            imageVector = storeAvatar.icon,
-                            contentDescription = storeAvatar.title,
-                            tint = if (isPurchased || canAfford) storeAvatar.color else Color.DarkGray,
-                            modifier = Modifier.size(32.dp)
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(54.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF10111A))
+                                .border(2.dp, if (isPurchased || canAfford) storeAvatar.borderColor else Color.DarkGray, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Image(
+                                painter = painterResource(id = storeAvatar.imageRes),
+                                contentDescription = storeAvatar.title,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(CircleShape)
+                                    .alpha(if (isPurchased || canAfford) 1f else 0.45f)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = storeAvatar.title,
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold),
+                            color = if (isPurchased || canAfford) Color.White else Color.Gray,
+                            maxLines = 1
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(2.dp))
                         if (!isPurchased) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Filled.MonetizationOn, contentDescription = null, tint = if (canAfford) Color(0xFFFFD700) else Color.Gray, modifier = Modifier.size(12.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(storeAvatar.cost.toString(), style = MaterialTheme.typography.labelSmall, color = if (canAfford) Color.White else Color.Gray)
+                                Icon(
+                                    Icons.Filled.MonetizationOn, 
+                                    contentDescription = null, 
+                                    tint = if (canAfford) Color(0xFFFFD700) else Color.Gray, 
+                                    modifier = Modifier.size(11.dp)
+                                )
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Text(
+                                    "${storeAvatar.cost}", 
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold), 
+                                    color = if (canAfford) Color(0xFFFFD700) else Color.Gray
+                                )
                             }
                         } else if (isCurrent) {
-                            Text("Equipped", style = MaterialTheme.typography.labelSmall, color = storeAvatar.color)
+                            Text("Equipped", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold), color = storeAvatar.borderColor)
                         } else {
-                            Text("Equip", style = MaterialTheme.typography.labelSmall, color = storeAvatar.color.copy(alpha = 0.5f))
+                            Text("Equip", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = storeAvatar.borderColor.copy(alpha = 0.7f))
                         }
                     }
                 }
@@ -981,14 +980,28 @@ fun AvatarSelectionSheet(profile: UserProfile) {
             textContentColor = Color.LightGray,
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(avatar.icon, contentDescription = null, tint = avatar.color, modifier = Modifier.size(28.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF10111A))
+                            .border(2.dp, avatar.borderColor, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Image(
+                            painter = painterResource(id = avatar.imageRes),
+                            contentDescription = avatar.title,
+                            modifier = Modifier.fillMaxSize().clip(CircleShape),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
                     Spacer(Modifier.width(12.dp))
                     Text("Unlock ${avatar.title}?")
                 }
             },
             text = {
                 Text(
-                    text = "Are you sure you want to purchase this avatar? This will cost ${avatar.cost} Gold.",
+                    text = "Are you sure you want to purchase the ${avatar.title} avatar? This will cost ${avatar.cost} Gold.",
                     style = MaterialTheme.typography.bodyMedium,
                     lineHeight = 20.sp
                 )
@@ -1000,7 +1013,7 @@ fun AvatarSelectionSheet(profile: UserProfile) {
                         android.widget.Toast.makeText(context, "Purchased ${avatar.title}!", android.widget.Toast.LENGTH_SHORT).show()
                         avatarToPurchase = null
                     },
-                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = AccentCyan, contentColor = MidnightBlack)
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary)
                 ) {
                     Text("Purchase", fontWeight = FontWeight.Bold)
                 }
@@ -1014,22 +1027,6 @@ fun AvatarSelectionSheet(profile: UserProfile) {
     }
 }
 
-data class StoreAvatar(
-    val id: String,
-    val title: String,
-    val icon: ImageVector,
-    val color: Color,
-    val cost: Int
-)
-
-val storeAvatars = listOf(
-    StoreAvatar("store_companion", "Companion", Icons.Filled.Favorite, Color(0xFFE91E63), 1000),
-    StoreAvatar("store_inferno", "Inferno", Icons.Filled.LocalFireDepartment, Color(0xFFFF5722), 2500),
-    StoreAvatar("store_champion", "Champion", Icons.Filled.EmojiEvents, Color(0xFFFFD700), 5000),
-    StoreAvatar("store_prestige", "Prestige", Icons.Filled.MilitaryTech, Color(0xFFE040FB), 10000),
-    StoreAvatar("store_crown", "Crown", Icons.Filled.Star, Color(0xFFFFD700), 25000)
-)
-
 fun getTierIcon(tier: Int): ImageVector {
     return when (tier) {
         5 -> Icons.Filled.Star 
@@ -1041,45 +1038,22 @@ fun getTierIcon(tier: Int): ImageVector {
 }
 
 fun getTierColor(tier: Int): Color {
-    return when (tier) {
-        5 -> Color(0xFFFFD700) 
-        4 -> Color(0xFF00E5FF) 
-        3 -> Color(0xFFC0C0C0) 
-        2 -> Color(0xFF4CAF50) 
-        else -> Color(0xFF9E9E9E) 
-    }
+    return ProfileAvatarManager.getAvatarBorderColor("tier_$tier", tier)
 }
 
 fun getTierTitle(tier: Int): String {
-    return when (tier) {
-        5 -> "The Emperor"
-        4 -> "The Noble"
-        3 -> "The Knight"
-        2 -> "The Scholar"
-        else -> "The Wanderer"
-    }
+    return ProfileAvatarManager.getAvatarTitle("tier_$tier", tier)
 }
 
 fun getAvatarIcon(selectedAvatar: String, tier: Int): ImageVector {
-    if (selectedAvatar.startsWith("tier_")) {
-        val t = selectedAvatar.removePrefix("tier_").toIntOrNull() ?: tier
-        return getTierIcon(t)
-    }
-    return storeAvatars.find { it.id == selectedAvatar }?.icon ?: getTierIcon(tier)
+    return getTierIcon(tier)
 }
 
 fun getAvatarColor(selectedAvatar: String, tier: Int): Color {
-    if (selectedAvatar.startsWith("tier_")) {
-        val t = selectedAvatar.removePrefix("tier_").toIntOrNull() ?: tier
-        return getTierColor(t)
-    }
-    return storeAvatars.find { it.id == selectedAvatar }?.color ?: getTierColor(tier)
+    return ProfileAvatarManager.getAvatarBorderColor(selectedAvatar, tier)
 }
 
 fun getAvatarTitle(selectedAvatar: String, tier: Int): String {
-    if (selectedAvatar.startsWith("tier_")) {
-        val t = selectedAvatar.removePrefix("tier_").toIntOrNull() ?: tier
-        return getTierTitle(t)
-    }
-    return storeAvatars.find { it.id == selectedAvatar }?.title ?: getTierTitle(tier)
+    return ProfileAvatarManager.getAvatarTitle(selectedAvatar, tier)
 }
+

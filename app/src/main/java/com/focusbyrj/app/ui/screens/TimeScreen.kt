@@ -20,7 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.foundation.Image
-import com.focusbyrj.app.ui.theme.AccentCyan
+
 import com.focusbyrj.app.ui.theme.AccentViolet
 import com.focusbyrj.app.ui.theme.BorderGlass
 import com.focusbyrj.app.ui.theme.MidnightBlack
@@ -56,7 +56,7 @@ fun TimeScreen() {
             Spacer(modifier = Modifier.height(32.dp))
             Button(
                 onClick = { UsageStatsHelper.requestUsageStatsPermission(context) },
-                colors = ButtonDefaults.buttonColors(containerColor = AccentCyan, contentColor = MidnightBlack)
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary)
             ) {
                 Text("Grant Permission", fontWeight = FontWeight.Bold)
             }
@@ -105,9 +105,9 @@ fun TimeScreen() {
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(verticalAlignment = Alignment.Bottom) {
                         Text(hours.toString(), style = MaterialTheme.typography.displayLarge.copy(fontSize = 56.sp), color = Color(0xFFCBD5E1))
-                        Text("h", style = MaterialTheme.typography.titleLarge, color = AccentCyan, modifier = Modifier.padding(bottom = 10.dp, start = 4.dp, end = 8.dp))
+                        Text("h", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(bottom = 10.dp, start = 4.dp, end = 8.dp))
                         Text(minutes.toString(), style = MaterialTheme.typography.displayLarge.copy(fontSize = 56.sp), color = Color(0xFFCBD5E1))
-                        Text("m", style = MaterialTheme.typography.titleLarge, color = AccentCyan, modifier = Modifier.padding(bottom = 10.dp, start = 4.dp))
+                        Text("m", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(bottom = 10.dp, start = 4.dp))
                     }
                     
                     Spacer(modifier = Modifier.height(24.dp))

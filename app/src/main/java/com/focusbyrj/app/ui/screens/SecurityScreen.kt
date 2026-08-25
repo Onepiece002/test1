@@ -125,7 +125,7 @@ fun SecurityScreen(navController: NavController) {
                 title = "Anti-Screenshot Protection",
                 subtitle = "Prevents taking screenshots and hides app content in the recent apps menu.",
                 icon = Icons.Filled.VisibilityOff,
-                iconColor = AccentCyan
+                iconColor = MaterialTheme.colorScheme.primary
             ) {
                 Switch(
                     checked = secureRecents,
@@ -135,7 +135,7 @@ fun SecurityScreen(navController: NavController) {
                     },
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = Color.White,
-                        checkedTrackColor = AccentEmerald,
+                        checkedTrackColor = MaterialTheme.colorScheme.tertiary,
                         uncheckedThumbColor = Color.Gray,
                         uncheckedTrackColor = SurfaceVariantDark
                     )

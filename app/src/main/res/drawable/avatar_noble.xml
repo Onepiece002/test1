@@ -1,0 +1,33 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="96dp"
+    android:height="96dp"
+    android:viewportWidth="96"
+    android:viewportHeight="96">
+    <!-- Background Circle -->
+    <path
+        android:fillColor="#172554"
+        android:pathData="M48,48m-44,0a44,44 0 1,1 88,0a44,44 0 1,1 -88,0" />
+    <path
+        android:strokeColor="#38BDF8"
+        android:strokeWidth="2"
+        android:pathData="M48,48m-44,0a44,44 0 1,1 88,0a44,44 0 1,1 -88,0" />
+    <!-- Noble Tiara / Circlet -->
+    <path
+        android:fillColor="#0284C7"
+        android:pathData="M26,38 L32,24 L40,32 L48,20 L56,32 L64,24 L70,38 L48,44 Z" />
+    <path
+        android:fillColor="#38BDF8"
+        android:pathData="M30,36 L34,28 L40,34 L48,24 L56,34 L62,28 L66,36 L48,42 Z" />
+    <!-- Center Sapphire Jewel -->
+    <path
+        android:fillColor="#BAE6FD"
+        android:pathData="M48,32 L52,36 L48,40 L44,36 Z" />
+    <!-- Royal Mantle / Collar -->
+    <path
+        android:fillColor="#0369A1"
+        android:pathData="M30,52 C30,52 38,64 48,64 C58,64 66,52 66,52 L72,72 C72,72 58,78 48,78 C38,78 24,72 24,72 Z" />
+    <!-- Golden Pendant -->
+    <path
+        android:fillColor="#FBBF24"
+        android:pathData="M48,62 L52,68 L48,74 L44,68 Z" />
+</vector>

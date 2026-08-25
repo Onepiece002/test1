@@ -14,7 +14,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.focusbyrj.app.ui.theme.SurfaceDark
-import com.focusbyrj.app.ui.theme.AccentCyan
+
 import com.focusbyrj.app.util.HeatmapTheme
 import com.focusbyrj.app.util.UserProfile
 import java.util.Calendar
@@ -94,7 +94,7 @@ fun HeatmapAndStreaksWidget(
                         contentAlignment = Alignment.Center
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("${profile.currentStreak}", style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold), color = AccentCyan)
+                            Text("${profile.currentStreak}", style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary)
                             Text("Current Streak", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
                         }
                     }

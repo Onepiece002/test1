@@ -1,1 +1,0 @@
-sed -i 's/val mode: String = "HARD", \/\/ HARD or SOFT/val mode: String = "HARD",\n    val restrictionMode: String = "SIMPLE",\n    val timeLimitMinutes: Int = 0,\n    val clickLimitCount: Int = 0/g' app/src/main/java/com/focusbyrj/app/data/FocusSchedule.kt

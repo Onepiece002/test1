@@ -50,7 +50,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.focusbyrj.app.ui.theme.AccentEmerald
 import com.focusbyrj.app.ui.theme.MidnightBlack
 import com.focusbyrj.app.ui.theme.TextSecondary
 import com.focusbyrj.app.util.PermissionUtils
@@ -254,7 +253,7 @@ fun PermissionSetupCard(
                 fontWeight = FontWeight.Bold,
                 fontFamily = FontFamily.Monospace
             ),
-            color = if (isGranted) AccentEmerald else TextSecondary.copy(alpha = 0.4f),
+            color = if (isGranted) MaterialTheme.colorScheme.tertiary else TextSecondary.copy(alpha = 0.4f),
             modifier = Modifier.padding(top = 2.dp)
         )
 
@@ -294,7 +293,7 @@ fun PermissionSetupCard(
             Icon(
                 imageVector = Icons.Filled.Check,
                 contentDescription = "Granted",
-                tint = AccentEmerald,
+                tint = MaterialTheme.colorScheme.tertiary,
                 modifier = Modifier.size(24.dp)
             )
         } else {

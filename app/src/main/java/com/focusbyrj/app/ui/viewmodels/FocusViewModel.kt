@@ -19,6 +19,15 @@ import kotlinx.coroutines.launch
 import java.util.Calendar
 
 class FocusViewModel(private val repository: AppRepository, application: Application) : AndroidViewModel(application) {
+    override fun onCleared() {
+        super.onCleared()
+        if (_isSessionActive.value) {
+            _isSessionActive.value = false
+            prefs.edit().putBoolean("isSessionActive", false).apply()
+            com.focusbyrj.app.util.DndHelper.setDndMode(getApplication(), false)
+        }
+    }
+
     
     private val prefs = application.getSharedPreferences("focus_prefs", Context.MODE_PRIVATE)
 
@@ -57,15 +66,18 @@ class FocusViewModel(private val repository: AppRepository, application: Applica
                 false
             }
 
-            val pkgs = s.appsToBlock.split(",").filter { it.isNotBlank() }
-            for (pkg in pkgs) {
+            val entries = s.appsToBlock.split(",").filter { it.isNotBlank() }
+            for (entry in entries) {
+                val parts = entry.split("|")
+                val pkg = parts[0]
+                val appMode = if (parts.size > 1) parts[1] else s.mode
                 if (!map.containsKey(pkg)) {
                     val appName = try { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() } catch(e: Exception) { pkg }
                     map[pkg] = AppRestriction(
                         packageName = pkg,
                         appName = appName,
                         isRestricted = isActiveNow,
-                        mode = s.mode,
+                        mode = appMode,
                         restrictionMode = s.restrictionMode,
                         timeLimitMinutes = s.timeLimitMinutes,
                         clickLimitCount = s.clickLimitCount,
@@ -75,7 +87,7 @@ class FocusViewModel(private val repository: AppRepository, application: Applica
                     val existing = map[pkg]!!
                     map[pkg] = existing.copy(
                         isRestricted = true,
-                        mode = s.mode,
+                        mode = appMode,
                         restrictionMode = s.restrictionMode,
                         timeLimitMinutes = s.timeLimitMinutes,
                         clickLimitCount = s.clickLimitCount
@@ -161,6 +173,7 @@ class FocusViewModel(private val repository: AppRepository, application: Applica
             _isSessionActive.value = false
             _timeRemaining.value = _initialTime.value
             prefs.edit().putBoolean("isSessionActive", false).apply()
+            com.focusbyrj.app.util.DndHelper.setDndMode(getApplication(), false)
             com.focusbyrj.app.util.FocusStatsManager.refreshStats(getApplication())
         } else {
             _isSessionActive.value = true
@@ -196,6 +209,7 @@ class FocusViewModel(private val repository: AppRepository, application: Applica
                     _isSessionActive.value = false
                     _timeRemaining.value = _initialTime.value
                     prefs.edit().putBoolean("isSessionActive", false).apply()
+                    com.focusbyrj.app.util.DndHelper.setDndMode(getApplication(), false)
                     com.focusbyrj.app.util.FocusStatsManager.refreshStats(getApplication())
                 }
             }

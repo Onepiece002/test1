@@ -6,6 +6,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlin.math.max
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 
 data class UserProfile(
     val name: String,
@@ -25,9 +29,22 @@ data class UserProfile(
     val lifetimeResists: Int = 0
 )
 
+
+sealed class EconomyEvent {
+    data class AchievementUnlocked(val title: String, val iconRes: Int? = null) : EconomyEvent()
+    data class RewardsEarned(val xp: Int, val gold: Int, val source: String) : EconomyEvent()
+}
+
 object FocusEconomyManager {
     private const val PREFS_NAME = "focus_economy_prefs"
     
+    private val _economyEvents = MutableSharedFlow<EconomyEvent>(extraBufferCapacity = 10)
+    val economyEvents = _economyEvents.asSharedFlow()
+
+    private fun emitEvent(event: EconomyEvent) {
+        GlobalScope.launch { _economyEvents.emit(event) }
+    }
+
     private val _profileFlow = MutableStateFlow(
         UserProfile("Focus Warrior", 0, 0, 1, 1, 0, 1, "tier_1", emptySet(), 0, 0, 0, 0, 0, 0)
     )
@@ -41,13 +58,13 @@ object FocusEconomyManager {
     }
 
     private fun loadProfile() {
+        val oldProfile = _profileFlow.value
         prefs?.let {
             val name = it.getString("user_name", "Focus Warrior") ?: "Focus Warrior"
             val xp = it.getInt("xp", 0)
             val gold = it.getInt("gold", 0)
             val level = calculateLevel(xp)
             val maxLevel = it.getInt("max_level", level)
-            
             
             if (level > maxLevel) {
                 it.edit().putInt("max_level", level).apply()
@@ -81,13 +98,53 @@ object FocusEconomyManager {
                 lifetimeResists = it.getInt("lifetime_resists", 0)
             )
         }
+        if (oldProfile.xp > 0 || oldProfile.gold > 0 || oldProfile.lifetimeFocusMins > 0) {
+            checkAchievements(oldProfile, _profileFlow.value)
+        }
+    }
+
+    private fun checkAchievements(old: UserProfile, new: UserProfile) {
+        if (old.longestStreak < 3 && new.longestStreak >= 3) emitEvent(EconomyEvent.AchievementUnlocked("3-Day Streak"))
+        if (old.longestStreak < 7 && new.longestStreak >= 7) emitEvent(EconomyEvent.AchievementUnlocked("7-Day Streak"))
+        if (old.longestStreak < 14 && new.longestStreak >= 14) emitEvent(EconomyEvent.AchievementUnlocked("14-Day Streak"))
+        if (old.longestStreak < 30 && new.longestStreak >= 30) emitEvent(EconomyEvent.AchievementUnlocked("30-Day Streak"))
+        if (old.longestStreak < 60 && new.longestStreak >= 60) emitEvent(EconomyEvent.AchievementUnlocked("60-Day Streak"))
+        if (old.longestStreak < 100 && new.longestStreak >= 100) emitEvent(EconomyEvent.AchievementUnlocked("100-Day Streak"))
+        if (old.longestStreak < 365 && new.longestStreak >= 365) emitEvent(EconomyEvent.AchievementUnlocked("365-Day Streak"))
+
+        if (old.gold < 100 && new.gold >= 100) emitEvent(EconomyEvent.AchievementUnlocked("Piggy Bank"))
+        if (old.gold < 1000 && new.gold >= 1000) emitEvent(EconomyEvent.AchievementUnlocked("Savings"))
+        if (old.gold < 5000 && new.gold >= 5000) emitEvent(EconomyEvent.AchievementUnlocked("Wealthy"))
+        if (old.gold < 10000 && new.gold >= 10000) emitEvent(EconomyEvent.AchievementUnlocked("Hoarder"))
+        if (old.gold < 25000 && new.gold >= 25000) emitEvent(EconomyEvent.AchievementUnlocked("Dragon's Hoard"))
+        if (old.gold < 50000 && new.gold >= 50000) emitEvent(EconomyEvent.AchievementUnlocked("Midas Touch"))
+        if (old.gold < 100000 && new.gold >= 100000) emitEvent(EconomyEvent.AchievementUnlocked("Treasury"))
+        
+        if (old.lifetimeFocusMins < 60 && new.lifetimeFocusMins >= 60) emitEvent(EconomyEvent.AchievementUnlocked("Getting Started"))
+        if (old.lifetimeFocusMins < 600 && new.lifetimeFocusMins >= 600) emitEvent(EconomyEvent.AchievementUnlocked("Flow State"))
+        if (old.lifetimeFocusMins < 3000 && new.lifetimeFocusMins >= 3000) emitEvent(EconomyEvent.AchievementUnlocked("Zone In"))
+        if (old.lifetimeFocusMins < 6000 && new.lifetimeFocusMins >= 6000) emitEvent(EconomyEvent.AchievementUnlocked("Deep Work Sentinel"))
+        if (old.lifetimeFocusMins < 30000 && new.lifetimeFocusMins >= 30000) emitEvent(EconomyEvent.AchievementUnlocked("Monk Mode"))
+        if (old.lifetimeFocusMins < 60000 && new.lifetimeFocusMins >= 60000) emitEvent(EconomyEvent.AchievementUnlocked("Time Lord"))
+        if (old.lifetimeFocusMins < 120000 && new.lifetimeFocusMins >= 120000) emitEvent(EconomyEvent.AchievementUnlocked("Master of Time"))
+        
+        if (old.lifetimeResists < 1 && new.lifetimeResists >= 1) emitEvent(EconomyEvent.AchievementUnlocked("First Temptation"))
+        if (old.lifetimeResists < 10 && new.lifetimeResists >= 10) emitEvent(EconomyEvent.AchievementUnlocked("Iron Will"))
+        if (old.lifetimeResists < 50 && new.lifetimeResists >= 50) emitEvent(EconomyEvent.AchievementUnlocked("Willpower"))
+        if (old.lifetimeResists < 100 && new.lifetimeResists >= 100) emitEvent(EconomyEvent.AchievementUnlocked("Dopamine Detox"))
+        if (old.lifetimeResists < 500 && new.lifetimeResists >= 500) emitEvent(EconomyEvent.AchievementUnlocked("Unshatterable"))
+        if (old.lifetimeResists < 1000 && new.lifetimeResists >= 1000) emitEvent(EconomyEvent.AchievementUnlocked("Zen Mind"))
+        
+        if (old.avatarTier < 1 && new.avatarTier >= 1) emitEvent(EconomyEvent.AchievementUnlocked("Scholar"))
+        if (old.avatarTier < 2 && new.avatarTier >= 2) emitEvent(EconomyEvent.AchievementUnlocked("Knight"))
+        if (old.avatarTier < 3 && new.avatarTier >= 3) emitEvent(EconomyEvent.AchievementUnlocked("Noble"))
+        if (old.avatarTier < 4 && new.avatarTier >= 4) emitEvent(EconomyEvent.AchievementUnlocked("Emperor"))
     }
 
     fun updateName(newName: String) {
         prefs?.edit()?.putString("user_name", newName)?.apply()
         loadProfile()
     }
-
 
     fun purchaseAvatar(avatarId: String, cost: Int): Boolean {
         prefs?.let { p ->
@@ -110,12 +167,7 @@ object FocusEconomyManager {
         prefs?.edit()?.putString("selected_avatar", avatarId)?.apply()
         loadProfile()
     }
-
     
-    // Level 1: 0 XP
-    // Level 2: 100 XP
-    // Level 3: 250 XP
-    // Formula: (Level-1) * 100 + (Level-1)^2 * 25
     fun calculateLevel(xp: Int): Int {
         var level = 1
         while (level < 200 && requiredXpForLevel(level + 1) <= xp) {
@@ -126,8 +178,8 @@ object FocusEconomyManager {
 
     fun requiredXpForLevel(level: Int): Int {
         if (level <= 1) return 0
-        val baseAt100 = 99 * 100 + (99 * 99) * 25 // 254,925 XP
-        val constantDeltaAfter100 = (99 * 100 + 99 * 99 * 25) - (98 * 100 + 98 * 98 * 25) // 5,025 XP
+        val baseAt100 = 99 * 100 + (99 * 99) * 25
+        val constantDeltaAfter100 = (99 * 100 + 99 * 99 * 25) - (98 * 100 + 98 * 98 * 25)
         
         return if (level <= 100) {
             (level - 1) * 100 + ((level - 1) * (level - 1)) * 25
@@ -135,7 +187,6 @@ object FocusEconomyManager {
             baseAt100 + (level - 100) * constantDeltaAfter100
         }
     }
-
     
     fun getGoldMultiplier(level: Int): Float {
         return when (level) {
@@ -149,7 +200,6 @@ object FocusEconomyManager {
             else -> 4.0f
         }
     }
-
     
     fun applySoftUnlockPenalty() {
         prefs?.let { p ->
@@ -164,8 +214,6 @@ object FocusEconomyManager {
             }
             
             var newXp = max(0, currentProfile.xp - penalty)
-            
-            // Floor protection: Never drop more than 5 levels from maxLevel
             val minAllowedLevel = max(1, currentProfile.maxLevel - 5)
             val minAllowedXp = requiredXpForLevel(minAllowedLevel)
             
@@ -177,7 +225,6 @@ object FocusEconomyManager {
             loadProfile()
         }
     }
-
 
     fun claimPendingRewards() {
         prefs?.let { p ->
@@ -191,9 +238,11 @@ object FocusEconomyManager {
                 .putInt("pending_gold", 0)
                 .apply()
             loadProfile()
+            if (pXp > 0 || pGold > 0) {
+                emitEvent(EconomyEvent.RewardsEarned(pXp, pGold, "Claimed Rewards"))
+            }
         }
     }
-
     
     fun recoverXp(goldCost: Int, xpGain: Int) {
         prefs?.let { p ->
@@ -207,18 +256,19 @@ object FocusEconomyManager {
             }
         }
     }
-
     
     fun addRewards(baseXp: Int, baseGold: Int) {
         prefs?.let { p ->
             val currentLevel = _profileFlow.value.level
             val goldMultiplier = getGoldMultiplier(currentLevel)
-            
             val finalGold = (baseGold * goldMultiplier).toInt()
             
+            val pXp = _profileFlow.value.pendingXp
+            val pGold = _profileFlow.value.pendingGold
+            
             p.edit()
-                .putInt("pending_xp", _profileFlow.value.pendingXp + baseXp)
-                .putInt("pending_gold", _profileFlow.value.pendingGold + finalGold)
+                .putInt("pending_xp", pXp + baseXp)
+                .putInt("pending_gold", pGold + finalGold)
                 .apply()
             loadProfile()
         }
@@ -229,10 +279,7 @@ object FocusEconomyManager {
             val currentLevel = _profileFlow.value.level
             val goldMultiplier = getGoldMultiplier(currentLevel)
             
-            // 50 XP per 5 minute block
             val baseXp = 50
-            
-            // Base Gold scales up exponentially to reward longer focus sessions!
             val baseGold = when(totalMinsFocusedSoFar) {
                 5 -> 10
                 10 -> 25
@@ -251,14 +298,16 @@ object FocusEconomyManager {
             
             val finalGold = (baseGold * goldMultiplier).toInt()
             
+            val pXp = _profileFlow.value.pendingXp
+            val pGold = _profileFlow.value.pendingGold
+            
             p.edit()
-                .putInt("pending_xp", _profileFlow.value.pendingXp + baseXp)
-                .putInt("pending_gold", _profileFlow.value.pendingGold + finalGold)
+                .putInt("pending_xp", pXp + baseXp)
+                .putInt("pending_gold", pGold + finalGold)
                 .apply()
             loadProfile()
         }
     }
-
 
     fun addResist() {
         prefs?.let { p ->
@@ -275,15 +324,12 @@ object FocusEconomyManager {
             loadProfile()
         }
     }
-
-    
-    
+        
     fun syncStreaks(current: Int, longest: Int) {
         prefs?.let { p ->
             val oldGold = _profileFlow.value.gold
             var newGold = oldGold
             
-            // Give achievement rewards if we hit new milestones
             val oldLongest = _profileFlow.value.longestStreak
             if (longest > oldLongest) {
                 if (longest == 3 && oldLongest < 3) newGold += 100
@@ -291,10 +337,15 @@ object FocusEconomyManager {
                 if (longest == 30 && oldLongest < 30) newGold += 5000
             }
             
+            
+            val earnedGold = newGold - oldGold
+            val finalGold = oldGold // We don't add to real gold yet
+            val pGold = _profileFlow.value.pendingGold
+            
             p.edit()
                 .putInt("current_streak", current)
                 .putInt("longest_streak", longest)
-                .putInt("gold", newGold)
+                .putInt("pending_gold", pGold + earnedGold)
                 .apply()
             loadProfile()
         }
@@ -315,12 +366,12 @@ object FocusEconomyManager {
                 30 -> goldBonus = 5000
             }
             
-            val newGold = _profileFlow.value.gold + goldBonus
+            val pGold = _profileFlow.value.pendingGold
             
             p.edit()
                 .putInt("current_streak", newStreak)
                 .putInt("longest_streak", longest)
-                .putInt("gold", newGold)
+                .putInt("pending_gold", pGold + goldBonus)
                 .apply()
             loadProfile()
         }
@@ -330,21 +381,15 @@ object FocusEconomyManager {
         prefs?.edit()?.putInt("current_streak", 0)?.apply()
         loadProfile()
     }
-
     
     fun unlockProMax() {
         prefs?.let { p ->
-            // Max Level is 50, which requires ~60,000 XP
-            // Max Avatar Tier requires 50,000 Gold
-            // Max Streak Achievement is 30 Days
-            
             p.edit()
                 .putInt("xp", 260000)
                 .putInt("gold", 999999)
                 .putInt("current_streak", 30)
                 .putInt("longest_streak", 30)
                 .apply()
-            
             loadProfile()
         }
     }

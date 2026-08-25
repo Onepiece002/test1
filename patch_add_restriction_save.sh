@@ -1,1 +1,0 @@
-sed -i 's/mode = selectedMode,/mode = selectedMode,\n                                    restrictionMode = restrictionMode,\n                                    timeLimitMinutes = timeLimitMinutes,\n                                    clickLimitCount = clickLimitCount,/g' app/src/main/java/com/focusbyrj/app/ui/screens/AddRestrictionScreen.kt

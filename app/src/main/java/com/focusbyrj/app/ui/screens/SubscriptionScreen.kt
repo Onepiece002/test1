@@ -45,8 +45,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.focusbyrj.app.ui.theme.AccentCyan
-import com.focusbyrj.app.ui.theme.AccentViolet
+
+
 import com.focusbyrj.app.ui.theme.SurfaceDark
 import com.focusbyrj.app.util.LicenseManager
 
@@ -125,7 +125,7 @@ private fun ProStatusCard(isPro: Boolean) {
             .background(if (isPro) Color.White.copy(alpha = 0.05f) else SurfaceDark)
             .border(
                 1.dp,
-                if (isPro) AccentCyan else Color.White.copy(alpha = 0.1f),
+                if (isPro) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.1f),
                 RoundedCornerShape(24.dp)
             )
             .padding(24.dp),
@@ -136,13 +136,13 @@ private fun ProStatusCard(isPro: Boolean) {
                 modifier = Modifier
                     .size(64.dp)
                     .clip(CircleShape)
-                    .background(if (isPro) AccentCyan.copy(alpha = 0.2f) else Color(0xFF1E1E2E)),
+                    .background(if (isPro) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) else Color(0xFF1E1E2E)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Filled.Star,
                     contentDescription = null,
-                    tint = if (isPro) AccentCyan else Color.Gray,
+                    tint = if (isPro) MaterialTheme.colorScheme.primary else Color.Gray,
                     modifier = Modifier.size(32.dp)
                 )
             }
@@ -153,7 +153,7 @@ private fun ProStatusCard(isPro: Boolean) {
                     fontWeight = FontWeight.ExtraBold,
                     letterSpacing = 1.5.sp
                 ),
-                color = if (isPro) AccentCyan else Color.White
+                color = if (isPro) MaterialTheme.colorScheme.primary else Color.White
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
@@ -179,7 +179,7 @@ private fun ActivationSection(
     Column {
         Text(
             text = "ENTER LICENSE KEY",
-            style = MaterialTheme.typography.titleMedium.copy(color = AccentCyan, letterSpacing = 1.sp),
+            style = MaterialTheme.typography.titleMedium.copy(color = MaterialTheme.colorScheme.primary, letterSpacing = 1.sp),
             modifier = Modifier.padding(bottom = 12.dp)
         )
 
@@ -193,7 +193,7 @@ private fun ActivationSection(
             colors = OutlinedTextFieldDefaults.colors(
                 focusedContainerColor = SurfaceDark,
                 unfocusedContainerColor = SurfaceDark,
-                focusedBorderColor = AccentViolet,
+                focusedBorderColor = MaterialTheme.colorScheme.secondary,
                 unfocusedBorderColor = Color.White.copy(alpha = 0.1f),
                 focusedTextColor = Color(0xFFCBD5E1),
                 unfocusedTextColor = Color.White
@@ -208,7 +208,7 @@ private fun ActivationSection(
                 .fillMaxWidth()
                 .height(54.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = AccentCyan,
+                containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = Color.Black
             ),
             shape = RoundedCornerShape(27.dp)
@@ -226,7 +226,7 @@ private fun ProBenefitsSection() {
     Column {
         Text(
             text = "PRO BENEFITS INCLUDED",
-            style = MaterialTheme.typography.titleMedium.copy(color = AccentViolet, letterSpacing = 1.sp),
+            style = MaterialTheme.typography.titleMedium.copy(color = MaterialTheme.colorScheme.secondary, letterSpacing = 1.sp),
             modifier = Modifier.padding(bottom = 12.dp)
         )
 
@@ -247,7 +247,7 @@ private fun ProBenefitsSection() {
                 Icon(
                     imageVector = Icons.Filled.CheckCircle,
                     contentDescription = null,
-                    tint = AccentCyan,
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.width(12.dp))

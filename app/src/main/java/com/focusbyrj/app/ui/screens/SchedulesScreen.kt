@@ -17,7 +17,7 @@
 
 package com.focusbyrj.app.ui.screens
 
-import com.focusbyrj.app.ui.theme.MidnightBlack
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.Image
 import com.focusbyrj.app.util.ImageUtils
@@ -92,8 +92,8 @@ fun SchedulesScreen(viewModel: FocusViewModel) {
             floatingActionButton = {
                 FloatingActionButton(
                     onClick = { showCreateScreen = true },
-                    containerColor = AccentCyan,
-                    contentColor = MidnightBlack
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
                 ) {
                     Icon(Icons.Filled.Add, contentDescription = "Add Schedule")
                 }
@@ -172,7 +172,7 @@ fun RoutineCard(schedule: com.focusbyrj.app.data.FocusSchedule, onEdit: () -> Un
             }
             Spacer(modifier = Modifier.height(8.dp))
             val timeString = "${String.format("%02d:%02d", schedule.startHour, schedule.startMinute)} - ${String.format("%02d:%02d", schedule.endHour, schedule.endMinute)}"
-            Text(timeString, style = MaterialTheme.typography.titleMedium, color = AccentCyan)
+            Text(timeString, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
             Spacer(modifier = Modifier.height(16.dp))
             
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -184,8 +184,8 @@ fun RoutineCard(schedule: com.focusbyrj.app.data.FocusSchedule, onEdit: () -> Un
                         modifier = Modifier
                             .size(32.dp)
                             .clip(CircleShape)
-                            .background(if (isActive) AccentViolet else SurfaceVariantDark)
-                            .border(1.dp, if (isActive) AccentViolet else BorderGlass, CircleShape),
+                            .background(if (isActive) MaterialTheme.colorScheme.secondary else SurfaceVariantDark)
+                            .border(1.dp, if (isActive) MaterialTheme.colorScheme.secondary else BorderGlass, CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(day, color = if (isActive) Color.White else Color.Gray, fontSize = 12.sp, fontWeight = FontWeight.Bold)
@@ -194,7 +194,7 @@ fun RoutineCard(schedule: com.focusbyrj.app.data.FocusSchedule, onEdit: () -> Un
             }
             Spacer(modifier = Modifier.height(16.dp))
             val appCount = if (schedule.appsToBlock.isEmpty()) 0 else schedule.appsToBlock.split(",").size
-            Text("$appCount Apps • ${schedule.mode} Mode", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("$appCount Apps Shielded", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -220,14 +220,31 @@ fun CreateRoutineScreen(
     var restrictionMode by remember { mutableStateOf(scheduleToEdit?.restrictionMode ?: "SIMPLE") }
     var timeLimitMinutes by remember { mutableIntStateOf(if (scheduleToEdit?.timeLimitMinutes != null && scheduleToEdit.timeLimitMinutes > 0) scheduleToEdit.timeLimitMinutes else 15) }
     var clickLimitCount by remember { mutableIntStateOf(if (scheduleToEdit?.clickLimitCount != null && scheduleToEdit.clickLimitCount > 0) scheduleToEdit.clickLimitCount.coerceIn(1, 20) else 5) }
-    var mode by remember { mutableStateOf(scheduleToEdit?.mode ?: "HARD") }
-    var selectedApps by remember { 
+        var mode by remember { mutableStateOf(scheduleToEdit?.mode ?: "HARD") }
+    var appModes by remember { 
         mutableStateOf(
-            scheduleToEdit?.appsToBlock?.split(",")?.filter { it.isNotBlank() }?.toSet() ?: setOf<String>()
+            scheduleToEdit?.appsToBlock?.split(",")?.mapNotNull { 
+                val parts = it.split("|")
+                if (parts.size > 1) parts[0] to parts[1] else null
+            }?.toMap() ?: emptyMap<String, String>()
         ) 
     }
+    var selectedApps by remember { 
+        mutableStateOf(
+            scheduleToEdit?.appsToBlock?.split(",")?.map { it.split("|")[0] }?.filter { it.isNotBlank() }?.toSet() ?: setOf<String>()
+        ) 
+    }
+
     
     var showAppSelector by remember { mutableStateOf(false) }
+
+    val selectedInstalledApps = remember(selectedApps) {
+        val pm = context.packageManager
+        selectedApps.map { pkg ->
+            val name = try { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() } catch(e: Exception) { pkg }
+            InstalledApp(pkg, name, AppCategory.ALL)
+        }
+    }
 
     if (showAppSelector) {
         MultiAppSelectorScreen(
@@ -268,7 +285,7 @@ fun CreateRoutineScreen(
                     label = { Text("Routine Name", color = Color.Gray) },
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AccentCyan,
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
                         unfocusedBorderColor = BorderGlass,
                         focusedTextColor = Color(0xFFCBD5E1),
                         unfocusedTextColor = Color.White
@@ -296,8 +313,8 @@ fun CreateRoutineScreen(
                             modifier = Modifier
                                 .size(42.dp)
                                 .clip(CircleShape)
-                                .background(if (isSelected) AccentViolet else SurfaceDark)
-                                .border(1.dp, if (isSelected) AccentViolet else BorderGlass, CircleShape)
+                                .background(if (isSelected) MaterialTheme.colorScheme.secondary else SurfaceDark)
+                                .border(1.dp, if (isSelected) MaterialTheme.colorScheme.secondary else BorderGlass, CircleShape)
                                 .clickable {
                                     val newSet = selectedDays.toMutableSet()
                                     if (isSelected) newSet.remove(index + 1) else newSet.add(index + 1)
@@ -324,30 +341,52 @@ fun CreateRoutineScreen(
                 )
 
                 Spacer(modifier = Modifier.height(20.dp))
-                Text("RESTRICTION MODE", style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 1.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(modifier = Modifier.height(12.dp))
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    ModeSelectorBox("SOFT", "Allows dismissing", mode == "SOFT", modifier = Modifier.weight(1f)) { mode = "SOFT" }
-                    ModeSelectorBox("HARD", "No way out", mode == "HARD", modifier = Modifier.weight(1f)) { mode = "HARD" }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("APPS TO SHIELD", style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 1.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    TextButton(onClick = { showAppSelector = true }) {
+                        Text(if (selectedApps.isEmpty()) "Select Apps" else "Add/Remove Apps", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                    }
                 }
-
-                Spacer(modifier = Modifier.height(24.dp))
-                Text("APPS TO SHIELD", style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 1.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(modifier = Modifier.height(12.dp))
                 
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(SurfaceDark)
-                        .border(1.dp, BorderGlass, RoundedCornerShape(20.dp))
-                        .clickable { showAppSelector = true }
-                        .padding(24.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(if (selectedApps.isEmpty()) "Tap to select apps" else "${selectedApps.size} apps selected", color = AccentCyan, fontWeight = FontWeight.Bold)
-                }
+                if (selectedApps.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(SurfaceDark)
+                            .border(1.dp, BorderGlass, RoundedCornerShape(20.dp))
+                            .clickable { showAppSelector = true }
+                            .padding(24.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("Tap to select apps", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                    }
+                } else {
+                    val hardApps = selectedInstalledApps.filter { appModes[it.packageName] != "SOFT" }
+                    val softApps = selectedInstalledApps.filter { appModes[it.packageName] == "SOFT" }
 
+                    com.focusbyrj.app.ui.components.AppModeDropZone(
+                        title = "HARD MODE",
+                        description = "No bypass allowed",
+                        apps = hardApps,
+                        onAppClick = { appModes = appModes + (it.packageName to "SOFT") },
+                        borderColor = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+
+                    com.focusbyrj.app.ui.components.AppModeDropZone(
+                        title = "SOFT MODE",
+                        description = "10 sec wait bypass",
+                        apps = softApps,
+                        onAppClick = { appModes = appModes + (it.packageName to "HARD") },
+                        borderColor = MaterialTheme.colorScheme.secondary
+                    )
+                }
                 Spacer(modifier = Modifier.height(48.dp))
                 Button(
                     onClick = {
@@ -405,8 +444,8 @@ fun ModeSelectorBox(title: String, desc: String, isSelected: Boolean, modifier: 
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(20.dp))
-            .background(if (isSelected) AccentViolet.copy(alpha=0.3f) else SurfaceDark)
-            .border(2.dp, if (isSelected) AccentViolet else BorderGlass, RoundedCornerShape(20.dp))
+            .background(if (isSelected) MaterialTheme.colorScheme.secondary.copy(alpha=0.3f) else SurfaceDark)
+            .border(2.dp, if (isSelected) MaterialTheme.colorScheme.secondary else BorderGlass, RoundedCornerShape(20.dp))
             .clickable { onClick() }
             .padding(16.dp)
     ) {
@@ -484,12 +523,12 @@ fun MultiAppSelectorScreen(
             IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White) }
             Text("Select Apps", style = MaterialTheme.typography.titleMedium, color = Color(0xFFCBD5E1))
             TextButton(onClick = { onSave(currentSelection) }) {
-                Text("Done", color = AccentCyan, fontWeight = FontWeight.Bold)
+                Text("Done", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
             }
         }
 
         if (isLoading) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = AccentCyan) }
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = MaterialTheme.colorScheme.primary) }
         } else {
             LazyRow(
                 modifier = Modifier
@@ -510,7 +549,7 @@ fun MultiAppSelectorScreen(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(20.dp))
-                            .background(if (isCatSelected) AccentViolet else SurfaceDark)
+                            .background(if (isCatSelected) MaterialTheme.colorScheme.secondary else SurfaceDark)
                             .clickable { selectedCategory = option }
                             .padding(horizontal = 16.dp, vertical = 8.dp)
                     ) {
@@ -551,7 +590,7 @@ fun MultiAppSelectorScreen(
                         modifier = Modifier
                             .clip(RoundedCornerShape(20.dp))
                             .background(SurfaceDark)
-                            .border(1.dp, AccentCyan, RoundedCornerShape(20.dp))
+                            .border(1.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(20.dp))
                             .clickable { 
                                 editingCustomCategory = null
                                 showCustomCategoryEditor = true
@@ -560,7 +599,7 @@ fun MultiAppSelectorScreen(
                     ) {
                         Text(
                             text = "+ Custom",
-                            color = AccentCyan,
+                            color = MaterialTheme.colorScheme.primary,
                             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
                         )
                     }
@@ -602,7 +641,7 @@ fun MultiAppSelectorScreen(
                         TextButton(
                             onClick = { currentSelection = currentSelection + filteredPackages }
                         ) {
-                            Text("Select All", color = AccentCyan)
+                            Text("Select All", color = MaterialTheme.colorScheme.primary)
                         }
                     }
                 }
@@ -621,8 +660,8 @@ fun MultiAppSelectorScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(16.dp))
-                            .background(if (isSelected) AccentViolet.copy(alpha = 0.15f) else SurfaceDark)
-                            .border(1.dp, if (isSelected) AccentViolet else BorderGlass, RoundedCornerShape(16.dp))
+                            .background(if (isSelected) MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f) else SurfaceDark)
+                            .border(1.dp, if (isSelected) MaterialTheme.colorScheme.secondary else BorderGlass, RoundedCornerShape(16.dp))
                             .clickable {
                                 val newSet = currentSelection.toMutableSet()
                                 if (isSelected) newSet.remove(app.packageName) else newSet.add(app.packageName)
@@ -640,7 +679,7 @@ fun MultiAppSelectorScreen(
                                 Text(app.category.title, color = Color.Gray, style = MaterialTheme.typography.labelMedium)
                             }
                             if (isSelected) {
-                                Icon(androidx.compose.material.icons.Icons.Filled.CheckCircle, contentDescription = "Selected", tint = AccentCyan, modifier = Modifier.size(28.dp))
+                                Icon(androidx.compose.material.icons.Icons.Filled.CheckCircle, contentDescription = "Selected", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
                             } else {
                                 Box(modifier = Modifier.size(28.dp).border(2.dp, Color.Gray.copy(alpha = 0.5f), CircleShape))
                             }
