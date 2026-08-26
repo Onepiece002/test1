@@ -3,7 +3,7 @@ name: Build & Release APK
 on:
   push:
     tags:
-      - 'v*'            # Runs automatically ONLY when you push a version tag
+      - 'v**'            # Fixed: Matches all version tags including v1.0.10+
   workflow_dispatch:    # Enables the manual "Run workflow" button in GitHub Actions
 
 permissions:
@@ -51,7 +51,7 @@ jobs:
           path: app/build/outputs/apk/release/*.apk
           retention-days: 14
 
-      # Only triggers when an actual Git tag (v*) is pushed
+      # Only triggers when an actual Git tag is pushed
       - name: Upload APK to Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
