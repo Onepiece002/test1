@@ -82,6 +82,16 @@
             android:launchMode="singleInstance"
             android:exported="true" />
 
+        <!-- Todoist Style Widget Configuration Activity -->
+        <activity
+            android:name=".widget.TodoWidgetConfigureActivity"
+            android:exported="true"
+            android:theme="@style/Theme.FocusByRj">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
         <!-- Todoist Style Home Screen Widget -->
         <receiver
             android:name=".widget.TodoWidgetProvider"

@@ -35,6 +35,7 @@ class TodoWidgetRemoteViewsFactory(
         AppWidgetManager.INVALID_APPWIDGET_ID
     )
     private var tasksList: List<Task> = emptyList()
+    private var widgetConfig: WidgetConfig = WidgetConfig()
 
     override fun onCreate() {
         loadTasks()
@@ -46,6 +47,7 @@ class TodoWidgetRemoteViewsFactory(
 
     private fun loadTasks() {
         try {
+            widgetConfig = WidgetConfigHelper.getConfig(context, appWidgetId)
             val tabIndex = TodoWidgetProvider.getSelectedTab(context, appWidgetId)
             val app = context.applicationContext as FocusApplication
             val allTasks = runBlocking {
@@ -91,7 +93,13 @@ class TodoWidgetRemoteViewsFactory(
         val task = tasksList[position]
 
         val views = RemoteViews(context.packageName, R.layout.widget_todo_item)
+        
+        // Item Background bitmap
+        val itemBgBitmap = WidgetDrawableGenerator.createItemBackground(context, widgetConfig)
+        views.setImageViewBitmap(R.id.widget_item_bg_image, itemBgBitmap)
+
         views.setTextViewText(R.id.widget_item_title, task.title)
+        views.setTextColor(R.id.widget_item_title, widgetConfig.primaryTextColorInt)
 
         // Format due date / badge
         if (task.dueDate != null) {
@@ -118,13 +126,13 @@ class TodoWidgetRemoteViewsFactory(
             if (task.dueDate < System.currentTimeMillis() && !isToday) {
                 views.setTextColor(R.id.widget_item_due, Color.parseColor("#FF6B6B"))
             } else {
-                views.setTextColor(R.id.widget_item_due, Color.parseColor("#2EE59D"))
+                views.setTextColor(R.id.widget_item_due, widgetConfig.accentColorInt)
             }
         } else {
             if (task.type != TaskType.TASK) {
                 views.setViewVisibility(R.id.widget_item_due, View.VISIBLE)
                 views.setTextViewText(R.id.widget_item_due, task.type.name.lowercase().replaceFirstChar { it.uppercase() })
-                views.setTextColor(R.id.widget_item_due, Color.parseColor("#FFD166"))
+                views.setTextColor(R.id.widget_item_due, widgetConfig.accentColorInt)
             } else {
                 views.setViewVisibility(R.id.widget_item_due, View.GONE)
             }
@@ -134,18 +142,18 @@ class TodoWidgetRemoteViewsFactory(
         if (task.recurrence != RecurrencePattern.NONE) {
             views.setViewVisibility(R.id.widget_item_badge, View.VISIBLE)
             views.setTextViewText(R.id.widget_item_badge, "↻ ${task.recurrence.name.lowercase()}")
+            views.setTextColor(R.id.widget_item_badge, widgetConfig.secondaryTextColorInt)
         } else if (task.isPersistent) {
             views.setViewVisibility(R.id.widget_item_badge, View.VISIBLE)
             views.setTextViewText(R.id.widget_item_badge, "● persistent")
+            views.setTextColor(R.id.widget_item_badge, widgetConfig.secondaryTextColorInt)
         } else {
             views.setViewVisibility(R.id.widget_item_badge, View.GONE)
         }
 
         // Checkbox icon
-        views.setImageViewResource(
-            R.id.widget_item_checkbox,
-            if (task.isCompleted) R.drawable.ic_widget_check_filled else R.drawable.ic_widget_check_empty
-        )
+        val checkboxBitmap = WidgetDrawableGenerator.createCheckbox(context, widgetConfig, task.isCompleted)
+        views.setImageViewBitmap(R.id.widget_item_checkbox, checkboxBitmap)
 
         // Fill-in Intent for Checkbox (Toggles task)
         val checkFillIntent = Intent().apply {

@@ -112,21 +112,9 @@ class FocusBlockerService : Service() {
         val notifyEnabled = prefs.getBoolean("routine_notifications", true)
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-        if (!notifyEnabled) {
-            // Remove foreground notification from user view while keeping service running
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                stopForeground(STOP_FOREGROUND_REMOVE)
-            } else {
-                @Suppress("DEPRECATION")
-                stopForeground(true)
-            }
-            notificationManager.cancel(NOTIFICATION_ID)
-            return
-        }
-
         val channelId = "focus_blocker_channel"
         val channelName = "Focus Guard Service"
-        val importance = NotificationManager.IMPORTANCE_LOW
+        val importance = if (notifyEnabled) NotificationManager.IMPORTANCE_LOW else NotificationManager.IMPORTANCE_MIN
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
@@ -136,7 +124,7 @@ class FocusBlockerService : Service() {
             ).apply {
                 description = "Monitors restricted apps in background"
                 setSound(null, null)
-                setShowBadge(true)
+                setShowBadge(false)
             }
             notificationManager.createNotificationChannel(channel)
         }
@@ -146,13 +134,15 @@ class FocusBlockerService : Service() {
             .setOngoing(true)
             .setContentTitle("Focus Guard Active")
             .setContentText("Protecting your screen time and boundaries")
-            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setPriority(if (notifyEnabled) NotificationCompat.PRIORITY_LOW else NotificationCompat.PRIORITY_MIN)
             .build()
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(NOTIFICATION_ID, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
-        } else {
-            startForeground(NOTIFICATION_ID, notification)
+        kotlin.runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                startForeground(NOTIFICATION_ID, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+            } else {
+                startForeground(NOTIFICATION_ID, notification)
+            }
         }
     }
 
@@ -244,19 +234,21 @@ class FocusBlockerService : Service() {
         val notifyEnabled = prefs.getBoolean("routine_notifications", true)
         if (!notifyEnabled) return
 
-        val channelId = "routine_alerts"
-        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(channelId, "Routine Alerts", NotificationManager.IMPORTANCE_DEFAULT)
-            notificationManager.createNotificationChannel(channel)
+        kotlin.runCatching {
+            val channelId = "routine_alerts"
+            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val channel = NotificationChannel(channelId, "Routine Alerts", NotificationManager.IMPORTANCE_DEFAULT)
+                notificationManager.createNotificationChannel(channel)
+            }
+            val notification = NotificationCompat.Builder(this, channelId)
+                .setContentTitle(title)
+                .setContentText(message)
+                .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+                .setAutoCancel(true)
+                .build()
+            notificationManager.notify((System.currentTimeMillis() % 100000).toInt(), notification)
         }
-        val notification = NotificationCompat.Builder(this, channelId)
-            .setContentTitle(title)
-            .setContentText(message)
-            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-            .setAutoCancel(true)
-            .build()
-        notificationManager.notify(System.currentTimeMillis().toInt(), notification)
     }
 
     private val homePackages = mutableSetOf<String>()
@@ -300,45 +292,47 @@ class FocusBlockerService : Service() {
     }
 
     private fun getForegroundPackage(): String? {
-        val usm = getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager ?: return null
-        val now = System.currentTimeMillis()
+        return kotlin.runCatching {
+            val usm = getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager ?: return null
+            val now = System.currentTimeMillis()
 
-        val events = usm.queryEvents(now - 1000 * 10, now)
-        val event = UsageEvents.Event()
-        var latestPackage: String? = null
-        var latestTime = 0L
+            val events = usm.queryEvents(now - 1000 * 10, now) ?: return null
+            val event = UsageEvents.Event()
+            var latestPackage: String? = null
+            var latestTime = 0L
 
-        while (events.hasNextEvent()) {
-            events.getNextEvent(event)
-            if (event.eventType == UsageEvents.Event.ACTIVITY_RESUMED || event.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND) {
-                if (event.timeStamp > latestTime) {
-                    latestTime = event.timeStamp
-                    latestPackage = event.packageName
+            while (events.hasNextEvent()) {
+                events.getNextEvent(event)
+                if (event.eventType == UsageEvents.Event.ACTIVITY_RESUMED || event.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND) {
+                    if (event.timeStamp > latestTime) {
+                        latestTime = event.timeStamp
+                        latestPackage = event.packageName
+                    }
                 }
             }
-        }
 
-        if (latestPackage != null) {
-            if (latestPackage == FocusExitTracker.lastExitedPackage) {
-                // Ignore ghost resume events that happen exactly when the overlay is removed
-                if (latestTime <= FocusExitTracker.exitTimestamp + 2000L) {
-                    return null
+            if (latestPackage != null) {
+                if (latestPackage == FocusExitTracker.lastExitedPackage) {
+                    // Ignore ghost resume events that happen exactly when the overlay is removed
+                    if (latestTime <= FocusExitTracker.exitTimestamp + 2000L) {
+                        return null
+                    } else {
+                        FocusExitTracker.onNewForegroundAppDetected(latestPackage)
+                    }
                 } else {
                     FocusExitTracker.onNewForegroundAppDetected(latestPackage)
                 }
-            } else {
-                FocusExitTracker.onNewForegroundAppDetected(latestPackage)
+                currentForegroundPackage = latestPackage
+                return latestPackage
             }
-            currentForegroundPackage = latestPackage
-            return latestPackage
-        }
 
-        if (FocusExitTracker.isExitSuppressed(currentForegroundPackage)) {
-            // User just exited to home, clear the cached package so we don't get stuck
-            currentForegroundPackage = null
-            return null
-        }
-        return currentForegroundPackage
+            if (FocusExitTracker.isExitSuppressed(currentForegroundPackage)) {
+                // User just exited to home, clear the cached package so we don't get stuck
+                currentForegroundPackage = null
+                return null
+            }
+            currentForegroundPackage
+        }.getOrNull()
     }
 
     private suspend fun checkAndBlockApp(packageName: String) {

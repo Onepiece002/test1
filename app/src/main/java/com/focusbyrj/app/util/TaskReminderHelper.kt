@@ -15,20 +15,20 @@ object TaskReminderHelper {
     fun scheduleReminder(context: Context, task: Task) {
         if (task.dueDate == null || task.isCompleted) return
 
-        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val intent = Intent(context, TaskReminderReceiver::class.java).apply {
-            putExtra("taskId", task.id)
-            putExtra("taskTitle", task.title)
-            putExtra("isPersistent", task.isPersistent)
-        }
-        val pendingIntent = PendingIntent.getBroadcast(
-            context,
-            task.id.toInt(),
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+        kotlin.runCatching {
+            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
+            val intent = Intent(context, TaskReminderReceiver::class.java).apply {
+                putExtra("taskId", task.id)
+                putExtra("taskTitle", task.title)
+                putExtra("isPersistent", task.isPersistent)
+            }
+            val pendingIntent = PendingIntent.getBroadcast(
+                context,
+                task.id.toInt(),
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
 
-        try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 if (alarmManager.canScheduleExactAlarms()) {
                     alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, task.dueDate, pendingIntent)
@@ -38,22 +38,38 @@ object TaskReminderHelper {
             } else {
                 alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, task.dueDate, pendingIntent)
             }
-        } catch (e: Exception) {
-            // Fallback if permission issues
-            alarmManager.set(AlarmManager.RTC_WAKEUP, task.dueDate, pendingIntent)
+        }.onFailure {
+            // Safe fallback
+            kotlin.runCatching {
+                val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
+                val intent = Intent(context, TaskReminderReceiver::class.java).apply {
+                    putExtra("taskId", task.id)
+                    putExtra("taskTitle", task.title)
+                    putExtra("isPersistent", task.isPersistent)
+                }
+                val pendingIntent = PendingIntent.getBroadcast(
+                    context,
+                    task.id.toInt(),
+                    intent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                alarmManager.set(AlarmManager.RTC_WAKEUP, task.dueDate, pendingIntent)
+            }
         }
     }
 
     fun cancelReminder(context: Context, task: Task) {
-        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val intent = Intent(context, TaskReminderReceiver::class.java)
-        val pendingIntent = PendingIntent.getBroadcast(
-            context,
-            task.id.toInt(),
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        alarmManager.cancel(pendingIntent)
+        kotlin.runCatching {
+            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
+            val intent = Intent(context, TaskReminderReceiver::class.java)
+            val pendingIntent = PendingIntent.getBroadcast(
+                context,
+                task.id.toInt(),
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            alarmManager.cancel(pendingIntent)
+        }
     }
 
     fun generateNextRecurringTask(completedTask: Task): Task {
@@ -77,21 +93,21 @@ object TaskReminderHelper {
         )
     }
     fun scheduleNaggingReminder(context: Context, taskId: Long, title: String, intervalMins: Int) {
-        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val intent = Intent(context, TaskReminderReceiver::class.java).apply {
-            putExtra("taskId", taskId)
-            putExtra("taskTitle", title)
-            putExtra("isPersistent", true)
-        }
-        val pendingIntent = PendingIntent.getBroadcast(
-            context,
-            taskId.toInt(),
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        
         val triggerTime = System.currentTimeMillis() + (intervalMins * 60 * 1000L)
-        try {
+        kotlin.runCatching {
+            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
+            val intent = Intent(context, TaskReminderReceiver::class.java).apply {
+                putExtra("taskId", taskId)
+                putExtra("taskTitle", title)
+                putExtra("isPersistent", true)
+            }
+            val pendingIntent = PendingIntent.getBroadcast(
+                context,
+                taskId.toInt(),
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 if (alarmManager.canScheduleExactAlarms()) {
                     alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerTime, pendingIntent)
@@ -101,8 +117,22 @@ object TaskReminderHelper {
             } else {
                 alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerTime, pendingIntent)
             }
-        } catch (e: Exception) {
-            alarmManager.set(AlarmManager.RTC_WAKEUP, triggerTime, pendingIntent)
+        }.onFailure {
+            kotlin.runCatching {
+                val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
+                val intent = Intent(context, TaskReminderReceiver::class.java).apply {
+                    putExtra("taskId", taskId)
+                    putExtra("taskTitle", title)
+                    putExtra("isPersistent", true)
+                }
+                val pendingIntent = PendingIntent.getBroadcast(
+                    context,
+                    taskId.toInt(),
+                    intent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                alarmManager.set(AlarmManager.RTC_WAKEUP, triggerTime, pendingIntent)
+            }
         }
     }
 }

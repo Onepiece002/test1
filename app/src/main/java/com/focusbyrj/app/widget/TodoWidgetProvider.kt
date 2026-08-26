@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.net.Uri
+import android.view.View
 import android.widget.RemoteViews
 import com.focusbyrj.app.FocusApplication
 import com.focusbyrj.app.MainActivity
@@ -47,165 +48,190 @@ class TodoWidgetProvider : AppWidgetProvider() {
         }
 
         fun updateAllWidgets(context: Context) {
-            val appWidgetManager = AppWidgetManager.getInstance(context)
-            val componentName = ComponentName(context, TodoWidgetProvider::class.java)
-            val appWidgetIds = appWidgetManager.getAppWidgetIds(componentName)
-            if (appWidgetIds != null && appWidgetIds.isNotEmpty()) {
-                appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetIds, R.id.widget_list_view)
-                for (widgetId in appWidgetIds) {
-                    updateWidget(context, appWidgetManager, widgetId)
+            kotlin.runCatching {
+                val appWidgetManager = AppWidgetManager.getInstance(context)
+                val componentName = ComponentName(context, TodoWidgetProvider::class.java)
+                val appWidgetIds = appWidgetManager.getAppWidgetIds(componentName)
+                if (appWidgetIds != null && appWidgetIds.isNotEmpty()) {
+                    appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetIds, R.id.widget_list_view)
+                    for (widgetId in appWidgetIds) {
+                        updateWidget(context, appWidgetManager, widgetId)
+                    }
                 }
             }
         }
 
         fun updateWidget(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int) {
-            val selectedTab = getSelectedTab(context, appWidgetId)
-            val views = RemoteViews(context.packageName, R.layout.widget_todo_layout)
+            kotlin.runCatching {
+                val selectedTab = getSelectedTab(context, appWidgetId)
+                val config = WidgetConfigHelper.getConfig(context, appWidgetId)
+                val views = RemoteViews(context.packageName, R.layout.widget_todo_layout)
 
-            // Setup Tab Click Intents
-            for (tabIndex in 0..2) {
-                val tabIntent = Intent(context, TodoWidgetProvider::class.java).apply {
-                    action = ACTION_SET_TAB
-                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
-                    putExtra(EXTRA_TAB_INDEX, tabIndex)
-                    data = Uri.parse("widget://$appWidgetId/tab/$tabIndex")
+                // Background Bitmap
+                val bgBitmap = WidgetDrawableGenerator.createWidgetBackground(context, config)
+                views.setImageViewBitmap(R.id.widget_bg_image, bgBitmap)
+
+                // Colors
+                views.setTextColor(R.id.widget_title, config.primaryTextColorInt)
+                views.setInt(R.id.widget_btn_refresh, "setColorFilter", config.secondaryTextColorInt)
+                views.setInt(R.id.widget_btn_settings, "setColorFilter", config.secondaryTextColorInt)
+                views.setInt(R.id.widget_app_icon, "setColorFilter", config.accentColorInt)
+                views.setTextColor(R.id.widget_empty_text, config.secondaryTextColorInt)
+                views.setTextColor(R.id.widget_empty_subtext, config.accentColorInt)
+
+                // Tab backgrounds and click actions
+                val activeTabBitmap = WidgetDrawableGenerator.createActiveTabPill(context, config)
+                val inactiveTabBitmap = WidgetDrawableGenerator.createInactiveTabPill(context, config)
+                val tabTextColorActive = if (config.accent == WidgetAccent.MONOCHROME && !config.theme.isDark) Color.WHITE else Color.parseColor("#121516")
+                val tabTextColorInactive = config.secondaryTextColorInt
+
+                val tabContainers = intArrayOf(R.id.widget_tab_today_container, R.id.widget_tab_upcoming_container, R.id.widget_tab_all_container)
+                val tabBgs = intArrayOf(R.id.widget_tab_today_bg, R.id.widget_tab_upcoming_bg, R.id.widget_tab_all_bg)
+                val tabTexts = intArrayOf(R.id.widget_tab_today, R.id.widget_tab_upcoming, R.id.widget_tab_all)
+
+                for (i in 0..2) {
+                    val tabIntent = Intent(context, TodoWidgetProvider::class.java).apply {
+                        action = ACTION_SET_TAB
+                        putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+                        putExtra(EXTRA_TAB_INDEX, i)
+                        data = Uri.parse("widget://$appWidgetId/tab/$i")
+                    }
+                    val tabPendingIntent = PendingIntent.getBroadcast(
+                        context,
+                        appWidgetId * 10 + i,
+                        tabIntent,
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                    )
+
+                    views.setOnClickPendingIntent(tabContainers[i], tabPendingIntent)
+                    if (selectedTab == i) {
+                        views.setImageViewBitmap(tabBgs[i], activeTabBitmap)
+                        views.setTextColor(tabTexts[i], tabTextColorActive)
+                    } else {
+                        views.setImageViewBitmap(tabBgs[i], inactiveTabBitmap)
+                        views.setTextColor(tabTexts[i], tabTextColorInactive)
+                    }
                 }
-                val tabPendingIntent = PendingIntent.getBroadcast(
+
+                // Count Badge
+                val countBg = WidgetDrawableGenerator.createCountBadge(context, config)
+                views.setImageViewBitmap(R.id.widget_task_count_bg, countBg)
+                views.setTextColor(R.id.widget_task_count, config.accentColorInt)
+
+                // Add button '+'
+                val addBtnBitmap = WidgetDrawableGenerator.createAddButton(context, config)
+                views.setImageViewBitmap(R.id.widget_btn_add_bg, addBtnBitmap)
+                views.setViewVisibility(R.id.widget_btn_add, View.GONE)
+
+                // Quick Add '+' Button Intent (Opens floating dialog)
+                val addIntent = Intent(context, com.focusbyrj.app.ui.screens.QuickAddTaskActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                }
+                val addPendingIntent = PendingIntent.getActivity(
                     context,
-                    appWidgetId * 10 + tabIndex,
-                    tabIntent,
+                    appWidgetId * 100 + 1,
+                    addIntent,
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
+                views.setOnClickPendingIntent(R.id.widget_btn_add_container, addPendingIntent)
 
-                when (tabIndex) {
-                    0 -> {
-                        views.setOnClickPendingIntent(R.id.widget_tab_today, tabPendingIntent)
-                        if (selectedTab == 0) {
-                            views.setInt(R.id.widget_tab_today, "setBackgroundResource", R.drawable.widget_tab_active)
-                            views.setTextColor(R.id.widget_tab_today, Color.parseColor("#121516"))
-                        } else {
-                            views.setInt(R.id.widget_tab_today, "setBackgroundResource", R.drawable.widget_tab_inactive)
-                            views.setTextColor(R.id.widget_tab_today, Color.parseColor("#A0ABA4"))
-                        }
-                    }
-                    1 -> {
-                        views.setOnClickPendingIntent(R.id.widget_tab_upcoming, tabPendingIntent)
-                        if (selectedTab == 1) {
-                            views.setInt(R.id.widget_tab_upcoming, "setBackgroundResource", R.drawable.widget_tab_active)
-                            views.setTextColor(R.id.widget_tab_upcoming, Color.parseColor("#121516"))
-                        } else {
-                            views.setInt(R.id.widget_tab_upcoming, "setBackgroundResource", R.drawable.widget_tab_inactive)
-                            views.setTextColor(R.id.widget_tab_upcoming, Color.parseColor("#A0ABA4"))
-                        }
-                    }
-                    2 -> {
-                        views.setOnClickPendingIntent(R.id.widget_tab_all, tabPendingIntent)
-                        if (selectedTab == 2) {
-                            views.setInt(R.id.widget_tab_all, "setBackgroundResource", R.drawable.widget_tab_active)
-                            views.setTextColor(R.id.widget_tab_all, Color.parseColor("#121516"))
-                        } else {
-                            views.setInt(R.id.widget_tab_all, "setBackgroundResource", R.drawable.widget_tab_inactive)
-                            views.setTextColor(R.id.widget_tab_all, Color.parseColor("#A0ABA4"))
-                        }
-                    }
+                // Header Title Click (Opens App Todos)
+                val openAppIntent = Intent(context, MainActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    putExtra("navigate_to", "todos")
                 }
-            }
+                val openAppPendingIntent = PendingIntent.getActivity(
+                    context,
+                    appWidgetId * 100 + 2,
+                    openAppIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                views.setOnClickPendingIntent(R.id.widget_header_title_layout, openAppPendingIntent)
 
-            // Quick Add '+' Button Intent (Opens floating dialog directly over home screen)
-            val addIntent = Intent(context, com.focusbyrj.app.ui.screens.QuickAddTaskActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            }
-            val addPendingIntent = PendingIntent.getActivity(
-                context,
-                appWidgetId * 100 + 1,
-                addIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-            views.setOnClickPendingIntent(R.id.widget_btn_add, addPendingIntent)
+                // Refresh Button Intent
+                val refreshIntent = Intent(context, TodoWidgetProvider::class.java).apply {
+                    action = ACTION_REFRESH
+                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+                }
+                val refreshPendingIntent = PendingIntent.getBroadcast(
+                    context,
+                    appWidgetId * 100 + 3,
+                    refreshIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                views.setOnClickPendingIntent(R.id.widget_btn_refresh, refreshPendingIntent)
 
-            // Header Title Click (Opens App Todos)
-            val openAppIntent = Intent(context, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                putExtra("navigate_to", "todos")
-            }
-            val openAppPendingIntent = PendingIntent.getActivity(
-                context,
-                appWidgetId * 100 + 2,
-                openAppIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-            views.setOnClickPendingIntent(R.id.widget_header_title_layout, openAppPendingIntent)
+                // Settings Button Intent (Opens Widget Customization)
+                val settingsIntent = Intent(context, TodoWidgetConfigureActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+                }
+                val settingsPendingIntent = PendingIntent.getActivity(
+                    context,
+                    appWidgetId * 100 + 4,
+                    settingsIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                views.setOnClickPendingIntent(R.id.widget_btn_settings, settingsPendingIntent)
 
-            // Refresh Button Intent
-            val refreshIntent = Intent(context, TodoWidgetProvider::class.java).apply {
-                action = ACTION_REFRESH
-                putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
-            }
-            val refreshPendingIntent = PendingIntent.getBroadcast(
-                context,
-                appWidgetId * 100 + 3,
-                refreshIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-            views.setOnClickPendingIntent(R.id.widget_btn_refresh, refreshPendingIntent)
+                // ListView Adapter Setup
+                val serviceIntent = Intent(context, TodoWidgetService::class.java).apply {
+                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+                    putExtra(EXTRA_TAB_INDEX, selectedTab)
+                    data = Uri.parse(toUri(Intent.URI_INTENT_SCHEME))
+                }
+                views.setRemoteAdapter(R.id.widget_list_view, serviceIntent)
+                views.setEmptyView(R.id.widget_list_view, R.id.widget_empty_view)
 
-            // ListView Adapter Setup
-            val serviceIntent = Intent(context, TodoWidgetService::class.java).apply {
-                putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
-                putExtra(EXTRA_TAB_INDEX, selectedTab)
-                data = Uri.parse(toUri(Intent.URI_INTENT_SCHEME))
-            }
-            views.setRemoteAdapter(R.id.widget_list_view, serviceIntent)
-            views.setEmptyView(R.id.widget_list_view, R.id.widget_empty_view)
+                // Template PendingIntent for List Item interactions
+                val listClickIntent = Intent(context, TodoWidgetProvider::class.java).apply {
+                    action = ACTION_TOGGLE_TASK
+                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+                }
+                val listClickPendingIntent = PendingIntent.getBroadcast(
+                    context,
+                    appWidgetId * 1000,
+                    listClickIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+                )
+                views.setPendingIntentTemplate(R.id.widget_list_view, listClickPendingIntent)
 
-            // Template PendingIntent for List Item interactions
-            val listClickIntent = Intent(context, TodoWidgetProvider::class.java).apply {
-                action = ACTION_TOGGLE_TASK
-                putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
-            }
-            val listClickPendingIntent = PendingIntent.getBroadcast(
-                context,
-                appWidgetId * 1000,
-                listClickIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
-            )
-            views.setPendingIntentTemplate(R.id.widget_list_view, listClickPendingIntent)
+                appWidgetManager.updateAppWidget(appWidgetId, views)
 
-            appWidgetManager.updateAppWidget(appWidgetId, views)
+                // Calculate task count asynchronously
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val app = context.applicationContext as FocusApplication
+                        val allTasks = app.database.taskDao().getAllTasks().first()
 
-            // Calculate task count asynchronously
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    val app = context.applicationContext as FocusApplication
-                    val allTasks = app.database.taskDao().getAllTasks().first()
-                    
-                    val now = Calendar.getInstance()
-                    val todayStart = now.apply {
-                        set(Calendar.HOUR_OF_DAY, 0)
-                        set(Calendar.MINUTE, 0)
-                        set(Calendar.SECOND, 0)
-                        set(Calendar.MILLISECOND, 0)
-                    }.timeInMillis
-                    val todayEnd = todayStart + 86400000L
+                        val now = Calendar.getInstance()
+                        val todayStart = now.apply {
+                            set(Calendar.HOUR_OF_DAY, 0)
+                            set(Calendar.MINUTE, 0)
+                            set(Calendar.SECOND, 0)
+                            set(Calendar.MILLISECOND, 0)
+                        }.timeInMillis
+                        val todayEnd = todayStart + 86400000L
 
-                    val uncompleted = allTasks.filter { !it.isCompleted }
+                        val uncompleted = allTasks.filter { !it.isCompleted }
 
-                    val count = when (selectedTab) {
-                        0 -> uncompleted.count {
-                            (it.dueDate != null && it.dueDate <= todayEnd) ||
-                            (it.dueDate == null && it.type == com.focusbyrj.app.data.TaskType.TASK)
+                        val count = when (selectedTab) {
+                            0 -> uncompleted.count {
+                                (it.dueDate != null && it.dueDate <= todayEnd) ||
+                                (it.dueDate == null && it.type == com.focusbyrj.app.data.TaskType.TASK)
+                            }
+                            1 -> uncompleted.count {
+                                it.type == com.focusbyrj.app.data.TaskType.TASK && it.dueDate != null && it.dueDate > todayEnd
+                            }
+                            2 -> uncompleted.size
+                            else -> uncompleted.size
                         }
-                        1 -> uncompleted.count {
-                            it.type == com.focusbyrj.app.data.TaskType.TASK && it.dueDate != null && it.dueDate > todayEnd
-                        }
-                        2 -> uncompleted.size
-                        else -> uncompleted.size
+
+                        views.setTextViewText(R.id.widget_task_count, count.toString())
+                        appWidgetManager.partiallyUpdateAppWidget(appWidgetId, views)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
                     }
-                    
-                    views.setTextViewText(R.id.widget_task_count, count.toString())
-                    appWidgetManager.updateAppWidget(appWidgetId, views)
-                } catch (e: Exception) {
-                    e.printStackTrace()
                 }
             }
         }

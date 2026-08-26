@@ -6,6 +6,8 @@
     android:targetCellHeight="3"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen"
+    android:configure="com.focusbyrj.app.widget.TodoWidgetConfigureActivity"
+    android:widgetFeatures="reconfigurable|configuration_optional"
     android:initialLayout="@layout/widget_todo_layout"
     android:previewLayout="@layout/widget_todo_layout"
     android:updatePeriodMillis="1800000" />
