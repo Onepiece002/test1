@@ -616,6 +616,7 @@ fun AddTaskDialog(initialTask: Task? = null, onDismiss: () -> Unit, onSave: (Tas
     var details by remember { mutableStateOf(initialTask?.details ?: "") }
     var type by remember { mutableStateOf(initialTask?.type ?: TaskType.TASK) }
     var recurrence by remember { mutableStateOf(initialTask?.recurrence ?: RecurrencePattern.NONE) }
+    var userManuallySetRecurrence by remember { mutableStateOf(initialTask?.recurrence != null && initialTask.recurrence != RecurrencePattern.NONE) }
     var isPersistent by remember { mutableStateOf(initialTask?.isPersistent ?: false) }
     var manualDueDate by remember { mutableStateOf<Long?>(initialTask?.dueDate) }
     var userManuallySetDate by remember { mutableStateOf(initialTask?.dueDate != null) }
@@ -625,6 +626,11 @@ fun AddTaskDialog(initialTask: Task? = null, onDismiss: () -> Unit, onSave: (Tas
     }
     
     val effectiveDueDate = parsedResult?.timestamp ?: manualDueDate
+    val effectiveRecurrence = if (!userManuallySetRecurrence && parsedResult?.recurrence != null && parsedResult.recurrence != RecurrencePattern.NONE) {
+        parsedResult.recurrence
+    } else {
+        recurrence
+    }
     
     val context = LocalContext.current
     val calendar = Calendar.getInstance()
@@ -667,7 +673,7 @@ fun AddTaskDialog(initialTask: Task? = null, onDismiss: () -> Unit, onSave: (Tas
                                     details = details, 
                                     dueDate = effectiveDueDate, 
                                     type = type, 
-                                    recurrence = recurrence, 
+                                    recurrence = effectiveRecurrence, 
                                     isPersistent = isPersistent
                                 )
                             )
@@ -818,7 +824,7 @@ fun AddTaskDialog(initialTask: Task? = null, onDismiss: () -> Unit, onSave: (Tas
                 Box {
                     TextButton(onClick = { expanded = true }) {
                         Text(
-                            text = recurrence.name.lowercase().replaceFirstChar { it.uppercase() },
+                            text = effectiveRecurrence.name.lowercase().replaceFirstChar { it.uppercase() },
                             fontWeight = FontWeight.SemiBold
                         )
                     }
@@ -828,6 +834,7 @@ fun AddTaskDialog(initialTask: Task? = null, onDismiss: () -> Unit, onSave: (Tas
                                 text = { Text(pattern.name.lowercase().replaceFirstChar { it.uppercase() }) },
                                 onClick = { 
                                     recurrence = pattern
+                                    userManuallySetRecurrence = true
                                     expanded = false
                                 }
                             )

@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -77,6 +79,7 @@ fun SetupPermissionsDialog(
             modifier = Modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
+                .statusBarsPadding()
         ) {
             Column(
                 modifier = Modifier.fillMaxSize()
@@ -89,11 +92,11 @@ fun SetupPermissionsDialog(
                         .padding(horizontal = 24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(16.dp))
                 
                 Box(
                     modifier = Modifier
-                        .size(96.dp)
+                        .size(80.dp)
                         .clip(CircleShape)
                         .background(Color.Black),
                     contentAlignment = Alignment.Center
@@ -101,7 +104,7 @@ fun SetupPermissionsDialog(
                     Image(
                         painter = painterResource(id = R.drawable.ic_app_logo),
                         contentDescription = "App Logo",
-                        modifier = Modifier.size(56.dp)
+                        modifier = Modifier.size(48.dp)
                     )
                 }
 
@@ -116,17 +119,17 @@ fun SetupPermissionsDialog(
                     color = MaterialTheme.colorScheme.onBackground
                 )
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(6.dp))
 
                 Text(
                     text = "To help you stay on track and block distracting apps, Focus needs a few core permissions to work properly.",
-                    style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 24.sp),
+                    style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 22.sp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.padding(horizontal = 12.dp)
                 )
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
                 PermissionSetupCard(
                     number = "01",
@@ -165,21 +168,22 @@ fun SetupPermissionsDialog(
                     onAction = { PermissionUtils.requestNotificationPermission(context) }
                 )
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(16.dp))
                 }
                 
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(MaterialTheme.colorScheme.background)
-                        .padding(horizontal = 24.dp, vertical = 24.dp)
+                        .navigationBarsPadding()
+                        .padding(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 48.dp)
                 ) {
                     val allGranted = hasUsageStats && hasOverlay && isBatteryUnrestricted && hasNotifications
                     Button(
                         onClick = onDismiss,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(56.dp),
+                            .height(54.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = if (allGranted) MaterialTheme.colorScheme.primary else Color.Transparent,
                             contentColor = if (allGranted) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onBackground

@@ -121,6 +121,7 @@ fun QuickAddTaskOverlay(
     var type by remember { mutableStateOf(TaskType.TASK) }
     var dueDate by remember { mutableStateOf<Long?>(null) }
     var recurrence by remember { mutableStateOf(RecurrencePattern.NONE) }
+    var userManuallySetRecurrence by remember { mutableStateOf(false) }
     var isPersistent by remember { mutableStateOf(false) }
 
     var showDatePicker by remember { mutableStateOf(false) }
@@ -132,6 +133,11 @@ fun QuickAddTaskOverlay(
     }
 
     val effectiveDueDate = parsedResult.timestamp ?: dueDate
+    val effectiveRecurrence = if (!userManuallySetRecurrence && parsedResult.recurrence != RecurrencePattern.NONE) {
+        parsedResult.recurrence
+    } else {
+        recurrence
+    }
     val effectiveType = type
 
     val calendar = remember(effectiveDueDate) {
@@ -380,7 +386,7 @@ fun QuickAddTaskOverlay(
                     Box {
                         TextButton(onClick = { showRecurrenceMenu = true }) {
                             Text(
-                                text = recurrence.name.lowercase().replaceFirstChar { it.uppercase() },
+                                text = effectiveRecurrence.name.lowercase().replaceFirstChar { it.uppercase() },
                                 color = MaterialTheme.colorScheme.primary,
                                 fontWeight = FontWeight.Bold
                             )
@@ -394,6 +400,7 @@ fun QuickAddTaskOverlay(
                                     text = { Text(pattern.name.lowercase().replaceFirstChar { it.uppercase() }) },
                                     onClick = {
                                         recurrence = pattern
+                                        userManuallySetRecurrence = true
                                         showRecurrenceMenu = false
                                     }
                                 )
@@ -467,7 +474,7 @@ fun QuickAddTaskOverlay(
                                         details = details,
                                         dueDate = effectiveDueDate,
                                         type = effectiveType,
-                                        recurrence = recurrence,
+                                        recurrence = effectiveRecurrence,
                                         isPersistent = isPersistent
                                     )
                                 )

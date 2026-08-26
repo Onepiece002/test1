@@ -31,17 +31,24 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.ArrowDropUp
 import androidx.compose.material.icons.filled.BrightnessAuto
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.HourglassTop
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Whatshot
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -62,6 +69,21 @@ import com.focusbyrj.app.util.FocusStatsManager
 import com.focusbyrj.app.util.HeatmapTheme
 import com.focusbyrj.app.util.ThemeMode
 
+data class LaunchTabOption(
+    val route: String,
+    val title: String,
+    val icon: ImageVector,
+    val description: String
+)
+
+val launchTabOptions = listOf(
+    LaunchTabOption("dashboard", "Focus (Apps)", Icons.Filled.Home, "App blocker & active focus timer"),
+    LaunchTabOption("todos", "To-Do (Tasks)", Icons.Filled.CheckCircle, "Tasks, checklists & occasions"),
+    LaunchTabOption("schedules", "Routines", Icons.Filled.Schedule, "Automated scheduled focus windows"),
+    LaunchTabOption("time", "Time (Stats)", Icons.Filled.DateRange, "Screen time insights & heatmaps"),
+    LaunchTabOption("account", "Account", Icons.Filled.Person, "Profile, rank & trophy achievements")
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(navController: NavController) {
@@ -72,6 +94,10 @@ fun SettingsScreen(navController: NavController) {
     var softUnlockDuration by remember { mutableStateOf(prefs.getInt("soft_unlock_duration", 5)) }
     var routineNotifications by remember { mutableStateOf(prefs.getBoolean("routine_notifications", true)) }
     var persistentReminderInterval by remember { mutableIntStateOf(prefs.getInt("persistent_reminder_interval", 15)) }
+    var defaultStartTab by remember {
+        mutableStateOf(prefs.getString("default_start_tab", "dashboard") ?: "dashboard")
+    }
+    var showTabDropdown by remember { mutableStateOf(false) }
 
     val currentAppTheme by AppThemeManager.themeFlow.collectAsState()
     val currentThemeMode by AppThemeManager.themeModeFlow.collectAsState()
@@ -368,6 +394,34 @@ fun SettingsScreen(navController: NavController) {
                             routineNotifications = isEnabled
                             prefs.edit().putBoolean("routine_notifications", isEnabled).apply()
                             com.focusbyrj.app.service.FocusBlockerService.updateNotificationState(context)
+                        }
+                    )
+
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 12.dp),
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
+                    )
+
+                    // Default Launch Tab Dropdown Row
+                    val currentTabOption = remember(defaultStartTab) {
+                        launchTabOptions.find { it.route == defaultStartTab } ?: launchTabOptions[0]
+                    }
+
+                    SettingsDropdownRow(
+                        icon = currentTabOption.icon,
+                        title = "Default Launch Tab",
+                        subtitle = "Screen shown when opening app",
+                        selectedText = currentTabOption.title,
+                        isExpanded = showTabDropdown,
+                        onExpandChange = { showTabDropdown = it },
+                        options = launchTabOptions,
+                        selectedOptionRoute = defaultStartTab,
+                        onOptionSelected = { option ->
+                            defaultStartTab = option.route
+                            prefs.edit().putString("default_start_tab", option.route).apply()
+                            context.getSharedPreferences("focus_app_prefs", Context.MODE_PRIVATE)
+                                .edit().putString("default_start_tab", option.route).apply()
+                            showTabDropdown = false
                         }
                     )
                 }
@@ -878,5 +932,135 @@ private fun SettingsSwitchRow(
                 uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
             )
         )
+    }
+}
+
+@Composable
+private fun SettingsDropdownRow(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    selectedText: String,
+    isExpanded: Boolean,
+    onExpandChange: (Boolean) -> Unit,
+    options: List<LaunchTabOption>,
+    selectedOptionRoute: String,
+    onOptionSelected: (LaunchTabOption) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.weight(1f)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(14.dp))
+            Column {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.width(12.dp))
+
+        Box {
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+                    .clickable { onExpandChange(!isExpanded) }
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    text = selectedText,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Icon(
+                    imageVector = if (isExpanded) Icons.Filled.ArrowDropUp else Icons.Filled.ArrowDropDown,
+                    contentDescription = "Select default tab",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            DropdownMenu(
+                expanded = isExpanded,
+                onDismissRequest = { onExpandChange(false) },
+                modifier = Modifier
+                    .background(MaterialTheme.colorScheme.surface)
+                    .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+            ) {
+                options.forEach { option ->
+                    val isSelected = option.route == selectedOptionRoute
+                    DropdownMenuItem(
+                        text = {
+                            Column {
+                                Text(
+                                    text = option.title,
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                    ),
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = option.description,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = option.icon,
+                                contentDescription = null,
+                                tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        },
+                        trailingIcon = if (isSelected) {
+                            {
+                                Icon(
+                                    imageVector = Icons.Filled.Check,
+                                    contentDescription = "Selected",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        } else null,
+                        onClick = { onOptionSelected(option) }
+                    )
+                }
+            }
+        }
     }
 }

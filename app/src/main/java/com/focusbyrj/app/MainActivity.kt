@@ -466,9 +466,17 @@ fun MainAppScreen(
             }
         ) { innerPadding ->
             Box(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
+                val defaultStartTab = remember {
+                    val saved = prefs.getString("default_start_tab", null)
+                        ?: context.getSharedPreferences("focus_prefs", Context.MODE_PRIVATE).getString("default_start_tab", Screen.Dashboard.route)
+                        ?: Screen.Dashboard.route
+                    if (items.any { it.route == saved }) saved else Screen.Dashboard.route
+                }
+                val startDest = if (initialNavigateTo == "todos") Screen.Todos.route else defaultStartTab
+
                 NavHost(
                     navController = navController,
-                    startDestination = Screen.Dashboard.route
+                    startDestination = startDest
                 ) {
                 composable(Screen.Dashboard.route) {
                     val restrictions by viewModel.combinedRestrictions.collectAsStateWithLifecycle()
