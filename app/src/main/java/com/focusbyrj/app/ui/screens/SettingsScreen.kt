@@ -73,6 +73,7 @@ fun SettingsScreen(navController: NavController) {
 
     val currentAppTheme by AppThemeManager.themeFlow.collectAsState()
     val currentThemeMode by AppThemeManager.themeModeFlow.collectAsState()
+    val currentOverlayThemeMode by AppThemeManager.overlayThemeModeFlow.collectAsState()
     val currentHeatmapTheme by FocusStatsManager.themeFlow.collectAsState()
 
     var showAppThemeSheet by remember { mutableStateOf(false) }
@@ -111,9 +112,14 @@ fun SettingsScreen(navController: NavController) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(horizontal = 20.dp)
-                .verticalScroll(rememberScrollState())
         ) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
             Spacer(modifier = Modifier.height(8.dp))
 
             // --- APPEARANCE SECTION ---
@@ -126,23 +132,43 @@ fun SettingsScreen(navController: NavController) {
                 border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    // Segmented Theme Pill Toggle
-                    Text(
-                        text = "Theme Mode",
-                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 10.dp)
-                    )
-
-                    ThemeSegmentedPill(
-                        currentMode = currentThemeMode,
-                        onModeSelected = { mode ->
-                            AppThemeManager.setThemeMode(context, mode)
-                        }
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "Theme Mode",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        ThemeSegmentedPill(
+                            currentMode = currentThemeMode,
+                            onModeSelected = { mode ->
+                                AppThemeManager.setThemeMode(context, mode)
+                            }
+                        )
+                    }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "Locked App Screen Overlay",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        ThemeSegmentedPill(
+                            currentMode = currentOverlayThemeMode,
+                            onModeSelected = { mode ->
+                                AppThemeManager.setOverlayThemeMode(context, mode)
+                            }
+                        )
+                    }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
                     Spacer(modifier = Modifier.height(12.dp))
 
                     // Accent Color Row
@@ -177,7 +203,6 @@ fun SettingsScreen(navController: NavController) {
                     )
 
                     Spacer(modifier = Modifier.height(12.dp))
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
                     Spacer(modifier = Modifier.height(12.dp))
 
                     // Heatmap Palette Row
@@ -247,9 +272,7 @@ fun SettingsScreen(navController: NavController) {
                     )
 
                     Spacer(modifier = Modifier.height(12.dp))
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
-                    Spacer(modifier = Modifier.height(12.dp))
-
+                    Spacer(modifier = Modifier.height(16.dp))
                     // Soft Unlock Window Stepper
                     SettingsStepperRow(
                         icon = Icons.Filled.LockOpen,
@@ -271,11 +294,11 @@ fun SettingsScreen(navController: NavController) {
                     )
 
                     Spacer(modifier = Modifier.height(12.dp))
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+                    Spacer(modifier = Modifier.height(16.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Routine Notifications Switch
-                    SettingsSwitchRow(
+                        SettingsSwitchRow(
                         icon = Icons.Filled.NotificationsActive,
                         title = "Routine Notifications",
                         subtitle = "Alerts on schedule transitions",
@@ -289,25 +312,21 @@ fun SettingsScreen(navController: NavController) {
             }
 
             Spacer(modifier = Modifier.height(32.dp))
-
+            }
+            
             // Footer info
-            Column(
+            Text(
+                text = "Focus by RJ",
+                style = MaterialTheme.typography.labelMedium.copy(
+                    fontWeight = FontWeight.Bold, 
+                    letterSpacing = 2.sp
+                ),
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = "Focus by RJ",
-                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                )
-                Text(
-                    text = "Version 1.0 • Built with Jetpack Compose",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                )
-            }
+                    .padding(bottom = 32.dp, top = 8.dp)
+                    .wrapContentWidth(Alignment.CenterHorizontally)
+            )
         }
     }
 
@@ -535,59 +554,53 @@ private fun ThemeSegmentedPill(
     currentMode: ThemeMode,
     onModeSelected: (ThemeMode) -> Unit
 ) {
-    val modes = listOf(
-        Triple(ThemeMode.SYSTEM, "System", Icons.Filled.BrightnessAuto),
-        Triple(ThemeMode.LIGHT, "Light", Icons.Filled.LightMode),
-        Triple(ThemeMode.DARK, "Dark", Icons.Filled.DarkMode)
-    )
+    val modes = listOf(ThemeMode.SYSTEM, ThemeMode.LIGHT, ThemeMode.DARK)
 
-    Box(
+    Row(
         modifier = Modifier
-            .fillMaxWidth()
-            .height(44.dp)
-            .clip(RoundedCornerShape(22.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
-            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.6f), RoundedCornerShape(22.dp))
-            .padding(3.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(20.dp))
+            .padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxSize(),
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            modes.forEach { (mode, label, icon) ->
-                val isSelected = currentMode == mode
-                val targetContainerColor = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
-                val targetContentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-                
-                val animatedContainerColor by animateColorAsState(targetValue = targetContainerColor, label = "pill_bg")
-                val animatedContentColor by animateColorAsState(targetValue = targetContentColor, label = "pill_content")
+        modes.forEach { mode ->
+            val isSelected = currentMode == mode
+            val targetContainerColor = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
+            val targetContentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+            
+            val animatedContainerColor by animateColorAsState(targetValue = targetContainerColor, label = "pill_bg")
+            val animatedContentColor by animateColorAsState(targetValue = targetContentColor, label = "pill_content")
 
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxHeight()
-                        .clip(RoundedCornerShape(19.dp))
-                        .background(animatedContainerColor)
-                        .clickable { onModeSelected(mode) },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(animatedContainerColor)
+                    .clickable { onModeSelected(mode) },
+                contentAlignment = Alignment.Center
+            ) {
+                when (mode) {
+                    ThemeMode.SYSTEM -> {
+                        Text(
+                            text = "A",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                            color = animatedContentColor
+                        )
+                    }
+                    ThemeMode.LIGHT -> {
+                        Box(
+                            modifier = Modifier
+                                .size(14.dp)
+                                .border(2.dp, animatedContentColor, CircleShape)
+                        )
+                    }
+                    ThemeMode.DARK -> {
                         Icon(
-                            imageVector = icon,
-                            contentDescription = label,
+                            imageVector = Icons.Filled.DarkMode,
+                            contentDescription = mode.displayName,
                             tint = animatedContentColor,
                             modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = label,
-                            style = MaterialTheme.typography.labelMedium.copy(
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                            ),
-                            color = animatedContentColor
                         )
                     }
                 }

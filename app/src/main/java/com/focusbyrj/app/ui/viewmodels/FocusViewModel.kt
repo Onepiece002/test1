@@ -73,7 +73,7 @@ class FocusViewModel(private val repository: AppRepository, application: Applica
                 val appMode = if (parts.size > 1) parts[1] else s.mode
                 if (!map.containsKey(pkg)) {
                     val appName = try { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() } catch(e: Exception) { pkg }
-                    map[pkg] = AppRestriction(
+                    val newRest = AppRestriction(
                         packageName = pkg,
                         appName = appName,
                         isRestricted = isActiveNow,
@@ -83,15 +83,19 @@ class FocusViewModel(private val repository: AppRepository, application: Applica
                         clickLimitCount = s.clickLimitCount,
                         customQuote = ""
                     )
+                    newRest.isFromRoutine = true
+                    map[pkg] = newRest
                 } else if (isActiveNow) {
                     val existing = map[pkg]!!
-                    map[pkg] = existing.copy(
+                    val updated = existing.copy(
                         isRestricted = true,
                         mode = appMode,
                         restrictionMode = s.restrictionMode,
                         timeLimitMinutes = s.timeLimitMinutes,
                         clickLimitCount = s.clickLimitCount
                     )
+                    updated.isFromRoutine = existing.isFromRoutine
+                    map[pkg] = updated
                 }
             }
         }

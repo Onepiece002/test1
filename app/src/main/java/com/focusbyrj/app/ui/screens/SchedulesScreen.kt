@@ -381,8 +381,8 @@ fun CreateRoutineScreen(
                         Text("Tap to select apps", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                     }
                 } else {
-                    val hardApps = selectedInstalledApps.filter { appModes[it.packageName] != "SOFT" }
-                    val softApps = selectedInstalledApps.filter { appModes[it.packageName] == "SOFT" }
+                    val hardApps = selectedInstalledApps.filter { (appModes[it.packageName] ?: mode) != "SOFT" }
+                    val softApps = selectedInstalledApps.filter { (appModes[it.packageName] ?: mode) == "SOFT" }
 
                     com.focusbyrj.app.ui.components.AppModeDropZone(
                         title = "HARD MODE",
@@ -405,7 +405,9 @@ fun CreateRoutineScreen(
                 Button(
                     onClick = {
                         val daysString = selectedDays.sorted().joinToString(",")
-                        val appsString = selectedApps.joinToString(",")
+                        val appsString = selectedApps.joinToString(",") { pkg ->
+                            "$pkg|${appModes[pkg] ?: mode}"
+                        }
                         onSave(
                             name,
                             startHour,

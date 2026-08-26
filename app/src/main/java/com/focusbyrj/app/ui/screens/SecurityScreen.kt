@@ -80,103 +80,158 @@ fun SecurityScreen(navController: NavController) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 24.dp)
+                .padding(horizontal = 20.dp)
                 .verticalScroll(rememberScrollState())
         ) {
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             
-            Text(
-                "APP INTEGRITY & TAMPER DEFENSE",
-                style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 1.sp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.height(16.dp))
+            SecuritySectionHeader("APP INTEGRITY & TAMPER DEFENSE")
 
-            SettingsCard(
-                title = "Uninstall Protection",
-                subtitle = "Uses Device Administrator to prevent accidental app deletion during deep focus sessions.",
-                icon = Icons.Filled.Security,
-                iconColor = Color(0xFFFFB74D) 
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
             ) {
-                Button(
-                    onClick = {
-                        if (isUninstallProtectionEnabled) {
-                            dpm.removeActiveAdmin(adminComponent)
-                            isUninstallProtectionEnabled = false
-                        } else {
-                            val intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
-                                putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, adminComponent)
-                                putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION, "Prevent accidental app deletion during deep focus sessions.")
+                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    SecurityActionRow(
+                        icon = Icons.Filled.Security,
+                        iconTint = Color(0xFFFFB74D),
+                        title = "Uninstall Protection",
+                        subtitle = "Prevent accidental app deletion.",
+                        action = {
+                            Button(
+                                onClick = {
+                                    if (isUninstallProtectionEnabled) {
+                                        dpm.removeActiveAdmin(adminComponent)
+                                        isUninstallProtectionEnabled = false
+                                    } else {
+                                        val intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
+                                            putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, adminComponent)
+                                            putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION, "Prevent accidental app deletion during deep focus sessions.")
+                                        }
+                                        adminLauncher.launch(intent)
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    contentColor = MaterialTheme.colorScheme.onSurface
+                                ),
+                                shape = RoundedCornerShape(12.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                modifier = Modifier.height(36.dp)
+                            ) {
+                                Text(if (isUninstallProtectionEnabled) "Disable" else "Enable", style = MaterialTheme.typography.labelMedium)
                             }
-                            adminLauncher.launch(intent)
                         }
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                        contentColor = MaterialTheme.colorScheme.onSurface
-                    ),
-                    shape = RoundedCornerShape(12.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-                ) {
-                    Text(if (isUninstallProtectionEnabled) "Disable" else "Enable")
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            SettingsCard(
-                title = "Anti-Screenshot Protection",
-                subtitle = "Prevents taking screenshots and hides app content in the recent apps menu.",
-                icon = Icons.Filled.VisibilityOff,
-                iconColor = MaterialTheme.colorScheme.primary
-            ) {
-                Switch(
-                    checked = secureRecents,
-                    onCheckedChange = { checked ->
-                        secureRecents = checked
-                        prefs.edit().putBoolean("secure_recents", checked).apply()
-                    },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
-                        checkedTrackColor = MaterialTheme.colorScheme.primary,
-                        uncheckedThumbColor = MaterialTheme.colorScheme.outline,
-                        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
                     )
-                )
+                    
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+                    
+                    SecuritySwitchRow(
+                        icon = Icons.Filled.VisibilityOff,
+                        iconTint = MaterialTheme.colorScheme.primary,
+                        title = "Anti-Screenshot Protection",
+                        subtitle = "Prevents screenshots of the lock screen.",
+                        checked = secureRecents,
+                        onCheckedChange = { checked ->
+                            secureRecents = checked
+                            prefs.edit().putBoolean("secure_recents", checked).apply()
+                        }
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(64.dp))
         }
     }
 }
+
+
 @Composable
-fun SettingsCard(title: String, subtitle: String, icon: androidx.compose.ui.graphics.vector.ImageVector, iconColor: Color, trailing: @Composable () -> Unit) {
-    Box(
+private fun SecuritySectionHeader(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.labelSmall.copy(
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 1.2.sp
+        ),
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
+    )
+}
+
+@Composable
+private fun SecurityActionRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    iconTint: Color,
+    title: String,
+    subtitle: String,
+    action: @Composable () -> Unit
+) {
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
-            .background(MaterialTheme.colorScheme.surface)
-            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(20.dp))
-            .padding(20.dp)
+            .padding(vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(iconColor.copy(alpha = 0.2f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(24.dp))
-            }
-            Spacer(modifier = Modifier.width(16.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = 16.sp)
-            }
-            Spacer(modifier = Modifier.width(12.dp))
-            trailing()
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(CircleShape)
+                .background(iconTint.copy(alpha = 0.12f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = iconTint,
+                modifier = Modifier.size(18.dp)
+            )
         }
+        Spacer(modifier = Modifier.width(14.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        action()
     }
+}
+
+@Composable
+private fun SecuritySwitchRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    iconTint: Color,
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    SecurityActionRow(
+        icon = icon,
+        iconTint = iconTint,
+        title = title,
+        subtitle = subtitle,
+        action = {
+            Switch(
+                checked = checked,
+                onCheckedChange = onCheckedChange,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                    checkedTrackColor = MaterialTheme.colorScheme.primary,
+                    uncheckedThumbColor = MaterialTheme.colorScheme.outline,
+                    uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            )
+        }
+    )
 }

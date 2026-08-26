@@ -30,4 +30,7 @@ data class AppRestriction(
     val timeLimitMinutes: Int = 0,
     val clickLimitCount: Int = 0,
     val customQuote: String = "Is this urgent, or are you chasing cheap dopamine?"
-)
+) {
+    @androidx.room.Ignore
+    var isFromRoutine: Boolean = false
+}

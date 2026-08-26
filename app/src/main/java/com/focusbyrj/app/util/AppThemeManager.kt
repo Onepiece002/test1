@@ -175,6 +175,8 @@ object AppThemeManager {
 
     private val _themeModeFlow = MutableStateFlow(ThemeMode.SYSTEM)
     val themeModeFlow: StateFlow<ThemeMode> = _themeModeFlow.asStateFlow()
+    private val _overlayThemeModeFlow = MutableStateFlow(ThemeMode.SYSTEM)
+    val overlayThemeModeFlow: StateFlow<ThemeMode> = _overlayThemeModeFlow.asStateFlow()
 
     fun init(context: Context) {
         val prefs = context.getSharedPreferences("focus_prefs", Context.MODE_PRIVATE)
@@ -182,12 +184,20 @@ object AppThemeManager {
         _themeFlow.value = AppThemeColor.fromId(savedId)
         val savedModeId = prefs.getString("app_theme_mode", ThemeMode.SYSTEM.id) ?: ThemeMode.SYSTEM.id
         _themeModeFlow.value = ThemeMode.fromId(savedModeId)
+        val savedOverlayModeId = prefs.getString("overlay_theme_mode", ThemeMode.SYSTEM.id) ?: ThemeMode.SYSTEM.id
+        _overlayThemeModeFlow.value = ThemeMode.fromId(savedOverlayModeId)
     }
 
     fun setTheme(context: Context, theme: AppThemeColor) {
         _themeFlow.value = theme
         val prefs = context.getSharedPreferences("focus_prefs", Context.MODE_PRIVATE)
         prefs.edit().putString("app_theme_color", theme.id).apply()
+    }
+
+    fun setOverlayThemeMode(context: Context, mode: ThemeMode) {
+        _overlayThemeModeFlow.value = mode
+        val prefs = context.getSharedPreferences("focus_prefs", Context.MODE_PRIVATE)
+        prefs.edit().putString("overlay_theme_mode", mode.id).apply()
     }
 
     fun setThemeMode(context: Context, mode: ThemeMode) {

@@ -126,8 +126,17 @@ class BlockActivity : ComponentActivity() {
         val insetsController = WindowCompat.getInsetsController(window, window.decorView)
         insetsController.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         
-        window.statusBarColor = android.graphics.Color.BLACK
-        window.navigationBarColor = android.graphics.Color.BLACK
+        val savedModeId = prefs.getString("overlay_theme_mode", "system") ?: "system"
+        val systemDarkMode = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+        val isDarkMode = when (savedModeId) {
+            "dark" -> true
+            "light" -> false
+            else -> systemDarkMode
+        }
+        window.statusBarColor = android.graphics.Color.TRANSPARENT
+        window.navigationBarColor = android.graphics.Color.TRANSPARENT
+        insetsController.isAppearanceLightStatusBars = !isDarkMode
+        insetsController.isAppearanceLightNavigationBars = !isDarkMode
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             window.isStatusBarContrastEnforced = false
             window.isNavigationBarContrastEnforced = false
@@ -186,6 +195,28 @@ fun BlockScreenContent(
     val isHardMode = mode.equals("HARD", ignoreCase = true)
     val context = LocalContext.current
     
+    val currentThemeMode by com.focusbyrj.app.util.AppThemeManager.themeModeFlow.collectAsState()
+    val systemInDark = androidx.compose.foundation.isSystemInDarkTheme()
+    val isDarkMode = when (currentThemeMode) {
+        com.focusbyrj.app.util.ThemeMode.SYSTEM -> systemInDark
+        com.focusbyrj.app.util.ThemeMode.DARK -> true
+        com.focusbyrj.app.util.ThemeMode.LIGHT -> false
+    }
+    val bgColor = if (isDarkMode) Color(0xFF07090E) else Color(0xFFF8FAFC)
+    val cardBgColor = if (isDarkMode) Color.White.copy(alpha = 0.03f) else Color.White
+    val cardStrokeColor = if (isDarkMode) Color.White.copy(alpha = 0.1f) else Color(0xFFE2E8F0)
+    val iconBgColor = if (isDarkMode) Color(0xFF141620) else Color(0xFFF1F5F9)
+    val iconStrokeColor = if (isDarkMode) Color.White.copy(alpha = 0.15f) else Color(0xFFE2E8F0)
+    val primaryTextColor = if (isDarkMode) Color(0xFFCBD5E1).copy(alpha = 0.95f) else Color(0xFF1E293B)
+    val secondaryTextColor = if (isDarkMode) Color(0xFFCBD5E1) else Color(0xFF475569)
+    val tertiaryTextColor = if (isDarkMode) TextSecondary else Color(0xFF64748B)
+    val outlineBtnTextColor = if (isDarkMode) Color.White else Color(0xFF0F172A)
+    val outlineBtnStrokeColor = if (isDarkMode) Color.White.copy(alpha = 0.15f) else Color(0xFFCBD5E1)
+    val filledBtnBgColor = if (isDarkMode) Color.White else Color(0xFF0F172A)
+    val filledBtnTextColor = if (isDarkMode) Color(0xFF08090E) else Color.White
+    val timerProgressBarBg = if (isDarkMode) Color.White.copy(alpha = 0.08f) else Color(0xFFE2E8F0)
+    val timerProgressFg = if (isDarkMode) Color.White else Color(0xFF334155)
+
     var appLabel by remember(packageName) { mutableStateOf(packageName) }
     var appIconDrawable by remember(packageName) { mutableStateOf<Drawable?>(null) }
     var dominantAppColor by remember { mutableStateOf(Color(0xFF6366F1)) } 
@@ -280,17 +311,9 @@ fun BlockScreenContent(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF07090E)),
+            .background(bgColor),
         contentAlignment = Alignment.Center
     ) {
-        
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    MidnightBlack
-                )
-        )
 
         Column(
             modifier = Modifier
@@ -307,10 +330,10 @@ fun BlockScreenContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(32.dp))
-                    .background(Color.White.copy(alpha = 0.03f))
+                    .background(cardBgColor)
                     .border(
                         1.dp,
-                        Color.White.copy(alpha = 0.1f),
+                        cardStrokeColor,
                         RoundedCornerShape(32.dp)
                     )
                     .padding(horizontal = 24.dp, vertical = 36.dp),
@@ -341,8 +364,8 @@ fun BlockScreenContent(
                             modifier = Modifier
                                 .size(80.dp)
                                 .clip(RoundedCornerShape(22.dp))
-                                .background(Color(0xFF141620))
-                                .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(22.dp)),
+                                .background(iconBgColor)
+                                .border(1.dp, iconStrokeColor, RoundedCornerShape(22.dp)),
                             contentAlignment = Alignment.Center
                         ) {
                             if (appIconDrawable != null) {
@@ -357,7 +380,7 @@ fun BlockScreenContent(
                                 Icon(
                                     imageVector = Icons.Filled.Lock,
                                     contentDescription = null,
-                                    tint = if (isHardMode) AccentRose else Color.White,
+                                    tint = if (isHardMode) AccentRose else secondaryTextColor,
                                     modifier = Modifier.size(36.dp)
                                 )
                             }
@@ -372,7 +395,7 @@ fun BlockScreenContent(
                             fontWeight = FontWeight.SemiBold,
                             letterSpacing = 0.2.sp
                         ),
-                        color = Color(0xFFCBD5E1).copy(alpha = 0.95f),
+                        color = primaryTextColor,
                         textAlign = TextAlign.Center
                     )
 
@@ -384,7 +407,7 @@ fun BlockScreenContent(
                             fontWeight = FontWeight.Bold,
                             letterSpacing = (-0.5).sp
                         ),
-                        color = if (isHardMode) AccentRose else Color(0xFFCBD5E1),
+                        color = if (isHardMode) AccentRose else secondaryTextColor,
                         textAlign = TextAlign.Center
                     )
 
@@ -406,7 +429,7 @@ fun BlockScreenContent(
                                 lineHeight = 26.sp,
                                 letterSpacing = 0.3.sp
                             ),
-                            color = Color(0xFFCBD5E1),
+                            color = secondaryTextColor,
                             textAlign = TextAlign.Center
                         )
                     }
@@ -417,7 +440,7 @@ fun BlockScreenContent(
                         Text(
                             text = "This app is strictly locked to honor your focus commitment.",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = TextSecondary,
+                            color = tertiaryTextColor,
                             textAlign = TextAlign.Center,
                             lineHeight = 22.sp
                         )
@@ -463,7 +486,7 @@ fun BlockScreenContent(
                                             fontWeight = FontWeight.Light,
                                             letterSpacing = 6.sp
                                         ),
-                                        color = Color(0xFFCBD5E1),
+                                        color = secondaryTextColor,
                                         textAlign = TextAlign.Center
                                     )
 
@@ -474,15 +497,13 @@ fun BlockScreenContent(
                                             .fillMaxWidth(0.6f)
                                             .height(4.dp)
                                             .clip(RoundedCornerShape(50))
-                                            .background(Color.White.copy(alpha = 0.08f))
+                                            .background(timerProgressBarBg)
                                     ) {
                                         Box(
                                             modifier = Modifier
                                                 .fillMaxWidth(progress)
                                                 .fillMaxHeight()
-                                                .background(
-                                                    Color.White
-                                                )
+                                                .background(timerProgressFg)
                                         )
                                     }
 
@@ -493,7 +514,7 @@ fun BlockScreenContent(
                                         style = MaterialTheme.typography.labelMedium.copy(
                                             letterSpacing = 1.sp
                                         ),
-                                        color = TextSecondary,
+                                        color = tertiaryTextColor,
                                         textAlign = TextAlign.Center
                                     )
 
@@ -504,11 +525,11 @@ fun BlockScreenContent(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .height(54.dp),
-                                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, outlineBtnStrokeColor),
                                         shape = RoundedCornerShape(27.dp),
                                         colors = ButtonDefaults.outlinedButtonColors(
                                             containerColor = Color.Transparent,
-                                            contentColor = Color.White
+                                            contentColor = outlineBtnTextColor
                                         )
                                     ) {
                                         Text(
@@ -528,7 +549,7 @@ fun BlockScreenContent(
                                             fontWeight = FontWeight.SemiBold,
                                             letterSpacing = 0.5.sp
                                         ),
-                                        color = Color(0xFFCBD5E1),
+                                        color = secondaryTextColor,
                                         textAlign = TextAlign.Center
                                     )
 
@@ -537,7 +558,7 @@ fun BlockScreenContent(
                                     Text(
                                         text = "Would you like to open $appLabel for $unlockDurationMinutes minutes or exit?",
                                         style = MaterialTheme.typography.bodyMedium,
-                                        color = TextSecondary,
+                                        color = tertiaryTextColor,
                                         textAlign = TextAlign.Center,
                                         lineHeight = 22.sp
                                     )
@@ -550,8 +571,8 @@ fun BlockScreenContent(
                                             .fillMaxWidth()
                                             .height(56.dp),
                                         colors = ButtonDefaults.buttonColors(
-                                            containerColor = Color.White,
-                                            contentColor = Color(0xFF08090E)
+                                            containerColor = filledBtnBgColor,
+                                            contentColor = filledBtnTextColor
                                         ),
                                         shape = RoundedCornerShape(28.dp),
                                         elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
@@ -571,11 +592,11 @@ fun BlockScreenContent(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .height(54.dp),
-                                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, outlineBtnStrokeColor),
                                         shape = RoundedCornerShape(27.dp),
                                         colors = ButtonDefaults.outlinedButtonColors(
                                             containerColor = Color.Transparent,
-                                            contentColor = Color.White
+                                            contentColor = outlineBtnTextColor
                                         )
                                     ) {
                                         Text(

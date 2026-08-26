@@ -90,8 +90,7 @@ fun SetupPermissionsDialog(
                     modifier = Modifier
                         .size(96.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .border(1.5.dp, MaterialTheme.colorScheme.outline, CircleShape),
+                        .background(Color.Black),
                     contentAlignment = Alignment.Center
                 ) {
                     Image(

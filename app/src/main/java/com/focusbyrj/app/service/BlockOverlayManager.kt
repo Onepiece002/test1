@@ -96,6 +96,27 @@ object BlockOverlayManager {
 
             val isHardMode = mode.equals("HARD", ignoreCase = true)
 
+            val prefs = context.getSharedPreferences("focus_prefs", Context.MODE_PRIVATE)
+            val savedModeId = prefs.getString("overlay_theme_mode", "system") ?: "system"
+            val systemDarkMode = (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+            val isDarkMode = when (savedModeId) {
+                "dark" -> true
+                "light" -> false
+                else -> systemDarkMode
+            }
+            val bgColor = if (isDarkMode) Color.parseColor("#07090E") else Color.parseColor("#F8FAFC")
+            val cardBgColor = if (isDarkMode) Color.parseColor("#08FFFFFF") else Color.parseColor("#FFFFFF")
+            val cardStrokeColor = if (isDarkMode) Color.parseColor("#1AFFFFFF") else Color.parseColor("#E2E8F0")
+            val iconBgColor = if (isDarkMode) Color.parseColor("#141620") else Color.parseColor("#F1F5F9")
+            val iconStrokeColor = if (isDarkMode) Color.parseColor("#26FFFFFF") else Color.parseColor("#E2E8F0")
+            val primaryTextColor = if (isDarkMode) Color.parseColor("#E2E8F0") else Color.parseColor("#1E293B")
+            val secondaryTextColor = if (isDarkMode) Color.parseColor("#CBD5E1") else Color.parseColor("#475569")
+            val tertiaryTextColor = if (isDarkMode) Color.parseColor("#94A3B8") else Color.parseColor("#64748B")
+            val outlineBtnTextColor = if (isDarkMode) Color.WHITE else Color.parseColor("#0F172A")
+            val outlineBtnStrokeColor = if (isDarkMode) Color.parseColor("#26FFFFFF") else Color.parseColor("#CBD5E1")
+            val filledBtnBgColor = if (isDarkMode) Color.WHITE else Color.parseColor("#0F172A")
+            val filledBtnTextColor = if (isDarkMode) Color.parseColor("#08090E") else Color.WHITE
+
             var appName = packageName.substringAfterLast('.').replaceFirstChar { it.uppercase() }
             var appIcon: Drawable? = null
             try {
@@ -133,13 +154,14 @@ object BlockOverlayManager {
                     View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
                     View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
                     View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                    or (if (!isDarkMode) View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR else 0)
                 )
                 isFocusable = true
                 isFocusableInTouchMode = true
                 isClickable = true
                 isFillViewport = true
                 background = GradientDrawable().apply {
-                    setColor(Color.parseColor("#07090E"))
+                    setColor(bgColor)
                 }
             }
 
@@ -154,9 +176,9 @@ object BlockOverlayManager {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
                 background = GradientDrawable().apply {
-                    setColor(Color.parseColor("#08FFFFFF"))
+                    setColor(cardBgColor)
                     cornerRadius = 80f
-                    setStroke(2, Color.parseColor("#1AFFFFFF"))
+                    setStroke(2, cardStrokeColor)
                 }
                 setPadding(64, 96, 64, 96)
             }
@@ -170,9 +192,9 @@ object BlockOverlayManager {
                 val iconView = ImageView(context).apply {
                     setImageDrawable(appIcon)
                     background = GradientDrawable().apply {
-                        setColor(Color.parseColor("#141620"))
+                        setColor(iconBgColor)
                         cornerRadius = 48f
-                        setStroke(2, Color.parseColor("#26FFFFFF"))
+                        setStroke(2, iconStrokeColor)
                     }
                     setPadding(32, 32, 32, 32)
                 }
@@ -186,7 +208,7 @@ object BlockOverlayManager {
                 text = appName
                 textSize = 20f
                 typeface = Typeface.DEFAULT_BOLD
-                setTextColor(Color.parseColor("#E2E8F0"))
+                setTextColor(primaryTextColor)
                 gravity = Gravity.CENTER
             }
             singleCard.addView(nameText)
@@ -195,7 +217,7 @@ object BlockOverlayManager {
                 text = if (isHardMode) "Focus Shielded" else "Mindful Pause"
                 textSize = 24f
                 typeface = Typeface.DEFAULT_BOLD
-                setTextColor(if (isHardMode) Color.parseColor("#F43F5E") else Color.parseColor("#CBD5E1"))
+                setTextColor(if (isHardMode) Color.parseColor("#F43F5E") else secondaryTextColor)
                 gravity = Gravity.CENTER
                 setPadding(0, 8, 0, 48)
             }
@@ -205,7 +227,7 @@ object BlockOverlayManager {
                 text = "“$displayedQuote”"
                 textSize = 16f
                 typeface = Typeface.create(Typeface.SERIF, Typeface.ITALIC)
-                setTextColor(Color.parseColor("#CBD5E1"))
+                setTextColor(secondaryTextColor)
                 gravity = Gravity.CENTER
                 setLineSpacing(6f, 1f)
                 setPadding(8, 0, 8, 48)
@@ -225,7 +247,7 @@ object BlockOverlayManager {
                 val descText = TextView(context).apply {
                     text = "This app is strictly locked to honor your focus commitment."
                     textSize = 14f
-                    setTextColor(Color.parseColor("#94A3B8"))
+                    setTextColor(tertiaryTextColor)
                     gravity = Gravity.CENTER
                     setLineSpacing(5f, 1f)
                     setPadding(0, 0, 0, 48)
@@ -253,7 +275,7 @@ object BlockOverlayManager {
                     text = if (timeLeft < 10) "00:0$timeLeft" else "00:$timeLeft"
                     textSize = 42f
                     typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
-                    setTextColor(Color.parseColor("#CBD5E1"))
+                    setTextColor(secondaryTextColor)
                     gravity = Gravity.CENTER
                     letterSpacing = 0.12f
                 }
@@ -261,7 +283,7 @@ object BlockOverlayManager {
 
                 val progressBar = View(context).apply {
                     background = GradientDrawable().apply {
-                        setColor(Color.WHITE)
+                        setColor(if (isDarkMode) Color.WHITE else Color.parseColor("#334155"))
                         cornerRadius = 8f
                     }
                 }
@@ -273,7 +295,7 @@ object BlockOverlayManager {
                 val timeSub = TextView(context).apply {
                     text = "Mindful pause in progress"
                     textSize = 13f
-                    setTextColor(Color.parseColor("#94A3B8"))
+                    setTextColor(tertiaryTextColor)
                     gravity = Gravity.CENTER
                 }
                 val timeSubParams = LinearLayout.LayoutParams(
@@ -286,12 +308,12 @@ object BlockOverlayManager {
 
                 val exitInitialBtn = Button(context).apply {
                     text = "Exit to Home"
-                    setTextColor(Color.WHITE)
+                    setTextColor(outlineBtnTextColor)
                     textSize = 15f
                     typeface = Typeface.DEFAULT_BOLD
                     background = GradientDrawable().apply {
                         setColor(Color.TRANSPARENT)
-                        setStroke(2, Color.parseColor("#26FFFFFF"))
+                        setStroke(2, outlineBtnStrokeColor)
                         cornerRadius = 80f
                     }
                     setPadding(32, 20, 32, 20)
@@ -316,7 +338,7 @@ object BlockOverlayManager {
                                 text = "Pause Completed"
                                 textSize = 18f
                                 typeface = Typeface.DEFAULT_BOLD
-                                setTextColor(Color.parseColor("#CBD5E1"))
+                                setTextColor(secondaryTextColor)
                                 gravity = Gravity.CENTER
                                 letterSpacing = 0.04f
                             }
@@ -331,7 +353,7 @@ object BlockOverlayManager {
                             val askPrompt = TextView(context).apply {
                                 text = "Would you like to open $appName for $unlockMins minutes or exit?"
                                 textSize = 14f
-                                setTextColor(Color.parseColor("#94A3B8"))
+                                setTextColor(tertiaryTextColor)
                                 gravity = Gravity.CENTER
                                 setLineSpacing(5f, 1f)
                                 setPadding(0, 0, 0, 48)
@@ -342,9 +364,9 @@ object BlockOverlayManager {
                                 text = "Open for $unlockMins Minutes"
                                 textSize = 15f
                                 typeface = Typeface.DEFAULT_BOLD
-                                setTextColor(Color.parseColor("#08090E"))
+                                setTextColor(filledBtnTextColor)
                                 background = GradientDrawable().apply {
-                                    setColor(Color.WHITE)
+                                    setColor(filledBtnBgColor)
                                     cornerRadius = 80f
                                 }
                                 setPadding(32, 22, 32, 22)
@@ -362,10 +384,10 @@ object BlockOverlayManager {
                                 text = "Exit to Home"
                                 textSize = 15f
                                 typeface = Typeface.DEFAULT_BOLD
-                                setTextColor(Color.WHITE)
+                                setTextColor(outlineBtnTextColor)
                                 background = GradientDrawable().apply {
                                     setColor(Color.TRANSPARENT)
-                                    setStroke(2, Color.parseColor("#26FFFFFF"))
+                                    setStroke(2, outlineBtnStrokeColor)
                                     cornerRadius = 80f
                                 }
                                 setPadding(32, 20, 32, 20)

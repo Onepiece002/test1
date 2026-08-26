@@ -69,33 +69,54 @@ object UsageStatsHelper {
         val startTime = calendar.timeInMillis
         val endTime = System.currentTimeMillis()
 
-        val usageStatsList = usm.queryUsageStats(
-            UsageStatsManager.INTERVAL_DAILY,
-            startTime,
-            endTime
-        ) ?: emptyList()
+        val usageMap = mutableMapOf<String, Long>()
+        val lastResumeMap = mutableMapOf<String, Long>()
 
-        val pm = context.packageManager
-        val resultMap = mutableMapOf<String, AppUsageData>()
-
-        for (usage in usageStatsList) {
-            if (usage.totalTimeInForeground > 0) {
-                val appName = try {
-                    val appInfo = pm.getApplicationInfo(usage.packageName, 0)
-                    pm.getApplicationLabel(appInfo).toString()
-                } catch (e: Exception) {
-                    usage.packageName
+        kotlin.runCatching {
+            val events = usm.queryEvents(startTime, endTime)
+            val event = android.app.usage.UsageEvents.Event()
+            while (events.hasNextEvent()) {
+                events.getNextEvent(event)
+                val pkg = event.packageName ?: continue
+                if (event.eventType == android.app.usage.UsageEvents.Event.ACTIVITY_RESUMED ||
+                    event.eventType == android.app.usage.UsageEvents.Event.MOVE_TO_FOREGROUND) {
+                    lastResumeMap[pkg] = event.timeStamp
+                } else if (event.eventType == android.app.usage.UsageEvents.Event.ACTIVITY_PAUSED ||
+                           event.eventType == android.app.usage.UsageEvents.Event.ACTIVITY_STOPPED) {
+                    val lastResumeTime = lastResumeMap[pkg] ?: 0L
+                    if (lastResumeTime > 0L) {
+                        val duration = event.timeStamp - lastResumeTime
+                        usageMap[pkg] = (usageMap[pkg] ?: 0L) + duration
+                        lastResumeMap[pkg] = 0L
+                    }
                 }
-                val existing = resultMap[usage.packageName]
-                val totalTime = (existing?.timeInForegroundMs ?: 0L) + usage.totalTimeInForeground
-                resultMap[usage.packageName] = AppUsageData(
-                    appName = appName,
-                    packageName = usage.packageName,
-                    timeInForegroundMs = totalTime
-                )
+            }
+            
+            for ((pkg, lastResumeTime) in lastResumeMap) {
+                if (lastResumeTime > 0L) {
+                    usageMap[pkg] = (usageMap[pkg] ?: 0L) + (endTime - lastResumeTime)
+                }
             }
         }
 
+        val pm = context.packageManager
+        val resultMap = mutableMapOf<String, AppUsageData>()
+        
+        for ((pkg, timeMs) in usageMap) {
+            if (timeMs > 0) {
+                val appName = try {
+                    val appInfo = pm.getApplicationInfo(pkg, 0)
+                    pm.getApplicationLabel(appInfo).toString()
+                } catch (e: Exception) {
+                    pkg
+                }
+                resultMap[pkg] = AppUsageData(
+                    appName = appName,
+                    packageName = pkg,
+                    timeInForegroundMs = timeMs
+                )
+            }
+        }
         return resultMap.values.sortedByDescending { it.timeInForegroundMs }
     }
 

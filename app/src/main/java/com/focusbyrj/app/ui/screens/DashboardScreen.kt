@@ -236,14 +236,50 @@ fun NormalDashboard(
         if (restrictions.isEmpty()) {
             item { EmptyStateView() }
         } else {
-            items(restrictions, key = { it.packageName }) { app ->
-                SwipeableAppRestrictionCard(
-                    app = app,
-                    onToggle = { onToggle(app) },
-                    onEdit = { editingApp = app },
-                    onDelete = { onDelete(app) }
-                )
-                Spacer(modifier = Modifier.height(12.dp))
+            val manualApps = restrictions.filter { !it.isFromRoutine }
+            val routineApps = restrictions.filter { it.isFromRoutine }
+
+            if (manualApps.isNotEmpty()) {
+                item {
+                    Text(
+                        text = "MANUALLY ADDED",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp),
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                }
+                items(manualApps, key = { it.packageName }) { app ->
+                    SwipeableAppRestrictionCard(
+                        app = app,
+                        onToggle = { onToggle(app) },
+                        onEdit = { editingApp = app },
+                        onDelete = { onDelete(app) }
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+            }
+
+            if (routineApps.isNotEmpty()) {
+                if (manualApps.isNotEmpty()) {
+                    item { Spacer(modifier = Modifier.height(16.dp)) }
+                }
+                item {
+                    Text(
+                        text = "ACTIVE FROM ROUTINES",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp),
+                        color = MaterialTheme.colorScheme.secondary,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                }
+                items(routineApps, key = { it.packageName }) { app ->
+                    SwipeableAppRestrictionCard(
+                        app = app,
+                        onToggle = { onToggle(app) },
+                        onEdit = { editingApp = app },
+                        onDelete = { onDelete(app) }
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
             }
         }
     }
