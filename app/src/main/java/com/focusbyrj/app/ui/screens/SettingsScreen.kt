@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.HourglassTop
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.LockOpen
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Remove
@@ -252,7 +253,57 @@ fun SettingsScreen(navController: NavController) {
                 border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    // Soft Lock Duration Stepper
+                    // Soft Lock Wait Timer Stepper
+                    SettingsStepperRow(
+                        icon = Icons.Filled.HourglassTop,
+                        title = "Soft Mode Wait Timer",
+                        subtitle = "Delay before unlock button activates",
+                        valueText = "${softLockDuration}s",
+                        onDecrement = {
+                            if (softLockDuration > 5) {
+                                softLockDuration -= 5
+                                prefs.edit().putInt("soft_lock_duration", softLockDuration).apply()
+                            }
+                        },
+                        onIncrement = {
+                            if (softLockDuration < 60) {
+                                softLockDuration += 5
+                                prefs.edit().putInt("soft_lock_duration", softLockDuration).apply()
+                            }
+                        }
+                    )
+
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 12.dp),
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
+                    )
+
+                    // Soft Unlock Relief Duration Stepper
+                    SettingsStepperRow(
+                        icon = Icons.Filled.LockOpen,
+                        title = "Soft Mode Relief Duration",
+                        subtitle = "Temporary unlock access window",
+                        valueText = "${softUnlockDuration}m",
+                        onDecrement = {
+                            if (softUnlockDuration > 1) {
+                                softUnlockDuration -= if (softUnlockDuration > 5) 5 else 1
+                                prefs.edit().putInt("soft_unlock_duration", softUnlockDuration).apply()
+                            }
+                        },
+                        onIncrement = {
+                            if (softUnlockDuration < 60) {
+                                softUnlockDuration += if (softUnlockDuration >= 5) 5 else 1
+                                prefs.edit().putInt("soft_unlock_duration", softUnlockDuration).apply()
+                            }
+                        }
+                    )
+
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 12.dp),
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
+                    )
+
+                    // Persistent Reminder Interval Stepper
                     SettingsStepperRow(
                         icon = Icons.Filled.NotificationsActive,
                         title = "Persistent Reminder Interval",
@@ -299,6 +350,24 @@ fun SettingsScreen(navController: NavController) {
                                 persistentReminderInterval = newInterval
                                 prefs.edit().putInt("persistent_reminder_interval", newInterval).apply()
                             }
+                        }
+                    )
+
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 12.dp),
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
+                    )
+
+                    // Routine & Focus Guard Notifications Toggle
+                    SettingsSwitchRow(
+                        icon = Icons.Filled.Notifications,
+                        title = "Routine Notifications",
+                        subtitle = "Alerts for routine start/end and Focus Guard status",
+                        checked = routineNotifications,
+                        onCheckedChange = { isEnabled ->
+                            routineNotifications = isEnabled
+                            prefs.edit().putBoolean("routine_notifications", isEnabled).apply()
+                            com.focusbyrj.app.service.FocusBlockerService.updateNotificationState(context)
                         }
                     )
                 }

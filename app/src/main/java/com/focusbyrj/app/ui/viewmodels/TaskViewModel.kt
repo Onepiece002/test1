@@ -9,6 +9,7 @@ import com.focusbyrj.app.data.Task
 import com.focusbyrj.app.data.TaskRepository
 import com.focusbyrj.app.data.TaskType
 import com.focusbyrj.app.util.TaskReminderHelper
+import com.focusbyrj.app.widget.TodoWidgetProvider
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -29,6 +30,7 @@ class TaskViewModel(
         viewModelScope.launch {
             val id = repository.insertTask(task)
             TaskReminderHelper.scheduleReminder(getApplication(), task.copy(id = id))
+            TodoWidgetProvider.updateAllWidgets(getApplication())
         }
     }
 
@@ -36,6 +38,7 @@ class TaskViewModel(
         viewModelScope.launch {
             repository.updateTask(task)
             TaskReminderHelper.scheduleReminder(getApplication(), task)
+            TodoWidgetProvider.updateAllWidgets(getApplication())
         }
     }
 
@@ -43,6 +46,7 @@ class TaskViewModel(
         viewModelScope.launch {
             repository.deleteTask(task)
             TaskReminderHelper.cancelReminder(getApplication(), task)
+            TodoWidgetProvider.updateAllWidgets(getApplication())
         }
     }
 
@@ -61,6 +65,7 @@ class TaskViewModel(
             } else {
                 TaskReminderHelper.scheduleReminder(getApplication(), updatedTask)
             }
+            TodoWidgetProvider.updateAllWidgets(getApplication())
         }
     }
 }

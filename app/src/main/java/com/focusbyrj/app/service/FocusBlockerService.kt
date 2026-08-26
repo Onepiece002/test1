@@ -108,27 +108,45 @@ class FocusBlockerService : Service() {
     }
 
     private fun startForegroundServiceNotification() {
-        val channelId = "focus_blocker_channel"
+        val prefs = applicationContext.getSharedPreferences("focus_prefs", Context.MODE_PRIVATE)
+        val notifyEnabled = prefs.getBoolean("routine_notifications", true)
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+        if (!notifyEnabled) {
+            // Remove foreground notification from user view while keeping service running
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                stopForeground(STOP_FOREGROUND_REMOVE)
+            } else {
+                @Suppress("DEPRECATION")
+                stopForeground(true)
+            }
+            notificationManager.cancel(NOTIFICATION_ID)
+            return
+        }
+
+        val channelId = "focus_blocker_channel"
+        val channelName = "Focus Guard Service"
+        val importance = NotificationManager.IMPORTANCE_LOW
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 channelId,
-                "Focus Guard Service",
-                NotificationManager.IMPORTANCE_LOW
+                channelName,
+                importance
             ).apply {
                 description = "Monitors restricted apps in background"
                 setSound(null, null)
+                setShowBadge(true)
             }
             notificationManager.createNotificationChannel(channel)
         }
 
         val notification = NotificationCompat.Builder(this, channelId)
+            .setSmallIcon(R.mipmap.ic_launcher_round)
+            .setOngoing(true)
             .setContentTitle("Focus Guard Active")
             .setContentText("Protecting your screen time and boundaries")
-            .setSmallIcon(R.mipmap.ic_launcher_round)
             .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setOngoing(true)
             .build()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
@@ -222,6 +240,10 @@ class FocusBlockerService : Service() {
     }
 
     private fun sendRoutineNotification(title: String, message: String) {
+        val prefs = applicationContext.getSharedPreferences("focus_prefs", Context.MODE_PRIVATE)
+        val notifyEnabled = prefs.getBoolean("routine_notifications", true)
+        if (!notifyEnabled) return
+
         val channelId = "routine_alerts"
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -450,6 +472,17 @@ class FocusBlockerService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_UPDATE_NOTIFICATION) {
+            startForegroundServiceNotification()
+            val prefs = applicationContext.getSharedPreferences("focus_prefs", Context.MODE_PRIVATE)
+            val notifyEnabled = prefs.getBoolean("routine_notifications", true)
+            if (!notifyEnabled) {
+                val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    notificationManager.deleteNotificationChannel("routine_alerts")
+                }
+            }
+        }
         return START_STICKY
     }
 
@@ -466,10 +499,24 @@ class FocusBlockerService : Service() {
 
     companion object {
         private const val NOTIFICATION_ID = 1001
+        const val ACTION_UPDATE_NOTIFICATION = "com.focusbyrj.app.ACTION_UPDATE_NOTIFICATION"
 
         fun startService(context: Context) {
             kotlin.runCatching {
                 val intent = Intent(context, FocusBlockerService::class.java)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    context.startForegroundService(intent)
+                } else {
+                    context.startService(intent)
+                }
+            }
+        }
+
+        fun updateNotificationState(context: Context) {
+            kotlin.runCatching {
+                val intent = Intent(context, FocusBlockerService::class.java).apply {
+                    action = ACTION_UPDATE_NOTIFICATION
+                }
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     context.startForegroundService(intent)
                 } else {

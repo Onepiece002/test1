@@ -106,7 +106,7 @@ fun SchedulesScreen(viewModel: FocusViewModel) {
                     .padding(padding)
                     .padding(horizontal = 24.dp)
             ) {
-                Spacer(modifier = Modifier.height(24.dp))
+                // Spacer removed to bring title up
                 
                 Text(
                     text = "Routines",

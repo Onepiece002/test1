@@ -8,6 +8,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -44,12 +46,12 @@ import kotlin.math.abs
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TodosScreen(viewModel: TaskViewModel) {
+fun TodosScreen(viewModel: TaskViewModel, initialOpenAdd: Boolean = false) {
     val tasks by viewModel.allTasks.collectAsStateWithLifecycle()
     var selectedTab by remember { mutableIntStateOf(0) }
     val tabs = listOf("Today", "Upcoming", "All", "Occasions")
     
-    var showAddDialog by remember { mutableStateOf(false) }
+    var showAddDialog by remember { mutableStateOf(initialOpenAdd) }
     var editingTask by remember { mutableStateOf<Task?>(null) }
     val coroutineScope = rememberCoroutineScope()
     
@@ -117,7 +119,7 @@ fun TodosScreen(viewModel: TaskViewModel) {
                     .fillMaxSize()
                     .padding(horizontal = 24.dp)
             ) {
-                Spacer(modifier = Modifier.height(24.dp))
+                // Spacer removed to bring title up
                 
                 Text(
                     text = "Todos",
@@ -175,32 +177,41 @@ fun TodosScreen(viewModel: TaskViewModel) {
                         }
                     }
                 } else {
-                    LazyColumn(
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(14.dp),
-                        contentPadding = PaddingValues(top = 4.dp, bottom = 96.dp)
+                            .weight(1f, fill = false)
+                            .clip(RoundedCornerShape(24.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.1f), RoundedCornerShape(24.dp))
+                            .padding(8.dp)
                     ) {
-                        items(filteredTasks, key = { it.id }) { task ->
-                            TaskItem(
-                                task = task,
-                                modifier = Modifier.animateItem(),
-                                onToggle = {
-                                    coroutineScope.launch {
-                                        delay(350)
-                                        viewModel.toggleTaskCompletion(it)
-                                    }
-                                },
-                                onDelete = {
-                                    pendingDeleteTask?.let { deleted -> viewModel.deleteTask(deleted) }
-                                    pendingDeleteTask = it
-                                    deleteCountdown = 4
-                                },
-                                onEdit = { editingTask = it }
-                            )
+                        LazyColumn(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
+                            items(filteredTasks, key = { it.id }) { task ->
+                                TaskItem(
+                                    task = task,
+                                    modifier = Modifier.animateItem(),
+                                    onToggle = {
+                                        coroutineScope.launch {
+                                            delay(350)
+                                            viewModel.toggleTaskCompletion(it)
+                                        }
+                                    },
+                                    onDelete = {
+                                        pendingDeleteTask?.let { deleted -> viewModel.deleteTask(deleted) }
+                                        pendingDeleteTask = it
+                                        deleteCountdown = 4
+                                    },
+                                    onEdit = { editingTask = it }
+                                )
+                            }
                         }
                     }
+                    Spacer(modifier = Modifier.height(88.dp))
                 }
             }
             
@@ -211,7 +222,7 @@ fun TodosScreen(viewModel: TaskViewModel) {
                 exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = 24.dp)
+                    .padding(bottom = 96.dp)
             ) {
                 Surface(
                     shape = RoundedCornerShape(20.dp),
@@ -378,7 +389,7 @@ fun TaskItem(
     SwipeToDismissBox(
         state = dismissState,
         modifier = modifier
-            .clip(RoundedCornerShape(20.dp)),
+            .clip(RoundedCornerShape(16.dp)),
         backgroundContent = {
             // Background is completely invisible unless user is actually dragging
             val isSwiping = dismissState.targetValue != SwipeToDismissBoxValue.Settled || dismissState.progress > 0.05f
@@ -386,7 +397,7 @@ fun TaskItem(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .clip(RoundedCornerShape(20.dp))
+                        .clip(RoundedCornerShape(16.dp))
                         .background(MaterialTheme.colorScheme.errorContainer)
                         .padding(horizontal = 24.dp),
                     contentAlignment = Alignment.CenterEnd
@@ -413,20 +424,20 @@ fun TaskItem(
     ) {
         // Clean card surface without any tonal color tint
         val cardColor = if (isCompleted) {
-            MaterialTheme.colorScheme.surface.copy(alpha = 0.5f)
+            MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)
         } else {
-            MaterialTheme.colorScheme.surfaceVariant
+            MaterialTheme.colorScheme.surface
         }
 
         Surface(
-            shape = RoundedCornerShape(20.dp),
+            shape = RoundedCornerShape(16.dp),
             color = cardColor,
             tonalElevation = 0.dp,
-            shadowElevation = if (isCompleted) 0.dp else 3.dp,
+            shadowElevation = if (isCompleted) 0.dp else 2.dp,
             border = androidx.compose.foundation.BorderStroke(
                 width = 1.dp,
-                color = if (isCompleted) MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
-                else MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
+                color = if (isCompleted) MaterialTheme.colorScheme.outline.copy(alpha = 0.1f)
+                else MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
             ),
             modifier = Modifier
                 .fillMaxWidth()
@@ -621,8 +632,11 @@ fun AddTaskDialog(initialTask: Task? = null, onDismiss: () -> Unit, onSave: (Tas
         calendar.timeInMillis = effectiveDueDate
     }
 
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.surface,
         dragHandle = { BottomSheetDefaults.DragHandle() }
     ) {
@@ -630,21 +644,51 @@ fun AddTaskDialog(initialTask: Task? = null, onDismiss: () -> Unit, onSave: (Tas
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp)
-                .padding(bottom = 36.dp)
+                .padding(bottom = 28.dp)
+                .verticalScroll(rememberScrollState())
         ) {
-            Text(
-                text = if (initialTask == null) "New Task" else "Edit Task",
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Spacer(modifier = Modifier.height(16.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = if (initialTask == null) "New Task" else "Edit Task",
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                TextButton(
+                    onClick = {
+                        val finalTitle = parsedResult?.cleanText?.takeIf { it.isNotBlank() } ?: title
+                        if (finalTitle.isNotBlank()) {
+                            onSave(
+                                Task(
+                                    title = finalTitle, 
+                                    details = details, 
+                                    dueDate = effectiveDueDate, 
+                                    type = type, 
+                                    recurrence = recurrence, 
+                                    isPersistent = isPersistent
+                                )
+                            )
+                        }
+                    },
+                    enabled = title.isNotBlank()
+                ) {
+                    Text(
+                        text = "Save",
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(10.dp))
             
             OutlinedTextField(
                 value = title,
                 onValueChange = { title = it },
                 label = { Text("Title") },
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
+                shape = RoundedCornerShape(12.dp),
                 singleLine = true
             )
             
@@ -652,15 +696,15 @@ fun AddTaskDialog(initialTask: Task? = null, onDismiss: () -> Unit, onSave: (Tas
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 8.dp)
+                        .padding(top = 6.dp)
                         .clip(RoundedCornerShape(8.dp))
                         .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f))
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        Icons.Outlined.AutoAwesome,
-                        contentDescription = "AI Date parsed",
+                        Icons.Outlined.AccessTime,
+                        contentDescription = "Detected time",
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(16.dp)
                     )
@@ -672,24 +716,24 @@ fun AddTaskDialog(initialTask: Task? = null, onDismiss: () -> Unit, onSave: (Tas
                     )
                 }
             }
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             
             OutlinedTextField(
                 value = details,
                 onValueChange = { details = it },
                 label = { Text("Details (Optional)") },
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-                maxLines = 3
+                shape = RoundedCornerShape(12.dp),
+                maxLines = 2
             )
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(10.dp))
             
             Text(
                 text = "Category", 
                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold), 
                 color = MaterialTheme.colorScheme.primary
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(4.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(), 
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -816,33 +860,7 @@ fun AddTaskDialog(initialTask: Task? = null, onDismiss: () -> Unit, onSave: (Tas
                 )
             }
             
-            Spacer(modifier = Modifier.height(24.dp))
-            Button(
-                onClick = {
-                    val finalTitle = parsedResult?.cleanText?.takeIf { it.isNotBlank() } ?: title
-                    if (finalTitle.isNotBlank()) {
-                        onSave(
-                            Task(
-                                title = finalTitle, 
-                                details = details, 
-                                dueDate = effectiveDueDate, 
-                                type = type, 
-                                recurrence = recurrence, 
-                                isPersistent = isPersistent
-                            )
-                        )
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                shape = RoundedCornerShape(100.dp)
-            ) {
-                Text(
-                    text = if (initialTask == null) "Create Task" else "Save Changes",
-                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
-                )
-            }
+
         }
     }
 }

@@ -194,7 +194,7 @@ fun PermissionsScreen(navController: NavController) {
                                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                                 modifier = Modifier.height(34.dp)
                             ) {
-                                Text("Fix Now", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Text("Enable", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }

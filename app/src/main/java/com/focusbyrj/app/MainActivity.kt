@@ -63,6 +63,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -122,6 +123,24 @@ class MainActivity : FragmentActivity() {
     lateinit var viewModel: FocusViewModel
     lateinit var taskViewModel: com.focusbyrj.app.ui.viewmodels.TaskViewModel
 
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        val navigateTo = intent.getStringExtra("navigate_to")
+        val openAddDialog = intent.getBooleanExtra("open_add_dialog", false)
+        if (navigateTo != null || openAddDialog) {
+            setContent {
+                FocusByRjTheme {
+                    MainAppScreen(
+                        viewModel = viewModel, 
+                        taskViewModel = taskViewModel,
+                        initialNavigateTo = navigateTo,
+                        initialOpenAdd = openAddDialog
+                    )
+                }
+            }
+        }
+    }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -139,9 +158,17 @@ class MainActivity : FragmentActivity() {
 
         FocusBlockerService.startService(this)
 
+        val navigateTo = intent?.getStringExtra("navigate_to")
+        val openAddDialog = intent?.getBooleanExtra("open_add_dialog", false) ?: false
+
         setContent {
             FocusByRjTheme {
-                MainAppScreen(viewModel, taskViewModel)
+                MainAppScreen(
+                    viewModel = viewModel, 
+                    taskViewModel = taskViewModel,
+                    initialNavigateTo = navigateTo,
+                    initialOpenAdd = openAddDialog
+                )
             }
         }
     }
@@ -149,10 +176,23 @@ class MainActivity : FragmentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainAppScreen(viewModel: FocusViewModel, taskViewModel: com.focusbyrj.app.ui.viewmodels.TaskViewModel) {
+fun MainAppScreen(
+    viewModel: FocusViewModel, 
+    taskViewModel: com.focusbyrj.app.ui.viewmodels.TaskViewModel,
+    initialNavigateTo: String? = null,
+    initialOpenAdd: Boolean = false
+) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
+
+    LaunchedEffect(initialNavigateTo) {
+        if (initialNavigateTo == "todos") {
+            navController.navigate(Screen.Todos.route) {
+                launchSingleTop = true
+            }
+        }
+    }
 
     val items = listOf(
         Screen.Dashboard,
@@ -377,15 +417,17 @@ fun MainAppScreen(viewModel: FocusViewModel, taskViewModel: com.focusbyrj.app.ui
                 if (!isSessionActive) {
                     TopAppBar(
                         title = {
-                            Text(
-                                text = "Focus by Rj",
-                                style = MaterialTheme.typography.titleLarge.copy(
-                                    fontWeight = FontWeight.Normal,
-                                    letterSpacing = 2.5.sp,
-                                    fontSize = 21.sp
-                                ),
-                                color = MaterialTheme.colorScheme.onBackground
-                            )
+                            if (currentDestination?.route == Screen.Dashboard.route) {
+                                Text(
+                                    text = "Focus by Rj",
+                                    style = MaterialTheme.typography.titleLarge.copy(
+                                        fontWeight = FontWeight.Normal,
+                                        letterSpacing = 2.5.sp,
+                                        fontSize = 21.sp
+                                    ),
+                                    color = MaterialTheme.colorScheme.onBackground
+                                )
+                            }
                         },
                         navigationIcon = {
                             IconButton(onClick = { scope.launch { drawerState.open() } }) {
@@ -470,7 +512,7 @@ fun MainAppScreen(viewModel: FocusViewModel, taskViewModel: com.focusbyrj.app.ui
                     SubscriptionScreen(navController)
                 }
                 composable(Screen.Todos.route) {
-                    com.focusbyrj.app.ui.screens.TodosScreen(taskViewModel)
+                    com.focusbyrj.app.ui.screens.TodosScreen(taskViewModel, initialOpenAdd = initialOpenAdd)
                 }
             }
             
