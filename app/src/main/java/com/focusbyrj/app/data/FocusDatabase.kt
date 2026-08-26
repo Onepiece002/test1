@@ -20,8 +20,9 @@ package com.focusbyrj.app.data
 import androidx.room.Database
 import androidx.room.RoomDatabase
 
-@Database(entities = [AppRestriction::class, FocusSchedule::class], version = 3, exportSchema = false)
+@Database(entities = [AppRestriction::class, FocusSchedule::class, Task::class], version = 4, exportSchema = false)
 abstract class FocusDatabase : RoomDatabase() {
     abstract fun appRestrictionDao(): AppRestrictionDao
     abstract fun scheduleDao(): ScheduleDao
+    abstract fun taskDao(): TaskDao
 }

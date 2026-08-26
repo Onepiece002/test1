@@ -1,0 +1,848 @@
+package com.focusbyrj.app.ui.screens
+
+import android.app.DatePickerDialog
+import android.app.TimePickerDialog
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import com.focusbyrj.app.data.RecurrencePattern
+import com.focusbyrj.app.data.Task
+import com.focusbyrj.app.data.TaskType
+import com.focusbyrj.app.util.SmartDateParser
+import com.focusbyrj.app.ui.viewmodels.TaskViewModel
+import java.text.SimpleDateFormat
+import java.util.*
+import kotlin.math.abs
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TodosScreen(viewModel: TaskViewModel) {
+    val tasks by viewModel.allTasks.collectAsStateWithLifecycle()
+    var selectedTab by remember { mutableIntStateOf(0) }
+    val tabs = listOf("Today", "Upcoming", "All", "Occasions")
+    
+    var showAddDialog by remember { mutableStateOf(false) }
+    var editingTask by remember { mutableStateOf<Task?>(null) }
+    val coroutineScope = rememberCoroutineScope()
+    
+    var pendingDeleteTask by remember { mutableStateOf<Task?>(null) }
+    var deleteCountdown by remember { mutableIntStateOf(4) }
+    
+    LaunchedEffect(pendingDeleteTask) {
+        if (pendingDeleteTask != null) {
+            deleteCountdown = 4
+            while (deleteCountdown > 0) {
+                delay(1000L)
+                deleteCountdown -= 1
+            }
+            pendingDeleteTask?.let { viewModel.deleteTask(it) }
+            pendingDeleteTask = null
+        }
+    }
+
+    // Filter tasks
+    val filteredTasks = remember(tasks, selectedTab, pendingDeleteTask) {
+        val now = Calendar.getInstance()
+        val todayStart = now.apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        val todayEnd = todayStart + 86400000L
+
+        val baseList = when (selectedTab) {
+            0 -> tasks.filter { 
+                (it.dueDate != null && it.dueDate in todayStart..todayEnd) || 
+                (it.dueDate == null && it.type == TaskType.TASK) 
+            } // Today
+            1 -> tasks.filter { 
+                it.type == TaskType.TASK && it.dueDate != null && it.dueDate > todayEnd 
+            } // Upcoming
+            2 -> tasks.filter { it.type == TaskType.TASK } // All
+            3 -> tasks.filter { it.type != TaskType.TASK } // Occasions
+            else -> emptyList()
+        }
+        baseList.filter { !it.isCompleted && it.id != pendingDeleteTask?.id }
+    }
+
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = { showAddDialog = true },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                shape = CircleShape
+            ) {
+                Icon(Icons.Filled.Add, contentDescription = "Add Task")
+            }
+        }
+    ) { innerPadding ->
+        Box(
+            modifier = Modifier
+                .padding(innerPadding)
+                .fillMaxSize()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 24.dp)
+            ) {
+                Spacer(modifier = Modifier.height(24.dp))
+                
+                Text(
+                    text = "Todos",
+                    style = MaterialTheme.typography.displayLarge,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                
+                Spacer(modifier = Modifier.height(20.dp))
+                
+                TodoSegmentedPill(
+                    tabs = tabs,
+                    selectedIndex = selectedTab,
+                    onSelect = { selectedTab = it }
+                )
+                
+                Spacer(modifier = Modifier.height(20.dp))
+                
+                if (filteredTasks.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(64.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = if (selectedTab == 3) Icons.Outlined.Cake else Icons.Outlined.Checklist,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(32.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                text = if (selectedTab == 3) "No upcoming occasions" else "No pending tasks",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Tap + to create a new reminder",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                        contentPadding = PaddingValues(top = 4.dp, bottom = 96.dp)
+                    ) {
+                        items(filteredTasks, key = { it.id }) { task ->
+                            TaskItem(
+                                task = task,
+                                modifier = Modifier.animateItem(),
+                                onToggle = {
+                                    coroutineScope.launch {
+                                        delay(350)
+                                        viewModel.toggleTaskCompletion(it)
+                                    }
+                                },
+                                onDelete = {
+                                    pendingDeleteTask?.let { deleted -> viewModel.deleteTask(deleted) }
+                                    pendingDeleteTask = it
+                                    deleteCountdown = 4
+                                },
+                                onEdit = { editingTask = it }
+                            )
+                        }
+                    }
+                }
+            }
+            
+            // Undo Snackbar
+            AnimatedVisibility(
+                visible = pendingDeleteTask != null,
+                enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+                exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 24.dp)
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 8.dp,
+                    shadowElevation = 8.dp,
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp, 
+                        MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier.size(32.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(
+                                progress = { deleteCountdown / 4f },
+                                color = MaterialTheme.colorScheme.primary,
+                                strokeWidth = 2.5.dp,
+                                trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                            )
+                            Text(
+                                text = deleteCountdown.toString(),
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.width(14.dp))
+                        
+                        Text(
+                            text = "Task removed",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(1f)
+                        )
+                        
+                        Button(
+                            onClick = { pendingDeleteTask = null },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
+                            ),
+                            shape = RoundedCornerShape(100.dp),
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = "UNDO",
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (showAddDialog || editingTask != null) {
+        AddTaskDialog(
+            initialTask = editingTask,
+            onDismiss = { 
+                showAddDialog = false
+                editingTask = null
+            },
+            onSave = { task ->
+                if (editingTask != null) {
+                    viewModel.updateTask(task.copy(id = editingTask!!.id))
+                } else {
+                    viewModel.addTask(task)
+                }
+                showAddDialog = false
+                editingTask = null
+            }
+        )
+    }
+}
+
+@Composable
+fun TodoSegmentedPill(tabs: List<String>, selectedIndex: Int, onSelect: (Int) -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f), RoundedCornerShape(16.dp))
+            .padding(4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        tabs.forEachIndexed { index, title ->
+            val isSelected = index == selectedIndex
+            val bgColor by animateColorAsState(
+                targetValue = if (isSelected) MaterialTheme.colorScheme.surface else Color.Transparent,
+                animationSpec = tween(200),
+                label = "tabBg"
+            )
+            val contentColor by animateColorAsState(
+                targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                animationSpec = tween(200),
+                label = "tabContent"
+            )
+            
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(bgColor)
+                    .clickable { onSelect(index) }
+                    .padding(vertical = 8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                    ),
+                    color = contentColor
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TaskItem(
+    task: Task, 
+    modifier: Modifier = Modifier, 
+    onToggle: (Task) -> Unit, 
+    onDelete: (Task) -> Unit, 
+    onEdit: (Task) -> Unit
+) {
+    val haptic = LocalHapticFeedback.current
+    var isLocalCompleted by remember(task.isCompleted) { mutableStateOf(task.isCompleted) }
+    val isCompleted = isLocalCompleted
+
+    val textColor by animateColorAsState(
+        targetValue = if (isCompleted) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f) else MaterialTheme.colorScheme.onSurface,
+        animationSpec = tween(300),
+        label = "textColor"
+    )
+
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = {
+            if (it == SwipeToDismissBoxValue.EndToStart || it == SwipeToDismissBoxValue.StartToEnd) {
+                onDelete(task)
+                true
+            } else false
+        }
+    )
+    
+    LaunchedEffect(task.id) {
+        if (dismissState.currentValue != SwipeToDismissBoxValue.Settled) {
+            dismissState.snapTo(SwipeToDismissBoxValue.Settled)
+        }
+    }
+
+    SwipeToDismissBox(
+        state = dismissState,
+        modifier = modifier
+            .clip(RoundedCornerShape(20.dp)),
+        backgroundContent = {
+            // Background is completely invisible unless user is actually dragging
+            val isSwiping = dismissState.targetValue != SwipeToDismissBoxValue.Settled || dismissState.progress > 0.05f
+            if (isSwiping) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(MaterialTheme.colorScheme.errorContainer)
+                        .padding(horizontal = 24.dp),
+                    contentAlignment = Alignment.CenterEnd
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "Delete",
+                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                        Icon(
+                            imageVector = Icons.Filled.Delete,
+                            contentDescription = "Delete",
+                            tint = MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+        }
+    ) {
+        // Clean card surface without any tonal color tint
+        val cardColor = if (isCompleted) {
+            MaterialTheme.colorScheme.surface.copy(alpha = 0.5f)
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant
+        }
+
+        Surface(
+            shape = RoundedCornerShape(20.dp),
+            color = cardColor,
+            tonalElevation = 0.dp,
+            shadowElevation = if (isCompleted) 0.dp else 3.dp,
+            border = androidx.compose.foundation.BorderStroke(
+                width = 1.dp,
+                color = if (isCompleted) MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
+                else MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onEdit(task) }
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 18.dp, vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Interactive Checkbox
+                Box(
+                    modifier = Modifier
+                        .size(26.dp)
+                        .clip(CircleShape)
+                        .background(if (isCompleted) MaterialTheme.colorScheme.primary else Color.Transparent)
+                        .border(
+                            width = 2.dp,
+                            color = if (isCompleted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                            shape = CircleShape
+                        )
+                        .clickable {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            isLocalCompleted = !isLocalCompleted
+                            onToggle(task)
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (isCompleted) {
+                        Icon(
+                            imageVector = Icons.Filled.Check,
+                            contentDescription = "Completed",
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.width(16.dp))
+                
+                // Content Column
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = task.title,
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            textDecoration = if (isCompleted) TextDecoration.LineThrough else TextDecoration.None
+                        ),
+                        color = textColor,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    
+                    if (task.details.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(3.dp))
+                        Text(
+                            text = task.details,
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                textDecoration = if (isCompleted) TextDecoration.LineThrough else TextDecoration.None
+                            ),
+                            color = textColor.copy(alpha = 0.7f),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    
+                    if (task.dueDate != null || task.recurrence != RecurrencePattern.NONE || task.isPersistent) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            if (task.dueDate != null) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(MaterialTheme.colorScheme.surface)
+                                        .border(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Schedule,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = SimpleDateFormat("MMM dd, h:mm a", Locale.getDefault()).format(Date(task.dueDate)),
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                            
+                            if (task.recurrence != RecurrencePattern.NONE) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(MaterialTheme.colorScheme.surface)
+                                        .border(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Repeat,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = task.recurrence.name.lowercase().replaceFirstChar { it.uppercase() },
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+
+                            if (task.isPersistent) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(MaterialTheme.colorScheme.surface)
+                                        .border(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.NotificationsActive,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "Persistent",
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Occasion Icon if Birthday / Anniversary
+                if (task.type != TaskType.TASK) {
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = if (task.type == TaskType.BIRTHDAY) Icons.Outlined.Cake else Icons.Outlined.FavoriteBorder,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AddTaskDialog(initialTask: Task? = null, onDismiss: () -> Unit, onSave: (Task) -> Unit) {
+    var title by remember { mutableStateOf(initialTask?.title ?: "") }
+    var details by remember { mutableStateOf(initialTask?.details ?: "") }
+    var type by remember { mutableStateOf(initialTask?.type ?: TaskType.TASK) }
+    var recurrence by remember { mutableStateOf(initialTask?.recurrence ?: RecurrencePattern.NONE) }
+    var isPersistent by remember { mutableStateOf(initialTask?.isPersistent ?: false) }
+    var manualDueDate by remember { mutableStateOf<Long?>(initialTask?.dueDate) }
+    var userManuallySetDate by remember { mutableStateOf(initialTask?.dueDate != null) }
+    
+    val parsedResult = remember(title, userManuallySetDate) {
+        if (!userManuallySetDate && title.isNotBlank()) SmartDateParser.parse(title) else null
+    }
+    
+    val effectiveDueDate = parsedResult?.timestamp ?: manualDueDate
+    
+    val context = LocalContext.current
+    val calendar = Calendar.getInstance()
+    if (effectiveDueDate != null) {
+        calendar.timeInMillis = effectiveDueDate
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surface,
+        dragHandle = { BottomSheetDefaults.DragHandle() }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 36.dp)
+        ) {
+            Text(
+                text = if (initialTask == null) "New Task" else "Edit Task",
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            OutlinedTextField(
+                value = title,
+                onValueChange = { title = it },
+                label = { Text("Title") },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                singleLine = true
+            )
+            
+            AnimatedVisibility(visible = parsedResult?.timestamp != null) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f))
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Outlined.AutoAwesome,
+                        contentDescription = "AI Date parsed",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Setting due: ${parsedResult?.timestamp?.let { SimpleDateFormat("MMM dd, h:mm a", Locale.getDefault()).format(Date(it)) }}",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            OutlinedTextField(
+                value = details,
+                onValueChange = { details = it },
+                label = { Text("Details (Optional)") },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                maxLines = 3
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Text(
+                text = "Category", 
+                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold), 
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(), 
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                FilterChip(
+                    selected = type == TaskType.TASK,
+                    onClick = { type = TaskType.TASK },
+                    label = { Text("Task") },
+                    shape = RoundedCornerShape(12.dp)
+                )
+                FilterChip(
+                    selected = type == TaskType.BIRTHDAY,
+                    onClick = { type = TaskType.BIRTHDAY },
+                    label = { Text("Birthday") },
+                    shape = RoundedCornerShape(12.dp)
+                )
+                FilterChip(
+                    selected = type == TaskType.ANNIVERSARY,
+                    onClick = { type = TaskType.ANNIVERSARY },
+                    label = { Text("Anniversary") },
+                    shape = RoundedCornerShape(12.dp)
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically, 
+                horizontalArrangement = Arrangement.SpaceBetween, 
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "Due Date & Time", 
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium), 
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                TextButton(
+                    onClick = {
+                        DatePickerDialog(
+                            context,
+                            { _, year, month, dayOfMonth ->
+                                calendar.set(year, month, dayOfMonth)
+                                TimePickerDialog(
+                                    context,
+                                    { _, hourOfDay, minute ->
+                                        calendar.set(Calendar.HOUR_OF_DAY, hourOfDay)
+                                        calendar.set(Calendar.MINUTE, minute)
+                                        calendar.set(Calendar.SECOND, 0)
+                                        manualDueDate = calendar.timeInMillis
+                                        userManuallySetDate = true
+                                    },
+                                    calendar.get(Calendar.HOUR_OF_DAY),
+                                    calendar.get(Calendar.MINUTE),
+                                    false
+                                ).show()
+                            },
+                            calendar.get(Calendar.YEAR),
+                            calendar.get(Calendar.MONTH),
+                            calendar.get(Calendar.DAY_OF_MONTH)
+                        ).show()
+                    }
+                ) {
+                    Text(
+                        text = if (effectiveDueDate == null) "Set Time" else SimpleDateFormat("MMM dd, h:mm a", Locale.getDefault()).format(Date(effectiveDueDate)),
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (parsedResult?.timestamp != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically, 
+                horizontalArrangement = Arrangement.SpaceBetween, 
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "Recurrence", 
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                var expanded by remember { mutableStateOf(false) }
+                Box {
+                    TextButton(onClick = { expanded = true }) {
+                        Text(
+                            text = recurrence.name.lowercase().replaceFirstChar { it.uppercase() },
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                    DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                        RecurrencePattern.entries.forEach { pattern ->
+                            DropdownMenuItem(
+                                text = { Text(pattern.name.lowercase().replaceFirstChar { it.uppercase() }) },
+                                onClick = { 
+                                    recurrence = pattern
+                                    expanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically, 
+                horizontalArrangement = Arrangement.SpaceBetween, 
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column {
+                    Text(
+                        text = "Persistent Reminder", 
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Alerts periodically until completed", 
+                        style = MaterialTheme.typography.labelSmall, 
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = isPersistent, 
+                    onCheckedChange = { isPersistent = it }
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(24.dp))
+            Button(
+                onClick = {
+                    val finalTitle = parsedResult?.cleanText?.takeIf { it.isNotBlank() } ?: title
+                    if (finalTitle.isNotBlank()) {
+                        onSave(
+                            Task(
+                                title = finalTitle, 
+                                details = details, 
+                                dueDate = effectiveDueDate, 
+                                type = type, 
+                                recurrence = recurrence, 
+                                isPersistent = isPersistent
+                            )
+                        )
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                shape = RoundedCornerShape(100.dp)
+            ) {
+                Text(
+                    text = if (initialTask == null) "Create Task" else "Save Changes",
+                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
+                )
+            }
+        }
+    }
+}

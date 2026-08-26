@@ -20,11 +20,27 @@ package com.focusbyrj.app.service
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import com.focusbyrj.app.FocusApplication
+import com.focusbyrj.app.util.TaskReminderHelper
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.launch
 
 class BootReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context?, intent: Intent?) {
-        if (intent?.action == Intent.ACTION_BOOT_COMPLETED || intent?.action == Intent.ACTION_MY_PACKAGE_REPLACED) {
-            context?.let { FocusBlockerService.startService(it) }
+    override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action == Intent.ACTION_BOOT_COMPLETED || intent.action == Intent.ACTION_MY_PACKAGE_REPLACED) {
+            FocusBlockerService.startService(context)
+            
+            // Reschedule all task reminders on boot or update
+            val app = context.applicationContext as FocusApplication
+            val repository = app.taskRepository
+            CoroutineScope(Dispatchers.IO).launch {
+                val tasks = repository.allTasks.firstOrNull() ?: emptyList()
+                tasks.filter { !it.isCompleted && it.dueDate != null }.forEach { task ->
+                    TaskReminderHelper.scheduleReminder(context, task)
+                }
+            }
         }
     }
 }

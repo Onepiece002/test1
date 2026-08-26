@@ -100,6 +100,8 @@ import com.focusbyrj.app.ui.theme.BorderGlass
 import com.focusbyrj.app.ui.theme.FocusByRjTheme
 import com.focusbyrj.app.ui.viewmodels.FocusViewModel
 import com.focusbyrj.app.ui.viewmodels.FocusViewModelFactory
+import com.focusbyrj.app.ui.viewmodels.TaskViewModel
+import com.focusbyrj.app.ui.viewmodels.TaskViewModelFactory
 import com.focusbyrj.app.util.PermissionUtils
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.collectLatest
@@ -118,6 +120,7 @@ import com.focusbyrj.app.util.EconomyEvent
 class MainActivity : FragmentActivity() {
 
     lateinit var viewModel: FocusViewModel
+    lateinit var taskViewModel: com.focusbyrj.app.ui.viewmodels.TaskViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -129,11 +132,16 @@ class MainActivity : FragmentActivity() {
         }
         viewModel = vm
 
+        val tvm: com.focusbyrj.app.ui.viewmodels.TaskViewModel by viewModels {
+            com.focusbyrj.app.ui.viewmodels.TaskViewModelFactory(app.taskRepository, app)
+        }
+        taskViewModel = tvm
+
         FocusBlockerService.startService(this)
 
         setContent {
             FocusByRjTheme {
-                MainAppScreen(viewModel)
+                MainAppScreen(viewModel, taskViewModel)
             }
         }
     }
@@ -141,13 +149,14 @@ class MainActivity : FragmentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainAppScreen(viewModel: FocusViewModel) {
+fun MainAppScreen(viewModel: FocusViewModel, taskViewModel: com.focusbyrj.app.ui.viewmodels.TaskViewModel) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
 
     val items = listOf(
         Screen.Dashboard,
+        Screen.Todos,
         Screen.Schedules,
         Screen.Time,
         Screen.Account
@@ -166,6 +175,7 @@ fun MainAppScreen(viewModel: FocusViewModel) {
     var hasUsageStats by remember { mutableStateOf(PermissionUtils.hasUsageStatsPermission(context)) }
     var hasOverlay by remember { mutableStateOf(PermissionUtils.hasOverlayPermission(context)) }
     var isBatteryUnrestricted by remember { mutableStateOf(PermissionUtils.isIgnoringBatteryOptimizations(context)) }
+    var hasNotifications by remember { mutableStateOf(PermissionUtils.hasNotificationPermission(context)) }
 
     androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
@@ -173,13 +183,14 @@ fun MainAppScreen(viewModel: FocusViewModel) {
                 hasUsageStats = PermissionUtils.hasUsageStatsPermission(context)
                 hasOverlay = PermissionUtils.hasOverlayPermission(context)
                 isBatteryUnrestricted = PermissionUtils.isIgnoringBatteryOptimizations(context)
+                hasNotifications = PermissionUtils.hasNotificationPermission(context)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    val allConfigured = hasUsageStats && hasOverlay && isBatteryUnrestricted
+    val allConfigured = hasUsageStats && hasOverlay && isBatteryUnrestricted && hasNotifications
 
     var showSetupDialog by remember { mutableStateOf(!hasSeenOnboarding && !allConfigured) }
 
@@ -201,6 +212,7 @@ fun MainAppScreen(viewModel: FocusViewModel) {
                 hasUsageStats = PermissionUtils.hasUsageStatsPermission(context)
                 hasOverlay = PermissionUtils.hasOverlayPermission(context)
                 isBatteryUnrestricted = PermissionUtils.isIgnoringBatteryOptimizations(context)
+                hasNotifications = PermissionUtils.hasNotificationPermission(context)
                 kotlinx.coroutines.delay(1000)
             }
         }
@@ -211,6 +223,7 @@ fun MainAppScreen(viewModel: FocusViewModel) {
             hasUsageStats = hasUsageStats,
             hasOverlay = hasOverlay,
             isBatteryUnrestricted = isBatteryUnrestricted,
+            hasNotifications = hasNotifications,
             onDismiss = {
                 prefs.edit().putBoolean("has_seen_permission_onboarding", true).apply()
                 showSetupDialog = false
@@ -455,6 +468,9 @@ fun MainAppScreen(viewModel: FocusViewModel) {
                 }
                 composable(Screen.Subscription.route) {
                     SubscriptionScreen(navController)
+                }
+                composable(Screen.Todos.route) {
+                    com.focusbyrj.app.ui.screens.TodosScreen(taskViewModel)
                 }
             }
             

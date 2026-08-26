@@ -26,6 +26,9 @@ import android.os.Build
 import android.os.PowerManager
 import android.os.Process
 import android.provider.Settings
+import android.Manifest
+import androidx.core.content.ContextCompat
+import android.content.pm.PackageManager
 
 object PermissionUtils {
 
@@ -152,9 +155,32 @@ object PermissionUtils {
         }
     }
 
+    
+    fun hasNotificationPermission(context: Context): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            return ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+        }
+        return true
+    }
+
+    fun requestNotificationPermission(context: Context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try {
+                val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                    putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(intent)
+            } catch (e: Exception) {
+                openAppBatterySettings(context)
+            }
+        }
+    }
+
     fun areAllPermissionsGranted(context: Context): Boolean {
         return hasUsageStatsPermission(context) && 
                hasOverlayPermission(context) && 
-               isIgnoringBatteryOptimizations(context)
+               isIgnoringBatteryOptimizations(context) &&
+               hasNotificationPermission(context)
     }
 }

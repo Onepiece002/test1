@@ -1,0 +1,79 @@
+package com.focusbyrj.app.ui.viewmodels
+
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
+import com.focusbyrj.app.data.Task
+import com.focusbyrj.app.data.TaskRepository
+import com.focusbyrj.app.data.TaskType
+import com.focusbyrj.app.util.TaskReminderHelper
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+
+class TaskViewModel(
+    private val repository: TaskRepository, 
+    application: Application
+) : AndroidViewModel(application) {
+
+    val allTasks: StateFlow<List<Task>> = repository.allTasks.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
+    fun addTask(task: Task) {
+        viewModelScope.launch {
+            val id = repository.insertTask(task)
+            TaskReminderHelper.scheduleReminder(getApplication(), task.copy(id = id))
+        }
+    }
+
+    fun updateTask(task: Task) {
+        viewModelScope.launch {
+            repository.updateTask(task)
+            TaskReminderHelper.scheduleReminder(getApplication(), task)
+        }
+    }
+
+    fun deleteTask(task: Task) {
+        viewModelScope.launch {
+            repository.deleteTask(task)
+            TaskReminderHelper.cancelReminder(getApplication(), task)
+        }
+    }
+
+    fun toggleTaskCompletion(task: Task) {
+        viewModelScope.launch {
+            val updatedTask = task.copy(isCompleted = !task.isCompleted)
+            repository.updateTask(updatedTask)
+            
+            if (updatedTask.isCompleted) {
+                TaskReminderHelper.cancelReminder(getApplication(), updatedTask)
+                if (updatedTask.recurrence != com.focusbyrj.app.data.RecurrencePattern.NONE) {
+                    val nextTask = TaskReminderHelper.generateNextRecurringTask(updatedTask)
+                    val newId = repository.insertTask(nextTask)
+                    TaskReminderHelper.scheduleReminder(getApplication(), nextTask.copy(id = newId))
+                }
+            } else {
+                TaskReminderHelper.scheduleReminder(getApplication(), updatedTask)
+            }
+        }
+    }
+}
+
+class TaskViewModelFactory(
+    private val repository: TaskRepository, 
+    private val application: Application
+) : ViewModelProvider.Factory {
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(TaskViewModel::class.java)) {
+            @Suppress("UNCHECKED_CAST")
+            return TaskViewModel(repository, application) as T
+        }
+        throw IllegalArgumentException("Unknown ViewModel class")
+    }
+}

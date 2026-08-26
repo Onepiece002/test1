@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.CheckCircle
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
     object Dashboard : Screen("dashboard", "Focus", Icons.Filled.Home)
@@ -40,4 +41,5 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     object Permissions : Screen("permissions", "Permissions", Icons.Filled.Lock)
     object Settings : Screen("settings", "Settings", Icons.Filled.Settings)
     object Subscription : Screen("subscription", "Subscription", androidx.compose.material.icons.Icons.Filled.Star)
+    object Todos : Screen("todos", "Todos", Icons.Filled.CheckCircle)
 }

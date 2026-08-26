@@ -21,6 +21,7 @@ import android.app.Application
 import androidx.room.Room
 import com.focusbyrj.app.data.AppRepository
 import com.focusbyrj.app.data.FocusDatabase
+import com.focusbyrj.app.data.TaskRepository
 
 class FocusApplication : Application() {
     
@@ -41,4 +42,5 @@ class FocusApplication : Application() {
     }
     
     val repository by lazy { AppRepository(database.appRestrictionDao(), database.scheduleDao()) }
+    val taskRepository by lazy { TaskRepository(database.taskDao()) }
 }

@@ -59,6 +59,7 @@ fun SetupPermissionsDialog(
     hasUsageStats: Boolean,
     hasOverlay: Boolean,
     isBatteryUnrestricted: Boolean,
+    hasNotifications: Boolean = true,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
@@ -78,13 +79,17 @@ fun SetupPermissionsDialog(
                 .background(MaterialTheme.colorScheme.background)
         ) {
             Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 28.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                modifier = Modifier.fillMaxSize()
             ) {
-                Spacer(modifier = Modifier.height(64.dp))
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                Spacer(modifier = Modifier.height(32.dp))
                 
                 Box(
                     modifier = Modifier
@@ -100,7 +105,7 @@ fun SetupPermissionsDialog(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(28.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
                     text = "System Access",
@@ -111,7 +116,7 @@ fun SetupPermissionsDialog(
                     color = MaterialTheme.colorScheme.onBackground
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
                     text = "To help you stay on track and block distracting apps, Focus needs a few core permissions to work properly.",
@@ -121,7 +126,7 @@ fun SetupPermissionsDialog(
                     modifier = Modifier.padding(horizontal = 12.dp)
                 )
 
-                Spacer(modifier = Modifier.height(56.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
                 PermissionSetupCard(
                     number = "01",
@@ -131,7 +136,7 @@ fun SetupPermissionsDialog(
                     onAction = { PermissionUtils.requestUsageStatsPermission(context) }
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 PermissionSetupCard(
                     number = "02",
@@ -141,7 +146,7 @@ fun SetupPermissionsDialog(
                     onAction = { PermissionUtils.requestOverlayPermission(context) }
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 PermissionSetupCard(
                     number = "03",
@@ -151,29 +156,43 @@ fun SetupPermissionsDialog(
                     onAction = { PermissionUtils.requestIgnoreBatteryOptimizations(context) },
                     onLearnMore = { showWhyBatteryDialog = true }
                 )
+                Spacer(modifier = Modifier.height(8.dp))
+                PermissionSetupCard(
+                    number = "04",
+                    title = "Notifications",
+                    subtitle = "Allows us to alert you when restrictions begin or end.",
+                    isGranted = hasNotifications,
+                    onAction = { PermissionUtils.requestNotificationPermission(context) }
+                )
 
-                Spacer(modifier = Modifier.height(64.dp))
-
-                val allGranted = hasUsageStats && hasOverlay && isBatteryUnrestricted
-                Button(
-                    onClick = onDismiss,
+                Spacer(modifier = Modifier.height(24.dp))
+                }
+                
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(56.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (allGranted) MaterialTheme.colorScheme.primary else Color.Transparent,
-                        contentColor = if (allGranted) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onBackground
-                    ),
-                    border = if (!allGranted) BorderStroke(1.dp, MaterialTheme.colorScheme.outline) else null,
-                    shape = RoundedCornerShape(100.dp)
+                        .background(MaterialTheme.colorScheme.background)
+                        .padding(horizontal = 24.dp, vertical = 24.dp)
                 ) {
-                    Text(
-                        text = if (allGranted) "Enter Focus Mode" else "Skip Configuration",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Normal)
-                    )
+                    val allGranted = hasUsageStats && hasOverlay && isBatteryUnrestricted && hasNotifications
+                    Button(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (allGranted) MaterialTheme.colorScheme.primary else Color.Transparent,
+                            contentColor = if (allGranted) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onBackground
+                        ),
+                        border = if (!allGranted) BorderStroke(1.dp, MaterialTheme.colorScheme.outline) else null,
+                        shape = RoundedCornerShape(100.dp)
+                    ) {
+                        Text(
+                            text = if (allGranted) "Enter Focus Mode" else "Skip Configuration",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Normal)
+                        )
+                    }
                 }
-
-                Spacer(modifier = Modifier.height(48.dp))
             }
         }
     }
@@ -243,7 +262,7 @@ fun PermissionSetupCard(
                 RoundedCornerShape(16.dp)
             )
             .clickable(enabled = !isGranted) { onAction() }
-            .padding(20.dp),
+            .padding(16.dp),
         verticalAlignment = Alignment.Top
     ) {
         Text(

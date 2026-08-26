@@ -70,6 +70,7 @@ fun SettingsScreen(navController: NavController) {
     var softLockDuration by remember { mutableStateOf(prefs.getInt("soft_lock_duration", 10)) }
     var softUnlockDuration by remember { mutableStateOf(prefs.getInt("soft_unlock_duration", 5)) }
     var routineNotifications by remember { mutableStateOf(prefs.getBoolean("routine_notifications", true)) }
+    var persistentReminderInterval by remember { mutableIntStateOf(prefs.getInt("persistent_reminder_interval", 15)) }
 
     val currentAppTheme by AppThemeManager.themeFlow.collectAsState()
     val currentThemeMode by AppThemeManager.themeModeFlow.collectAsState()
@@ -253,59 +254,51 @@ fun SettingsScreen(navController: NavController) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     // Soft Lock Duration Stepper
                     SettingsStepperRow(
-                        icon = Icons.Filled.HourglassTop,
-                        title = "Soft Lock Delay",
-                        subtitle = "Timer before unlocking shielded apps",
-                        valueText = "${softLockDuration}s",
-                        onDecrement = {
-                            if (softLockDuration > 5) {
-                                softLockDuration -= 5
-                                prefs.edit().putInt("soft_lock_duration", softLockDuration).apply()
-                            }
-                        },
-                        onIncrement = {
-                            if (softLockDuration < 60) {
-                                softLockDuration += 5
-                                prefs.edit().putInt("soft_lock_duration", softLockDuration).apply()
-                            }
-                        }
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Spacer(modifier = Modifier.height(16.dp))
-                    // Soft Unlock Window Stepper
-                    SettingsStepperRow(
-                        icon = Icons.Filled.LockOpen,
-                        title = "Soft Unlock Window",
-                        subtitle = "Temporary access allowance",
-                        valueText = "${softUnlockDuration}m",
-                        onDecrement = {
-                            if (softUnlockDuration > 1) {
-                                softUnlockDuration -= 1
-                                prefs.edit().putInt("soft_unlock_duration", softUnlockDuration).apply()
-                            }
-                        },
-                        onIncrement = {
-                            if (softUnlockDuration < 60) {
-                                softUnlockDuration += 1
-                                prefs.edit().putInt("soft_unlock_duration", softUnlockDuration).apply()
-                            }
-                        }
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Spacer(modifier = Modifier.height(16.dp))
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                        SettingsSwitchRow(
                         icon = Icons.Filled.NotificationsActive,
-                        title = "Routine Notifications",
-                        subtitle = "Alerts on schedule transitions",
-                        checked = routineNotifications,
-                        onCheckedChange = {
-                            routineNotifications = it
-                            prefs.edit().putBoolean("routine_notifications", it).apply()
+                        title = "Persistent Reminder Interval",
+                        subtitle = "Alert interval for pending tasks",
+                        valueText = if (persistentReminderInterval >= 60) {
+                            val h = persistentReminderInterval / 60
+                            val m = persistentReminderInterval % 60
+                            if (m > 0) "${h}h ${m}m" else "${h}h"
+                        } else {
+                            "${persistentReminderInterval}m"
+                        },
+                        onDecrement = {
+                            val newInterval = when (persistentReminderInterval) {
+                                360 -> 300 // 6h -> 5h
+                                300 -> 240 // 5h -> 4h
+                                240 -> 180 // 4h -> 3h
+                                180 -> 120 // 3h -> 2h
+                                120 -> 60  // 2h -> 1h
+                                60 -> 30
+                                30 -> 15
+                                15 -> 10
+                                10 -> 5
+                                else -> persistentReminderInterval
+                            }
+                            if (newInterval != persistentReminderInterval) {
+                                persistentReminderInterval = newInterval
+                                prefs.edit().putInt("persistent_reminder_interval", newInterval).apply()
+                            }
+                        },
+                        onIncrement = {
+                            val newInterval = when (persistentReminderInterval) {
+                                5 -> 10
+                                10 -> 15
+                                15 -> 30
+                                30 -> 60
+                                60 -> 120
+                                120 -> 180
+                                180 -> 240
+                                240 -> 300
+                                300 -> 360
+                                else -> persistentReminderInterval
+                            }
+                            if (newInterval != persistentReminderInterval) {
+                                persistentReminderInterval = newInterval
+                                prefs.edit().putInt("persistent_reminder_interval", newInterval).apply()
+                            }
                         }
                     )
                 }

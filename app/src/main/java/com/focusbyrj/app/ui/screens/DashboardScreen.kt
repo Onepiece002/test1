@@ -154,6 +154,7 @@ fun NormalDashboard(
             var hasUsageStats by remember { mutableStateOf(com.focusbyrj.app.util.PermissionUtils.hasUsageStatsPermission(context)) }
             var hasOverlay by remember { mutableStateOf(com.focusbyrj.app.util.PermissionUtils.hasOverlayPermission(context)) }
             var isBatteryUnrestricted by remember { mutableStateOf(com.focusbyrj.app.util.PermissionUtils.isIgnoringBatteryOptimizations(context)) }
+            var hasNotifications by remember { mutableStateOf(com.focusbyrj.app.util.PermissionUtils.hasNotificationPermission(context)) }
             
             DisposableEffect(lifecycleOwner) {
                 val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
@@ -161,6 +162,7 @@ fun NormalDashboard(
                         hasUsageStats = com.focusbyrj.app.util.PermissionUtils.hasUsageStatsPermission(context)
                         hasOverlay = com.focusbyrj.app.util.PermissionUtils.hasOverlayPermission(context)
                         isBatteryUnrestricted = com.focusbyrj.app.util.PermissionUtils.isIgnoringBatteryOptimizations(context)
+                        hasNotifications = com.focusbyrj.app.util.PermissionUtils.hasNotificationPermission(context)
                     }
                 }
                 lifecycleOwner.lifecycle.addObserver(observer)
@@ -169,7 +171,7 @@ fun NormalDashboard(
                 }
             }
 
-            if (!hasUsageStats || !hasOverlay || !isBatteryUnrestricted) {
+            if (!hasUsageStats || !hasOverlay || !isBatteryUnrestricted || !hasNotifications) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -182,6 +184,8 @@ fun NormalDashboard(
                                 com.focusbyrj.app.util.PermissionUtils.requestOverlayPermission(context)
                             } else if (!isBatteryUnrestricted) {
                                 com.focusbyrj.app.util.PermissionUtils.requestIgnoreBatteryOptimizations(context)
+                            } else if (!hasNotifications) {
+                                com.focusbyrj.app.util.PermissionUtils.requestNotificationPermission(context)
                             }
                         }
                         .padding(16.dp)
@@ -193,12 +197,14 @@ fun NormalDashboard(
                             val title = when {
                                 !hasUsageStats -> "Usage Access Required"
                                 !hasOverlay -> "Display Over Apps Required"
-                                else -> "Battery: Set to 'No Restrictions'"
+                                !isBatteryUnrestricted -> "Battery: Set to 'No Restrictions'"
+                                else -> "Notification Permission Required"
                             }
                             val subtitle = when {
                                 !hasUsageStats -> "Tap to grant Usage Access to detect running apps."
                                 !hasOverlay -> "Tap to allow displaying block overlay over apps."
-                                else -> "Tap to set Unrestricted battery so Android doesn't kill focus locks."
+                                !isBatteryUnrestricted -> "Tap to set Unrestricted battery so Android doesn't kill focus locks."
+                                else -> "Tap to allow notifications for block events."
                             }
                             Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onErrorContainer, fontWeight = FontWeight.Bold)
                             Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)

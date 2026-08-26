@@ -14,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.BatteryFull
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.QueryStats
 import androidx.compose.material3.*
@@ -38,6 +39,7 @@ fun PermissionsScreen(navController: NavController) {
     var hasUsageStats by remember { mutableStateOf(PermissionUtils.hasUsageStatsPermission(context)) }
     var hasOverlay by remember { mutableStateOf(PermissionUtils.hasOverlayPermission(context)) }
     var isBatteryUnrestricted by remember { mutableStateOf(PermissionUtils.isIgnoringBatteryOptimizations(context)) }
+    var hasNotifications by remember { mutableStateOf(PermissionUtils.hasNotificationPermission(context)) }
     var showBatteryInfoDialog by remember { mutableStateOf(false) }
 
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
@@ -47,6 +49,7 @@ fun PermissionsScreen(navController: NavController) {
                 hasUsageStats = PermissionUtils.hasUsageStatsPermission(context)
                 hasOverlay = PermissionUtils.hasOverlayPermission(context)
                 isBatteryUnrestricted = PermissionUtils.isIgnoringBatteryOptimizations(context)
+            hasNotifications = PermissionUtils.hasNotificationPermission(context)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -58,6 +61,7 @@ fun PermissionsScreen(navController: NavController) {
             hasUsageStats = PermissionUtils.hasUsageStatsPermission(context)
             hasOverlay = PermissionUtils.hasOverlayPermission(context)
             isBatteryUnrestricted = PermissionUtils.isIgnoringBatteryOptimizations(context)
+            hasNotifications = PermissionUtils.hasNotificationPermission(context)
             kotlinx.coroutines.delay(1000)
         }
     }
