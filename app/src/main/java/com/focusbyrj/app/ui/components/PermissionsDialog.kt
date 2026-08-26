@@ -75,7 +75,7 @@ fun SetupPermissionsDialog(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(MidnightBlack)
+                .background(MaterialTheme.colorScheme.background)
         ) {
             Column(
                 modifier = Modifier
@@ -90,8 +90,8 @@ fun SetupPermissionsDialog(
                     modifier = Modifier
                         .size(96.dp)
                         .clip(CircleShape)
-                        .background(Color.Black)
-                        .border(1.5.dp, Color.White.copy(alpha = 0.15f), CircleShape),
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .border(1.5.dp, MaterialTheme.colorScheme.outline, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Image(
@@ -109,7 +109,7 @@ fun SetupPermissionsDialog(
                         fontWeight = FontWeight.Light,
                         letterSpacing = (-0.5).sp
                     ),
-                    color = Color.White
+                    color = MaterialTheme.colorScheme.onBackground
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -117,7 +117,7 @@ fun SetupPermissionsDialog(
                 Text(
                     text = "To help you stay on track and block distracting apps, Focus needs a few core permissions to work properly.",
                     style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 24.sp),
-                    color = TextSecondary,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.padding(horizontal = 12.dp)
                 )
@@ -162,10 +162,10 @@ fun SetupPermissionsDialog(
                         .fillMaxWidth()
                         .height(56.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (allGranted) Color.White else Color.Transparent,
-                        contentColor = if (allGranted) MidnightBlack else Color.White
+                        containerColor = if (allGranted) MaterialTheme.colorScheme.primary else Color.Transparent,
+                        contentColor = if (allGranted) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onBackground
                     ),
-                    border = if (!allGranted) BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)) else null,
+                    border = if (!allGranted) BorderStroke(1.dp, MaterialTheme.colorScheme.outline) else null,
                     shape = RoundedCornerShape(100.dp)
                 ) {
                     Text(
@@ -181,23 +181,23 @@ fun SetupPermissionsDialog(
 
     if (showWhyBatteryDialog) {
         AlertDialog(
-            modifier = Modifier.border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(24.dp)),
+            modifier = Modifier.border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(24.dp)),
             onDismissRequest = { showWhyBatteryDialog = false },
             title = {
-                Text("Background Persistence", color = Color(0xFFCBD5E1), style = MaterialTheme.typography.titleLarge)
+                Text("Background Persistence", color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleLarge)
             },
             text = {
                 Column {
                     Text(
                         "If you don't allow background persistence, Android might kill the app to save battery, which will prematurely end your focus session.",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Color(0xFFCBD5E1).copy(alpha = 0.9f)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
                         "Setting this to 'Unrestricted' ensures your focus blocks remain active and trigger exactly when they should.",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Color(0xFFCBD5E1).copy(alpha = 0.9f)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             },
@@ -208,15 +208,15 @@ fun SetupPermissionsDialog(
                         PermissionUtils.requestIgnoreBatteryOptimizations(context)
                     }
                 ) {
-                    Text("Set to Unrestricted", color = Color(0xFFCBD5E1), fontWeight = FontWeight.Bold)
+                    Text("Set to Unrestricted", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showWhyBatteryDialog = false }) {
-                    Text("Close", color = Color.Gray)
+                    Text("Close", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             },
-            containerColor = MidnightBlack,
+            containerColor = MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(24.dp)
         )
     }
@@ -237,10 +237,10 @@ fun PermissionSetupCard(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(if (isGranted) Color.White.copy(alpha = 0.02f) else Color.Transparent)
+            .background(if (isGranted) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f) else MaterialTheme.colorScheme.surface)
             .border(
                 1.dp,
-                if (isGranted) Color.White.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.05f),
+                if (isGranted) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outline,
                 RoundedCornerShape(16.dp)
             )
             .clickable(enabled = !isGranted) { onAction() }
@@ -253,7 +253,7 @@ fun PermissionSetupCard(
                 fontWeight = FontWeight.Bold,
                 fontFamily = FontFamily.Monospace
             ),
-            color = if (isGranted) MaterialTheme.colorScheme.tertiary else TextSecondary.copy(alpha = 0.4f),
+            color = if (isGranted) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
             modifier = Modifier.padding(top = 2.dp)
         )
 
@@ -265,20 +265,20 @@ fun PermissionSetupCard(
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                color = if (isGranted) Color.White else Color.White.copy(alpha = 0.8f)
+                color = MaterialTheme.colorScheme.onSurface
             )
             Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodySmall,
-                color = TextSecondary.copy(alpha = alpha),
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha),
                 lineHeight = 18.sp
             )
             if (onLearnMore != null && !isGranted) {
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
                     text = "Why is this required?",
-                    color = Color(0xFFCBD5E1).copy(alpha = 0.6f),
+                    color = MaterialTheme.colorScheme.primary,
                     style = MaterialTheme.typography.labelMedium.copy(
                         textDecoration = TextDecoration.Underline
                     ),
@@ -300,7 +300,7 @@ fun PermissionSetupCard(
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                 contentDescription = "Grant",
-                tint = Color.White,
+                tint = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.size(24.dp)
             )
         }

@@ -50,9 +50,9 @@ fun TimeScreen() {
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("Permission Required", style = MaterialTheme.typography.titleLarge, color = Color(0xFFCBD5E1))
+            Text("Permission Required", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onBackground)
             Spacer(modifier = Modifier.height(16.dp))
-            Text("FocusLock needs Usage Access to display your screen time.", color = Color.Gray, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            Text("FocusLock needs Usage Access to display your screen time.", color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
             Spacer(modifier = Modifier.height(32.dp))
             Button(
                 onClick = { UsageStatsHelper.requestUsageStatsPermission(context) },
@@ -96,17 +96,17 @@ fun TimeScreen() {
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(28.dp))
-                    .background(SurfaceDark)
-                    .border(1.dp, BorderGlass, RoundedCornerShape(28.dp))
+                    .background(MaterialTheme.colorScheme.surface)
+                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(28.dp))
                     .padding(32.dp)
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                     Text("TOTAL TIME", style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 1.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(verticalAlignment = Alignment.Bottom) {
-                        Text(hours.toString(), style = MaterialTheme.typography.displayLarge.copy(fontSize = 56.sp), color = Color(0xFFCBD5E1))
+                        Text(hours.toString(), style = MaterialTheme.typography.displayLarge.copy(fontSize = 56.sp), color = MaterialTheme.colorScheme.onSurface)
                         Text("h", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(bottom = 10.dp, start = 4.dp, end = 8.dp))
-                        Text(minutes.toString(), style = MaterialTheme.typography.displayLarge.copy(fontSize = 56.sp), color = Color(0xFFCBD5E1))
+                        Text(minutes.toString(), style = MaterialTheme.typography.displayLarge.copy(fontSize = 56.sp), color = MaterialTheme.colorScheme.onSurface)
                         Text("m", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(bottom = 10.dp, start = 4.dp))
                     }
                     
@@ -170,8 +170,8 @@ fun AppUsageItem(appName: String, icon: androidx.compose.ui.graphics.ImageBitmap
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(20.dp))
-            .background(SurfaceDark)
-            .border(1.dp, BorderGlass, RoundedCornerShape(20.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(20.dp))
             .padding(20.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -184,7 +184,7 @@ fun AppUsageItem(appName: String, icon: androidx.compose.ui.graphics.ImageBitmap
                 contentAlignment = Alignment.Center
             ) {
                 if (icon != null) {
-                                androidx.compose.foundation.Image(bitmap = icon, contentDescription = null, modifier = Modifier.fillMaxSize().padding(8.dp))
+                    androidx.compose.foundation.Image(bitmap = icon, contentDescription = null, modifier = Modifier.fillMaxSize().padding(8.dp))
                 } else {
                     Text(appName.take(1).uppercase(), color = color, fontWeight = FontWeight.Bold, fontSize = 20.sp)
                 }
@@ -193,11 +193,11 @@ fun AppUsageItem(appName: String, icon: androidx.compose.ui.graphics.ImageBitmap
             Spacer(modifier = Modifier.width(16.dp))
             
             Column(modifier = Modifier.weight(1f)) {
-                Text(appName, style = MaterialTheme.typography.titleMedium, color = Color(0xFFCBD5E1), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                Text(appName, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
             }
             
             Column(horizontalAlignment = Alignment.End) {
-                Text(time, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = Color(0xFFCBD5E1))
+                Text(time, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface)
                 Text("${(percentage * 100).toInt()}%", style = MaterialTheme.typography.bodySmall, color = color)
             }
         }

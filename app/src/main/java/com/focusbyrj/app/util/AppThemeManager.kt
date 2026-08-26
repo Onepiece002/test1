@@ -159,19 +159,40 @@ enum class AppThemeColor(
     }
 }
 
+enum class ThemeMode(val id: String, val displayName: String) {
+    SYSTEM("system", "System Default"),
+    DARK("dark", "Dark Mode"),
+    LIGHT("light", "Light Mode");
+
+    companion object {
+        fun fromId(id: String): ThemeMode = entries.find { it.id == id } ?: SYSTEM
+    }
+}
+
 object AppThemeManager {
     private val _themeFlow = MutableStateFlow(AppThemeColor.EMERALD)
     val themeFlow: StateFlow<AppThemeColor> = _themeFlow.asStateFlow()
+
+    private val _themeModeFlow = MutableStateFlow(ThemeMode.SYSTEM)
+    val themeModeFlow: StateFlow<ThemeMode> = _themeModeFlow.asStateFlow()
 
     fun init(context: Context) {
         val prefs = context.getSharedPreferences("focus_prefs", Context.MODE_PRIVATE)
         val savedId = prefs.getString("app_theme_color", AppThemeColor.EMERALD.id) ?: AppThemeColor.EMERALD.id
         _themeFlow.value = AppThemeColor.fromId(savedId)
+        val savedModeId = prefs.getString("app_theme_mode", ThemeMode.SYSTEM.id) ?: ThemeMode.SYSTEM.id
+        _themeModeFlow.value = ThemeMode.fromId(savedModeId)
     }
 
     fun setTheme(context: Context, theme: AppThemeColor) {
         _themeFlow.value = theme
         val prefs = context.getSharedPreferences("focus_prefs", Context.MODE_PRIVATE)
         prefs.edit().putString("app_theme_color", theme.id).apply()
+    }
+
+    fun setThemeMode(context: Context, mode: ThemeMode) {
+        _themeModeFlow.value = mode
+        val prefs = context.getSharedPreferences("focus_prefs", Context.MODE_PRIVATE)
+        prefs.edit().putString("app_theme_mode", mode.id).apply()
     }
 }

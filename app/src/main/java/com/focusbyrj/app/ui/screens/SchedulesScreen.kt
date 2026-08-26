@@ -154,16 +154,16 @@ fun RoutineCard(schedule: com.focusbyrj.app.data.FocusSchedule, onEdit: () -> Un
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(28.dp))
-            .background(SurfaceDark)
-            .border(1.dp, BorderGlass, RoundedCornerShape(28.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(28.dp))
             .padding(24.dp)
     ) {
         Column {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text(schedule.name, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold), color = Color(0xFFCBD5E1))
+                Text(schedule.name, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface)
                 Row {
                     IconButton(onClick = onEdit) {
-                        Icon(Icons.Filled.Edit, contentDescription = "Edit", tint = Color.White)
+                        Icon(Icons.Filled.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.onSurface)
                     }
                     IconButton(onClick = onDelete) {
                         Icon(Icons.Filled.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
@@ -184,11 +184,16 @@ fun RoutineCard(schedule: com.focusbyrj.app.data.FocusSchedule, onEdit: () -> Un
                         modifier = Modifier
                             .size(32.dp)
                             .clip(CircleShape)
-                            .background(if (isActive) MaterialTheme.colorScheme.secondary else SurfaceVariantDark)
-                            .border(1.dp, if (isActive) MaterialTheme.colorScheme.secondary else BorderGlass, CircleShape),
+                            .background(if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
+                            .border(1.dp, if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(day, color = if (isActive) Color.White else Color.Gray, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            day, 
+                            color = if (isActive) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant, 
+                            fontSize = 12.sp, 
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 }
             }
@@ -220,7 +225,7 @@ fun CreateRoutineScreen(
     var restrictionMode by remember { mutableStateOf(scheduleToEdit?.restrictionMode ?: "SIMPLE") }
     var timeLimitMinutes by remember { mutableIntStateOf(if (scheduleToEdit?.timeLimitMinutes != null && scheduleToEdit.timeLimitMinutes > 0) scheduleToEdit.timeLimitMinutes else 15) }
     var clickLimitCount by remember { mutableIntStateOf(if (scheduleToEdit?.clickLimitCount != null && scheduleToEdit.clickLimitCount > 0) scheduleToEdit.clickLimitCount.coerceIn(1, 20) else 5) }
-        var mode by remember { mutableStateOf(scheduleToEdit?.mode ?: "HARD") }
+    var mode by remember { mutableStateOf(scheduleToEdit?.mode ?: "HARD") }
     var appModes by remember { 
         mutableStateOf(
             scheduleToEdit?.appsToBlock?.split(",")?.mapNotNull { 
@@ -235,7 +240,6 @@ fun CreateRoutineScreen(
         ) 
     }
 
-    
     var showAppSelector by remember { mutableStateOf(false) }
 
     val selectedInstalledApps = remember(selectedApps) {
@@ -268,10 +272,14 @@ fun CreateRoutineScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onBackground)
             }
             Spacer(modifier = Modifier.width(16.dp))
-            Text("Create Routine", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold), color = Color(0xFFCBD5E1))
+            Text(
+                if (scheduleToEdit != null) "Edit Routine" else "Create Routine", 
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold), 
+                color = MaterialTheme.colorScheme.onBackground
+            )
         }
 
         LazyColumn(
@@ -282,13 +290,15 @@ fun CreateRoutineScreen(
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Routine Name", color = Color.Gray) },
+                    label = { Text("Routine Name", color = MaterialTheme.colorScheme.onSurfaceVariant) },
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
                         focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = BorderGlass,
-                        focusedTextColor = Color(0xFFCBD5E1),
-                        unfocusedTextColor = Color.White
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                     ),
                     shape = RoundedCornerShape(16.dp)
                 )
@@ -313,8 +323,8 @@ fun CreateRoutineScreen(
                             modifier = Modifier
                                 .size(42.dp)
                                 .clip(CircleShape)
-                                .background(if (isSelected) MaterialTheme.colorScheme.secondary else SurfaceDark)
-                                .border(1.dp, if (isSelected) MaterialTheme.colorScheme.secondary else BorderGlass, CircleShape)
+                                .background(if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface)
+                                .border(1.dp, if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, CircleShape)
                                 .clickable {
                                     val newSet = selectedDays.toMutableSet()
                                     if (isSelected) newSet.remove(index + 1) else newSet.add(index + 1)
@@ -322,7 +332,11 @@ fun CreateRoutineScreen(
                                 },
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(day, color = if (isSelected) Color.White else Color.Gray, fontWeight = FontWeight.Bold)
+                            Text(
+                                day, 
+                                color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant, 
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                     }
                 }
@@ -358,8 +372,8 @@ fun CreateRoutineScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(20.dp))
-                            .background(SurfaceDark)
-                            .border(1.dp, BorderGlass, RoundedCornerShape(20.dp))
+                            .background(MaterialTheme.colorScheme.surface)
+                            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(20.dp))
                             .clickable { showAppSelector = true }
                             .padding(24.dp),
                         contentAlignment = Alignment.Center
@@ -407,7 +421,10 @@ fun CreateRoutineScreen(
                         )
                     },
                     modifier = Modifier.fillMaxWidth().height(56.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = MidnightBlack),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary, 
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ),
                     shape = RoundedCornerShape(28.dp),
                     enabled = name.isNotBlank() && selectedDays.isNotEmpty()
                 ) {
@@ -424,17 +441,21 @@ fun TimePickerBox(label: String, hour: Int, minute: Int, modifier: Modifier = Mo
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(20.dp))
-            .background(SurfaceDark)
-            .border(1.dp, BorderGlass, RoundedCornerShape(20.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(20.dp))
             .clickable {
                 TimePickerDialog(context, { _, h, m -> onTimeSelected(h, m) }, hour, minute, true).show()
             }
             .padding(16.dp)
     ) {
         Column {
-            Text(label, color = Color.Gray, fontSize = 12.sp)
+            Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
             Spacer(modifier = Modifier.height(4.dp))
-            Text("${String.format("%02d:%02d", hour, minute)}", color = Color(0xFFCBD5E1), style = MaterialTheme.typography.titleLarge)
+            Text(
+                "${String.format("%02d:%02d", hour, minute)}", 
+                color = MaterialTheme.colorScheme.onSurface, 
+                style = MaterialTheme.typography.titleLarge
+            )
         }
     }
 }
@@ -444,15 +465,15 @@ fun ModeSelectorBox(title: String, desc: String, isSelected: Boolean, modifier: 
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(20.dp))
-            .background(if (isSelected) MaterialTheme.colorScheme.secondary.copy(alpha=0.3f) else SurfaceDark)
-            .border(2.dp, if (isSelected) MaterialTheme.colorScheme.secondary else BorderGlass, RoundedCornerShape(20.dp))
+            .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha=0.15f) else MaterialTheme.colorScheme.surface)
+            .border(2.dp, if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, RoundedCornerShape(20.dp))
             .clickable { onClick() }
             .padding(16.dp)
     ) {
         Column {
-            Text(title, color = if (isSelected) Color.White else Color.Gray, fontWeight = FontWeight.Bold)
+            Text(title, color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(2.dp))
-            Text(desc, color = Color.Gray, fontSize = 10.sp)
+            Text(desc, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
         }
     }
 }
@@ -520,8 +541,8 @@ fun MultiAppSelectorScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White) }
-            Text("Select Apps", style = MaterialTheme.typography.titleMedium, color = Color(0xFFCBD5E1))
+            IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onBackground) }
+            Text("Select Apps", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground)
             TextButton(onClick = { onSave(currentSelection) }) {
                 Text("Done", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
             }
@@ -549,14 +570,15 @@ fun MultiAppSelectorScreen(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(20.dp))
-                            .background(if (isCatSelected) MaterialTheme.colorScheme.secondary else SurfaceDark)
+                            .background(if (isCatSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface)
+                            .border(1.dp, if (isCatSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, RoundedCornerShape(20.dp))
                             .clickable { selectedCategory = option }
                             .padding(horizontal = 16.dp, vertical = 8.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 text = title,
-                                color = if (isCatSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = if (isCatSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
                                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
                             )
                             if (option is ScheduleCategoryOption.Custom && isCatSelected) {
@@ -564,7 +586,7 @@ fun MultiAppSelectorScreen(
                                 Icon(
                                     Icons.Filled.Edit, 
                                     contentDescription = "Edit", 
-                                    tint = Color.White,
+                                    tint = MaterialTheme.colorScheme.onPrimary,
                                     modifier = Modifier.size(16.dp).clickable {
                                         editingCustomCategory = option.custom
                                         showCustomCategoryEditor = true
@@ -574,7 +596,7 @@ fun MultiAppSelectorScreen(
                                 Icon(
                                     Icons.Filled.Delete, 
                                     contentDescription = "Delete", 
-                                    tint = Color(0xFFF44336),
+                                    tint = MaterialTheme.colorScheme.error,
                                     modifier = Modifier.size(16.dp).clickable {
                                         com.focusbyrj.app.util.CustomCategoryManager.deleteCategory(context, option.custom.id)
                                         selectedCategory = ScheduleCategoryOption.Default(AppCategory.ALL)
@@ -589,7 +611,7 @@ fun MultiAppSelectorScreen(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(20.dp))
-                            .background(SurfaceDark)
+                            .background(MaterialTheme.colorScheme.surface)
                             .border(1.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(20.dp))
                             .clickable { 
                                 editingCustomCategory = null
@@ -625,7 +647,7 @@ fun MultiAppSelectorScreen(
             ) {
                 Text(
                     text = "${filteredApps.size} apps",
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.labelMedium
                 )
                 Row {
@@ -635,7 +657,7 @@ fun MultiAppSelectorScreen(
                         TextButton(
                             onClick = { currentSelection = currentSelection - filteredPackages }
                         ) {
-                            Text("Deselect All", color = Color(0xFFF44336))
+                            Text("Deselect All", color = MaterialTheme.colorScheme.error)
                         }
                     } else {
                         TextButton(
@@ -660,8 +682,8 @@ fun MultiAppSelectorScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(16.dp))
-                            .background(if (isSelected) MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f) else SurfaceDark)
-                            .border(1.dp, if (isSelected) MaterialTheme.colorScheme.secondary else BorderGlass, RoundedCornerShape(16.dp))
+                            .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface)
+                            .border(1.dp, if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp))
                             .clickable {
                                 val newSet = currentSelection.toMutableSet()
                                 if (isSelected) newSet.remove(app.packageName) else newSet.add(app.packageName)
@@ -675,13 +697,13 @@ fun MultiAppSelectorScreen(
                                 Spacer(modifier = Modifier.width(16.dp))
                             }
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(app.appName, color = Color.White, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold))
-                                Text(app.category.title, color = Color.Gray, style = MaterialTheme.typography.labelMedium)
+                                Text(app.appName, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold))
+                                Text(app.category.title, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium)
                             }
                             if (isSelected) {
                                 Icon(androidx.compose.material.icons.Icons.Filled.CheckCircle, contentDescription = "Selected", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
                             } else {
-                                Box(modifier = Modifier.size(28.dp).border(2.dp, Color.Gray.copy(alpha = 0.5f), CircleShape))
+                                Box(modifier = Modifier.size(28.dp).border(2.dp, MaterialTheme.colorScheme.outline, CircleShape))
                             }
                         }
                     }

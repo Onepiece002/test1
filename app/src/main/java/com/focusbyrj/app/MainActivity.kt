@@ -237,13 +237,14 @@ fun MainAppScreen(viewModel: FocusViewModel) {
                             modifier = Modifier
                                 .size(56.dp)
                                 .clip(RoundedCornerShape(16.dp))
-                                .background(Color.Black),
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp)),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 painter = painterResource(id = R.drawable.ic_launcher_foreground),
                                 contentDescription = null,
-                                tint = Color.White,
+                                tint = MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier.size(40.dp)
                             )
                         }
@@ -251,7 +252,7 @@ fun MainAppScreen(viewModel: FocusViewModel) {
                         Text(
                             text = "Focus Options",
                             style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-                            color = Color.White
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
                             text = "Manage your boundaries",
@@ -265,7 +266,7 @@ fun MainAppScreen(viewModel: FocusViewModel) {
 
                 NavigationDrawerItem(
                     icon = { Icon(Icons.Filled.Security, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-                    label = { Text("Security", color = Color.White, style = MaterialTheme.typography.bodyLarge) },
+                    label = { Text("Security", color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodyLarge) },
                     selected = false,
                     onClick = {
                         scope.launch { drawerState.close() }
@@ -287,7 +288,7 @@ fun MainAppScreen(viewModel: FocusViewModel) {
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text("Permissions", color = Color.White, style = MaterialTheme.typography.bodyLarge)
+                            Text("Permissions", color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodyLarge)
                             if (allConfigured) {
                                 Icon(Icons.Filled.CheckCircle, contentDescription = "Configured", tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(16.dp))
                             } else {
@@ -310,7 +311,7 @@ fun MainAppScreen(viewModel: FocusViewModel) {
 
                 NavigationDrawerItem(
                     icon = { Icon(Icons.Filled.Palette, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-                    label = { Text("App Settings", color = Color.White, style = MaterialTheme.typography.bodyLarge) },
+                    label = { Text("App Settings", color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodyLarge) },
                     selected = false,
                     onClick = {
                         scope.launch { drawerState.close() }
@@ -326,7 +327,7 @@ fun MainAppScreen(viewModel: FocusViewModel) {
 
                 NavigationDrawerItem(
                     icon = { Icon(Icons.Filled.Star, contentDescription = null, tint = MaterialTheme.colorScheme.secondary) },
-                    label = { Text("Subscription", color = Color.White, style = MaterialTheme.typography.bodyLarge) },
+                    label = { Text("Subscription", color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodyLarge) },
                     selected = false,
                     onClick = {
                         scope.launch { drawerState.close() }
@@ -340,7 +341,7 @@ fun MainAppScreen(viewModel: FocusViewModel) {
                     colors = NavigationDrawerItemDefaults.colors(unselectedContainerColor = Color.Transparent)
                 )
 
-                HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline, modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp))
 
                 NavigationDrawerItem(
                     icon = { Icon(Icons.Filled.Info, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
@@ -469,8 +470,8 @@ fun MainAppScreen(viewModel: FocusViewModel) {
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(24.dp))
-                            .background(Color(0xFF1E1E1E))
-                            .border(1.dp, Color(0x55FFFFFF), RoundedCornerShape(24.dp))
+                            .background(MaterialTheme.colorScheme.surface)
+                            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(24.dp))
                             .padding(16.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -501,11 +502,11 @@ fun MainAppScreen(viewModel: FocusViewModel) {
                                 when (event) {
                                     is EconomyEvent.AchievementUnlocked -> {
                                         Text("Achievement Unlocked!", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                                        Text(event.title, style = MaterialTheme.typography.titleMedium, color = Color.White, fontWeight = FontWeight.Bold)
+                                        Text(event.title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
                                     }
                                     is EconomyEvent.RewardsEarned -> {
                                         Text(event.source, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                                        Text("+${event.xp} XP  •  +${event.gold} Gold", style = MaterialTheme.typography.titleMedium, color = Color.White, fontWeight = FontWeight.Bold)
+                                        Text("+${event.xp} XP  •  +${event.gold} Gold", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
                                     }
                                 }
                             }

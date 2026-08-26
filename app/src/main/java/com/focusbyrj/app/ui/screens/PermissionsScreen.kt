@@ -74,13 +74,13 @@ fun PermissionsScreen(navController: NavController) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = { navController.popBackStack() }) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onBackground)
             }
             Spacer(modifier = Modifier.width(16.dp))
             Text(
                 "Permissions",
                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                color = Color.White
+                color = MaterialTheme.colorScheme.onBackground
             )
         }
 
@@ -103,8 +103,8 @@ fun PermissionsScreen(navController: NavController) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(24.dp))
-                    .background(SurfaceVariantDark)
-                    .border(1.dp, BorderGlass, RoundedCornerShape(24.dp))
+                    .background(MaterialTheme.colorScheme.surface)
+                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(24.dp))
                     .padding(20.dp)
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -113,11 +113,11 @@ fun PermissionsScreen(navController: NavController) {
                         description = "Required to detect foreground applications and shield distractions.",
                         isGranted = hasUsageStats,
                         icon = Icons.Filled.QueryStats,
-                        iconColor = AccentCyan,
+                        iconColor = MaterialTheme.colorScheme.primary,
                         onAction = { PermissionUtils.requestUsageStatsPermission(context) }
                     )
                     
-                    HorizontalDivider(color = BorderGlass)
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
 
                     PermissionSecurityRow(
                         title = "Display Over Apps",
@@ -128,7 +128,7 @@ fun PermissionsScreen(navController: NavController) {
                         onAction = { PermissionUtils.requestOverlayPermission(context) }
                     )
                     
-                    HorizontalDivider(color = BorderGlass)
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -140,10 +140,10 @@ fun PermissionsScreen(navController: NavController) {
                                 modifier = Modifier
                                     .size(40.dp)
                                     .clip(CircleShape)
-                                    .background(AccentRose.copy(alpha = 0.2f)),
+                                    .background(MaterialTheme.colorScheme.error.copy(alpha = 0.2f)),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(Icons.Filled.BatteryFull, contentDescription = null, tint = AccentRose, modifier = Modifier.size(20.dp))
+                                Icon(Icons.Filled.BatteryFull, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
                             }
                             Spacer(modifier = Modifier.width(12.dp))
                             Column {
@@ -183,7 +183,10 @@ fun PermissionsScreen(navController: NavController) {
                             Button(
                                 onClick = { showBatteryInfoDialog = true },
                                 shape = RoundedCornerShape(12.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = AccentRose, contentColor = MidnightBlack),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.error,
+                                    contentColor = MaterialTheme.colorScheme.onError
+                                ),
                                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                                 modifier = Modifier.height(34.dp)
                             ) {
@@ -202,7 +205,7 @@ fun PermissionsScreen(navController: NavController) {
             onDismissRequest = { showBatteryInfoDialog = false },
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.Info, contentDescription = null, tint = AccentCyan)
+                    Icon(Icons.Filled.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Why 'No Restrictions' on Battery?")
                 }
@@ -218,7 +221,7 @@ fun PermissionsScreen(navController: NavController) {
                     Text(
                         "Without 'No Restrictions' / 'Unrestricted', Android will freeze or kill the blocker background service, causing locks to stop working.",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
@@ -235,15 +238,15 @@ fun PermissionsScreen(navController: NavController) {
                         PermissionUtils.requestIgnoreBatteryOptimizations(context)
                     }
                 ) {
-                    Text("Set Unrestricted", color = AccentCyan, fontWeight = FontWeight.Bold)
+                    Text("Set Unrestricted", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showBatteryInfoDialog = false }) {
-                    Text("Close", color = Color.Gray)
+                    Text("Close", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             },
-            containerColor = SurfaceDark,
+            containerColor = MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(24.dp)
         )
     }
@@ -300,7 +303,10 @@ fun PermissionSecurityRow(
             Button(
                 onClick = onAction,
                 shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = AccentCyan, contentColor = MidnightBlack),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                 modifier = Modifier.height(34.dp)
             ) {

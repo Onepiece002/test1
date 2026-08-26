@@ -268,7 +268,7 @@ fun DeepWorkCard(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(Color(0xFF1E1E2E), RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
                             .padding(horizontal = 12.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
@@ -277,22 +277,22 @@ fun DeepWorkCard(
                             onClick = { if (sliderValue > 5f) sliderValue -= 5f },
                             modifier = Modifier
                                 .size(36.dp)
-                                .background(Color(0xFF2A2A3A), RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(8.dp))
                         ) {
-                            Icon(androidx.compose.material.icons.Icons.Filled.Remove, contentDescription = "Decrease", tint = Color.White)
+                            Icon(androidx.compose.material.icons.Icons.Filled.Remove, contentDescription = "Decrease", tint = MaterialTheme.colorScheme.onSurface)
                         }
                         
                         Row(verticalAlignment = Alignment.Bottom) {
                             Text(
                                 text = "${sliderValue.toInt()}",
                                 style = MaterialTheme.typography.headlineMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
-                                color = Color.White
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 text = "min",
                                 style = MaterialTheme.typography.titleSmall,
-                                color = Color.Gray,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(bottom = 4.dp)
                             )
                         }
@@ -301,9 +301,9 @@ fun DeepWorkCard(
                             onClick = { if (sliderValue < 120f) sliderValue += 5f },
                             modifier = Modifier
                                 .size(36.dp)
-                                .background(Color(0xFF2A2A3A), RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(8.dp))
                         ) {
-                            Icon(androidx.compose.material.icons.Icons.Filled.Add, contentDescription = "Increase", tint = Color.White)
+                            Icon(androidx.compose.material.icons.Icons.Filled.Add, contentDescription = "Increase", tint = MaterialTheme.colorScheme.onSurface)
                         }
                     }
                 }
@@ -315,11 +315,11 @@ fun DeepWorkCard(
                 }) { Text("Save", color = MaterialTheme.colorScheme.primary) }
             },
             dismissButton = {
-                TextButton(onClick = { showDialog = false }) { Text("Cancel", color = Color.Gray) }
+                TextButton(onClick = { showDialog = false }) { Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant) }
             },
-            containerColor = SurfaceVariantDark,
-            titleContentColor = Color.White,
-            textContentColor = Color.White
+            containerColor = MaterialTheme.colorScheme.surface,
+            titleContentColor = MaterialTheme.colorScheme.onSurface,
+            textContentColor = MaterialTheme.colorScheme.onSurface
         )
     }
 
@@ -328,8 +328,8 @@ fun DeepWorkCard(
             .fillMaxWidth()
             .heightIn(min = 140.dp)
             .clip(RoundedCornerShape(24.dp))
-            .background(SurfaceVariantDark)
-            .border(1.dp, BorderGlass, RoundedCornerShape(24.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(24.dp))
             .padding(24.dp)
     ) {
         Column(
@@ -348,7 +348,7 @@ fun DeepWorkCard(
                     Text(
                         text = "${timeRemaining / 60} min",
                         style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.Bold),
-                        color = Color(0xFFCBD5E1),
+                        color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.clickable { showDialog = true }
                     )
                 }
@@ -363,8 +363,8 @@ fun DeepWorkCard(
                         }
                     },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.White,
-                        contentColor = MidnightBlack
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
                     ),
                     shape = RoundedCornerShape(50),
                     contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp)
@@ -385,7 +385,6 @@ fun ActiveSessionScreen(timeRemaining: Long, initialTime: Long, onToggleSession:
     val seconds = timeRemaining % 60
     val timeString = String.format("%02d:%02d", minutes, seconds)
     val context = LocalContext.current
-    
     
     val infiniteTransition = rememberInfiniteTransition(label = "breathing")
     val scale by infiniteTransition.animateFloat(
@@ -410,7 +409,7 @@ fun ActiveSessionScreen(timeRemaining: Long, initialTime: Long, onToggleSession:
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MidnightBlack)
+            .background(MaterialTheme.colorScheme.background)
             .padding(32.dp),
         contentAlignment = Alignment.Center
     ) {
@@ -444,12 +443,12 @@ fun ActiveSessionScreen(timeRemaining: Long, initialTime: Long, onToggleSession:
                     .scale(scale)
             ) {
                 val primaryColor = MaterialTheme.colorScheme.primary
+                val trackColor = MaterialTheme.colorScheme.surfaceVariant
                 Canvas(modifier = Modifier.fillMaxSize()) {
                     drawCircle(
-                        color = Color(0xFF1E2030),
+                        color = trackColor,
                         style = Stroke(width = 12.dp.toPx())
                     )
-                    
                     
                     drawArc(
                         color = primaryColor,
@@ -460,36 +459,34 @@ fun ActiveSessionScreen(timeRemaining: Long, initialTime: Long, onToggleSession:
                     )
                 }
                 
-                
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
                         text = timeString,
                         style = MaterialTheme.typography.displayLarge.copy(
                             fontSize = 68.sp
                         ),
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onBackground,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = if (scale > 1f) "Breathe In..." else "Breathe Out...",
                         style = MaterialTheme.typography.labelMedium,
-                        color = Color(0xFFCBD5E1).copy(alpha = 0.5f)
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
                     )
                 }
             }
             
             Spacer(modifier = Modifier.height(80.dp))
             
-            
             Button(
                 onClick = {
                     DndHelper.setDndMode(context, false)
                     onToggleSession()
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF43F5E).copy(alpha = 0.1f), contentColor = Color(0xFFF43F5E)),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.12f), contentColor = MaterialTheme.colorScheme.error),
                 shape = RoundedCornerShape(24.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF43F5E).copy(alpha = 0.3f)),
+                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.3f)),
                 contentPadding = PaddingValues(horizontal = 32.dp, vertical = 16.dp)
             ) {
                 Icon(Icons.Filled.Lock, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -507,8 +504,8 @@ fun EmptyStateView() {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(28.dp))
-            .background(SurfaceVariantDark)
-            .border(1.dp, BorderGlass, RoundedCornerShape(28.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(28.dp))
             .padding(32.dp),
         contentAlignment = Alignment.Center
     ) {
@@ -562,8 +559,8 @@ fun StreakAndShieldedSection(restrictions: List<AppRestriction>) {
                 .weight(1f)
                 .fillMaxHeight()
                 .clip(RoundedCornerShape(20.dp))
-                .background(SurfaceDark)
-                .border(1.dp, BorderGlass, RoundedCornerShape(20.dp))
+                .background(MaterialTheme.colorScheme.surface)
+                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(20.dp))
                 .padding(16.dp)
         ) {
             Column {
@@ -588,8 +585,8 @@ fun StreakAndShieldedSection(restrictions: List<AppRestriction>) {
                 .weight(1f)
                 .fillMaxHeight()
                 .clip(RoundedCornerShape(20.dp))
-                .background(SurfaceDark)
-                .border(1.dp, BorderGlass, RoundedCornerShape(20.dp))
+                .background(MaterialTheme.colorScheme.surface)
+                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(20.dp))
                 .padding(16.dp)
         ) {
             Column {
@@ -600,7 +597,7 @@ fun StreakAndShieldedSection(restrictions: List<AppRestriction>) {
                     val activeRestrictions = restrictions.filter { it.isRestricted }.take(4)
                     
                     if (activeRestrictions.isEmpty()) {
-                        Text("No active boundaries", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                        Text("No active boundaries", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     } else {
                         activeRestrictions.forEachIndexed { index, app ->
                             val pm = context.packageManager
@@ -613,15 +610,15 @@ fun StreakAndShieldedSection(restrictions: List<AppRestriction>) {
                                     .offset(x = (-4 * index).dp)
                                     .size(32.dp)
                                     .clip(RoundedCornerShape(12.dp))
-                                    .background(SurfaceVariantDark)
-                                    .border(2.dp, MidnightBlack, RoundedCornerShape(12.dp)),
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                                    .border(1.5.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 if (icon != null) {
                                     androidx.compose.foundation.Image(bitmap = icon, contentDescription = null, modifier = Modifier.fillMaxSize().padding(4.dp))
                                 } else {
                                     val text = app.appName.take(2).uppercase()
-                                    Text(text, color = Color(0xFFCBD5E1), fontWeight = FontWeight.Bold, fontSize = 10.sp)
+                                    Text(text, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 10.sp)
                                 }
                             }
                         }
@@ -665,7 +662,7 @@ fun SwipeableAppRestrictionCard(
                     .fillMaxHeight()
                     .align(Alignment.CenterStart)
                     .clip(RoundedCornerShape(topStart = 18.dp, bottomStart = 18.dp))
-                    .background(Color(0xFF282D42))
+                    .background(MaterialTheme.colorScheme.primaryContainer)
                     .clickable {
                         coroutineScope.launch {
                             offsetX.animateTo(0f, spring(stiffness = Spring.StiffnessMedium))
@@ -687,14 +684,14 @@ fun SwipeableAppRestrictionCard(
                     Icon(
                         imageVector = Icons.Filled.Edit,
                         contentDescription = "Edit Restriction",
-                        tint = Color.White,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
                         modifier = Modifier.size(22.dp)
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = "Edit",
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                        color = Color(0xFFCBD5E1),
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
                         fontSize = 11.sp
                     )
                 }
@@ -708,9 +705,7 @@ fun SwipeableAppRestrictionCard(
                     .fillMaxHeight()
                     .align(Alignment.CenterEnd)
                     .clip(RoundedCornerShape(topEnd = 18.dp, bottomEnd = 18.dp))
-                    .background(
-                        AccentRose
-                    )
+                    .background(MaterialTheme.colorScheme.errorContainer)
                     .clickable {
                         coroutineScope.launch {
                             offsetX.animateTo(0f, spring(stiffness = Spring.StiffnessMedium))
@@ -732,14 +727,14 @@ fun SwipeableAppRestrictionCard(
                     Icon(
                         imageVector = Icons.Filled.Delete,
                         contentDescription = "Delete Restriction",
-                        tint = Color.White,
+                        tint = MaterialTheme.colorScheme.onErrorContainer,
                         modifier = Modifier.size(22.dp)
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = "Delete",
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                        color = Color(0xFFCBD5E1),
+                        color = MaterialTheme.colorScheme.onErrorContainer,
                         fontSize = 11.sp
                     )
                 }
@@ -821,19 +816,15 @@ fun EditRestrictionBottomSheet(
     var isShieldActive by remember { mutableStateOf(app.isRestricted) }
     val context = LocalContext.current
 
-    val sheetBackground = Color(0xFF12141F)
-    val cardBackground = Color(0xFF191C2B)
-    val cardBorder = Color(0xFF282D42)
-
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = sheetBackground,
+        containerColor = MaterialTheme.colorScheme.surface,
         scrimColor = Color.Black.copy(alpha = 0.65f),
         tonalElevation = 0.dp,
         dragHandle = {
             BottomSheetDefaults.DragHandle(
-                color = Color(0xFF3B4158),
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
                 height = 4.dp,
                 width = 44.dp
             )
@@ -843,7 +834,7 @@ fun EditRestrictionBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(sheetBackground)
+                .background(MaterialTheme.colorScheme.surface)
                 .padding(horizontal = 24.dp, vertical = 8.dp)
                 .verticalScroll(rememberScrollState())
                 .navigationBarsPadding()
@@ -869,13 +860,13 @@ fun EditRestrictionBottomSheet(
                         modifier = Modifier
                             .size(46.dp)
                             .clip(RoundedCornerShape(12.dp))
-                            .background(cardBackground)
-                            .border(1.dp, cardBorder, RoundedCornerShape(12.dp)),
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp)),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = app.appName.take(2).uppercase(),
-                            color = Color(0xFFCBD5E1),
+                            color = MaterialTheme.colorScheme.onSurface,
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp
                         )
@@ -896,7 +887,7 @@ fun EditRestrictionBottomSheet(
                     Text(
                         text = app.appName,
                         style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                        color = Color(0xFFCBD5E1),
+                        color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                     )
@@ -906,8 +897,8 @@ fun EditRestrictionBottomSheet(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFF261922))
-                        .border(1.dp, Color(0x4DEF4444), CircleShape)
+                        .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f))
+                        .border(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.3f), CircleShape)
                         .clickable {
                             coroutineScope.launch {
                                 sheetState.hide()
@@ -920,7 +911,7 @@ fun EditRestrictionBottomSheet(
                     Icon(
                         imageVector = Icons.Filled.Delete,
                         contentDescription = "Delete Restriction",
-                        tint = Color(0xFFEF4444),
+                        tint = MaterialTheme.colorScheme.error,
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -932,8 +923,8 @@ fun EditRestrictionBottomSheet(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(18.dp))
-                    .background(cardBackground)
-                    .border(1.dp, cardBorder, RoundedCornerShape(18.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(18.dp))
                     .padding(horizontal = 16.dp, vertical = 14.dp)
             ) {
                 Row(
@@ -945,13 +936,13 @@ fun EditRestrictionBottomSheet(
                         Text(
                             text = "Shield Active",
                             style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                            color = Color.White
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = if (isShieldActive) "Blocking enabled for this app" else "Blocking is currently paused",
                             style = MaterialTheme.typography.bodySmall,
-                            color = if (isShieldActive) MaterialTheme.colorScheme.tertiary else Color(0xFF94A3B8)
+                            color = if (isShieldActive) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     Switch(
@@ -959,10 +950,10 @@ fun EditRestrictionBottomSheet(
                         onCheckedChange = { isShieldActive = it },
                         modifier = Modifier.scale(0.85f),
                         colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color.White,
+                            checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
                             checkedTrackColor = MaterialTheme.colorScheme.primary,
-                            uncheckedThumbColor = Color(0xFF94A3B8),
-                            uncheckedTrackColor = Color(0xFF282D42)
+                            uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            uncheckedTrackColor = MaterialTheme.colorScheme.surface
                         )
                     )
                 }
@@ -1022,16 +1013,16 @@ fun EditRestrictionBottomSheet(
             OutlinedTextField(
                 value = customQuote,
                 onValueChange = { customQuote = it },
-                placeholder = { Text("Why are you blocking this app?", color = Color(0xFF64748B)) },
+                placeholder = { Text("Why are you blocking this app?", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)) },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = cardBackground,
-                    unfocusedContainerColor = cardBackground,
-                    focusedBorderColor = MaterialTheme.colorScheme.secondary,
-                    unfocusedBorderColor = cardBorder,
-                    focusedTextColor = Color(0xFFCBD5E1),
-                    unfocusedTextColor = Color.White
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                 )
             )
 
@@ -1057,8 +1048,8 @@ fun EditRestrictionBottomSheet(
                     .fillMaxWidth()
                     .height(54.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.White,
-                    contentColor = MidnightBlack
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
                 ),
                 shape = RoundedCornerShape(27.dp)
             ) {
@@ -1077,13 +1068,12 @@ fun EditRestrictionBottomSheet(
 fun AppRestrictionCard(app: AppRestriction, onToggle: () -> Unit) {
     val isLocked = app.isRestricted
     val cardColor = if (isLocked) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface
-    val borderColor = if (isLocked) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else BorderGlass
+    val borderColor = if (isLocked) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outline
     
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(18.dp))
-            .background(MaterialTheme.colorScheme.background)
             .background(cardColor)
             .border(1.dp, borderColor, RoundedCornerShape(18.dp))
             .clickable { onToggle() }
@@ -1105,7 +1095,7 @@ fun AppRestrictionCard(app: AppRestriction, onToggle: () -> Unit) {
                     )
                 } else {
                     Box(
-                        modifier = Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.background),
+                        modifier = Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surfaceVariant),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(app.appName.take(2).uppercase(), color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 11.sp)
@@ -1154,10 +1144,10 @@ fun AppRestrictionCard(app: AppRestriction, onToggle: () -> Unit) {
                 onCheckedChange = { onToggle() },
                 modifier = Modifier.scale(0.85f),
                 colors = SwitchDefaults.colors(
-                    checkedThumbColor = MaterialTheme.colorScheme.background,
+                    checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
                     checkedTrackColor = MaterialTheme.colorScheme.primary,
                     uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    uncheckedTrackColor = MaterialTheme.colorScheme.background
+                    uncheckedTrackColor = MaterialTheme.colorScheme.surface
                 )
             )
         }

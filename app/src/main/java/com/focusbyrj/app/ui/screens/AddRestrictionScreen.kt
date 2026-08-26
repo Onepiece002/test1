@@ -184,13 +184,13 @@ fun AddRestrictionScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MidnightBlack, 
-                    titleContentColor = Color.White, 
-                    navigationIconContentColor = Color.White
+                    containerColor = MaterialTheme.colorScheme.background, 
+                    titleContentColor = MaterialTheme.colorScheme.onBackground, 
+                    navigationIconContentColor = MaterialTheme.colorScheme.onBackground
                 )
             )
         },
-        containerColor = MidnightBlack,
+        containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
             if (currentStep == 1) {
                 AnimatedVisibility(
@@ -198,51 +198,65 @@ fun AddRestrictionScreen(
                     enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
                     exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(MidnightBlack)
-                            .padding(16.dp)
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = MaterialTheme.colorScheme.background,
+                        tonalElevation = 3.dp,
+                        shadowElevation = 8.dp
                     ) {
-                        Button(
-                            onClick = { currentStep = 2 },
-                            modifier = Modifier.fillMaxWidth().height(56.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary, contentColor = MaterialTheme.colorScheme.onPrimary),
-                            shape = RoundedCornerShape(28.dp)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .navigationBarsPadding()
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
                         ) {
-                            Text("Configure Shield (${selectedApps.size} Apps)", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                            Button(
+                                onClick = { currentStep = 2 },
+                                modifier = Modifier.fillMaxWidth().height(52.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary, contentColor = MaterialTheme.colorScheme.onSecondary),
+                                shape = RoundedCornerShape(26.dp)
+                            ) {
+                                Text("Configure Shield (${selectedApps.size} Apps)", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                            }
                         }
                     }
                 }
             } else {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(MidnightBlack)
-                        .padding(16.dp)
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.background,
+                    tonalElevation = 3.dp,
+                    shadowElevation = 8.dp
                 ) {
-                    Button(
-                        onClick = {
-                            val newRestrictions = selectedApps.map { app ->
-                                AppRestriction(
-                                    packageName = app.packageName,
-                                    appName = app.appName,
-                                    mode = appModes[app.packageName] ?: "HARD",
-                                    restrictionMode = restrictionMode,
-                                    timeLimitMinutes = if (restrictionMode == "TIME_LIMIT") timeLimitMinutes else 0,
-                                    clickLimitCount = if (restrictionMode == "CLICK_LIMIT") clickLimitCount else 0,
-                                    customQuote = customQuote.trim(),
-                                    isRestricted = true
-                                )
-                            }
-                            viewModel.addRestrictions(newRestrictions)
-                            navController.popBackStack()
-                        },
-                        modifier = Modifier.fillMaxWidth().height(56.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = MaterialTheme.colorScheme.onPrimary),
-                        shape = RoundedCornerShape(28.dp)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .navigationBarsPadding()
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
                     ) {
-                        Text("Enable Shield for ${selectedApps.size} Apps", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                        Button(
+                            onClick = {
+                                val newRestrictions = selectedApps.map { app ->
+                                    AppRestriction(
+                                        packageName = app.packageName,
+                                        appName = app.appName,
+                                        mode = appModes[app.packageName] ?: "HARD",
+                                        restrictionMode = restrictionMode,
+                                        timeLimitMinutes = if (restrictionMode == "TIME_LIMIT") timeLimitMinutes else 0,
+                                        clickLimitCount = if (restrictionMode == "CLICK_LIMIT") clickLimitCount else 0,
+                                        customQuote = customQuote.trim(),
+                                        isRestricted = true
+                                    )
+                                }
+                                viewModel.addRestrictions(newRestrictions)
+                                navController.popBackStack()
+                            },
+                            modifier = Modifier.fillMaxWidth().height(52.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary),
+                            shape = RoundedCornerShape(26.dp)
+                        ) {
+                            Text("Enable Shield for ${selectedApps.size} Apps", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                        }
                     }
                 }
             }
@@ -271,19 +285,19 @@ fun AddRestrictionScreen(
                         OutlinedTextField(
                             value = searchQuery,
                             onValueChange = { searchQuery = it },
-                            placeholder = { Text("Search applications...", color = Color.Gray) },
-                            leadingIcon = { Icon(Icons.Filled.Search, contentDescription = "Search", tint = Color.Gray) },
+                            placeholder = { Text("Search applications...", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                            leadingIcon = { Icon(Icons.Filled.Search, contentDescription = "Search", tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 16.dp, vertical = 8.dp),
                             shape = RoundedCornerShape(24.dp),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedContainerColor = SurfaceDark,
-                                unfocusedContainerColor = SurfaceDark,
+                                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
                                 focusedBorderColor = MaterialTheme.colorScheme.secondary,
-                                unfocusedBorderColor = BorderGlass,
-                                focusedTextColor = Color(0xFFCBD5E1),
-                                unfocusedTextColor = Color.White
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                             ),
                             singleLine = true
                         )
@@ -300,14 +314,14 @@ fun AddRestrictionScreen(
                                 Box(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(20.dp))
-                                        .background(if (isSelected) MaterialTheme.colorScheme.secondary else SurfaceDark)
-                                        .border(1.dp, if (isSelected) MaterialTheme.colorScheme.secondary else BorderGlass, RoundedCornerShape(20.dp))
+                                        .background(if (isSelected) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.surface)
+                                        .border(1.dp, if (isSelected) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.outline, RoundedCornerShape(20.dp))
                                         .clickable { selectedCategory = category }
                                         .padding(horizontal = 16.dp, vertical = 8.dp)
                                 ) {
                                     Text(
                                         text = category.title,
-                                        color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        color = if (isSelected) MaterialTheme.colorScheme.onSecondary else MaterialTheme.colorScheme.onSurfaceVariant,
                                         style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
                                     )
                                 }
@@ -318,22 +332,22 @@ fun AddRestrictionScreen(
                                 Box(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(20.dp))
-                                        .background(if (isSelected) MaterialTheme.colorScheme.primary else SurfaceDark)
-                                        .border(1.dp, if (isSelected) MaterialTheme.colorScheme.primary else BorderGlass, RoundedCornerShape(20.dp))
+                                        .background(if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface)
+                                        .border(1.dp, if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, RoundedCornerShape(20.dp))
                                         .clickable { selectedCategory = cat }
                                         .padding(horizontal = 16.dp, vertical = 8.dp)
                                 ) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Text(
                                             text = cat.name,
-                                            color = if (isSelected) MidnightBlack else MaterialTheme.colorScheme.onSurfaceVariant,
+                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
                                             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
                                         )
                                         Spacer(modifier = Modifier.width(6.dp))
                                         Icon(
                                             Icons.Filled.Edit,
                                             contentDescription = "Edit Category",
-                                            tint = if (isSelected) MidnightBlack else Color.Gray,
+                                            tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
                                             modifier = Modifier
                                                 .size(14.dp)
                                                 .clickable {
@@ -349,8 +363,8 @@ fun AddRestrictionScreen(
                                 Box(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(20.dp))
-                                        .background(SurfaceDark)
-                                        .border(1.dp, BorderGlass, RoundedCornerShape(20.dp))
+                                        .background(MaterialTheme.colorScheme.surface)
+                                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(20.dp))
                                         .clickable {
                                             editingCustomCategory = null
                                             showCustomCategoryEditor = true
@@ -409,7 +423,7 @@ fun AddRestrictionScreen(
                                         Text(
                                             text = "${filteredApps.size} apps available",
                                             style = MaterialTheme.typography.bodySmall,
-                                            color = Color.Gray
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
 
                                         val allSelected = filteredApps.isNotEmpty() && selectedApps.containsAll(filteredApps)
@@ -417,7 +431,7 @@ fun AddRestrictionScreen(
                                             TextButton(
                                                 onClick = { selectedApps = selectedApps - filteredApps.toSet() }
                                             ) {
-                                                Text("Deselect All", color = Color(0xFFF44336))
+                                                Text("Deselect All", color = MaterialTheme.colorScheme.error)
                                             }
                                         } else {
                                             TextButton(
@@ -438,10 +452,10 @@ fun AddRestrictionScreen(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .clip(RoundedCornerShape(16.dp))
-                                            .background(if (isSelected) MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f) else SurfaceDark)
+                                            .background(if (isSelected) MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surface)
                                             .border(
                                                 1.dp,
-                                                if (isSelected) MaterialTheme.colorScheme.secondary else BorderGlass,
+                                                if (isSelected) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.outline,
                                                 RoundedCornerShape(16.dp)
                                             )
                                             .clickable {
@@ -472,13 +486,13 @@ fun AddRestrictionScreen(
                                                 Text(
                                                     text = app.appName,
                                                     style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
-                                                    color = Color.White
+                                                    color = MaterialTheme.colorScheme.onSurface
                                                 )
                                                 Spacer(modifier = Modifier.height(2.dp))
                                                 Text(
                                                     text = app.category.title,
                                                     style = MaterialTheme.typography.labelMedium,
-                                                    color = Color.Gray
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
                                             }
 
@@ -493,7 +507,7 @@ fun AddRestrictionScreen(
                                                 Box(
                                                     modifier = Modifier
                                                         .size(24.dp)
-                                                        .border(2.dp, Color.Gray.copy(alpha = 0.5f), CircleShape)
+                                                        .border(2.dp, MaterialTheme.colorScheme.outline, CircleShape)
                                                 )
                                             }
                                         }
@@ -559,16 +573,16 @@ fun AddRestrictionScreen(
                         OutlinedTextField(
                             value = customQuote,
                             onValueChange = { customQuote = it },
-                            placeholder = { Text(text = "Is this urgent, or are you chasing cheap dopamine?", color = Color.DarkGray) },
+                            placeholder = { Text(text = "Is this urgent, or are you chasing cheap dopamine?", color = MaterialTheme.colorScheme.onSurfaceVariant) },
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(16.dp),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedContainerColor = SurfaceDark,
-                                unfocusedContainerColor = SurfaceDark,
+                                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
                                 focusedBorderColor = MaterialTheme.colorScheme.secondary,
-                                unfocusedBorderColor = BorderGlass,
-                                focusedTextColor = Color(0xFFCBD5E1),
-                                unfocusedTextColor = Color.White
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                             )
                         )
                         
@@ -611,10 +625,10 @@ fun ModeSelector(
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(12.dp))
-            .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else SurfaceVariantDark)
+            .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surface)
             .border(
                 1.dp,
-                if (isSelected) MaterialTheme.colorScheme.primary else BorderGlass,
+                if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
                 RoundedCornerShape(12.dp)
             )
             .clickable(onClick = onClick)
@@ -624,13 +638,13 @@ fun ModeSelector(
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White
+                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = description,
                 style = MaterialTheme.typography.bodySmall,
-                color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.8f) else Color.Gray
+                color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }

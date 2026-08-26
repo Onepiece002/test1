@@ -29,7 +29,8 @@ fun HeatmapAndStreaksWidget(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(24.dp))
-            .background(SurfaceDark)
+            .background(MaterialTheme.colorScheme.surface)
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(24.dp))
             .padding(20.dp)
     ) {
         Row(
@@ -38,37 +39,41 @@ fun HeatmapAndStreaksWidget(
         ) {
             // LEFT HALF: Heatmap
             Column(modifier = Modifier.weight(1f)) {
-                Text("30 Days", style = MaterialTheme.typography.titleMedium, color = Color(0xFFCBD5E1))
+                Text("Activity (30D)", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
                 Spacer(modifier = Modifier.height(12.dp))
                 
                 Column(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     for (row in 0..4) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             for (col in 0..5) {
-                                val daysAgo = 29 - (row * 6 + col)
-                                val usage = dailyUsage[Calendar.getInstance().get(Calendar.DAY_OF_YEAR) - daysAgo] ?: 0L
+                                // First block (row 0, col 0) corresponds to today (daysAgo = 0)
+                                val daysAgo = row * 6 + col
+                                val targetCal = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -daysAgo) }
+                                val usage = dailyUsage[targetCal.get(Calendar.DAY_OF_YEAR)] ?: 0L
                                 
-                                val color = when {
-                                    usage == 0L -> Color(0xFF1A1B26)
-                                    usage < 30 * 60 * 1000L -> theme.colors[0]
-                                    usage < 60 * 60 * 1000L -> theme.colors[1]
-                                    usage < 120 * 60 * 1000L -> theme.colors[2]
-                                    else -> theme.colors[3]
+                                val emptyTileColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+                                
+                                val boxColor = when {
+                                    usage <= 0L -> emptyTileColor
+                                    usage < 15 * 60 * 1000L -> theme.colors[1]
+                                    usage < 30 * 60 * 1000L -> theme.colors[2]
+                                    usage < 60 * 60 * 1000L -> theme.colors[3]
+                                    else -> theme.colors[4]
                                 }
                                 
                                 Box(
                                     modifier = Modifier
                                         .weight(1f)
                                         .aspectRatio(1f)
-                                        .clip(RoundedCornerShape(4.dp))
-                                        .background(color)
+                                        .clip(RoundedCornerShape(3.dp))
+                                        .background(boxColor)
                                 )
                             }
                         }
@@ -78,7 +83,7 @@ fun HeatmapAndStreaksWidget(
             
             // RIGHT HALF: Streaks
             Column(modifier = Modifier.weight(1f)) {
-                Text("Streaks", style = MaterialTheme.typography.titleMedium, color = Color(0xFFCBD5E1))
+                Text("Streaks", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
                 Spacer(modifier = Modifier.height(12.dp))
                 
                 Column(
@@ -89,13 +94,14 @@ fun HeatmapAndStreaksWidget(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
-                            .background(Color(0xFF1A1B26))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
                             .padding(vertical = 12.dp, horizontal = 8.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("${profile.currentStreak}", style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary)
-                            Text("Current Streak", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                            Text("Current Streak", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                     
@@ -103,13 +109,14 @@ fun HeatmapAndStreaksWidget(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
-                            .background(Color(0xFF1A1B26))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
                             .padding(vertical = 12.dp, horizontal = 8.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("${profile.longestStreak}", style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold), color = Color(0xFF6366F1))
-                            Text("Longest Streak", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                            Text("Longest Streak", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }

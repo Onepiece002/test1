@@ -109,8 +109,8 @@ fun AccountScreen() {
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp, vertical = 8.dp)
                     .clip(RoundedCornerShape(24.dp))
-                    .background(Color(0xFF1E1E1E))
-                    .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(24.dp))
+                    .background(MaterialTheme.colorScheme.surface)
+                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(24.dp))
                     .clickable { FocusEconomyManager.claimPendingRewards() }
                     .padding(20.dp)
             ) {
@@ -120,7 +120,7 @@ fun AccountScreen() {
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column {
-                        Text("Unclaimed Rewards", style = MaterialTheme.typography.titleMedium, color = Color.White, fontWeight = FontWeight.Bold)
+                        Text("Unclaimed Rewards", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
                         Spacer(modifier = Modifier.height(4.dp))
                         Text("${profile.pendingXp} XP • ${profile.pendingGold} Gold", style = MaterialTheme.typography.bodyMedium, color = Color(0xFFFFD700))
                     }
@@ -197,13 +197,13 @@ fun AccountScreen() {
         ModalBottomSheet(
             onDismissRequest = { showAchievementsSheet = false },
             sheetState = achievementsSheetState,
-            containerColor = SurfaceDark
+            containerColor = MaterialTheme.colorScheme.surface
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
                 Text(
                     text = "All Achievements",
                     style = MaterialTheme.typography.titleLarge,
-                    color = Color(0xFFCBD5E1),
+                    color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
                 )
                 AchievementsTab(profile, stats, isPro)
@@ -215,7 +215,7 @@ fun AccountScreen() {
         ModalBottomSheet(
             onDismissRequest = { showAvatarSheet = false },
             sheetState = sheetState,
-            containerColor = SurfaceDark
+            containerColor = MaterialTheme.colorScheme.surface
         ) {
             AvatarSelectionSheet(profile = profile)
         }
@@ -224,9 +224,9 @@ fun AccountScreen() {
     if (showRulesDialog) {
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { showRulesDialog = false },
-            containerColor = Color(0xFF1B1D28),
-            titleContentColor = Color.White,
-            textContentColor = Color.LightGray,
+            containerColor = MaterialTheme.colorScheme.surface,
+            titleContentColor = MaterialTheme.colorScheme.onSurface,
+            textContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Filled.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
@@ -276,9 +276,9 @@ fun RuleSection(title: String, desc: String, icon: ImageVector, color: Color) {
         Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(20.dp).padding(top = 2.dp))
         Spacer(Modifier.width(12.dp))
         Column {
-            Text(title, fontWeight = FontWeight.Bold, color = Color.White, fontSize = 16.sp)
+            Text(title, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, fontSize = 16.sp)
             Spacer(Modifier.height(4.dp))
-            Text(desc, color = Color.LightGray, fontSize = 14.sp, lineHeight = 20.sp)
+            Text(desc, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp, lineHeight = 20.sp)
         }
     }
 }
@@ -307,10 +307,8 @@ fun ProfileCard(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(24.dp))
-            .background(androidx.compose.ui.graphics.Brush.linearGradient(
-                colors = listOf(Color(0xFF1E2030), Color(0xFF14151F))
-            ))
-            .border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(24.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(24.dp))
             .padding(24.dp)
     ) {
         
@@ -329,7 +327,7 @@ fun ProfileCard(
                     modifier = Modifier
                         .size(80.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFF12121A))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
                         .border(3.dp, currentAvatar.borderColor, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
@@ -349,14 +347,14 @@ fun ProfileCard(
                         .align(Alignment.BottomEnd)
                         .size(26.dp)
                         .clip(CircleShape)
-                        .background(SurfaceDark)
+                        .background(MaterialTheme.colorScheme.surface)
                         .border(1.5.dp, currentAvatar.borderColor, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Edit,
                         contentDescription = "Change Avatar",
-                        tint = Color.White,
+                        tint = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.size(13.dp)
                     )
                 }
@@ -369,12 +367,12 @@ fun ProfileCard(
                     BasicTextField(
                         value = tempName,
                         onValueChange = { tempName = it },
-                        textStyle = MaterialTheme.typography.titleLarge.copy(color = Color(0xFFCBD5E1)),
-                        cursorBrush = SolidColor(Color.White),
+                        textStyle = MaterialTheme.typography.titleLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                         singleLine = true,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(Color(0xFF2A2C3A), RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
                             .padding(8.dp),
                         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
                             imeAction = androidx.compose.ui.text.input.ImeAction.Done
@@ -392,10 +390,10 @@ fun ProfileCard(
                         Text(
                             text = profile.name,
                             style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, fontSize = 22.sp),
-                            color = Color.White
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Icon(Icons.Filled.Edit, contentDescription = "Edit", tint = Color.Gray, modifier = Modifier.size(14.dp))
+                        Icon(Icons.Filled.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(14.dp))
                     }
                 }
                 
@@ -412,7 +410,7 @@ fun ProfileCard(
                 Icon(
                     imageVector = Icons.Filled.Info,
                     contentDescription = "Economy Rules",
-                    tint = Color.Gray.copy(alpha = 0.5f)
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -421,11 +419,11 @@ fun ProfileCard(
         
         
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Level ${profile.level}", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold), color = Color.White)
+            Text("Level ${profile.level}", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface)
             if (profile.level >= 200) {
                 Text("MAX LEVEL", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary)
             } else {
-                Text("${profile.xp} / $nextLevelXp XP", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                Text("${profile.xp} / $nextLevelXp XP", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         Spacer(modifier = Modifier.height(8.dp))
@@ -433,7 +431,7 @@ fun ProfileCard(
             progress = { xpProgress },
             modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
             color = MaterialTheme.colorScheme.primary,
-            trackColor = Color(0xFF12121A)
+            trackColor = MaterialTheme.colorScheme.surfaceVariant
         )
         
         Spacer(modifier = Modifier.height(28.dp))
@@ -445,8 +443,8 @@ fun ProfileCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(16.dp))
-                .background(Color(0xFF12121A).copy(alpha = 0.6f))
-                .border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(16.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+                .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
                 .padding(vertical = 16.dp, horizontal = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
@@ -458,7 +456,7 @@ fun ProfileCard(
                 color = Color(0xFFFFD700),
                 modifier = Modifier.weight(1f)
             )
-            Box(modifier = Modifier.width(1.dp).height(24.dp).background(Color.White.copy(alpha = 0.1f)))
+            Box(modifier = Modifier.width(1.dp).height(24.dp).background(MaterialTheme.colorScheme.outline))
             ProfileStatItem(
                 icon = androidx.compose.material.icons.Icons.Filled.LocalFireDepartment, 
                 value = "${FocusEconomyManager.getGoldMultiplier(profile.level)}x", 
@@ -466,7 +464,7 @@ fun ProfileCard(
                 color = Color(0xFF00E5FF),
                 modifier = Modifier.weight(1f)
             )
-            Box(modifier = Modifier.width(1.dp).height(24.dp).background(Color.White.copy(alpha = 0.1f)))
+            Box(modifier = Modifier.width(1.dp).height(24.dp).background(MaterialTheme.colorScheme.outline))
             ProfileStatItem(
                 icon = androidx.compose.material.icons.Icons.Filled.EmojiEvents, 
                 value = "$unlockedCount", 
@@ -504,10 +502,10 @@ fun ProfileStatItem(icon: ImageVector, value: String, label: String, color: Colo
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(16.dp))
             Spacer(modifier = Modifier.width(4.dp))
-            Text(value, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold), color = Color.White, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            Text(value, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
         }
         Spacer(modifier = Modifier.height(2.dp))
-        Text(label, style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = Color.Gray)
+        Text(label, style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -533,7 +531,7 @@ fun OverviewTab(stats: com.focusbyrj.app.util.FocusStats, heatmapTheme: com.focu
 @Composable
 fun StatsGrid(profile: UserProfile) {
     Column(modifier = Modifier.fillMaxWidth()) {
-        Text("Lifetime Stats", style = MaterialTheme.typography.titleMedium, color = Color(0xFFCBD5E1))
+        Text("Lifetime Stats", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
         Spacer(modifier = Modifier.height(16.dp))
         
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -560,18 +558,18 @@ fun StatCard(title: String, value: String, icon: ImageVector, color: Color, modi
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(20.dp))
-            .background(SurfaceDark)
-            .border(1.dp, BorderGlass, RoundedCornerShape(20.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(20.dp))
             .padding(16.dp)
     ) {
         Column {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(20.dp))
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(title, style = MaterialTheme.typography.labelMedium, color = Color.Gray)
+                Text(title, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Spacer(modifier = Modifier.height(12.dp))
-            Text(value, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold), color = Color.White)
+            Text(value, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface)
         }
     }
 }
@@ -603,8 +601,8 @@ fun AchievementsPreviewTab(profile: UserProfile, stats: com.focusbyrj.app.util.F
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(20.dp))
-                .background(SurfaceDark)
-                .border(1.dp, BorderGlass, RoundedCornerShape(20.dp))
+                .background(MaterialTheme.colorScheme.surface)
+                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(20.dp))
                 .padding(20.dp)
         ) {
             Column {
@@ -614,8 +612,8 @@ fun AchievementsPreviewTab(profile: UserProfile, stats: com.focusbyrj.app.util.F
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
-                        Text("Achievements", style = MaterialTheme.typography.titleMedium, color = Color(0xFFCBD5E1))
-                        Text("$unlockedCount / $totalCount Unlocked", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                        Text("Achievements", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+                        Text("$unlockedCount / $totalCount Unlocked", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     androidx.compose.material3.TextButton(onClick = onViewAllClick) {
                         Text("View All", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
@@ -702,44 +700,102 @@ fun MedievalMedal(iconRes: Int, color: Color, isUnlocked: Boolean, modifier: Mod
         modifier = modifier,
         contentAlignment = Alignment.Center
     ) {
-        // Vibrant glowing aura for unlocked achievements
         if (isUnlocked) {
+            // Ambient colored glow around the badge
             Box(
                 modifier = Modifier
-                    .fillMaxSize()
+                    .fillMaxSize(0.95f)
                     .background(
                         brush = androidx.compose.ui.graphics.Brush.radialGradient(
                             colors = listOf(
-                                color.copy(alpha = 0.3f),
-                                color.copy(alpha = 0.1f),
+                                color.copy(alpha = 0.45f),
+                                color.copy(alpha = 0.15f),
                                 Color.Transparent
                             )
                         )
                     )
             )
-        }
-        
-        val imageModifier = Modifier.fillMaxSize(1.0f)
-        
-        if (isUnlocked) {
-            androidx.compose.foundation.Image(
-                painter = androidx.compose.ui.res.painterResource(id = iconRes),
-                contentDescription = null,
-                modifier = imageModifier
-            )
+
+            // Direct dark contrast pod behind dark cutout icons
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(
+                        brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                            colors = listOf(
+                                Color(0xFF1E2235),
+                                Color(0xFF0F111A)
+                            )
+                        )
+                    )
+                    .border(
+                        width = 1.dp,
+                        brush = androidx.compose.ui.graphics.Brush.linearGradient(
+                            colors = listOf(
+                                color.copy(alpha = 0.8f),
+                                color.copy(alpha = 0.25f)
+                            )
+                        ),
+                        shape = RoundedCornerShape(14.dp)
+                    )
+                    .padding(6.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                androidx.compose.foundation.Image(
+                    painter = androidx.compose.ui.res.painterResource(id = iconRes),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
         } else {
-            androidx.compose.foundation.Image(
-                painter = androidx.compose.ui.res.painterResource(id = iconRes),
-                contentDescription = null,
-                modifier = imageModifier.alpha(0.3f),
-                colorFilter = androidx.compose.ui.graphics.ColorFilter.colorMatrix(androidx.compose.ui.graphics.ColorMatrix().apply { setToSaturation(0f) })
-            )
-            Icon(
-                imageVector = Icons.Filled.Lock,
-                contentDescription = "Locked",
-                tint = Color.White.copy(alpha = 0.5f),
-                modifier = Modifier.size(20.dp)
-            )
+            // Locked badge with dark pod and grayscale lock
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(
+                        brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                            colors = listOf(
+                                Color(0xFF181A24),
+                                Color(0xFF0D0E15)
+                            )
+                        )
+                    )
+                    .border(
+                        width = 1.dp,
+                        color = Color.White.copy(alpha = 0.08f),
+                        shape = RoundedCornerShape(14.dp)
+                    )
+                    .padding(6.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                androidx.compose.foundation.Image(
+                    painter = androidx.compose.ui.res.painterResource(id = iconRes),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .alpha(0.35f),
+                    colorFilter = androidx.compose.ui.graphics.ColorFilter.colorMatrix(
+                        androidx.compose.ui.graphics.ColorMatrix().apply { setToSaturation(0f) }
+                    )
+                )
+                Box(
+                    modifier = Modifier
+                        .size(20.dp)
+                        .clip(CircleShape)
+                        .background(Color.Black.copy(alpha = 0.75f))
+                        .border(1.dp, Color.White.copy(alpha = 0.2f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Lock,
+                        contentDescription = "Locked",
+                        tint = Color.White.copy(alpha = 0.85f),
+                        modifier = Modifier.size(11.dp)
+                    )
+                }
+            }
         }
     }
 }
@@ -750,31 +806,44 @@ fun AchievementsTab(profile: UserProfile, stats: com.focusbyrj.app.util.FocusSta
     val context = LocalContext.current
     
     androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
-        columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(4), 
+        columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(3), 
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-        contentPadding = PaddingValues(top = 24.dp, bottom = 100.dp),
+        contentPadding = PaddingValues(top = 16.dp, bottom = 100.dp),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp)
+        verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
         items(achievements) { achievement ->
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { 
-                        
                         android.widget.Toast.makeText(context, "${achievement.title}: ${achievement.description}", android.widget.Toast.LENGTH_SHORT).show()
-                    },
+                    }
+                    .padding(vertical = 4.dp, horizontal = 4.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                MedievalMedal(iconRes = achievement.iconRes, color = achievement.color, isUnlocked = achievement.isUnlocked, modifier = Modifier.size(64.dp))
+                MedievalMedal(
+                    iconRes = achievement.iconRes,
+                    color = achievement.color,
+                    isUnlocked = achievement.isUnlocked,
+                    modifier = Modifier.size(62.dp)
+                )
                 
                 Spacer(modifier = Modifier.height(8.dp))
                 
-                
                 Text(
                     text = achievement.title,
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold),
-                    color = if (achievement.isUnlocked) Color.White else Color.Gray,
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                    color = if (achievement.isUnlocked) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center
+                )
+                
+                Text(
+                    text = achievement.description,
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                     maxLines = 1,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                     textAlign = TextAlign.Center
@@ -800,8 +869,8 @@ fun AvatarSelectionSheet(profile: UserProfile) {
             .verticalScroll(rememberScrollState())
     ) {
         // VIP Tiers Section
-        Text("VIP Milestones", style = MaterialTheme.typography.titleLarge, color = Color(0xFFCBD5E1), fontWeight = FontWeight.Bold)
-        Text("Unlocked as your Discipline & Gold milestone grows.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+        Text("VIP Milestones", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
+        Text("Unlocked as your Discipline & Gold milestone grows.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(modifier = Modifier.height(16.dp))
         
         LazyVerticalGrid(
@@ -818,10 +887,10 @@ fun AvatarSelectionSheet(profile: UserProfile) {
                     modifier = Modifier
                         .aspectRatio(0.85f)
                         .clip(RoundedCornerShape(16.dp))
-                        .background(if (isUnlocked) Color(0xFF222433) else Color(0xFF161722))
+                        .background(if (isUnlocked) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
                         .border(
                             2.dp, 
-                            if (isCurrent) avatar.borderColor else if (isUnlocked) Color.White.copy(alpha = 0.08f) else Color.Transparent, 
+                            if (isCurrent) avatar.borderColor else if (isUnlocked) MaterialTheme.colorScheme.outline.copy(alpha = 0.5f) else Color.Transparent, 
                             RoundedCornerShape(16.dp)
                         )
                         .clickable(enabled = isUnlocked) {
@@ -838,8 +907,8 @@ fun AvatarSelectionSheet(profile: UserProfile) {
                             modifier = Modifier
                                 .size(54.dp)
                                 .clip(CircleShape)
-                                .background(Color(0xFF10111A))
-                                .border(2.dp, if (isUnlocked) avatar.borderColor else Color.DarkGray, CircleShape),
+                                .background(MaterialTheme.colorScheme.surface)
+                                .border(2.dp, if (isUnlocked) avatar.borderColor else MaterialTheme.colorScheme.outline, CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
                             Image(
@@ -856,20 +925,20 @@ fun AvatarSelectionSheet(profile: UserProfile) {
                         Text(
                             text = avatar.title,
                             style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold),
-                            color = if (isUnlocked) Color.White else Color.Gray,
+                            color = if (isUnlocked) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         if (!isUnlocked) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Filled.Lock, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(11.dp))
+                                Icon(Icons.Filled.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(11.dp))
                                 Spacer(modifier = Modifier.width(3.dp))
-                                Text(avatar.requiredGold.toString(), style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = Color.Gray)
+                                Text(avatar.requiredGold.toString(), style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         } else if (isCurrent) {
                             Text("Equipped", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold), color = avatar.borderColor)
                         } else {
-                            Text("Equip", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = Color.Gray)
+                            Text("Equip", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -879,8 +948,8 @@ fun AvatarSelectionSheet(profile: UserProfile) {
         Spacer(modifier = Modifier.height(28.dp))
         
         // Store Avatars Section
-        Text("Store Avatars", style = MaterialTheme.typography.titleLarge, color = Color(0xFFCBD5E1), fontWeight = FontWeight.Bold)
-        Text("Purchase & unlock unique visual identities with earned Gold.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+        Text("Store Avatars", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
+        Text("Purchase & unlock unique visual identities with earned Gold.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(modifier = Modifier.height(16.dp))
         
         LazyVerticalGrid(
@@ -898,10 +967,10 @@ fun AvatarSelectionSheet(profile: UserProfile) {
                     modifier = Modifier
                         .aspectRatio(0.85f)
                         .clip(RoundedCornerShape(16.dp))
-                        .background(if (isPurchased) Color(0xFF222433) else Color(0xFF161722))
+                        .background(if (isPurchased) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
                         .border(
                             2.dp, 
-                            if (isCurrent) storeAvatar.borderColor else if (isPurchased) Color.White.copy(alpha = 0.08f) else Color.Transparent, 
+                            if (isCurrent) storeAvatar.borderColor else if (isPurchased) MaterialTheme.colorScheme.outline.copy(alpha = 0.5f) else Color.Transparent, 
                             RoundedCornerShape(16.dp)
                         )
                         .clickable {
@@ -924,8 +993,8 @@ fun AvatarSelectionSheet(profile: UserProfile) {
                             modifier = Modifier
                                 .size(54.dp)
                                 .clip(CircleShape)
-                                .background(Color(0xFF10111A))
-                                .border(2.dp, if (isPurchased || canAfford) storeAvatar.borderColor else Color.DarkGray, CircleShape),
+                                .background(MaterialTheme.colorScheme.surface)
+                                .border(2.dp, if (isPurchased || canAfford) storeAvatar.borderColor else MaterialTheme.colorScheme.outline, CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
                             Image(
@@ -942,7 +1011,7 @@ fun AvatarSelectionSheet(profile: UserProfile) {
                         Text(
                             text = storeAvatar.title,
                             style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold),
-                            color = if (isPurchased || canAfford) Color.White else Color.Gray,
+                            color = if (isPurchased || canAfford) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1
                         )
                         Spacer(modifier = Modifier.height(2.dp))
@@ -951,14 +1020,14 @@ fun AvatarSelectionSheet(profile: UserProfile) {
                                 Icon(
                                     Icons.Filled.MonetizationOn, 
                                     contentDescription = null, 
-                                    tint = if (canAfford) Color(0xFFFFD700) else Color.Gray, 
+                                    tint = if (canAfford) Color(0xFFFFD700) else MaterialTheme.colorScheme.onSurfaceVariant, 
                                     modifier = Modifier.size(11.dp)
                                 )
                                 Spacer(modifier = Modifier.width(3.dp))
                                 Text(
                                     "${storeAvatar.cost}", 
                                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold), 
-                                    color = if (canAfford) Color(0xFFFFD700) else Color.Gray
+                                    color = if (canAfford) Color(0xFFFFD700) else MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         } else if (isCurrent) {
@@ -975,9 +1044,9 @@ fun AvatarSelectionSheet(profile: UserProfile) {
     avatarToPurchase?.let { avatar ->
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { avatarToPurchase = null },
-            containerColor = Color(0xFF1B1D28),
-            titleContentColor = Color.White,
-            textContentColor = Color.LightGray,
+            containerColor = MaterialTheme.colorScheme.surface,
+            titleContentColor = MaterialTheme.colorScheme.onSurface,
+            textContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(

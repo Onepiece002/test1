@@ -71,14 +71,14 @@ fun SubscriptionScreen(navController: NavController) {
                 Icon(
                     Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Back",
-                    tint = Color.White
+                    tint = MaterialTheme.colorScheme.onBackground
                 )
             }
             Spacer(modifier = Modifier.width(16.dp))
             Text(
                 text = "Subscription",
                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                color = Color.White
+                color = MaterialTheme.colorScheme.onBackground
             )
         }
 
@@ -122,10 +122,10 @@ private fun ProStatusCard(isPro: Boolean) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(24.dp))
-            .background(if (isPro) Color.White.copy(alpha = 0.05f) else SurfaceDark)
+            .background(if (isPro) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surface)
             .border(
                 1.dp,
-                if (isPro) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.1f),
+                if (isPro) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
                 RoundedCornerShape(24.dp)
             )
             .padding(24.dp),
@@ -136,13 +136,13 @@ private fun ProStatusCard(isPro: Boolean) {
                 modifier = Modifier
                     .size(64.dp)
                     .clip(CircleShape)
-                    .background(if (isPro) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) else Color(0xFF1E1E2E)),
+                    .background(if (isPro) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Filled.Star,
                     contentDescription = null,
-                    tint = if (isPro) MaterialTheme.colorScheme.primary else Color.Gray,
+                    tint = if (isPro) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(32.dp)
                 )
             }
@@ -153,7 +153,7 @@ private fun ProStatusCard(isPro: Boolean) {
                     fontWeight = FontWeight.ExtraBold,
                     letterSpacing = 1.5.sp
                 ),
-                color = if (isPro) MaterialTheme.colorScheme.primary else Color.White
+                color = if (isPro) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
@@ -186,17 +186,17 @@ private fun ActivationSection(
         OutlinedTextField(
             value = licenseKey,
             onValueChange = onKeyChange,
-            placeholder = { Text("Paste license key here...", color = Color(0xFF64748B)) },
+            placeholder = { Text("Paste license key here...", color = MaterialTheme.colorScheme.onSurfaceVariant) },
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
             singleLine = true,
             colors = OutlinedTextFieldDefaults.colors(
-                focusedContainerColor = SurfaceDark,
-                unfocusedContainerColor = SurfaceDark,
-                focusedBorderColor = MaterialTheme.colorScheme.secondary,
-                unfocusedBorderColor = Color.White.copy(alpha = 0.1f),
-                focusedTextColor = Color(0xFFCBD5E1),
-                unfocusedTextColor = Color.White
+                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                unfocusedTextColor = MaterialTheme.colorScheme.onSurface
             )
         )
 
@@ -209,7 +209,7 @@ private fun ActivationSection(
                 .height(54.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = Color.Black
+                contentColor = MaterialTheme.colorScheme.onPrimary
             ),
             shape = RoundedCornerShape(27.dp)
         ) {
@@ -254,7 +254,7 @@ private fun ProBenefitsSection() {
                 Text(
                     text = benefit,
                     style = MaterialTheme.typography.bodyLarge,
-                    color = Color(0xFFCBD5E1)
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
         }

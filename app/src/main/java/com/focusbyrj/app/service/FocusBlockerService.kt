@@ -199,6 +199,8 @@ class FocusBlockerService : Service() {
                             sendRoutineNotification("Routine Started", "${schedule.name} is now active.")
                         }
                     }
+                    // Log ongoing routine follow activity
+                    com.focusbyrj.app.util.FocusStatsManager.addRoutineActivity(applicationContext, 1L)
                 }
             }
         }
@@ -210,6 +212,8 @@ class FocusBlockerService : Service() {
                     sendRoutineNotification("Routine Ended", "$scheduleName has ended.")
                     com.focusbyrj.app.util.FocusEconomyManager.addRewards(100, 25)
                 }
+                // Reward routine completion activity
+                com.focusbyrj.app.util.FocusStatsManager.addRoutineActivity(applicationContext, 15L)
             }
         }
         

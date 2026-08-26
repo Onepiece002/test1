@@ -23,8 +23,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.focusbyrj.app.ui.screens.InstalledApp
-import com.focusbyrj.app.ui.theme.BorderGlass
-import com.focusbyrj.app.ui.theme.SurfaceVariantDark
 import com.focusbyrj.app.util.ImageUtils
 
 @Composable
@@ -34,14 +32,14 @@ fun AppModeDropZone(
     apps: List<InstalledApp>,
     onAppClick: (InstalledApp) -> Unit,
     modifier: Modifier = Modifier,
-    borderColor: Color = BorderGlass
+    borderColor: Color = MaterialTheme.colorScheme.outline
 ) {
     val context = LocalContext.current
     Column(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(20.dp))
-            .background(SurfaceVariantDark.copy(alpha = 0.5f))
+            .background(MaterialTheme.colorScheme.surface)
             .border(1.dp, borderColor, RoundedCornerShape(20.dp))
             .padding(16.dp)
     ) {
@@ -54,12 +52,12 @@ fun AppModeDropZone(
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                    color = Color.White
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = description,
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color.Gray
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             Text(
@@ -75,14 +73,14 @@ fun AppModeDropZone(
                     .fillMaxWidth()
                     .height(80.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(Color.Black.copy(alpha = 0.2f))
-                    .border(1.dp, BorderGlass.copy(alpha = 0.5f), RoundedCornerShape(12.dp)),
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                    .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), RoundedCornerShape(12.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = "Tap an app in the other mode to move it here",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color.Gray.copy(alpha = 0.8f)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         } else {
@@ -96,15 +94,13 @@ fun AppModeDropZone(
                     
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier
-                            .width(72.dp)
-                            
+                        modifier = Modifier.width(72.dp)
                     ) {
                         Box(
                             modifier = Modifier
                                 .size(64.dp)
                                 .clip(RoundedCornerShape(16.dp))
-                                .background(SurfaceVariantDark)
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
                                 .border(1.dp, borderColor.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
                                 .clickable { onAppClick(app) },
                             contentAlignment = Alignment.Center
@@ -121,7 +117,7 @@ fun AppModeDropZone(
                         Text(
                             text = app.appName,
                             style = MaterialTheme.typography.labelSmall,
-                            color = Color(0xFFCBD5E1),
+                            color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             textAlign = TextAlign.Center

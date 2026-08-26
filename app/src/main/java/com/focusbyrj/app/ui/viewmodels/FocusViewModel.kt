@@ -133,6 +133,7 @@ class FocusViewModel(private val repository: AppRepository, application: Applica
                     clickLimitCount = clickLimitCount
                 )
             )
+            com.focusbyrj.app.util.FocusStatsManager.addRoutineActivity(getApplication(), 15L)
         }
     }
     
@@ -219,18 +220,23 @@ class FocusViewModel(private val repository: AppRepository, application: Applica
     fun toggleRestriction(app: AppRestriction) {
         viewModelScope.launch {
             repository.toggleRestriction(app)
+            if (!app.isRestricted) {
+                com.focusbyrj.app.util.FocusStatsManager.addAppRestrictionActivity(getApplication(), 1)
+            }
         }
     }
 
     fun addRestriction(app: AppRestriction) {
         viewModelScope.launch {
             repository.saveApp(app)
+            com.focusbyrj.app.util.FocusStatsManager.addAppRestrictionActivity(getApplication(), 1)
         }
     }
 
     fun addRestrictions(apps: List<AppRestriction>) {
         viewModelScope.launch {
             apps.forEach { app -> repository.saveApp(app) }
+            com.focusbyrj.app.util.FocusStatsManager.addAppRestrictionActivity(getApplication(), apps.size)
         }
     }
 

@@ -25,10 +25,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.focusbyrj.app.ui.theme.MidnightBlack
-import com.focusbyrj.app.ui.theme.SurfaceVariantDark
-import com.focusbyrj.app.ui.theme.SurfaceDark
-import com.focusbyrj.app.ui.theme.BorderGlass
 import com.focusbyrj.app.util.CustomCategory
 import com.focusbyrj.app.util.ImageUtils
 
@@ -78,36 +74,49 @@ fun CustomCategoryEditor(
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MidnightBlack,
-                        titleContentColor = Color.White,
-                        navigationIconContentColor = Color.White
+                        containerColor = MaterialTheme.colorScheme.background,
+                        titleContentColor = MaterialTheme.colorScheme.onBackground,
+                        navigationIconContentColor = MaterialTheme.colorScheme.onBackground
                     )
                 )
             },
-            containerColor = MidnightBlack,
+            containerColor = MaterialTheme.colorScheme.background,
             bottomBar = {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(MidnightBlack)
-                        .navigationBarsPadding()
-                        .padding(16.dp)
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.background,
+                    tonalElevation = 3.dp,
+                    shadowElevation = 8.dp
                 ) {
-                    Button(
-                        onClick = {
-                            if (name.isNotBlank()) {
-                                onSave(name, selectedPackages)
-                            }
-                        },
-                        enabled = name.isNotBlank(),
-                        modifier = Modifier.fillMaxWidth().height(56.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary
-                        ),
-                        shape = RoundedCornerShape(28.dp)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .navigationBarsPadding()
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
                     ) {
-                        Text("Save Filter (${selectedPackages.size} Apps)", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                        Button(
+                            onClick = {
+                                if (name.isNotBlank()) {
+                                    onSave(name, selectedPackages)
+                                }
+                            },
+                            enabled = name.isNotBlank(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(52.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary,
+                                disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                            ),
+                            shape = RoundedCornerShape(26.dp)
+                        ) {
+                            Text(
+                                "Save Filter (${selectedPackages.size} Apps)",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                            )
+                        }
                     }
                 }
             }
@@ -121,15 +130,17 @@ fun CustomCategoryEditor(
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    placeholder = { Text("Filter Name (e.g. Work Apps)", color = Color.Gray) },
+                    placeholder = { Text("Filter Name (e.g. Work Apps)", color = MaterialTheme.colorScheme.onSurfaceVariant) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
                         focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = BorderGlass,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
                         cursorColor = MaterialTheme.colorScheme.primary
                     ),
                     singleLine = true,
@@ -140,18 +151,18 @@ fun CustomCategoryEditor(
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
-                    placeholder = { Text("Search apps...", color = Color.Gray) },
-                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = "Search", tint = Color.Gray) },
+                    placeholder = { Text("Search apps...", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = "Search", tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedBorderColor = BorderGlass,
-                        unfocusedBorderColor = BorderGlass,
-                        focusedContainerColor = SurfaceDark,
-                        unfocusedContainerColor = SurfaceDark
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface
                     ),
                     singleLine = true,
                     shape = RoundedCornerShape(16.dp)
@@ -168,13 +179,21 @@ fun CustomCategoryEditor(
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(20.dp))
-                                .background(if (isSelected) MaterialTheme.colorScheme.primary else SurfaceVariantDark)
+                                .background(
+                                    if (isSelected) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.surface
+                                )
+                                .border(
+                                    1.dp,
+                                    if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                                    RoundedCornerShape(20.dp)
+                                )
                                 .clickable { selectedCategory = category }
                                 .padding(horizontal = 16.dp, vertical = 8.dp)
                         ) {
                             Text(
                                 text = category.title,
-                                color = if (isSelected) MaterialTheme.colorScheme.onPrimary else Color.White,
+                                color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
                                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
                             )
                         }
@@ -187,7 +206,8 @@ fun CustomCategoryEditor(
                         .weight(1f)
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(bottom = 16.dp)
                 ) {
                     item {
                         Row(
@@ -200,7 +220,7 @@ fun CustomCategoryEditor(
                             Text(
                                 text = "${filteredApps.size} apps available",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = Color.Gray
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
 
                             val allPackages = filteredApps.map { it.packageName }.toSet()
@@ -210,7 +230,7 @@ fun CustomCategoryEditor(
                                 TextButton(
                                     onClick = { selectedPackages = selectedPackages - allPackages }
                                 ) {
-                                    Text("Deselect All", color = Color(0xFFF44336))
+                                    Text("Deselect All", color = MaterialTheme.colorScheme.error)
                                 }
                             } else {
                                 TextButton(
@@ -230,10 +250,13 @@ fun CustomCategoryEditor(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(16.dp))
-                                .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else SurfaceDark)
+                                .background(
+                                    if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                                    else MaterialTheme.colorScheme.surface
+                                )
                                 .border(
                                     1.dp,
-                                    if (isSelected) MaterialTheme.colorScheme.primary else BorderGlass,
+                                    if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
                                     RoundedCornerShape(16.dp)
                                 )
                                 .clickable {
@@ -264,13 +287,13 @@ fun CustomCategoryEditor(
                                     Text(
                                         text = app.appName,
                                         style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
-                                        color = Color.White
+                                        color = MaterialTheme.colorScheme.onSurface
                                     )
                                     Spacer(modifier = Modifier.height(2.dp))
                                     Text(
                                         text = app.category.title,
                                         style = MaterialTheme.typography.labelMedium,
-                                        color = Color.Gray
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
 
@@ -285,13 +308,12 @@ fun CustomCategoryEditor(
                                     Box(
                                         modifier = Modifier
                                             .size(24.dp)
-                                            .border(2.dp, Color.Gray.copy(alpha = 0.5f), CircleShape)
+                                            .border(2.dp, MaterialTheme.colorScheme.outline, CircleShape)
                                     )
                                 }
                             }
                         }
                     }
-                    item { Spacer(modifier = Modifier.height(80.dp)) }
                 }
             }
         }

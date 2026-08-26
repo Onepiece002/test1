@@ -33,66 +33,66 @@ enum class HeatmapTheme(
         "emerald",
         "Emerald Aurora",
         listOf(
-            Color(0xFF1B2430), // Level 0 (Empty)
-            Color(0xFF065F46), // Level 1 (< 15 min)
-            Color(0xFF059669), // Level 2 (< 30 min)
-            Color(0xFF10B981), // Level 3 (< 60 min)
-            Color(0xFF34D399)  // Level 4 (>= 60 min)
+            Color.Transparent,
+            Color(0xFF10B981).copy(alpha = 0.28f),
+            Color(0xFF10B981).copy(alpha = 0.52f),
+            Color(0xFF10B981).copy(alpha = 0.76f),
+            Color(0xFF10B981)
         )
     ),
     VIOLET(
         "violet",
         "Electric Violet",
         listOf(
-            Color(0xFF1B2430),
-            Color(0xFF4338CA),
-            Color(0xFF6366F1),
-            Color(0xFF818CF8),
-            Color(0xFFA5B4FC)
+            Color.Transparent,
+            Color(0xFF8B5CF6).copy(alpha = 0.28f),
+            Color(0xFF8B5CF6).copy(alpha = 0.52f),
+            Color(0xFF8B5CF6).copy(alpha = 0.76f),
+            Color(0xFF8B5CF6)
         )
     ),
     CYAN(
         "cyan",
         "Cyan Ocean",
         listOf(
-            Color(0xFF1B2430),
-            Color(0xFF0E7490),
-            Color(0xFF06B6D4),
-            Color(0xFF22D3EE),
-            Color(0xFF67E8F9)
+            Color.Transparent,
+            Color(0xFF06B6D4).copy(alpha = 0.28f),
+            Color(0xFF06B6D4).copy(alpha = 0.52f),
+            Color(0xFF06B6D4).copy(alpha = 0.76f),
+            Color(0xFF06B6D4)
         )
     ),
     AMBER(
         "amber",
         "Amber Sunset",
         listOf(
-            Color(0xFF1B2430),
-            Color(0xFFB45309),
-            Color(0xFFF59E0B),
-            Color(0xFFFBBF24),
-            Color(0xFFFDE68A)
+            Color.Transparent,
+            Color(0xFFF59E0B).copy(alpha = 0.28f),
+            Color(0xFFF59E0B).copy(alpha = 0.52f),
+            Color(0xFFF59E0B).copy(alpha = 0.76f),
+            Color(0xFFF59E0B)
         )
     ),
     OBSIDIAN(
         "obsidian",
         "Obsidian Silver",
         listOf(
-            Color(0xFF1B2430),
-            Color(0xFF3F3F46),
-            Color(0xFF71717A),
-            Color(0xFFA1A1AA),
-            Color(0xFFE4E4E7)
+            Color.Transparent,
+            Color(0xFF94A3B8).copy(alpha = 0.28f),
+            Color(0xFF94A3B8).copy(alpha = 0.52f),
+            Color(0xFF94A3B8).copy(alpha = 0.76f),
+            Color(0xFF94A3B8)
         )
     ),
     ROSE(
         "rose",
         "Rose Quartz",
         listOf(
-            Color(0xFF1B2430),
-            Color(0xFF9F1239),
-            Color(0xFFE11D48),
-            Color(0xFFFB7185),
-            Color(0xFFFDA4AF)
+            Color.Transparent,
+            Color(0xFFF43F5E).copy(alpha = 0.28f),
+            Color(0xFFF43F5E).copy(alpha = 0.52f),
+            Color(0xFFF43F5E).copy(alpha = 0.76f),
+            Color(0xFFF43F5E)
         )
     );
 
@@ -159,11 +159,27 @@ object FocusStatsManager {
 
     fun addFocusSessionTime(context: Context, seconds: Long) {
         if (seconds <= 0) return
+        addDailyActivity(context, seconds * 1000L)
+    }
+
+    fun addRoutineActivity(context: Context, minutes: Long = 15L) {
+        if (minutes <= 0) return
+        addDailyActivity(context, minutes * 60 * 1000L)
+    }
+
+    fun addAppRestrictionActivity(context: Context, count: Int = 1) {
+        if (count <= 0) return
+        // Give 10 minutes of activity score per app restricted
+        addDailyActivity(context, count * 10 * 60 * 1000L)
+    }
+
+    private fun addDailyActivity(context: Context, deltaMs: Long) {
+        if (deltaMs <= 0) return
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val cal = Calendar.getInstance()
         val key = getDailyKey(cal)
         val currentMs = prefs.getLong(key, 0L)
-        val newMs = currentMs + (seconds * 1000L)
+        val newMs = currentMs + deltaMs
         prefs.edit().putLong(key, newMs).apply()
 
         refreshStats(context)

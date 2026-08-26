@@ -124,7 +124,7 @@ fun CustomRestrictionSection(
         ) {
             Surface(
                 shape = RoundedCornerShape(20.dp),
-                color = SurfaceDark,
+                color = MaterialTheme.colorScheme.surface,
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -140,12 +140,12 @@ fun CustomRestrictionSection(
                             Text(
                                 text = "Daily Usage Allowance",
                                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                color = Color.White
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
                                 text = "Restricts app after time is spent today",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = Color.Gray
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         
@@ -158,15 +158,15 @@ fun CustomRestrictionSection(
                                 modifier = Modifier
                                     .size(32.dp)
                                     .clip(CircleShape)
-                                    .background(SurfaceVariantDark)
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
                             ) {
-                                Icon(Icons.Filled.Remove, contentDescription = "Decrease", tint = Color.White, modifier = Modifier.size(16.dp))
+                                Icon(Icons.Filled.Remove, contentDescription = "Decrease", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                             }
 
                             Surface(
                                 shape = RoundedCornerShape(10.dp),
-                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
                             ) {
                                 Text(
                                     text = "${timeLimitMinutes.coerceAtLeast(1)} min",
@@ -181,9 +181,9 @@ fun CustomRestrictionSection(
                                 modifier = Modifier
                                     .size(32.dp)
                                     .clip(CircleShape)
-                                    .background(SurfaceVariantDark)
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
                             ) {
-                                Icon(Icons.Filled.Add, contentDescription = "Increase", tint = Color.White, modifier = Modifier.size(16.dp))
+                                Icon(Icons.Filled.Add, contentDescription = "Increase", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                             }
                         }
                     }
@@ -197,7 +197,7 @@ fun CustomRestrictionSection(
                         colors = SliderDefaults.colors(
                             thumbColor = MaterialTheme.colorScheme.primary,
                             activeTrackColor = MaterialTheme.colorScheme.primary,
-                            inactiveTrackColor = Color.DarkGray
+                            inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
                         ),
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -213,8 +213,8 @@ fun CustomRestrictionSection(
                             val isSelected = timeLimitMinutes == preset
                             Surface(
                                 shape = RoundedCornerShape(10.dp),
-                                color = if (isSelected) MaterialTheme.colorScheme.primary else SurfaceVariantDark,
-                                border = BorderStroke(1.dp, if (isSelected) MaterialTheme.colorScheme.primary else BorderGlass),
+                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                                border = BorderStroke(1.dp, if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline),
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(10.dp))
                                     .clickable { onTimeLimitChange(preset) }
@@ -222,7 +222,7 @@ fun CustomRestrictionSection(
                                 Text(
                                     text = "${preset}m",
                                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                    color = if (isSelected) MidnightBlack else Color.White,
+                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
                                 )
                             }
@@ -240,7 +240,7 @@ fun CustomRestrictionSection(
         ) {
             Surface(
                 shape = RoundedCornerShape(20.dp),
-                color = SurfaceDark,
+                color = MaterialTheme.colorScheme.surface,
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -256,12 +256,12 @@ fun CustomRestrictionSection(
                             Text(
                                 text = "Allowed Opens / Clicks",
                                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                color = Color.White
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
                                 text = "Restricts app after open count today",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = Color.Gray
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         
@@ -274,15 +274,15 @@ fun CustomRestrictionSection(
                                 modifier = Modifier
                                     .size(32.dp)
                                     .clip(CircleShape)
-                                    .background(SurfaceVariantDark)
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
                             ) {
-                                Icon(Icons.Filled.Remove, contentDescription = "Decrease", tint = Color.White, modifier = Modifier.size(16.dp))
+                                Icon(Icons.Filled.Remove, contentDescription = "Decrease", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                             }
 
                             Surface(
                                 shape = RoundedCornerShape(10.dp),
-                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
                             ) {
                                 Text(
                                     text = "${clickLimitCount.coerceAtLeast(1)} ${if (clickLimitCount == 1) "open" else "opens"}",
@@ -297,9 +297,9 @@ fun CustomRestrictionSection(
                                 modifier = Modifier
                                     .size(32.dp)
                                     .clip(CircleShape)
-                                    .background(SurfaceVariantDark)
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
                             ) {
-                                Icon(Icons.Filled.Add, contentDescription = "Increase", tint = Color.White, modifier = Modifier.size(16.dp))
+                                Icon(Icons.Filled.Add, contentDescription = "Increase", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                             }
                         }
                     }
@@ -314,7 +314,7 @@ fun CustomRestrictionSection(
                         colors = SliderDefaults.colors(
                             thumbColor = MaterialTheme.colorScheme.primary,
                             activeTrackColor = MaterialTheme.colorScheme.primary,
-                            inactiveTrackColor = Color.DarkGray
+                            inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
                         ),
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -330,8 +330,8 @@ fun CustomRestrictionSection(
                             val isSelected = clickLimitCount == preset
                             Surface(
                                 shape = RoundedCornerShape(10.dp),
-                                color = if (isSelected) MaterialTheme.colorScheme.primary else SurfaceVariantDark,
-                                border = BorderStroke(1.dp, if (isSelected) MaterialTheme.colorScheme.primary else BorderGlass),
+                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                                border = BorderStroke(1.dp, if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline),
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(10.dp))
                                     .clickable { onClickLimitChange(preset) }
@@ -339,7 +339,7 @@ fun CustomRestrictionSection(
                                 Text(
                                     text = "$preset",
                                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                    color = if (isSelected) MidnightBlack else Color.White,
+                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                                 )
                             }
@@ -362,10 +362,10 @@ private fun CompactRestrictionBox(
 ) {
     Surface(
         shape = RoundedCornerShape(18.dp),
-        color = if (isSelected) MaterialTheme.colorScheme.secondary.copy(alpha = 0.22f) else SurfaceDark,
+        color = if (isSelected) MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surface,
         border = BorderStroke(
             if (isSelected) 1.8.dp else 1.dp,
-            if (isSelected) MaterialTheme.colorScheme.primary else BorderGlass
+            if (isSelected) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.outline
         ),
         modifier = modifier
             .clip(RoundedCornerShape(18.dp))
@@ -382,13 +382,13 @@ private fun CompactRestrictionBox(
                 modifier = Modifier
                     .size(36.dp)
                     .clip(CircleShape)
-                    .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.25f) else SurfaceVariantDark),
+                    .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = title,
-                    tint = if (isSelected) MaterialTheme.colorScheme.primary else Color.LightGray,
+                    tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(18.dp)
                 )
             }
@@ -401,7 +401,7 @@ private fun CompactRestrictionBox(
                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
                     fontSize = 13.sp
                 ),
-                color = if (isSelected) Color.White else Color(0xFFCBD5E1),
+                color = if (isSelected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -415,7 +415,7 @@ private fun CompactRestrictionBox(
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Normal
                 ),
-                color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Gray,
+                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 textAlign = TextAlign.Center,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
