@@ -114,34 +114,73 @@ class FocusBlockerService : Service() {
 
         val channelId = "focus_blocker_channel"
         val channelName = "Focus Guard Service"
-        val importance = if (notifyEnabled) NotificationManager.IMPORTANCE_LOW else NotificationManager.IMPORTANCE_MIN
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                channelId,
-                channelName,
-                importance
-            ).apply {
-                description = "Monitors restricted apps in background"
-                setSound(null, null)
-                setShowBadge(false)
+        if (notifyEnabled) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val channel = NotificationChannel(
+                    channelId,
+                    channelName,
+                    NotificationManager.IMPORTANCE_LOW
+                ).apply {
+                    description = "Monitors restricted apps in background"
+                    setSound(null, null)
+                    setShowBadge(false)
+                }
+                notificationManager.createNotificationChannel(channel)
             }
-            notificationManager.createNotificationChannel(channel)
-        }
 
-        val notification = NotificationCompat.Builder(this, channelId)
-            .setSmallIcon(R.mipmap.ic_launcher_round)
-            .setOngoing(true)
-            .setContentTitle("Focus Guard Active")
-            .setContentText("Protecting your screen time and boundaries")
-            .setPriority(if (notifyEnabled) NotificationCompat.PRIORITY_LOW else NotificationCompat.PRIORITY_MIN)
-            .build()
+            val notification = NotificationCompat.Builder(this, channelId)
+                .setSmallIcon(R.mipmap.ic_launcher_round)
+                .setOngoing(true)
+                .setContentTitle("Focus Guard Active")
+                .setContentText("Protecting your screen time and boundaries")
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .build()
 
-        kotlin.runCatching {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                startForeground(NOTIFICATION_ID, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
-            } else {
-                startForeground(NOTIFICATION_ID, notification)
+            kotlin.runCatching {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    startForeground(NOTIFICATION_ID, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+                } else {
+                    startForeground(NOTIFICATION_ID, notification)
+                }
+            }
+        } else {
+            // Notification is turned off by user: satisfy service lifecycle then dismiss notification
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val channel = NotificationChannel(
+                    channelId,
+                    channelName,
+                    NotificationManager.IMPORTANCE_MIN
+                ).apply {
+                    description = "Monitors restricted apps in background"
+                    setSound(null, null)
+                    setShowBadge(false)
+                }
+                notificationManager.createNotificationChannel(channel)
+            }
+
+            val silentNotification = NotificationCompat.Builder(this, channelId)
+                .setSmallIcon(R.mipmap.ic_launcher_round)
+                .setPriority(NotificationCompat.PRIORITY_MIN)
+                .setNotificationSilent()
+                .build()
+
+            kotlin.runCatching {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    startForeground(NOTIFICATION_ID, silentNotification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+                } else {
+                    startForeground(NOTIFICATION_ID, silentNotification)
+                }
+            }
+
+            kotlin.runCatching {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                } else {
+                    @Suppress("DEPRECATION")
+                    stopForeground(true)
+                }
+                notificationManager.cancel(NOTIFICATION_ID)
             }
         }
     }
@@ -467,14 +506,24 @@ class FocusBlockerService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_UPDATE_NOTIFICATION) {
-            startForegroundServiceNotification()
             val prefs = applicationContext.getSharedPreferences("focus_prefs", Context.MODE_PRIVATE)
             val notifyEnabled = prefs.getBoolean("routine_notifications", true)
+            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             if (!notifyEnabled) {
-                val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    notificationManager.deleteNotificationChannel("routine_alerts")
+                kotlin.runCatching {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                        stopForeground(STOP_FOREGROUND_REMOVE)
+                    } else {
+                        @Suppress("DEPRECATION")
+                        stopForeground(true)
+                    }
+                    notificationManager.cancel(NOTIFICATION_ID)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        notificationManager.deleteNotificationChannel("routine_alerts")
+                    }
                 }
+            } else {
+                startForegroundServiceNotification()
             }
         }
         return START_STICKY
@@ -487,6 +536,10 @@ class FocusBlockerService : Service() {
         val prefs = applicationContext.getSharedPreferences("focus_prefs", Context.MODE_PRIVATE)
         prefs.edit().putBoolean("isSessionActive", false).apply()
         com.focusbyrj.app.util.DndHelper.setDndMode(applicationContext, false)
+        kotlin.runCatching {
+            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+            notificationManager?.cancel(NOTIFICATION_ID)
+        }
         kotlin.runCatching { unregisterReceiver(screenReceiver) }
         job.cancel()
     }

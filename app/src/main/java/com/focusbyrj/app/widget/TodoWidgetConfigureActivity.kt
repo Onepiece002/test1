@@ -424,7 +424,7 @@ fun WidgetConfigScreen(
                 MinimalProfessionalSlider(
                     value = cornerRadius,
                     onValueChange = { cornerRadius = it },
-                    valueRange = 8f..32f,
+                    valueRange = 0f..32f,
                     accentColor = Color(currentConfig.accentColorInt)
                 )
             }
@@ -447,11 +447,15 @@ fun WidgetLivePreview(config: WidgetConfig) {
         color = bgColor,
         border = androidx.compose.foundation.BorderStroke(
             1.dp,
-            accentColor.copy(alpha = (config.opacityPercent / 100f * 0.35f).coerceIn(0.1f, 0.5f))
+            if (config.theme.isDark) {
+                if (config.theme == WidgetTheme.OLED) Color(0xFF26292B) else Color(0xFF2E3338)
+            } else {
+                Color(0xFFD6D9DC)
+            }
         ),
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(4.dp, RoundedCornerShape(config.cornerRadiusDp.dp))
+            .shadow(2.dp, RoundedCornerShape(config.cornerRadiusDp.dp))
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             // Header
@@ -470,7 +474,7 @@ fun WidgetLivePreview(config: WidgetConfig) {
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(6.dp))
-                            .background(accentColor.copy(alpha = 0.2f))
+                            .background(accentColor.copy(alpha = 0.18f))
                             .padding(horizontal = 7.dp, vertical = 2.dp)
                     ) {
                         Text(
@@ -487,7 +491,7 @@ fun WidgetLivePreview(config: WidgetConfig) {
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(30.dp)
+                            .size(28.dp)
                             .clip(CircleShape)
                             .background(accentColor),
                         contentAlignment = Alignment.Center
@@ -554,39 +558,39 @@ fun WidgetLivePreview(config: WidgetConfig) {
                 }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            // Preview Task Rows
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            // Preview Task Rows (Clean flat professional list rows)
+            Column {
                 PreviewTaskRow(
                     title = "Deep work focus block",
                     due = "Today, 5:00 PM",
                     badge = "↻ daily",
-                    itemBg = itemBg,
                     primaryText = primaryText,
                     accentColor = accentColor,
                     secondaryText = secondaryText,
-                    isDone = false
+                    isDone = false,
+                    showDivider = true
                 )
                 PreviewTaskRow(
                     title = "Review priority targets",
                     due = "Today, 7:30 PM",
                     badge = "● persistent",
-                    itemBg = itemBg,
                     primaryText = primaryText,
                     accentColor = accentColor,
                     secondaryText = secondaryText,
-                    isDone = false
+                    isDone = false,
+                    showDivider = true
                 )
                 PreviewTaskRow(
                     title = "Review project milestone",
                     due = "Today, 8:30 PM",
                     badge = "● persistent",
-                    itemBg = itemBg,
                     primaryText = primaryText,
                     accentColor = accentColor,
                     secondaryText = secondaryText,
-                    isDone = true
+                    isDone = true,
+                    showDivider = false
                 )
             }
         }
@@ -683,19 +687,17 @@ fun PreviewTaskRow(
     title: String,
     due: String,
     badge: String,
-    itemBg: Color,
     primaryText: Color,
     accentColor: Color,
     secondaryText: Color,
-    isDone: Boolean
+    isDone: Boolean,
+    showDivider: Boolean = true
 ) {
-    Surface(
-        shape = RoundedCornerShape(12.dp),
-        color = itemBg,
-        modifier = Modifier.fillMaxWidth()
-    ) {
+    Column(modifier = Modifier.fillMaxWidth()) {
         Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 7.dp, horizontal = 2.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
@@ -703,7 +705,11 @@ fun PreviewTaskRow(
                     .size(20.dp)
                     .clip(CircleShape)
                     .background(if (isDone) accentColor else Color.Transparent)
-                    .border(1.5.dp, if (isDone) accentColor else secondaryText, CircleShape),
+                    .border(
+                        width = if (isDone) 0.dp else 1.5.dp,
+                        color = if (isDone) accentColor else secondaryText.copy(alpha = 0.5f),
+                        shape = CircleShape
+                    ),
                 contentAlignment = Alignment.Center
             ) {
                 if (isDone) {
@@ -718,28 +724,44 @@ fun PreviewTaskRow(
 
             Spacer(modifier = Modifier.width(10.dp))
 
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
-                    color = primaryText
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontSize = 13.5.sp,
+                        fontWeight = FontWeight.Normal
+                    ),
+                    color = if (isDone) primaryText.copy(alpha = 0.45f) else primaryText
                 )
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.padding(top = 1.dp)
                 ) {
                     Text(
                         text = due,
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                        color = accentColor
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                        color = if (isDone) secondaryText.copy(alpha = 0.45f) else accentColor
                     )
-                    Text(
-                        text = badge,
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-                        color = secondaryText
-                    )
+                    if (badge.isNotBlank()) {
+                        Text(
+                            text = badge,
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                            color = secondaryText.copy(alpha = 0.6f)
+                        )
+                    }
                 }
             }
+        }
+
+        if (showDivider) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 30.dp)
+                    .height(0.8.dp)
+                    .background(secondaryText.copy(alpha = 0.12f))
+            )
         }
     }
 }

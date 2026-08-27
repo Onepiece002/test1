@@ -23,25 +23,34 @@ object WidgetDrawableGenerator {
             style = Paint.Style.FILL
         }
 
+        // Clean, solid thin line border (crisp and polished, not thick or transparent)
         val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            val accent = config.accentColorInt
-            val strokeAlpha = ((config.opacityPercent / 100f) * 60).toInt().coerceIn(15, 120)
-            color = Color.argb(strokeAlpha, Color.red(accent), Color.green(accent), Color.blue(accent))
+            color = if (config.theme.isDark) {
+                if (config.theme == WidgetTheme.OLED) Color.parseColor("#26292B") else Color.parseColor("#2E3338")
+            } else {
+                Color.parseColor("#D6D9DC")
+            }
             style = Paint.Style.STROKE
-            strokeWidth = 2.5f
+            strokeWidth = 1.2f
         }
 
-        val radius = (config.cornerRadiusDp.toFloat()).coerceIn(6f, 32f)
-        val rect = RectF(1.5f, 1.5f, size - 1.5f, size - 1.5f)
+        val radius = (config.cornerRadiusDp.toFloat()).coerceIn(0f, 32f)
+        val rect = RectF(0.6f, 0.6f, size - 0.6f, size - 0.6f)
 
-        canvas.drawRoundRect(rect, radius, radius, paint)
-        canvas.drawRoundRect(rect, radius, radius, strokePaint)
+        if (radius <= 0f) {
+            canvas.drawRect(rect, paint)
+            canvas.drawRect(rect, strokePaint)
+        } else {
+            canvas.drawRoundRect(rect, radius, radius, paint)
+            canvas.drawRoundRect(rect, radius, radius, strokePaint)
+        }
 
         return bitmap
     }
 
     /**
-     * Small 120x40 item background stretched with fitXY.
+     * Clean, flat item row with a subtle indented bottom divider.
+     * Removes the chunky filled card lozenges.
      */
     fun createItemBackground(context: Context, config: WidgetConfig): Bitmap {
         val width = 120
@@ -49,14 +58,15 @@ object WidgetDrawableGenerator {
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
 
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = config.itemBackgroundColorInt
+        // Subtle indented bottom divider for a professional list appearance
+        val dividerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            val dividerAlpha = if (config.theme.isDark) 18 else 24
+            val col = if (config.theme.isDark) 255 else 0
+            color = Color.argb(dividerAlpha, col, col, col)
             style = Paint.Style.FILL
         }
-
-        val rect = RectF(0f, 0f, width.toFloat(), height.toFloat())
-        val radius = 10f
-        canvas.drawRoundRect(rect, radius, radius, paint)
+        // Indented past the checkbox
+        canvas.drawRect(34f, height - 1f, width.toFloat(), height.toFloat(), dividerPaint)
 
         return bitmap
     }
@@ -159,22 +169,23 @@ object WidgetDrawableGenerator {
             val checkPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = if (config.accent == WidgetAccent.MONOCHROME && !config.theme.isDark) Color.WHITE else Color.parseColor("#121516")
                 style = Paint.Style.STROKE
-                strokeWidth = 3.5f
+                strokeWidth = 3.2f
                 strokeCap = Paint.Cap.ROUND
                 strokeJoin = Paint.Join.ROUND
             }
             val path = android.graphics.Path().apply {
-                moveTo(radius - 6f, radius)
-                lineTo(radius - 1.5f, radius + 4.5f)
-                lineTo(radius + 6.5f, radius - 4.5f)
+                moveTo(radius - 5.5f, radius)
+                lineTo(radius - 1.5f, radius + 4f)
+                lineTo(radius + 6f, radius - 4f)
             }
             canvas.drawPath(path, checkPaint)
         } else {
             val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                val borderAlpha = if (config.theme.isDark) 130 else 160
-                color = Color.argb(borderAlpha, 130, 135, 140)
+                val borderAlpha = if (config.theme.isDark) 100 else 130
+                val col = if (config.theme.isDark) 200 else 110
+                color = Color.argb(borderAlpha, col, col, col)
                 style = Paint.Style.STROKE
-                strokeWidth = 2.5f
+                strokeWidth = 2f
             }
             canvas.drawCircle(radius, radius, radius - 2.5f, borderPaint)
         }

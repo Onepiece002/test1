@@ -106,20 +106,13 @@ fun SchedulesScreen(viewModel: FocusViewModel) {
                     .padding(padding)
                     .padding(horizontal = 24.dp)
             ) {
-                // Spacer removed to bring title up
-                
-                Text(
-                    text = "Routines",
-                    style = MaterialTheme.typography.displayLarge,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
                 Text(
                     text = "Automated focus windows",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(16.dp))
                 
                 if (schedules.isEmpty()) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

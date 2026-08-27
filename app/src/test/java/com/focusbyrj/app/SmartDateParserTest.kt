@@ -64,4 +64,57 @@ class SmartDateParserTest {
         assertEquals(Calendar.APRIL, cal.get(Calendar.MONTH))
         assertEquals(15, cal.get(Calendar.DAY_OF_MONTH))
     }
+
+    @Test
+    fun testMay202033() {
+        val result = SmartDateParser.parse("may 20 2033")
+        assertNotNull(result.timestamp)
+
+        val cal = Calendar.getInstance().apply { timeInMillis = result.timestamp!! }
+        assertEquals(2033, cal.get(Calendar.YEAR))
+        assertEquals(Calendar.MAY, cal.get(Calendar.MONTH))
+        assertEquals(20, cal.get(Calendar.DAY_OF_MONTH))
+    }
+
+    @Test
+    fun testMay202033WithTaskTitleAndTime() {
+        val result = SmartDateParser.parse("Renew passport May 20, 2033 at 4pm")
+        assertEquals("Renew passport", result.cleanText)
+        assertNotNull(result.timestamp)
+        assertTrue(result.hasTime)
+
+        val cal = Calendar.getInstance().apply { timeInMillis = result.timestamp!! }
+        assertEquals(2033, cal.get(Calendar.YEAR))
+        assertEquals(Calendar.MAY, cal.get(Calendar.MONTH))
+        assertEquals(20, cal.get(Calendar.DAY_OF_MONTH))
+        assertEquals(16, cal.get(Calendar.HOUR_OF_DAY))
+        assertEquals(0, cal.get(Calendar.MINUTE))
+    }
+
+    @Test
+    fun testDayMonthYear2033() {
+        val result = SmartDateParser.parse("pay mortgage on 20th of May 2033")
+        assertEquals("pay mortgage", result.cleanText)
+        assertNotNull(result.timestamp)
+
+        val cal = Calendar.getInstance().apply { timeInMillis = result.timestamp!! }
+        assertEquals(2033, cal.get(Calendar.YEAR))
+        assertEquals(Calendar.MAY, cal.get(Calendar.MONTH))
+        assertEquals(20, cal.get(Calendar.DAY_OF_MONTH))
+    }
+
+    @Test
+    fun testIsoDateYear() {
+        val result = SmartDateParser.parse("Doctor appointment 2033-05-20 at 10:30am")
+        assertEquals("Doctor appointment", result.cleanText)
+        assertNotNull(result.timestamp)
+        assertTrue(result.hasTime)
+
+        val cal = Calendar.getInstance().apply { timeInMillis = result.timestamp!! }
+        assertEquals(2033, cal.get(Calendar.YEAR))
+        assertEquals(Calendar.MAY, cal.get(Calendar.MONTH))
+        assertEquals(20, cal.get(Calendar.DAY_OF_MONTH))
+        assertEquals(10, cal.get(Calendar.HOUR_OF_DAY))
+        assertEquals(30, cal.get(Calendar.MINUTE))
+    }
 }

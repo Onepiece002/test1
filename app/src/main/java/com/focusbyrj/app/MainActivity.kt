@@ -426,16 +426,32 @@ fun MainAppScreen(
                 if (!isSessionActive) {
                     TopAppBar(
                         title = {
-                            if (currentDestination?.route == Screen.Dashboard.route) {
-                                Text(
-                                    text = "Focus by Rj",
-                                    style = MaterialTheme.typography.titleLarge.copy(
-                                        fontWeight = FontWeight.Normal,
-                                        letterSpacing = 2.5.sp,
-                                        fontSize = 21.sp
-                                    ),
-                                    color = MaterialTheme.colorScheme.onBackground
-                                )
+                            when (currentDestination?.route) {
+                                Screen.Dashboard.route -> {
+                                    Text(
+                                        text = "Focus by Rj",
+                                        style = MaterialTheme.typography.titleLarge.copy(
+                                            fontWeight = FontWeight.Normal,
+                                            letterSpacing = 2.5.sp,
+                                            fontSize = 21.sp
+                                        ),
+                                        color = MaterialTheme.colorScheme.onBackground
+                                    )
+                                }
+                                Screen.Todos.route -> {
+                                    Text(
+                                        text = "Todos",
+                                        style = MaterialTheme.typography.displayLarge,
+                                        color = MaterialTheme.colorScheme.onBackground
+                                    )
+                                }
+                                Screen.Schedules.route -> {
+                                    Text(
+                                        text = "Routines",
+                                        style = MaterialTheme.typography.displayLarge,
+                                        color = MaterialTheme.colorScheme.onBackground
+                                    )
+                                }
                             }
                         },
                         navigationIcon = {

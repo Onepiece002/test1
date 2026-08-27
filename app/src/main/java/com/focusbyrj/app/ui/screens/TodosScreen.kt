@@ -7,6 +7,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -117,17 +118,9 @@ fun TodosScreen(viewModel: TaskViewModel, initialOpenAdd: Boolean = false) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 24.dp)
+                    .padding(horizontal = 12.dp)
             ) {
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Text(
-                    text = "Todos",
-                    style = MaterialTheme.typography.displayLarge,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-                
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(4.dp))
                 
                 TodoSegmentedPill(
                     tabs = tabs,
@@ -135,7 +128,7 @@ fun TodosScreen(viewModel: TaskViewModel, initialOpenAdd: Boolean = false) {
                     onSelect = { selectedTab = it }
                 )
                 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(16.dp))
                 
                 if (filteredTasks.isEmpty()) {
                     Box(
@@ -181,15 +174,12 @@ fun TodosScreen(viewModel: TaskViewModel, initialOpenAdd: Boolean = false) {
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f, fill = false)
-                            .clip(RoundedCornerShape(24.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.1f), RoundedCornerShape(24.dp))
-                            .padding(8.dp)
+                            .padding(horizontal = 4.dp)
                     ) {
                         LazyColumn(
                             modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                            contentPadding = PaddingValues(0.dp)
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                            contentPadding = PaddingValues(top = 4.dp, bottom = 4.dp)
                         ) {
                             items(filteredTasks, key = { it.id }) { task ->
                                 TaskItem(
@@ -430,15 +420,10 @@ fun TaskItem(
         }
 
         Surface(
-            shape = RoundedCornerShape(14.dp),
-            color = cardColor,
+            shape = RoundedCornerShape(12.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant,
             tonalElevation = 0.dp,
-            shadowElevation = if (isCompleted) 0.dp else 1.5.dp,
-            border = androidx.compose.foundation.BorderStroke(
-                width = 1.dp,
-                color = if (isCompleted) MaterialTheme.colorScheme.outline.copy(alpha = 0.1f)
-                else MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
-            ),
+            shadowElevation = 0.dp,
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable { onEdit(task) }
@@ -446,18 +431,20 @@ fun TaskItem(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 13.dp),
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // Interactive Checkbox
                 Box(
                     modifier = Modifier
-                        .size(22.dp)
+                        .size(24.dp)
                         .clip(CircleShape)
                         .background(if (isCompleted) MaterialTheme.colorScheme.primary else Color.Transparent)
                         .border(
-                            width = 1.8.dp,
-                            color = if (isCompleted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.75f),
+                            width = 2.dp,
+                            color = if (isCompleted) MaterialTheme.colorScheme.primary 
+                                    else if (task.isPriority) Color(0xFFFF7043)
+                                    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                             shape = CircleShape
                         )
                         .clickable {
@@ -472,7 +459,7 @@ fun TaskItem(
                             imageVector = Icons.Filled.Check,
                             contentDescription = "Completed",
                             tint = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier.size(14.dp)
+                            modifier = Modifier.size(16.dp)
                         )
                     }
                 }
@@ -487,8 +474,8 @@ fun TaskItem(
                     Text(
                         text = task.title,
                         style = MaterialTheme.typography.titleMedium.copy(
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium,
                             textDecoration = if (isCompleted) TextDecoration.LineThrough else TextDecoration.None
                         ),
                         color = textColor,
@@ -497,11 +484,11 @@ fun TaskItem(
                     )
                     
                     if (task.details.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(3.dp))
+                        Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = task.details,
                             style = MaterialTheme.typography.bodySmall.copy(
-                                fontSize = 13.sp,
+                                fontSize = 14.sp,
                                 textDecoration = if (isCompleted) TextDecoration.LineThrough else TextDecoration.None
                             ),
                             color = textColor.copy(alpha = 0.7f),
@@ -514,28 +501,23 @@ fun TaskItem(
                         Spacer(modifier = Modifier.height(6.dp))
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             if (task.dueDate != null) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(6.dp))
-                                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
-                                        .border(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), RoundedCornerShape(6.dp))
-                                        .padding(horizontal = 7.dp, vertical = 3.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Outlined.Schedule,
+                                        imageVector = Icons.Outlined.Event,
                                         contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(11.dp)
+                                        tint = textColor.copy(alpha = 0.8f),
+                                        modifier = Modifier.size(14.dp)
                                     )
-                                    Spacer(modifier = Modifier.width(4.dp))
                                     Text(
-                                        text = SimpleDateFormat("MMM dd, h:mm a", Locale.getDefault()).format(Date(task.dueDate)),
-                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, fontWeight = FontWeight.Medium),
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        text = SmartDateParser.formatDueDate(task.dueDate),
+                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 13.sp, fontWeight = FontWeight.Normal),
+                                        color = textColor.copy(alpha = 0.8f)
                                     )
                                 }
                             }
@@ -543,23 +525,18 @@ fun TaskItem(
                             if (task.recurrence != RecurrencePattern.NONE) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(6.dp))
-                                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
-                                        .border(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), RoundedCornerShape(6.dp))
-                                        .padding(horizontal = 7.dp, vertical = 3.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
                                     Icon(
                                         imageVector = Icons.Outlined.Repeat,
                                         contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(11.dp)
+                                        tint = textColor.copy(alpha = 0.8f),
+                                        modifier = Modifier.size(14.dp)
                                     )
-                                    Spacer(modifier = Modifier.width(4.dp))
                                     Text(
                                         text = task.recurrence.name.lowercase().replaceFirstChar { it.uppercase() },
-                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, fontWeight = FontWeight.Medium),
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 13.sp, fontWeight = FontWeight.Normal),
+                                        color = textColor.copy(alpha = 0.8f)
                                     )
                                 }
                             }
@@ -567,23 +544,18 @@ fun TaskItem(
                             if (task.isPersistent) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(6.dp))
-                                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
-                                        .border(0.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f), RoundedCornerShape(6.dp))
-                                        .padding(horizontal = 7.dp, vertical = 3.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Outlined.NotificationsActive,
+                                        imageVector = Icons.Outlined.PushPin,
                                         contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(11.dp)
+                                        tint = textColor.copy(alpha = 0.8f),
+                                        modifier = Modifier.size(14.dp)
                                     )
-                                    Spacer(modifier = Modifier.width(4.dp))
                                     Text(
-                                        text = "Persistent",
-                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold),
-                                        color = MaterialTheme.colorScheme.primary
+                                        text = "Persist",
+                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 13.sp, fontWeight = FontWeight.Normal),
+                                        color = textColor.copy(alpha = 0.8f)
                                     )
                                 }
                             }
@@ -623,6 +595,7 @@ fun AddTaskDialog(initialTask: Task? = null, onDismiss: () -> Unit, onSave: (Tas
     var recurrence by remember { mutableStateOf(initialTask?.recurrence ?: RecurrencePattern.NONE) }
     var userManuallySetRecurrence by remember { mutableStateOf(initialTask?.recurrence != null && initialTask.recurrence != RecurrencePattern.NONE) }
     var isPersistent by remember { mutableStateOf(initialTask?.isPersistent ?: false) }
+    var isPriority by remember { mutableStateOf(initialTask?.isPriority ?: false) }
     var manualDueDate by remember { mutableStateOf<Long?>(initialTask?.dueDate) }
     var userManuallySetDate by remember { mutableStateOf(initialTask?.dueDate != null) }
     
@@ -679,7 +652,8 @@ fun AddTaskDialog(initialTask: Task? = null, onDismiss: () -> Unit, onSave: (Tas
                                     dueDate = effectiveDueDate, 
                                     type = type, 
                                     recurrence = effectiveRecurrence, 
-                                    isPersistent = isPersistent
+                                    isPersistent = isPersistent,
+                                    isPriority = isPriority
                                 )
                             )
                         }
@@ -721,7 +695,7 @@ fun AddTaskDialog(initialTask: Task? = null, onDismiss: () -> Unit, onSave: (Tas
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Setting due: ${parsedResult?.timestamp?.let { SimpleDateFormat("MMM dd, h:mm a", Locale.getDefault()).format(Date(it)) }}",
+                        text = "Setting due: ${parsedResult?.timestamp?.let { SmartDateParser.formatDueDate(it) }}",
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
                         color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
@@ -746,7 +720,7 @@ fun AddTaskDialog(initialTask: Task? = null, onDismiss: () -> Unit, onSave: (Tas
             )
             Spacer(modifier = Modifier.height(4.dp))
             Row(
-                modifier = Modifier.fillMaxWidth(), 
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), 
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 FilterChip(
@@ -766,6 +740,15 @@ fun AddTaskDialog(initialTask: Task? = null, onDismiss: () -> Unit, onSave: (Tas
                     onClick = { type = TaskType.ANNIVERSARY },
                     label = { Text("Anniversary") },
                     shape = RoundedCornerShape(12.dp)
+                )
+                FilterChip(
+                    selected = isPriority,
+                    onClick = { isPriority = !isPriority },
+                    label = { Text("Priority", color = if (isPriority) Color.White else Color(0xFFFF9800)) },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = Color(0xFFFF9800)
+                    )
                 )
             }
             
@@ -807,7 +790,7 @@ fun AddTaskDialog(initialTask: Task? = null, onDismiss: () -> Unit, onSave: (Tas
                     }
                 ) {
                     Text(
-                        text = if (effectiveDueDate == null) "Set Time" else SimpleDateFormat("MMM dd, h:mm a", Locale.getDefault()).format(Date(effectiveDueDate)),
+                        text = if (effectiveDueDate == null) "Set Time" else SmartDateParser.formatDueDate(effectiveDueDate),
                         fontWeight = FontWeight.SemiBold,
                         color = if (parsedResult?.timestamp != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary
                     )

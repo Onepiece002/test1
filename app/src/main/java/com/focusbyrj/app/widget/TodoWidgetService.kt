@@ -114,11 +114,13 @@ class TodoWidgetRemoteViewsFactory(
             val isTomorrow = dueCalendar.get(Calendar.YEAR) == tomorrowCalendar.get(Calendar.YEAR) &&
                     dueCalendar.get(Calendar.DAY_OF_YEAR) == tomorrowCalendar.get(Calendar.DAY_OF_YEAR)
 
+            val isDifferentYear = dueCalendar.get(Calendar.YEAR) != now.get(Calendar.YEAR)
             val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(task.dueDate))
 
             val dueText = when {
                 isToday -> "Today, $timeFormat"
                 isTomorrow -> "Tomorrow, $timeFormat"
+                isDifferentYear -> SimpleDateFormat("MMM d, yyyy, h:mm a", Locale.getDefault()).format(Date(task.dueDate))
                 else -> SimpleDateFormat("MMM d, h:mm a", Locale.getDefault()).format(Date(task.dueDate))
             }
             views.setTextViewText(R.id.widget_item_due, dueText)

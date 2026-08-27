@@ -99,6 +99,11 @@ fun SettingsScreen(navController: NavController) {
     }
     var showTabDropdown by remember { mutableStateOf(false) }
 
+    var taskNotificationStyle by remember {
+        mutableStateOf(prefs.getString("task_notification_style", "Both") ?: "Both")
+    }
+    var showNotificationDropdown by remember { mutableStateOf(false) }
+
     val currentAppTheme by AppThemeManager.themeFlow.collectAsState()
     val currentThemeMode by AppThemeManager.themeModeFlow.collectAsState()
     val currentOverlayThemeMode by AppThemeManager.overlayThemeModeFlow.collectAsState()
@@ -421,6 +426,26 @@ fun SettingsScreen(navController: NavController) {
                             routineNotifications = isEnabled
                             prefs.edit().putBoolean("routine_notifications", isEnabled).apply()
                             com.focusbyrj.app.service.FocusBlockerService.updateNotificationState(context)
+                        }
+                    )
+
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 12.dp),
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
+                    )
+
+                    SettingsStringDropdownRow(
+                        icon = Icons.Filled.NotificationsActive,
+                        title = "Task Notification Style",
+                        subtitle = "Alert style for due tasks",
+                        selectedText = taskNotificationStyle,
+                        isExpanded = showNotificationDropdown,
+                        onExpandChange = { showNotificationDropdown = it },
+                        options = listOf("Notification Only", "Floating Bar", "Both"),
+                        onOptionSelected = { option ->
+                            taskNotificationStyle = option
+                            prefs.edit().putString("task_notification_style", option).apply()
+                            showNotificationDropdown = false
                         }
                     )
 
@@ -1072,6 +1097,120 @@ private fun SettingsDropdownRow(
                                 contentDescription = null,
                                 tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(20.dp)
+                            )
+                        },
+                        trailingIcon = if (isSelected) {
+                            {
+                                Icon(
+                                    imageVector = Icons.Filled.Check,
+                                    contentDescription = "Selected",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        } else null,
+                        onClick = { onOptionSelected(option) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsStringDropdownRow(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    selectedText: String,
+    isExpanded: Boolean,
+    onExpandChange: (Boolean) -> Unit,
+    options: List<String>,
+    onOptionSelected: (String) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.weight(1f)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(14.dp))
+            Column {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.width(12.dp))
+
+        Box {
+            Row(
+                modifier = Modifier
+                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(10.dp))
+                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(10.dp))
+                    .clip(RoundedCornerShape(10.dp))
+                    .clickable { onExpandChange(true) }
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = selectedText,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Icon(
+                    imageVector = if (isExpanded) Icons.Filled.ArrowDropUp else Icons.Filled.ArrowDropDown,
+                    contentDescription = "Select option",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            DropdownMenu(
+                expanded = isExpanded,
+                onDismissRequest = { onExpandChange(false) },
+                modifier = Modifier
+                    .background(MaterialTheme.colorScheme.surface)
+                    .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+            ) {
+                options.forEach { option ->
+                    val isSelected = option == selectedText
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = option,
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                ),
+                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                             )
                         },
                         trailingIcon = if (isSelected) {

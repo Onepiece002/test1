@@ -28,7 +28,7 @@ data class WidgetConfig(
     val theme: WidgetTheme = WidgetTheme.DARK,
     val accent: WidgetAccent = WidgetAccent.NEON_GREEN,
     val opacityPercent: Int = 95, // 0 - 100
-    val cornerRadiusDp: Int = 24
+    val cornerRadiusDp: Int = 0
 ) {
     val backgroundColorInt: Int
         get() {
@@ -70,7 +70,7 @@ object WidgetConfigHelper {
         val themeName = prefs.getString(KEY_THEME + appWidgetId, WidgetTheme.DARK.name) ?: WidgetTheme.DARK.name
         val accentName = prefs.getString(KEY_ACCENT + appWidgetId, WidgetAccent.NEON_GREEN.name) ?: WidgetAccent.NEON_GREEN.name
         val opacity = prefs.getInt(KEY_OPACITY + appWidgetId, 95)
-        val corner = prefs.getInt(KEY_CORNER + appWidgetId, 24)
+        val corner = prefs.getInt(KEY_CORNER + appWidgetId, 0)
 
         val theme = runCatching { WidgetTheme.valueOf(themeName) }.getOrDefault(WidgetTheme.DARK)
         val accent = runCatching { WidgetAccent.valueOf(accentName) }.getOrDefault(WidgetAccent.NEON_GREEN)

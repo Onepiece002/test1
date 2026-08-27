@@ -258,7 +258,7 @@ fun QuickAddTaskOverlay(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "Setting due: ${parsedResult.timestamp?.let { SimpleDateFormat("MMM dd, h:mm a", Locale.getDefault()).format(Date(it)) }}",
+                            text = "Setting due: ${parsedResult.timestamp?.let { SmartDateParser.formatDueDate(it) }}",
                             style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
                             color = MaterialTheme.colorScheme.primary
                         )
@@ -329,11 +329,7 @@ fun QuickAddTaskOverlay(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = if (effectiveDueDate != null) {
-                            SimpleDateFormat("EEE, MMM dd • h:mm a", Locale.getDefault()).format(Date(effectiveDueDate))
-                        } else {
-                            "No Due Date"
-                        },
+                        text = SmartDateParser.formatDueDateFull(effectiveDueDate),
                         style = MaterialTheme.typography.bodyMedium,
                         color = if (effectiveDueDate != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                     )
