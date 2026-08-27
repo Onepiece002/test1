@@ -289,7 +289,8 @@ class TodoWidgetProvider : AppWidgetProvider() {
                             val taskDao = app.database.taskDao()
                             val task = taskDao.getTaskById(taskId)
                             if (task != null) {
-                                val updated = task.copy(isCompleted = !task.isCompleted)
+                                val newStatus = !task.isCompleted
+                                val updated = task.copy(isCompleted = newStatus, completedAt = if(newStatus) System.currentTimeMillis() else null)
                                 taskDao.updateTask(updated)
 
                                 if (updated.isCompleted) {

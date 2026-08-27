@@ -31,6 +31,7 @@ class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED || intent.action == Intent.ACTION_MY_PACKAGE_REPLACED) {
             FocusBlockerService.startService(context)
+            com.focusbyrj.app.service.BubbleService.startIfEnabled(context)
             
             // Reschedule all task reminders on boot or update
             val app = context.applicationContext as FocusApplication

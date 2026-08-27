@@ -20,4 +20,8 @@ class TaskRepository(private val taskDao: TaskDao) {
     suspend fun getTaskById(taskId: Long): Task? {
         return taskDao.getTaskById(taskId)
     }
+    
+    suspend fun deleteCompletedTasksBefore(threshold: Long) {
+        taskDao.deleteCompletedTasksBefore(threshold)
+    }
 }

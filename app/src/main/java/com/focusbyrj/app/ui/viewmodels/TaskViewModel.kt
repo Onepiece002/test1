@@ -52,7 +52,8 @@ class TaskViewModel(
 
     fun toggleTaskCompletion(task: Task) {
         viewModelScope.launch {
-            val updatedTask = task.copy(isCompleted = !task.isCompleted)
+            val newStatus = !task.isCompleted
+            val updatedTask = task.copy(isCompleted = newStatus, completedAt = if(newStatus) System.currentTimeMillis() else null)
             repository.updateTask(updatedTask)
             
             if (updatedTask.isCompleted) {

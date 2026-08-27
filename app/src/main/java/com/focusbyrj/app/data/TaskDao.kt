@@ -19,4 +19,7 @@ interface TaskDao {
     
     @Query("SELECT * FROM tasks WHERE id = :taskId")
     suspend fun getTaskById(taskId: Long): Task?
+    
+    @Query("DELETE FROM tasks WHERE isCompleted = 1 AND (completedAt < :threshold OR completedAt IS NULL)")
+    suspend fun deleteCompletedTasksBefore(threshold: Long)
 }

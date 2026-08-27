@@ -86,7 +86,7 @@
             android:showWhenLocked="true"
             android:turnScreenOn="true"
             android:excludeFromRecents="true"
-            android:taskAffinity=""
+            android:taskAffinity=":bubble"
             android:exported="false" />
 
         <!-- Floating Quick Add Dialog Activity -->
@@ -126,6 +126,10 @@
             android:name=".widget.TodoWidgetService"
             android:permission="android.permission.BIND_REMOTEVIEWS"
             android:exported="false" />
+        <activity android:name=".ui.screens.BubbleChatActivity" android:theme="@android:style/Theme.Translucent.NoTitleBar" android:launchMode="singleInstance" android:taskAffinity=":bubble" android:excludeFromRecents="true" />
+        <service android:name=".service.BubbleService" android:exported="false" android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Floating Task Assistant" />
+        </service>
     </application>
 
 </manifest>

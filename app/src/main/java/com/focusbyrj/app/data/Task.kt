@@ -22,5 +22,6 @@ data class Task(
     val type: TaskType = TaskType.TASK,
     val recurrence: RecurrencePattern = RecurrencePattern.NONE,
     val isPersistent: Boolean = false,
-    val isPriority: Boolean = false
+    val isPriority: Boolean = false,
+    val completedAt: Long? = null
 )

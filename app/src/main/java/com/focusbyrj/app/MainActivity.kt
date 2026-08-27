@@ -39,6 +39,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
@@ -158,6 +159,7 @@ class MainActivity : FragmentActivity() {
         taskViewModel = tvm
 
         FocusBlockerService.startService(this)
+        com.focusbyrj.app.service.BubbleService.startIfEnabled(this)
 
         val navigateTo = intent?.getStringExtra("navigate_to")
         val openAddDialog = intent?.getBooleanExtra("open_add_dialog", false) ?: false
@@ -188,8 +190,8 @@ fun MainAppScreen(
     val currentDestination = navBackStackEntry?.destination
 
     LaunchedEffect(initialNavigateTo) {
-        if (initialNavigateTo == "todos") {
-            navController.navigate(Screen.Todos.route) {
+        if (initialNavigateTo != null) {
+            navController.navigate(initialNavigateTo) {
                 launchSingleTop = true
             }
         }
@@ -386,6 +388,24 @@ fun MainAppScreen(
                 )
 
                 NavigationDrawerItem(
+                    icon = { Icon(Icons.Filled.Chat, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                    label = { Text("Bubble Settings", color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodyLarge) },
+                    selected = false,
+                    onClick = {
+                        scope.launch { drawerState.close() }
+                        kotlin.runCatching {
+                            navController.navigate(Screen.BubbleSettings.route) {
+                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        }
+                    },
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                    colors = NavigationDrawerItemDefaults.colors(unselectedContainerColor = Color.Transparent)
+                )
+
+                NavigationDrawerItem(
                     icon = { Icon(Icons.Filled.Star, contentDescription = null, tint = MaterialTheme.colorScheme.secondary) },
                     label = { Text("Subscription", color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodyLarge) },
                     selected = false,
@@ -497,7 +517,7 @@ fun MainAppScreen(
                         ?: Screen.Dashboard.route
                     if (items.any { it.route == saved }) saved else Screen.Dashboard.route
                 }
-                val startDest = if (initialNavigateTo == "todos") Screen.Todos.route else defaultStartTab
+                val startDest = initialNavigateTo ?: defaultStartTab
 
                 NavHost(
                     navController = navController,
@@ -540,6 +560,9 @@ fun MainAppScreen(
                 }
                 composable(Screen.Settings.route) {
                     SettingsScreen(navController)
+                }
+                composable(Screen.BubbleSettings.route) {
+                    com.focusbyrj.app.ui.screens.BubbleSettingsScreen(navController)
                 }
                 composable(Screen.Subscription.route) {
                     SubscriptionScreen(navController)

@@ -105,7 +105,7 @@ object TaskReminderHelper {
                 val taskDao = app.database.taskDao()
                 val existing = taskDao.getTaskById(taskId)
                 if (existing != null && !existing.isCompleted) {
-                    val updated = existing.copy(isCompleted = true)
+                    val updated = existing.copy(isCompleted = true, completedAt = System.currentTimeMillis())
                     taskDao.updateTask(updated)
                     if (updated.recurrence != RecurrencePattern.NONE) {
                         val nextTask = generateNextRecurringTask(updated)
@@ -135,7 +135,7 @@ object TaskReminderHelper {
                 val taskDao = app.database.taskDao()
                 val existing = taskDao.getTaskById(taskId)
                 if (existing != null) {
-                    val updated = existing.copy(dueDate = newDueDate, isCompleted = false)
+                    val updated = existing.copy(dueDate = newDueDate, isCompleted = false, completedAt = null)
                     taskDao.updateTask(updated)
                     scheduleReminder(context, updated)
                     TodoWidgetProvider.updateAllWidgets(context)
