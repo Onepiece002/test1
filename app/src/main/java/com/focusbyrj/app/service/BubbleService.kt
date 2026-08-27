@@ -35,6 +35,7 @@ class BubbleService : Service() {
     private lateinit var displayManager: DisplayManager
     private var bubbleView: View? = null
     private var badgeView: TextView? = null
+    private var glowRingView: View? = null
     private var layoutParams: WindowManager.LayoutParams? = null
 
     private var lastX = 0
@@ -167,6 +168,21 @@ class BubbleService : Service() {
             elevation = 10f
         }
 
+        // Subtle accent edge ring for peek & hide state
+        val glowRing = View(this).apply {
+            val glowDrawable = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(android.graphics.Color.TRANSPARENT)
+                // Refined subtle accent (muted slate-emerald) with sleek 1.5dp stroke
+                setStroke((1.5f * resources.displayMetrics.density).toInt(), android.graphics.Color.parseColor("#4ADE80"))
+            }
+            background = glowDrawable
+            layoutParams = FrameLayout.LayoutParams(size, size)
+            alpha = 0f
+            elevation = 11f
+        }
+        glowRingView = glowRing
+
         val badgeSize = (22 * resources.displayMetrics.density).toInt()
         val badgeBackground = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
@@ -200,6 +216,7 @@ class BubbleService : Service() {
             clipChildren = false
             clipToPadding = false
             addView(imageView)
+            addView(glowRing)
             addView(badge)
         }
         
@@ -322,13 +339,18 @@ class BubbleService : Service() {
             windowManager.updateViewLayout(bubbleView, layoutParams)
         } catch (_: Exception) {}
 
-        // Translate 75% of bubble offscreen into the bezel so it cleanly hides to a subtle edge tab
-        val hideOffset = size * 0.75f
+        // Translate ~58% of bubble offscreen so a clean, illuminated crescent arc tab remains visible
+        val hideOffset = size * 0.58f
         val targetTranslation = if (isLeft) -hideOffset else hideOffset
         
+        glowRingView?.animate()
+            ?.alpha(0.65f)
+            ?.setDuration(300)
+            ?.start()
+
         bubbleView?.animate()
             ?.translationX(targetTranslation)
-            ?.alpha(0.5f)
+            ?.alpha(0.85f)
             ?.setDuration(300)
             ?.start()
     }
@@ -337,12 +359,18 @@ class BubbleService : Service() {
         if (!isPeeking) return
         isPeeking = false
         if (animate) {
+            glowRingView?.animate()
+                ?.alpha(0f)
+                ?.setDuration(200)
+                ?.start()
             bubbleView?.animate()
                 ?.translationX(0f)
                 ?.alpha(1.0f)
                 ?.setDuration(250)
                 ?.start()
         } else {
+            glowRingView?.animate()?.cancel()
+            glowRingView?.alpha = 0f
             bubbleView?.animate()?.cancel()
             bubbleView?.translationX = 0f
             bubbleView?.alpha = 1.0f
@@ -366,6 +394,8 @@ class BubbleService : Service() {
         val centerX = screenWidth / 2
 
         val targetX = if (layoutParams!!.x < centerX) 0 else (screenWidth - size)
+        glowRingView?.animate()?.cancel()
+        glowRingView?.alpha = 0f
         bubbleView?.animate()?.cancel()
         bubbleView?.translationX = 0f
         bubbleView?.alpha = 1.0f
