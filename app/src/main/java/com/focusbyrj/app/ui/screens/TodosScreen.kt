@@ -13,6 +13,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -178,13 +179,24 @@ fun TodosScreen(viewModel: TaskViewModel, initialOpenAdd: Boolean = false) {
                     ) {
                         LazyColumn(
                             modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalArrangement = Arrangement.spacedBy(2.dp),
                             contentPadding = PaddingValues(top = 4.dp, bottom = 4.dp)
                         ) {
-                            items(filteredTasks, key = { it.id }) { task ->
+                            itemsIndexed(filteredTasks, key = { _, it -> it.id }) { index, task ->
+                                val isFirst = index == 0
+                                val isLast = index == filteredTasks.lastIndex
+                                
+                                val cardShape = when {
+                                    isFirst && isLast -> RoundedCornerShape(16.dp)
+                                    isFirst -> RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomStart = 4.dp, bottomEnd = 4.dp)
+                                    isLast -> RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp, bottomStart = 16.dp, bottomEnd = 16.dp)
+                                    else -> RoundedCornerShape(4.dp)
+                                }
+
                                 TaskItem(
                                     task = task,
                                     modifier = Modifier.animateItem(),
+                                    shape = cardShape,
                                     onToggle = {
                                         coroutineScope.launch {
                                             delay(350)
@@ -347,6 +359,7 @@ fun TodoSegmentedPill(tabs: List<String>, selectedIndex: Int, onSelect: (Int) ->
 fun TaskItem(
     task: Task, 
     modifier: Modifier = Modifier, 
+    shape: androidx.compose.ui.graphics.Shape = RoundedCornerShape(12.dp),
     onToggle: (Task) -> Unit, 
     onDelete: (Task) -> Unit, 
     onEdit: (Task) -> Unit
@@ -360,6 +373,35 @@ fun TaskItem(
         animationSpec = tween(300),
         label = "textColor"
     )
+
+    val explicitPurple = Color(0xFFB388FF)
+    val explicitOrange = Color(0xFFFF7043)
+    val metadataColor = remember(task.dueDate, isCompleted, textColor) {
+        if (isCompleted) {
+            textColor.copy(alpha = 0.5f)
+        } else if (task.dueDate != null) {
+            val now = System.currentTimeMillis()
+            val cal = java.util.Calendar.getInstance()
+            
+            cal.timeInMillis = now
+            val currentDay = cal.get(java.util.Calendar.DAY_OF_YEAR)
+            val currentYear = cal.get(java.util.Calendar.YEAR)
+            
+            cal.timeInMillis = task.dueDate
+            val dueDay = cal.get(java.util.Calendar.DAY_OF_YEAR)
+            val dueYear = cal.get(java.util.Calendar.YEAR)
+            
+            if (task.dueDate < now) {
+                explicitOrange // Overdue -> Orange
+            } else if (currentDay == dueDay && currentYear == dueYear) {
+                explicitPurple // Today -> Explicitly Purple
+            } else {
+                textColor.copy(alpha = 0.8f) // Future -> Neutral
+            }
+        } else {
+            textColor.copy(alpha = 0.8f) // No due date -> Neutral
+        }
+    }
 
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = {
@@ -379,7 +421,7 @@ fun TaskItem(
     SwipeToDismissBox(
         state = dismissState,
         modifier = modifier
-            .clip(RoundedCornerShape(12.dp)),
+            .clip(shape),
         backgroundContent = {
             // Background is completely invisible unless user is actually dragging
             val isSwiping = dismissState.targetValue != SwipeToDismissBoxValue.Settled || dismissState.progress > 0.05f
@@ -387,7 +429,7 @@ fun TaskItem(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(shape)
                         .background(MaterialTheme.colorScheme.errorContainer)
                         .padding(horizontal = 20.dp),
                     contentAlignment = Alignment.CenterEnd
@@ -420,7 +462,7 @@ fun TaskItem(
         }
 
         Surface(
-            shape = RoundedCornerShape(12.dp),
+            shape = shape,
             color = MaterialTheme.colorScheme.surfaceVariant,
             tonalElevation = 0.dp,
             shadowElevation = 0.dp,
@@ -511,13 +553,13 @@ fun TaskItem(
                                     Icon(
                                         imageVector = Icons.Outlined.Event,
                                         contentDescription = null,
-                                        tint = textColor.copy(alpha = 0.8f),
+                                        tint = metadataColor,
                                         modifier = Modifier.size(14.dp)
                                     )
                                     Text(
                                         text = SmartDateParser.formatDueDate(task.dueDate),
                                         style = MaterialTheme.typography.labelSmall.copy(fontSize = 13.sp, fontWeight = FontWeight.Normal),
-                                        color = textColor.copy(alpha = 0.8f)
+                                        color = metadataColor
                                     )
                                 }
                             }
@@ -530,13 +572,13 @@ fun TaskItem(
                                     Icon(
                                         imageVector = Icons.Outlined.Repeat,
                                         contentDescription = null,
-                                        tint = textColor.copy(alpha = 0.8f),
+                                        tint = metadataColor,
                                         modifier = Modifier.size(14.dp)
                                     )
                                     Text(
                                         text = task.recurrence.name.lowercase().replaceFirstChar { it.uppercase() },
                                         style = MaterialTheme.typography.labelSmall.copy(fontSize = 13.sp, fontWeight = FontWeight.Normal),
-                                        color = textColor.copy(alpha = 0.8f)
+                                        color = metadataColor
                                     )
                                 }
                             }
@@ -549,13 +591,13 @@ fun TaskItem(
                                     Icon(
                                         imageVector = Icons.Outlined.PushPin,
                                         contentDescription = null,
-                                        tint = textColor.copy(alpha = 0.8f),
+                                        tint = metadataColor,
                                         modifier = Modifier.size(14.dp)
                                     )
                                     Text(
                                         text = "Persist",
                                         style = MaterialTheme.typography.labelSmall.copy(fontSize = 13.sp, fontWeight = FontWeight.Normal),
-                                        color = textColor.copy(alpha = 0.8f)
+                                        color = metadataColor
                                     )
                                 }
                             }

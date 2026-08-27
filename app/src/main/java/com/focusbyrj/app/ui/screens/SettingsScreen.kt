@@ -49,6 +49,7 @@ import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.ScreenLockPortrait
 import androidx.compose.material.icons.filled.Whatshot
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -111,6 +112,8 @@ fun SettingsScreen(navController: NavController) {
 
     var showAppThemeSheet by remember { mutableStateOf(false) }
     var showHeatmapThemeSheet by remember { mutableStateOf(false) }
+    var showAppThemeModeDropdown by remember { mutableStateOf(false) }
+    var showOverlayThemeModeDropdown by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -165,44 +168,42 @@ fun SettingsScreen(navController: NavController) {
                 border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = "Theme Mode",
-                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        ThemeSegmentedPill(
-                            currentMode = currentThemeMode,
-                            onModeSelected = { mode ->
-                                AppThemeManager.setThemeMode(context, mode)
-                            }
-                        )
-                    }
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = "Locked App Screen Overlay",
-                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        ThemeSegmentedPill(
-                            currentMode = currentOverlayThemeMode,
-                            onModeSelected = { mode ->
-                                AppThemeManager.setOverlayThemeMode(context, mode)
-                            }
-                        )
-                    }
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
-                    Spacer(modifier = Modifier.height(12.dp))
+                    SettingsStringDropdownRow(
+                        icon = Icons.Filled.DarkMode,
+                        title = "App Background Theme",
+                        subtitle = "Select overall app appearance",
+                        selectedText = currentThemeMode.displayName,
+                        isExpanded = showAppThemeModeDropdown,
+                        onExpandChange = { showAppThemeModeDropdown = it },
+                        options = ThemeMode.entries.map { it.displayName },
+                        onOptionSelected = { option ->
+                            val mode = ThemeMode.entries.find { it.displayName == option } ?: ThemeMode.SYSTEM
+                            AppThemeManager.setThemeMode(context, mode)
+                            showAppThemeModeDropdown = false
+                        }
+                    )
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 12.dp),
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
+                    )
+                    SettingsStringDropdownRow(
+                        icon = Icons.Filled.ScreenLockPortrait,
+                        title = "Locked Screen Overlay",
+                        subtitle = "Appearance of the blocking screen",
+                        selectedText = currentOverlayThemeMode.displayName,
+                        isExpanded = showOverlayThemeModeDropdown,
+                        onExpandChange = { showOverlayThemeModeDropdown = it },
+                        options = ThemeMode.entries.map { it.displayName },
+                        onOptionSelected = { option ->
+                            val mode = ThemeMode.entries.find { it.displayName == option } ?: ThemeMode.SYSTEM
+                            AppThemeManager.setOverlayThemeMode(context, mode)
+                            showOverlayThemeModeDropdown = false
+                        }
+                    )
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 12.dp),
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
+                    )
 
                     // Accent Color Row
                     SettingsNavigationRow(
@@ -714,68 +715,7 @@ private fun SettingsSectionHeader(title: String) {
     )
 }
 
-/**
- * Compact, modern segmented pill container for selecting System / Light / Dark modes.
- */
-@Composable
-private fun ThemeSegmentedPill(
-    currentMode: ThemeMode,
-    onModeSelected: (ThemeMode) -> Unit
-) {
-    val modes = listOf(ThemeMode.SYSTEM, ThemeMode.LIGHT, ThemeMode.DARK)
 
-    Row(
-        modifier = Modifier
-            .clip(RoundedCornerShape(20.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(20.dp))
-            .padding(4.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        modes.forEach { mode ->
-            val isSelected = currentMode == mode
-            val targetContainerColor = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
-            val targetContentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-            
-            val animatedContainerColor by animateColorAsState(targetValue = targetContainerColor, label = "pill_bg")
-            val animatedContentColor by animateColorAsState(targetValue = targetContentColor, label = "pill_content")
-
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(animatedContainerColor)
-                    .clickable { onModeSelected(mode) },
-                contentAlignment = Alignment.Center
-            ) {
-                when (mode) {
-                    ThemeMode.SYSTEM -> {
-                        Text(
-                            text = "A",
-                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                            color = animatedContentColor
-                        )
-                    }
-                    ThemeMode.LIGHT -> {
-                        Box(
-                            modifier = Modifier
-                                .size(14.dp)
-                                .border(2.dp, animatedContentColor, CircleShape)
-                        )
-                    }
-                    ThemeMode.DARK -> {
-                        Icon(
-                            imageVector = Icons.Filled.DarkMode,
-                            contentDescription = mode.displayName,
-                            tint = animatedContentColor,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
 
 @Composable
 private fun SettingsNavigationRow(

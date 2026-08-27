@@ -159,10 +159,17 @@ enum class AppThemeColor(
     }
 }
 
-enum class ThemeMode(val id: String, val displayName: String) {
-    SYSTEM("system", "System Default"),
-    DARK("dark", "Dark Mode"),
-    LIGHT("light", "Light Mode");
+enum class ThemeMode(val id: String, val displayName: String, val isDarkTheme: Boolean?) {
+    SYSTEM("system", "System Default", null),
+    DARK("dark", "Dark Minimal", true),
+    OLED("oled", "Pitch Black", true),
+    GRAPHITE("graphite", "Graphite Black", true),
+    OBSIDIAN("obsidian", "Obsidian Black", true),
+    LIGHT("light", "Clean Light", false),
+    FROST("frost", "Frost White", false),
+    PAPER("paper", "Paper White", false),
+    WARM("warm", "Warm Sepia", false),
+    IVORY("ivory", "Ivory White", false);
 
     companion object {
         fun fromId(id: String): ThemeMode = entries.find { it.id == id } ?: SYSTEM

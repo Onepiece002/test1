@@ -39,10 +39,8 @@ object WidgetDrawableGenerator {
 
         if (radius <= 0f) {
             canvas.drawRect(rect, paint)
-            canvas.drawRect(rect, strokePaint)
         } else {
             canvas.drawRoundRect(rect, radius, radius, paint)
-            canvas.drawRoundRect(rect, radius, radius, strokePaint)
         }
 
         return bitmap
@@ -142,8 +140,7 @@ object WidgetDrawableGenerator {
         val canvas = Canvas(bitmap)
 
         val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            val accent = config.accentColorInt
-            color = Color.argb(45, Color.red(accent), Color.green(accent), Color.blue(accent))
+            color = Color.TRANSPARENT // No glassy background, minimal text only
             style = Paint.Style.FILL
         }
         val rect = RectF(0f, 0f, width.toFloat(), height.toFloat())

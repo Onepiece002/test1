@@ -36,8 +36,8 @@
 
                 <ImageView
                     android:id="@+id/widget_app_icon"
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
+                    android:layout_width="26dp"
+                    android:layout_height="26dp"
                     android:src="@drawable/ic_app_logo"
                     android:contentDescription="Focus by Rj" />
 
@@ -54,24 +54,23 @@
                 <FrameLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp">
+                    android:layout_marginStart="6dp">
 
                     <ImageView
                         android:id="@+id/widget_task_count_bg"
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
-                        android:scaleType="fitXY"
-                        android:src="@drawable/widget_count_bg" />
+                        android:scaleType="fitXY" />
 
                     <TextView
                         android:id="@+id/widget_task_count"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:paddingHorizontal="7dp"
-                        android:paddingVertical="2dp"
+                        android:paddingHorizontal="4dp"
+                        android:paddingVertical="0dp"
                         android:text="0"
                         android:textColor="#2EE59D"
-                        android:textSize="12sp"
+                        android:textSize="14sp"
                         android:textStyle="bold" />
                 </FrameLayout>
             </LinearLayout>

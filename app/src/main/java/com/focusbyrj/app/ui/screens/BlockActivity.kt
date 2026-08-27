@@ -197,11 +197,7 @@ fun BlockScreenContent(
     
     val currentThemeMode by com.focusbyrj.app.util.AppThemeManager.themeModeFlow.collectAsState()
     val systemInDark = androidx.compose.foundation.isSystemInDarkTheme()
-    val isDarkMode = when (currentThemeMode) {
-        com.focusbyrj.app.util.ThemeMode.SYSTEM -> systemInDark
-        com.focusbyrj.app.util.ThemeMode.DARK -> true
-        com.focusbyrj.app.util.ThemeMode.LIGHT -> false
-    }
+    val isDarkMode = currentThemeMode.isDarkTheme ?: systemInDark
     val bgColor = if (isDarkMode) Color(0xFF07090E) else Color(0xFFF8FAFC)
     val cardBgColor = if (isDarkMode) Color.White.copy(alpha = 0.03f) else Color.White
     val cardStrokeColor = if (isDarkMode) Color.White.copy(alpha = 0.1f) else Color(0xFFE2E8F0)

@@ -6,11 +6,13 @@ import android.graphics.Color
 enum class WidgetTheme(val displayName: String, val baseColorHex: String, val isDark: Boolean) {
     DARK("Dark Minimal", "#121516", true),
     OLED("Pitch Black", "#000000", true),
+    GRAPHITE("Graphite Black", "#18181B", true),
+    OBSIDIAN("Obsidian Black", "#0A0A0A", true),
     LIGHT("Clean Light", "#FFFFFF", false),
+    FROST("Frost White", "#F1F5F9", false),
+    PAPER("Paper White", "#FBFBF9", false),
     WARM("Warm Sepia", "#F6F3EE", false),
-    NAVY("Deep Navy", "#0E1520", true),
-    FOREST("Deep Forest", "#0D1A14", true),
-    PURPLE("Midnight Purple", "#151022", true)
+    IVORY("Ivory White", "#FAFAF7", false)
 }
 
 enum class WidgetAccent(val displayName: String, val hex: String) {

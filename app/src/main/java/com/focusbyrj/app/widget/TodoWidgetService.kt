@@ -125,10 +125,13 @@ class TodoWidgetRemoteViewsFactory(
             }
             views.setTextViewText(R.id.widget_item_due, dueText)
 
-            if (task.dueDate < System.currentTimeMillis() && !isToday) {
-                views.setTextColor(R.id.widget_item_due, Color.parseColor("#FF6B6B"))
+            val nowMs = System.currentTimeMillis()
+            if (task.dueDate < nowMs) {
+                views.setTextColor(R.id.widget_item_due, Color.parseColor("#FF7043")) // Overdue Orange
+            } else if (isToday) {
+                views.setTextColor(R.id.widget_item_due, Color.parseColor("#B388FF")) // Today Purple
             } else {
-                views.setTextColor(R.id.widget_item_due, widgetConfig.accentColorInt)
+                views.setTextColor(R.id.widget_item_due, widgetConfig.secondaryTextColorInt) // Future Neutral
             }
         } else {
             if (task.type != TaskType.TASK) {
