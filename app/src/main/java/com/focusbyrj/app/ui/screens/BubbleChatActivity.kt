@@ -56,6 +56,8 @@ import androidx.compose.ui.text.withStyle
 import android.content.pm.PackageManager
 import com.focusbyrj.app.util.SmartDateParser
 import com.focusbyrj.app.util.FocusEconomyManager
+import com.focusbyrj.app.util.CustomCategoryManager
+import com.focusbyrj.app.util.CustomCategory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -167,32 +169,16 @@ fun ChatInterface() {
     
     val profile by FocusEconomyManager.profileFlow.collectAsState()
     
+    val prefs = remember { context.getSharedPreferences("bubble_prefs", android.content.Context.MODE_PRIVATE) }
+    
     var messages by remember { mutableStateOf<List<ChatMessage>>(emptyList()) }
     var showMenu by remember { mutableStateOf(false) }
     
-    // Load existing tasks
-    LaunchedEffect(Unit) {
-        withContext(Dispatchers.IO) {
-            val app = context.applicationContext as com.focusbyrj.app.FocusApplication
-                val repo = app.taskRepository
-            val tasks = repo.allTasks.first()
-            val initialMessages = mutableListOf<ChatMessage>()
-            initialMessages.add(ChatMessage("0", "Hello, ${profile.name}! Here are your current tasks:", false))
-            
-            if (tasks.isEmpty()) {
-                initialMessages.add(ChatMessage("0-empty", "You have no tasks yet.", false))
-            } else {
-                tasks.forEach { task ->
-                    val priority = if (task.isPriority) "[High Priority] " else ""
-                    val persistent = if (task.isPersistent) "[Persistent] " else ""
-                    val titleText = if (task.isCompleted) "✅ ${task.title}" else "• ${task.title}"
-                    initialMessages.add(ChatMessage(task.id.toString(), "$titleText\n$priority$persistent".trim(), false))
-                }
-            }
-            withContext(Dispatchers.Main) {
-                messages = initialMessages
-            }
-        }
+    // Messages start clean; users can type /summary to view tasks on demand
+    val focusApp = remember { context.applicationContext as com.focusbyrj.app.FocusApplication }
+    val restrictions by focusApp.database.appRestrictionDao().getAllRestrictions().collectAsState(initial = emptyList())
+    val lockedPackages = remember(restrictions) {
+        restrictions.filter { it.isRestricted }.map { it.packageName }.toSet()
     }
     
     var inputText by remember { mutableStateOf("") }
@@ -209,21 +195,22 @@ fun ChatInterface() {
             val apps = packages.mapNotNull { 
                 val name = pm.getApplicationLabel(it).toString()
                 if (name.isNotBlank() && it.packageName != context.packageName) {
-                    AppInfo(name, it.packageName)
+                    val category = getCategoryForApp(it, it.packageName)
+                    AppInfo(name, it.packageName, category)
                 } else null
             }.sortedBy { it.name }
             installedApps = apps
         }
     }
     
-    val suggestions = remember(inputText, installedApps) {
+    val suggestions = remember(inputText, installedApps, lockedPackages) {
         if (!inputText.startsWith("/")) return@remember emptyList<Suggestion>()
         val parts = inputText.split(" ")
         val cmd = parts[0].lowercase()
         
         when {
             parts.size == 1 -> {
-                val available = listOf("/summary", "/block", "/unblock", "/priority", "/postpone all", "/reschedule")
+                val available = listOf("/summary", "/lock", "/unlock", "/priority", "/postpone all", "/reschedule", "/clear", "/block", "/unblock")
                 available.filter { it.startsWith(cmd) }.map { Suggestion(it, "$it ") }
             }
             cmd == "/summary" && parts.size == 2 -> {
@@ -238,16 +225,85 @@ fun ChatInterface() {
                     Suggestion("$num: ${task.title.take(15)}...", "/reschedule $num ")
                 }.filter { it.displayText.startsWith(typed) || it.replacementText.contains(" $typed") }
             }
+            cmd == "/lock" -> {
+                val query = parts.drop(1).joinToString(" ").lowercase().trim()
+                val standardFilters = listOf("all", "Social", "Finance", "Shopping", "Games", "Utility", "Others")
+                val customFilters = CustomCategoryManager.getCategories(context).map { it.name }
+                val allFilterOptions = standardFilters + customFilters
+                
+                val matchedFilters = allFilterOptions
+                    .filter { it.lowercase().contains(query) }
+                    .map { Suggestion("📁 $it", "$cmd $it ") }
+                
+                val matchedApps = installedApps
+                    .filter { it.name.lowercase().contains(query) }
+                    .take(5)
+                    .map { Suggestion("📱 ${it.name}", "$cmd ${it.name} ") }
+                
+                matchedFilters + matchedApps
+            }
+            cmd == "/unlock" || cmd == "/unblock" -> {
+                val query = parts.drop(1).joinToString(" ").lowercase().trim()
+                
+                val lockedStandardFilters = mutableListOf<String>()
+                if (installedApps.any { it.category == AppCategory.SOCIAL && lockedPackages.contains(it.packageName) }) {
+                    lockedStandardFilters.add("Social")
+                }
+                if (installedApps.any { it.category == AppCategory.PAYMENT && lockedPackages.contains(it.packageName) }) {
+                    lockedStandardFilters.add("Finance")
+                }
+                if (installedApps.any { it.category == AppCategory.SHOPPING && lockedPackages.contains(it.packageName) }) {
+                    lockedStandardFilters.add("Shopping")
+                }
+                if (installedApps.any { it.category == AppCategory.GAMES && lockedPackages.contains(it.packageName) }) {
+                    lockedStandardFilters.add("Games")
+                }
+                if (installedApps.any { it.category == AppCategory.UTILITY && lockedPackages.contains(it.packageName) }) {
+                    lockedStandardFilters.add("Utility")
+                }
+                if (installedApps.any { it.category == AppCategory.OTHERS && lockedPackages.contains(it.packageName) }) {
+                    lockedStandardFilters.add("Others")
+                }
+                
+                val customCats = CustomCategoryManager.getCategories(context)
+                val lockedCustomFilters = customCats.filter { cat ->
+                    cat.packages.any { lockedPackages.contains(it) }
+                }.map { it.name }
+                
+                val lockedFilterOptions = (if (lockedPackages.isNotEmpty()) listOf("all") else emptyList()) + lockedStandardFilters + lockedCustomFilters
+                
+                val matchedFilters = lockedFilterOptions
+                    .filter { it.lowercase().contains(query) }
+                    .map { Suggestion("📁 $it", "$cmd $it ") }
+                
+                val matchedApps = installedApps
+                    .filter { lockedPackages.contains(it.packageName) && it.name.lowercase().contains(query) }
+                    .take(5)
+                    .map { Suggestion("📱 ${it.name}", "$cmd ${it.name} ") }
+                
+                if (matchedFilters.isEmpty() && matchedApps.isEmpty() && lockedPackages.isEmpty()) {
+                    listOf(Suggestion("ℹ️ No apps are currently locked", "$cmd "))
+                } else {
+                    matchedFilters + matchedApps
+                }
+            }
             cmd == "/block" && parts.size == 2 -> {
                 val typed = parts[1].lowercase()
                 val modes = listOf("Hard", "Soft")
-                modes.filter { it.lowercase().startsWith(typed) }.map { Suggestion(it, "/block $it ") }
+                val filterMatches = listOf("all", "Social", "Finance", "Shopping", "Games", "Utility", "Others")
+                val customFilters = CustomCategoryManager.getCategories(context).map { it.name }
+                
+                val modeSuggestions = modes.filter { it.lowercase().startsWith(typed) }.map { Suggestion(it, "/block $it ") }
+                val filterSuggestions = (filterMatches + customFilters).filter { it.lowercase().contains(typed) }.map { Suggestion("📁 $it", "/block $it ") }
+                val appSuggestions = installedApps.filter { it.name.lowercase().contains(typed) }.take(5).map { Suggestion("📱 ${it.name}", "/block ${it.name} ") }
+                modeSuggestions + filterSuggestions + appSuggestions
             }
-            (cmd == "/block" && parts.size >= 3) || (cmd == "/unblock" && parts.size >= 2) -> {
-                val query = if (cmd == "/block") parts.drop(2).joinToString(" ").lowercase() else parts.drop(1).joinToString(" ").lowercase()
-                installedApps.filter { it.name.lowercase().contains(query) }.take(5).map { 
-                    Suggestion(it.name, if (cmd == "/block") "/block ${parts[1]} ${it.name} " else "/unblock ${it.name} ") 
+            (cmd == "/block" && parts.size >= 3) -> {
+                val query = parts.drop(2).joinToString(" ").lowercase()
+                val appSuggestions = installedApps.filter { it.name.lowercase().contains(query) }.take(5).map { 
+                    Suggestion(it.name, "/block ${parts[1]} ${it.name} ") 
                 }
+                appSuggestions
             }
             else -> emptyList()
         }
@@ -283,6 +339,12 @@ fun ChatInterface() {
                     var replyMsg = "Command not recognized."
                     
                     when (cmd) {
+                        "/clear" -> {
+                            withContext(Dispatchers.Main) {
+                                messages = emptyList()
+                            }
+                            return@launch
+                        }
                         "/summary" -> {
                             val isAll = parts.getOrNull(1)?.lowercase() == "all"
                             
@@ -410,35 +472,118 @@ fun ChatInterface() {
                                 replyMsg = "Shifted ${tasks.size} items to tomorrow."
                             }
                         }
-                        "/block" -> {
-                            if (parts.size >= 3) {
-                                val mode = parts[1].uppercase()
-                                val appName = parts.drop(2).joinToString(" ")
-                                val appInfo = installedApps.find { it.name.equals(appName, ignoreCase = true) }
-                                if (appInfo != null) {
-                                    db.appRestrictionDao().insertRestriction(
-                                        AppRestriction(appInfo.packageName, appInfo.name, isRestricted = true, mode = mode, restrictionMode = "SIMPLE")
-                                    )
-                                    replyMsg = "Protocol Active: ${appInfo.name} blocked [$mode]."
-                                } else {
-                                    replyMsg = "System could not locate '$appName'."
+                        "/lock", "/block" -> {
+                            val isExplicitMode = parts.size >= 3 && (parts[1].equals("Hard", true) || parts[1].equals("Soft", true))
+                            val mode = if (isExplicitMode) parts[1].uppercase() else "HARD"
+                            val rawArg = if (isExplicitMode) parts.drop(2).joinToString(" ").trim() else parts.drop(1).joinToString(" ").trim()
+
+                            if (rawArg.isEmpty()) {
+                                val customCats = CustomCategoryManager.getCategories(context)
+                                val customNames = if (customCats.isNotEmpty()) ", " + customCats.joinToString(", ") { it.name } else ""
+                                replyMsg = "Usage: /lock <Filter/App>\nAvailable filters: all, Social, Finance, Shopping, Games, Utility, Others$customNames"
+                            } else if (rawArg.equals("all", ignoreCase = true)) {
+                                val targetApps = installedApps
+                                val restrictions = targetApps.map {
+                                    AppRestriction(it.packageName, it.name, isRestricted = true, mode = mode, restrictionMode = "SIMPLE")
                                 }
+                                db.appRestrictionDao().insertRestrictions(restrictions)
+                                replyMsg = "🔒 *__Lock Protocol Active__*\n_All applications (${targetApps.size} apps) have been locked._"
                             } else {
-                                replyMsg = "Usage: /block <Mode> <AppName>"
+                                val matchedStandardCat = when (rawArg.lowercase()) {
+                                    "social" -> AppCategory.SOCIAL
+                                    "finance", "finances", "payment" -> AppCategory.PAYMENT
+                                    "shopping" -> AppCategory.SHOPPING
+                                    "games", "game" -> AppCategory.GAMES
+                                    "utility", "utilities" -> AppCategory.UTILITY
+                                    "others", "other" -> AppCategory.OTHERS
+                                    else -> null
+                                }
+
+                                val customCats = CustomCategoryManager.getCategories(context)
+                                val matchedCustomCat = customCats.find { it.name.equals(rawArg, ignoreCase = true) }
+                                val matchedApp = installedApps.find { it.name.equals(rawArg, ignoreCase = true) }
+
+                                if (matchedStandardCat != null) {
+                                    val targetApps = installedApps.filter { it.category == matchedStandardCat }
+                                    if (targetApps.isEmpty()) {
+                                        replyMsg = "⚠️ _No applications found under '${matchedStandardCat.title}' category._"
+                                    } else {
+                                        val restrictions = targetApps.map {
+                                            AppRestriction(it.packageName, it.name, isRestricted = true, mode = mode, restrictionMode = "SIMPLE")
+                                        }
+                                        db.appRestrictionDao().insertRestrictions(restrictions)
+                                        replyMsg = "🔒 *__Lock Protocol Active__*\n_Locked all ${matchedStandardCat.title} apps (${targetApps.size} apps)._"
+                                    }
+                                } else if (matchedCustomCat != null) {
+                                    val targetApps = installedApps.filter { matchedCustomCat.packages.contains(it.packageName) }
+                                    if (targetApps.isEmpty()) {
+                                        replyMsg = "⚠️ _No apps currently assigned to custom filter '${matchedCustomCat.name}'._"
+                                    } else {
+                                        val restrictions = targetApps.map {
+                                            AppRestriction(it.packageName, it.name, isRestricted = true, mode = mode, restrictionMode = "SIMPLE")
+                                        }
+                                        db.appRestrictionDao().insertRestrictions(restrictions)
+                                        replyMsg = "🔒 *__Lock Protocol Active__*\n_Locked all apps in '${matchedCustomCat.name}' filter (${targetApps.size} apps)._"
+                                    }
+                                } else if (matchedApp != null) {
+                                    db.appRestrictionDao().insertRestriction(
+                                        AppRestriction(matchedApp.packageName, matchedApp.name, isRestricted = true, mode = mode, restrictionMode = "SIMPLE")
+                                    )
+                                    replyMsg = "🔒 *__Lock Protocol Active__*\n_Locked ${matchedApp.name} [$mode]._ "
+                                } else {
+                                    val customNames = if (customCats.isNotEmpty()) ", " + customCats.joinToString(", ") { it.name } else ""
+                                    replyMsg = "⚠️ _System could not find filter or app '$rawArg'._\n_Available filters: all, Social, Finance, Shopping, Games, Utility, Others$customNames._"
+                                }
                             }
                         }
-                        "/unblock" -> {
-                            if (parts.size >= 2) {
-                                val appName = parts.drop(1).joinToString(" ")
-                                val appInfo = installedApps.find { it.name.equals(appName, ignoreCase = true) }
-                                if (appInfo != null) {
-                                    db.appRestrictionDao().deleteRestriction(appInfo.packageName)
-                                    replyMsg = "Protocol Lifted: ${appInfo.name} unblocked."
-                                } else {
-                                    replyMsg = "System could not locate '$appName'."
-                                }
+                        "/unlock", "/unblock" -> {
+                            val rawArg = parts.drop(1).joinToString(" ").trim()
+
+                            if (rawArg.isEmpty()) {
+                                val customCats = CustomCategoryManager.getCategories(context)
+                                val customNames = if (customCats.isNotEmpty()) ", " + customCats.joinToString(", ") { it.name } else ""
+                                replyMsg = "Usage: /unlock <Filter/App>\nAvailable filters: all, Social, Finance, Shopping, Games, Utility, Others$customNames"
+                            } else if (rawArg.equals("all", ignoreCase = true)) {
+                                db.appRestrictionDao().deleteAllRestrictions()
+                                replyMsg = "🔓 *__Lock Protocol Lifted__*\n_All applications have been unlocked._"
                             } else {
-                                replyMsg = "Usage: /unblock <AppName>"
+                                val matchedStandardCat = when (rawArg.lowercase()) {
+                                    "social" -> AppCategory.SOCIAL
+                                    "finance", "finances", "payment" -> AppCategory.PAYMENT
+                                    "shopping" -> AppCategory.SHOPPING
+                                    "games", "game" -> AppCategory.GAMES
+                                    "utility", "utilities" -> AppCategory.UTILITY
+                                    "others", "other" -> AppCategory.OTHERS
+                                    else -> null
+                                }
+
+                                val customCats = CustomCategoryManager.getCategories(context)
+                                val matchedCustomCat = customCats.find { it.name.equals(rawArg, ignoreCase = true) }
+                                val matchedApp = installedApps.find { it.name.equals(rawArg, ignoreCase = true) }
+
+                                if (matchedStandardCat != null) {
+                                    val targetApps = installedApps.filter { it.category == matchedStandardCat }
+                                    if (targetApps.isEmpty()) {
+                                        replyMsg = "⚠️ _No applications found under '${matchedStandardCat.title}' category._"
+                                    } else {
+                                        db.appRestrictionDao().deleteRestrictions(targetApps.map { it.packageName })
+                                        replyMsg = "🔓 *__Lock Protocol Lifted__*\n_Unlocked all ${matchedStandardCat.title} apps (${targetApps.size} apps)._"
+                                    }
+                                } else if (matchedCustomCat != null) {
+                                    val targetPkgs = matchedCustomCat.packages.toList()
+                                    if (targetPkgs.isEmpty()) {
+                                        replyMsg = "⚠️ _No apps configured in '${matchedCustomCat.name}' filter._"
+                                    } else {
+                                        db.appRestrictionDao().deleteRestrictions(targetPkgs)
+                                        replyMsg = "🔓 *__Lock Protocol Lifted__*\n_Unlocked all apps in '${matchedCustomCat.name}' filter (${targetPkgs.size} apps)._"
+                                    }
+                                } else if (matchedApp != null) {
+                                    db.appRestrictionDao().deleteRestriction(matchedApp.packageName)
+                                    replyMsg = "🔓 *__Lock Protocol Lifted__*\n_Unlocked ${matchedApp.name}._"
+                                } else {
+                                    val customNames = if (customCats.isNotEmpty()) ", " + customCats.joinToString(", ") { it.name } else ""
+                                    replyMsg = "⚠️ _System could not find filter or app '$rawArg'._\n_Available filters: all, Social, Finance, Shopping, Games, Utility, Others$customNames._"
+                                }
                             }
                         }
                     }
@@ -502,7 +647,7 @@ fun ChatInterface() {
                     DropdownMenuItem(
                         text = { Text("Clear History") },
                         onClick = {
-                            messages = listOf(ChatMessage("clear", "History cleared.", false))
+                            messages = emptyList()
                             showMenu = false
                         }
                     )
@@ -531,16 +676,35 @@ fun ChatInterface() {
             )
         }
 
-        LazyColumn(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            reverseLayout = true
-        ) {
-            items(messages.reversed()) { msg ->
-                ChatBubble(msg)
-                Spacer(modifier = Modifier.height(8.dp))
+        if (messages.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(32.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = parseRichFormattedText("💬 *__Focus Assistant__*\n_Chat history is cleared._\n_Type a task to add it or use `/` for commands._"),
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        lineHeight = 22.sp
+                    ),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                )
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                reverseLayout = true
+            ) {
+                items(messages.reversed()) { msg ->
+                    ChatBubble(msg)
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
             }
         }
 
@@ -766,7 +930,7 @@ fun ChatBubble(message: ChatMessage) {
     }
 }
 
-data class AppInfo(val name: String, val packageName: String)
+data class AppInfo(val name: String, val packageName: String, val category: AppCategory = AppCategory.OTHERS)
 data class Suggestion(val displayText: String, val replacementText: String)
 
 fun parseRichFormattedText(rawText: String): AnnotatedString {
@@ -862,7 +1026,11 @@ class CommandVisualTransformation : VisualTransformation {
             if (parts.size > 1) {
                 builder.append(" ")
                 val arg1 = parts[1]
-                if (cmd == "/block" && (arg1.equals("Hard", true) || arg1.equals("Soft", true))) {
+                if ((cmd == "/block" || cmd == "/lock") && (arg1.equals("Hard", true) || arg1.equals("Soft", true))) {
+                    builder.withStyle(SpanStyle(color = androidx.compose.ui.graphics.Color(0xFF10B981), fontWeight = FontWeight.SemiBold)) {
+                        builder.append(arg1)
+                    }
+                } else if (cmd == "/lock" || cmd == "/unlock" || cmd == "/block" || cmd == "/unblock") {
                     builder.withStyle(SpanStyle(color = androidx.compose.ui.graphics.Color(0xFF10B981), fontWeight = FontWeight.SemiBold)) {
                         builder.append(arg1)
                     }

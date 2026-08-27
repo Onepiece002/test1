@@ -127,9 +127,7 @@
             android:permission="android.permission.BIND_REMOTEVIEWS"
             android:exported="false" />
         <activity android:name=".ui.screens.BubbleChatActivity" android:theme="@android:style/Theme.Translucent.NoTitleBar" android:launchMode="singleInstance" android:taskAffinity=":bubble" android:excludeFromRecents="true" />
-        <service android:name=".service.BubbleService" android:exported="false" android:foregroundServiceType="specialUse">
-            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Floating Task Assistant" />
-        </service>
+        <service android:name=".service.BubbleService" android:exported="false" />
     </application>
 
 </manifest>

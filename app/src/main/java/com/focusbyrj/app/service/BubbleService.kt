@@ -2,15 +2,14 @@ package com.focusbyrj.app.service
 
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
-import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.app.Service
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.res.Configuration
 import android.graphics.PixelFormat
+import android.hardware.display.DisplayManager
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
@@ -21,7 +20,6 @@ import android.view.View
 import android.view.ViewConfiguration
 import android.view.WindowManager
 import android.widget.ImageView
-import androidx.core.app.NotificationCompat
 import com.focusbyrj.app.R
 import com.focusbyrj.app.ui.screens.BubbleChatActivity
 import kotlin.math.abs
@@ -29,6 +27,7 @@ import kotlin.math.abs
 class BubbleService : Service() {
 
     private lateinit var windowManager: WindowManager
+    private lateinit var displayManager: DisplayManager
     private var bubbleView: View? = null
     private var layoutParams: WindowManager.LayoutParams? = null
 
@@ -39,20 +38,22 @@ class BubbleService : Service() {
     private var isPeeking = false
     private var hideRunnable = Runnable { peekBubble() }
 
+    private val displayListener = object : DisplayManager.DisplayListener {
+        override fun onDisplayAdded(displayId: Int) {}
+        override fun onDisplayRemoved(displayId: Int) {}
+        override fun onDisplayChanged(displayId: Int) {
+            updateLandscapeVisibility()
+        }
+    }
+
     companion object {
-        const val CHANNEL_ID = "bubble_service_channel"
-        const val NOTIFICATION_ID = 1002
         var isChatOpen = false
         
         fun startIfEnabled(context: Context) {
             val prefs = context.getSharedPreferences("bubble_prefs", Context.MODE_PRIVATE)
             if (prefs.getBoolean("bubble_enabled", false) && android.provider.Settings.canDrawOverlays(context)) {
                 val intent = Intent(context, BubbleService::class.java)
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    context.startForegroundService(intent)
-                } else {
-                    context.startService(intent)
-                }
+                context.startService(intent)
             }
         }
     }
@@ -90,8 +91,6 @@ class BubbleService : Service() {
     
     override fun onCreate() {
         super.onCreate()
-        createNotificationChannel()
-        startForeground(NOTIFICATION_ID, createNotification())
         
         val filter = IntentFilter().apply {
             addAction("com.focusbyrj.app.CHAT_CLOSED")
@@ -103,8 +102,44 @@ class BubbleService : Service() {
             registerReceiver(receiver, filter)
         }
         
+        displayManager = getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
+        displayManager.registerDisplayListener(displayListener, Handler(Looper.getMainLooper()))
+        
         setupBubble()
         resetHideTimer()
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        updateLandscapeVisibility()
+    }
+
+    private fun isLandscapeMode(): Boolean {
+        val config = resources.configuration
+        if (config.orientation == Configuration.ORIENTATION_LANDSCAPE) return true
+        val metrics = resources.displayMetrics
+        if (metrics.widthPixels > metrics.heightPixels) return true
+        return false
+    }
+
+    private fun updateLandscapeVisibility() {
+        val prefs = getSharedPreferences("bubble_prefs", Context.MODE_PRIVATE)
+        val hideInLandscape = prefs.getBoolean("hide_in_landscape", true)
+        
+        if (hideInLandscape && isLandscapeMode()) {
+            hideHandler.removeCallbacks(hideRunnable)
+            bubbleView?.visibility = View.GONE
+            if (isChatOpen) {
+                sendBroadcast(Intent("com.focusbyrj.app.CLOSE_CHAT"))
+            }
+        } else {
+            val isEnabled = prefs.getBoolean("bubble_enabled", false)
+            if (isEnabled) {
+                bubbleView?.visibility = View.VISIBLE
+                snapToEdge()
+                resetHideTimer()
+            }
+        }
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -169,8 +204,13 @@ class BubbleService : Service() {
                     val dy = event.rawY - initialTouchY
                     if (abs(dx) > touchSlop || abs(dy) > touchSlop) {
                         isMoved = true
-                        layoutParams!!.x = initialX + dx.toInt()
-                        layoutParams!!.y = initialY + dy.toInt()
+                        val displayMetrics = resources.displayMetrics
+                        val screenWidth = displayMetrics.widthPixels
+                        val screenHeight = displayMetrics.heightPixels
+                        val bubbleSize = (60 * displayMetrics.density).toInt()
+
+                        layoutParams!!.x = (initialX + dx.toInt()).coerceIn(0, screenWidth - bubbleSize)
+                        layoutParams!!.y = (initialY + dy.toInt()).coerceIn(0, screenHeight - bubbleSize)
                         windowManager.updateViewLayout(bubbleView, layoutParams)
                     }
                     true
@@ -194,6 +234,7 @@ class BubbleService : Service() {
         }
 
         windowManager.addView(bubbleView, layoutParams)
+        updateLandscapeVisibility()
     }
 
     private fun peekBubble() {
@@ -202,8 +243,9 @@ class BubbleService : Service() {
         if (!prefs.getBoolean("auto_hide_enabled", false)) return
 
         isPeeking = true
-        val size = (60 * resources.displayMetrics.density).toInt()
-        val screenWidth = resources.displayMetrics.widthPixels
+        val displayMetrics = resources.displayMetrics
+        val size = (60 * displayMetrics.density).toInt()
+        val screenWidth = displayMetrics.widthPixels
         
         val targetX = if (layoutParams!!.x < screenWidth / 2) {
             -(size / 2)
@@ -227,8 +269,10 @@ class BubbleService : Service() {
         isPeeking = false
         bubbleView?.animate()?.alpha(1.0f)?.setDuration(300)?.start()
         
-        val screenWidth = resources.displayMetrics.widthPixels
-        val targetX = if (layoutParams!!.x < screenWidth / 2) 0 else screenWidth
+        val displayMetrics = resources.displayMetrics
+        val screenWidth = displayMetrics.widthPixels
+        val size = (60 * displayMetrics.density).toInt()
+        val targetX = if (layoutParams!!.x < screenWidth / 2) 0 else (screenWidth - size)
         
         if (animate) {
             val animator = ValueAnimator.ofInt(layoutParams!!.x, targetX)
@@ -257,9 +301,10 @@ class BubbleService : Service() {
     private fun snapToEdge() {
         val displayMetrics = resources.displayMetrics
         val screenWidth = displayMetrics.widthPixels
+        val size = (60 * displayMetrics.density).toInt()
         val centerX = screenWidth / 2
 
-        val targetX = if (layoutParams!!.x < centerX) 0 else screenWidth
+        val targetX = if (layoutParams!!.x < centerX) 0 else (screenWidth - size)
         
         val animator = ValueAnimator.ofInt(layoutParams!!.x, targetX)
         animator.duration = 200
@@ -281,31 +326,11 @@ class BubbleService : Service() {
         super.onDestroy()
         hideHandler.removeCallbacks(hideRunnable)
         unregisterReceiver(receiver)
+        try {
+            displayManager.unregisterDisplayListener(displayListener)
+        } catch (_: Exception) {}
         bubbleView?.let {
             windowManager.removeView(it)
         }
-    }
-
-    private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "Chat Bubble Service",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "Keeps the chat bubble active"
-            }
-            val manager = getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(channel)
-        }
-    }
-
-    private fun createNotification(): Notification {
-        return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Focus Assistant Active")
-            .setContentText("Chat bubble is floating")
-            .setSmallIcon(R.mipmap.ic_launcher)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .build()
     }
 }

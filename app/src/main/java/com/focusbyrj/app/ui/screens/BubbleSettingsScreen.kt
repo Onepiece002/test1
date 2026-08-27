@@ -39,6 +39,7 @@ fun BubbleSettingsScreen(navController: NavController) {
     var smartRegexEnabled by remember { mutableStateOf(prefs.getBoolean("smart_regex_enabled", true)) }
     var autoHideEnabled by remember { mutableStateOf(prefs.getBoolean("auto_hide_enabled", false)) }
     var autoHideDuration by remember { mutableStateOf(prefs.getInt("auto_hide_duration_sec", 3)) }
+    var hideInLandscape by remember { mutableStateOf(prefs.getBoolean("hide_in_landscape", true)) }
 
     Scaffold(
         topBar = {
@@ -103,11 +104,7 @@ fun BubbleSettingsScreen(navController: NavController) {
                                 
                                 val intent = android.content.Intent(context, com.focusbyrj.app.service.BubbleService::class.java)
                                 if (it) {
-                                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                                        context.startForegroundService(intent)
-                                    } else {
-                                        context.startService(intent)
-                                    }
+                                    context.startService(intent)
                                 } else {
                                     context.stopService(intent)
                                 }
@@ -157,6 +154,20 @@ fun BubbleSettingsScreen(navController: NavController) {
                             onCheckedChange = { 
                                 smartRegexEnabled = it 
                                 prefs.edit().putBoolean("smart_regex_enabled", it).apply()
+                            }
+                        )
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 12.dp),
+                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
+                        )
+                        SettingsSwitchRow(
+                            icon = Icons.Filled.ScreenRotation,
+                            title = "Hide in Landscape / Video Mode",
+                            subtitle = "Instantly hide bubble during video playback and landscape orientation",
+                            checked = hideInLandscape,
+                            onCheckedChange = { 
+                                hideInLandscape = it 
+                                prefs.edit().putBoolean("hide_in_landscape", it).apply()
                             }
                         )
                     }

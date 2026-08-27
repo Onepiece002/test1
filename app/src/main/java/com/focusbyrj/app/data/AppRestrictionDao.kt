@@ -35,9 +35,18 @@ interface AppRestrictionDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertRestriction(restriction: AppRestriction)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertRestrictions(restrictions: List<AppRestriction>)
+
     @Update
     suspend fun updateRestriction(restriction: AppRestriction)
 
     @Query("DELETE FROM app_restrictions WHERE packageName = :packageName")
     suspend fun deleteRestriction(packageName: String)
+
+    @Query("DELETE FROM app_restrictions WHERE packageName IN (:packageNames)")
+    suspend fun deleteRestrictions(packageNames: List<String>)
+
+    @Query("DELETE FROM app_restrictions")
+    suspend fun deleteAllRestrictions()
 }
