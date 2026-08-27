@@ -19,9 +19,14 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
 import android.view.WindowManager
+import android.graphics.drawable.GradientDrawable
+import android.view.ViewGroup
+import android.widget.FrameLayout
 import android.widget.ImageView
+import android.widget.TextView
 import com.focusbyrj.app.R
 import com.focusbyrj.app.ui.screens.BubbleChatActivity
+import com.focusbyrj.app.util.BubbleChatManager
 import kotlin.math.abs
 
 class BubbleService : Service() {
@@ -29,6 +34,7 @@ class BubbleService : Service() {
     private lateinit var windowManager: WindowManager
     private lateinit var displayManager: DisplayManager
     private var bubbleView: View? = null
+    private var badgeView: TextView? = null
     private var layoutParams: WindowManager.LayoutParams? = null
 
     private var lastX = 0
@@ -67,6 +73,7 @@ class BubbleService : Service() {
                     layoutParams?.y = lastY
                     windowManager.updateViewLayout(bubbleView, layoutParams)
                     resetHideTimer()
+                    updateBadgeCount()
                 }
                 "com.focusbyrj.app.CHAT_OPENED" -> {
                     isChatOpen = true
@@ -77,6 +84,10 @@ class BubbleService : Service() {
                     layoutParams?.x = (16 * resources.displayMetrics.density).toInt()
                     layoutParams?.y = (48 * resources.displayMetrics.density).toInt()
                     windowManager.updateViewLayout(bubbleView, layoutParams)
+                    updateBadgeCount(0)
+                }
+                BubbleChatManager.ACTION_UNREAD_COUNT_CHANGED -> {
+                    updateBadgeCount()
                 }
             }
         }
@@ -95,6 +106,7 @@ class BubbleService : Service() {
         val filter = IntentFilter().apply {
             addAction("com.focusbyrj.app.CHAT_CLOSED")
             addAction("com.focusbyrj.app.CHAT_OPENED")
+            addAction(BubbleChatManager.ACTION_UNREAD_COUNT_CHANGED)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
@@ -151,11 +163,47 @@ class BubbleService : Service() {
         val imageView = ImageView(this).apply {
             setImageResource(R.drawable.ic_bubble_launcher_icon)
             scaleType = ImageView.ScaleType.FIT_CENTER
-            layoutParams = WindowManager.LayoutParams(size, size)
+            layoutParams = FrameLayout.LayoutParams(size, size)
             elevation = 10f
         }
+
+        val badgeSize = (22 * resources.displayMetrics.density).toInt()
+        val badgeBackground = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(android.graphics.Color.parseColor("#E53935")) // Red badge
+            setStroke((1.5f * resources.displayMetrics.density).toInt(), android.graphics.Color.WHITE)
+        }
+
+        val badge = TextView(this).apply {
+            background = badgeBackground
+            setTextColor(android.graphics.Color.WHITE)
+            textSize = 11f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            includeFontPadding = false
+            setPadding((4 * resources.displayMetrics.density).toInt(), 0, (4 * resources.displayMetrics.density).toInt(), 0)
+            minWidth = badgeSize
+            layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                badgeSize
+            ).apply {
+                gravity = Gravity.TOP or Gravity.START
+                leftMargin = 0
+                topMargin = 0
+            }
+            elevation = 16f
+            visibility = View.GONE
+        }
+        badgeView = badge
+
+        val container = FrameLayout(this).apply {
+            clipChildren = false
+            clipToPadding = false
+            addView(imageView)
+            addView(badge)
+        }
         
-        bubbleView = imageView
+        bubbleView = container
 
         val overlayType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -187,8 +235,9 @@ class BubbleService : Service() {
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
                     hideHandler.removeCallbacks(hideRunnable)
+                    bubbleView?.animate()?.cancel()
                     if (isPeeking) {
-                        unpeekBubble(animate = true)
+                        unpeekBubble(animate = false)
                     }
                     initialX = layoutParams!!.x
                     initialY = layoutParams!!.y
@@ -233,8 +282,26 @@ class BubbleService : Service() {
             }
         }
 
-        windowManager.addView(bubbleView, layoutParams)
-        updateLandscapeVisibility()
+        try {
+            windowManager.addView(bubbleView, layoutParams)
+            updateLandscapeVisibility()
+            updateBadgeCount()
+        } catch (e: Exception) {
+            android.util.Log.e("BubbleService", "Error adding bubble view", e)
+        }
+    }
+
+    private fun updateBadgeCount(count: Int = BubbleChatManager.getUnreadCount(this)) {
+        val bv = badgeView ?: return
+        if (count > 0) {
+            bv.text = if (count > 99) "99+" else count.toString()
+            bv.visibility = View.VISIBLE
+            if (isPeeking) {
+                unpeekBubble(animate = true)
+            }
+        } else {
+            bv.visibility = View.GONE
+        }
     }
 
     private fun peekBubble() {
@@ -247,44 +314,38 @@ class BubbleService : Service() {
         val size = (60 * displayMetrics.density).toInt()
         val screenWidth = displayMetrics.widthPixels
         
-        val targetX = if (layoutParams!!.x < screenWidth / 2) {
-            -(size / 2)
-        } else {
-            screenWidth - (size / 2)
-        }
-        
-        val animator = ValueAnimator.ofInt(layoutParams!!.x, targetX)
-        animator.duration = 300
-        animator.addUpdateListener { anim ->
-            layoutParams!!.x = anim.animatedValue as Int
+        // Ensure bubble is snapped to edge first
+        val isLeft = (layoutParams?.x ?: 0) < screenWidth / 2
+        val targetX = if (isLeft) 0 else (screenWidth - size)
+        layoutParams?.x = targetX
+        try {
             windowManager.updateViewLayout(bubbleView, layoutParams)
-        }
-        animator.start()
+        } catch (_: Exception) {}
+
+        // Translate 75% of bubble offscreen into the bezel so it cleanly hides to a subtle edge tab
+        val hideOffset = size * 0.75f
+        val targetTranslation = if (isLeft) -hideOffset else hideOffset
         
-        bubbleView?.animate()?.alpha(0.5f)?.setDuration(300)?.start()
+        bubbleView?.animate()
+            ?.translationX(targetTranslation)
+            ?.alpha(0.5f)
+            ?.setDuration(300)
+            ?.start()
     }
 
     private fun unpeekBubble(animate: Boolean) {
         if (!isPeeking) return
         isPeeking = false
-        bubbleView?.animate()?.alpha(1.0f)?.setDuration(300)?.start()
-        
-        val displayMetrics = resources.displayMetrics
-        val screenWidth = displayMetrics.widthPixels
-        val size = (60 * displayMetrics.density).toInt()
-        val targetX = if (layoutParams!!.x < screenWidth / 2) 0 else (screenWidth - size)
-        
         if (animate) {
-            val animator = ValueAnimator.ofInt(layoutParams!!.x, targetX)
-            animator.duration = 300
-            animator.addUpdateListener { anim ->
-                layoutParams!!.x = anim.animatedValue as Int
-                windowManager.updateViewLayout(bubbleView, layoutParams)
-            }
-            animator.start()
+            bubbleView?.animate()
+                ?.translationX(0f)
+                ?.alpha(1.0f)
+                ?.setDuration(250)
+                ?.start()
         } else {
-            layoutParams!!.x = targetX
-            windowManager.updateViewLayout(bubbleView, layoutParams)
+            bubbleView?.animate()?.cancel()
+            bubbleView?.translationX = 0f
+            bubbleView?.alpha = 1.0f
         }
     }
 
@@ -305,6 +366,9 @@ class BubbleService : Service() {
         val centerX = screenWidth / 2
 
         val targetX = if (layoutParams!!.x < centerX) 0 else (screenWidth - size)
+        bubbleView?.animate()?.cancel()
+        bubbleView?.translationX = 0f
+        bubbleView?.alpha = 1.0f
         
         val animator = ValueAnimator.ofInt(layoutParams!!.x, targetX)
         animator.duration = 200
@@ -316,6 +380,8 @@ class BubbleService : Service() {
     }
 
     private fun openChatWindow() {
+        BubbleChatManager.clearUnread(this)
+        updateBadgeCount(0)
         val intent = Intent(this, BubbleChatActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }

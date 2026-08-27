@@ -28,6 +28,9 @@ import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Whatshot
+import androidx.compose.material.icons.filled.FormatSize
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -58,6 +61,8 @@ import com.focusbyrj.app.util.SmartDateParser
 import com.focusbyrj.app.util.FocusEconomyManager
 import com.focusbyrj.app.util.CustomCategoryManager
 import com.focusbyrj.app.util.CustomCategory
+import com.focusbyrj.app.util.BubbleChatManager
+import com.focusbyrj.app.util.PersistedChatMessage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -171,10 +176,30 @@ fun ChatInterface() {
     
     val prefs = remember { context.getSharedPreferences("bubble_prefs", android.content.Context.MODE_PRIVATE) }
     
-    var messages by remember { mutableStateOf<List<ChatMessage>>(emptyList()) }
+    var messages by remember { 
+        mutableStateOf<List<ChatMessage>>(
+            BubbleChatManager.getMessages(context).map {
+                ChatMessage(it.id, it.text, it.isUser, it.timestamp)
+            }
+        ) 
+    }
     var showMenu by remember { mutableStateOf(false) }
+    var showFontSizeDialog by remember { mutableStateOf(false) }
+    var chatFontSizeSp by remember { mutableStateOf(prefs.getFloat("chat_font_size_sp", 15f)) }
+
+    val updateFontSize = { newSize: Float ->
+        val clamped = newSize.coerceIn(12f, 24f)
+        chatFontSizeSp = clamped
+        prefs.edit().putFloat("chat_font_size_sp", clamped).apply()
+    }
     
-    // Messages start clean; users can type /summary to view tasks on demand
+    LaunchedEffect(messages) {
+        BubbleChatManager.saveMessages(context, messages.map {
+            PersistedChatMessage(it.id, it.text, it.isUser, it.timestamp)
+        })
+    }
+    
+    // Messages start clean or with persisted summaries; users can type /summary to view tasks on demand
     val focusApp = remember { context.applicationContext as com.focusbyrj.app.FocusApplication }
     val restrictions by focusApp.database.appRestrictionDao().getAllRestrictions().collectAsState(initial = emptyList())
     val lockedPackages = remember(restrictions) {
@@ -189,6 +214,7 @@ fun ChatInterface() {
     var lastSummaryTasks by remember { mutableStateOf<List<com.focusbyrj.app.data.Task>>(emptyList()) }
     
     LaunchedEffect(Unit) {
+        BubbleChatManager.clearUnread(context)
         withContext(Dispatchers.IO) {
             val pm = context.packageManager
             val packages = pm.getInstalledApplications(PackageManager.GET_META_DATA)
@@ -342,6 +368,7 @@ fun ChatInterface() {
                         "/clear" -> {
                             withContext(Dispatchers.Main) {
                                 messages = emptyList()
+                                BubbleChatManager.clearMessages(context)
                             }
                             return@launch
                         }
@@ -432,6 +459,13 @@ fun ChatInterface() {
                             
                             builder.append("\n📊 *__Daily Progress__*:\n")
                             builder.append("`[$progressBar]` *$percent%*")
+                            
+                            val quote = if (hour < 15) {
+                                com.focusbyrj.app.util.SummaryQuotes.getNextMorningQuote(context)
+                            } else {
+                                com.focusbyrj.app.util.SummaryQuotes.getNextEveningQuote(context)
+                            }
+                            builder.append("\n\n💡 _\"$quote\"_")
                             
                             replyMsg = builder.toString().trimEnd()
                         }
@@ -645,9 +679,20 @@ fun ChatInterface() {
                     onDismissRequest = { showMenu = false }
                 ) {
                     DropdownMenuItem(
+                        text = { Text("Text Size") },
+                        leadingIcon = {
+                            Icon(Icons.Filled.FormatSize, contentDescription = null, modifier = Modifier.size(20.dp))
+                        },
+                        onClick = {
+                            showMenu = false
+                            showFontSizeDialog = true
+                        }
+                    )
+                    DropdownMenuItem(
                         text = { Text("Clear History") },
                         onClick = {
                             messages = emptyList()
+                            BubbleChatManager.clearMessages(context)
                             showMenu = false
                         }
                     )
@@ -687,8 +732,9 @@ fun ChatInterface() {
                 Text(
                     text = parseRichFormattedText("💬 *__Focus Assistant__*\n_Chat history is cleared._\n_Type a task to add it or use `/` for commands._"),
                     style = MaterialTheme.typography.bodyMedium.copy(
+                        fontSize = chatFontSizeSp.sp,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                        lineHeight = 22.sp
+                        lineHeight = (chatFontSizeSp * 1.45f).sp
                     ),
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                 )
@@ -702,7 +748,7 @@ fun ChatInterface() {
                 reverseLayout = true
             ) {
                 items(messages.reversed()) { msg ->
-                    ChatBubble(msg)
+                    ChatBubble(msg, chatFontSizeSp)
                     Spacer(modifier = Modifier.height(8.dp))
                 }
             }
@@ -860,11 +906,183 @@ fun ChatInterface() {
             // Navigation Bar padding
             Spacer(modifier = Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
         }
+
+        if (showFontSizeDialog) {
+            ChatTextSizeDialog(
+                fontSizeSp = chatFontSizeSp,
+                onFontSizeChange = { updateFontSize(it) },
+                onDismiss = { showFontSizeDialog = false }
+            )
+        }
     }
 }
 
 @Composable
-fun ChatBubble(message: ChatMessage) {
+fun ChatTextSizeDialog(
+    fontSizeSp: Float,
+    onFontSizeChange: (Float) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Filled.FormatSize,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Chat Text Size", style = MaterialTheme.typography.titleLarge)
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    text = "Adjust text size for the assistant chat window only.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                // Live Preview Bubble
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Text(
+                            text = "Preview",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "🌅 Good Morning!\nHere is your daily update:\n🎉 All clear for today!",
+                            fontSize = fontSizeSp.sp,
+                            lineHeight = (fontSizeSp * 1.45f).sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+
+                // Stepper Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    FilledTonalIconButton(
+                        onClick = { onFontSizeChange(fontSizeSp - 1f) },
+                        enabled = fontSizeSp > 12f,
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(Icons.Filled.Remove, contentDescription = "Decrease size")
+                    }
+
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "${fontSizeSp.toInt()} sp",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = when {
+                                fontSizeSp <= 13f -> "Small"
+                                fontSizeSp <= 15f -> "Default"
+                                fontSizeSp <= 18f -> "Medium"
+                                fontSizeSp <= 21f -> "Large"
+                                else -> "Extra Large"
+                            },
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    FilledTonalIconButton(
+                        onClick = { onFontSizeChange(fontSizeSp + 1f) },
+                        enabled = fontSizeSp < 24f,
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(Icons.Filled.Add, contentDescription = "Increase size")
+                    }
+                }
+
+                // Classic professional slider
+                @OptIn(ExperimentalMaterial3Api::class)
+                Slider(
+                    value = fontSizeSp,
+                    onValueChange = { onFontSizeChange(kotlin.math.round(it)) },
+                    valueRange = 12f..24f,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = SliderDefaults.colors(
+                        thumbColor = MaterialTheme.colorScheme.primary,
+                        activeTrackColor = MaterialTheme.colorScheme.primary,
+                        inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                    ),
+                    thumb = {
+                        Surface(
+                            modifier = Modifier.size(20.dp),
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primary,
+                            shadowElevation = 3.dp
+                        ) {}
+                    },
+                    track = { sliderState ->
+                        SliderDefaults.Track(
+                            sliderState = sliderState,
+                            modifier = Modifier.height(4.dp),
+                            colors = SliderDefaults.colors(
+                                activeTrackColor = MaterialTheme.colorScheme.primary,
+                                inactiveTrackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
+                            )
+                        )
+                    }
+                )
+
+                // Quick preset buttons
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    listOf(
+                        "Small" to 13f,
+                        "Default" to 15f,
+                        "Large" to 18f,
+                        "Huge" to 21f
+                    ).forEach { (label, size) ->
+                        val isSelected = (fontSizeSp == size)
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = { onFontSizeChange(size) },
+                            label = { Text(label, fontSize = 10.sp) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Done")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = { onFontSizeChange(15f) }) {
+                Text("Reset")
+            }
+        }
+    )
+}
+
+@Composable
+fun ChatBubble(message: ChatMessage, fontSizeSp: Float = 15f) {
     val df = remember { SimpleDateFormat("hh:mm a", Locale.getDefault()) }
     val timeString = df.format(Date(message.timestamp))
 
@@ -894,8 +1112,9 @@ fun ChatBubble(message: ChatMessage) {
                 Spacer(modifier = Modifier.width(8.dp))
             }
             
+            val maxBubbleWidth = (280 + (fontSizeSp - 15f) * 10f).coerceIn(280f, 350f).dp
             androidx.compose.material3.Surface(
-                modifier = Modifier.widthIn(max = 280.dp),
+                modifier = Modifier.widthIn(max = maxBubbleWidth),
                 shape = RoundedCornerShape(
                     topStart = 24.dp,
                     topEnd = 24.dp,
@@ -910,16 +1129,23 @@ fun ChatBubble(message: ChatMessage) {
                 Text(
                     text = parseRichFormattedText(message.text),
                     style = androidx.compose.material3.MaterialTheme.typography.bodyMedium.copy(
-                        lineHeight = 22.sp,
+                        fontSize = fontSizeSp.sp,
+                        lineHeight = (fontSizeSp * 1.45f).sp,
                         letterSpacing = 0.2.sp
                     ),
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                    modifier = Modifier.padding(
+                        horizontal = (14 + (fontSizeSp - 15f) * 0.5f).coerceIn(12f, 20f).dp,
+                        vertical = (10 + (fontSizeSp - 15f) * 0.5f).coerceIn(8f, 16f).dp
+                    )
                 )
             }
         }
         Text(
             text = timeString,
-            style = androidx.compose.material3.MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+            style = androidx.compose.material3.MaterialTheme.typography.labelSmall.copy(
+                fontSize = (fontSizeSp * 0.72f).coerceIn(10f, 14f).sp,
+                fontWeight = FontWeight.Medium
+            ),
             color = androidx.compose.material3.MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
             modifier = Modifier.padding(
                 top = 4.dp, 

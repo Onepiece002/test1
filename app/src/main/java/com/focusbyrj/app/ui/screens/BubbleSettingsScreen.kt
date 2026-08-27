@@ -193,6 +193,7 @@ fun BubbleSettingsScreen(navController: NavController) {
                                 showTimePicker(context, morningBriefTime) { newTime ->
                                     morningBriefTime = newTime
                                     prefs.edit().putString("morning_brief_time", newTime).apply()
+                                    com.focusbyrj.app.service.DailySummaryReceiver.scheduleDailySummaries(context)
                                 }
                             }
                         )
@@ -209,6 +210,7 @@ fun BubbleSettingsScreen(navController: NavController) {
                                 showTimePicker(context, eveningBriefTime) { newTime ->
                                     eveningBriefTime = newTime
                                     prefs.edit().putString("evening_brief_time", newTime).apply()
+                                    com.focusbyrj.app.service.DailySummaryReceiver.scheduleDailySummaries(context)
                                 }
                             }
                         )

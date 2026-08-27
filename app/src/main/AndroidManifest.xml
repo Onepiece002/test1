@@ -77,6 +77,7 @@
     
         <receiver android:name=".service.TaskReminderReceiver" android:exported="false" />
         <receiver android:name=".service.TaskActionReceiver" android:exported="false" />
+        <receiver android:name=".service.DailySummaryReceiver" android:exported="false" />
 
         <!-- Floating Task Reminder Popup Activity -->
         <activity

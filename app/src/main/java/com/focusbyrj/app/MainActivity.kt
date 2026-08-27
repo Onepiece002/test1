@@ -158,8 +158,9 @@ class MainActivity : FragmentActivity() {
         }
         taskViewModel = tvm
 
-        FocusBlockerService.startService(this)
-        com.focusbyrj.app.service.BubbleService.startIfEnabled(this)
+        kotlin.runCatching { FocusBlockerService.startService(this) }
+        kotlin.runCatching { com.focusbyrj.app.service.BubbleService.startIfEnabled(this) }
+        kotlin.runCatching { com.focusbyrj.app.service.DailySummaryReceiver.scheduleDailySummaries(this) }
 
         val navigateTo = intent?.getStringExtra("navigate_to")
         val openAddDialog = intent?.getBooleanExtra("open_add_dialog", false) ?: false
