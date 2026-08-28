@@ -300,29 +300,30 @@ object SmartDateParser {
             }
         }
 
-        // 8. Time parsing: "at 5pm", "5:30 am", "5pm", "10am", "at 14:00", "at 5"
+        // 8. Time parsing: "at 5pm", "5:30 am", "5.45 pm", "5pm", "10am", "at 14:00", "at 5"
         if (!hasTime) {
-            val timeAmPmRegex = Regex("(?i)\\b(?:at\\s+)?(\\d{1,2})(?::(\\d{2}))?\\s*(am|pm)\\b")
+            val timeAmPmRegex = Regex("(?i)\\b(?:at\\s+)?(\\d{1,2})(?:[:.](\\d{2}))?\\s*(am|pm)\\b")
             timeAmPmRegex.find(text)?.let { match ->
                 var hour = match.groupValues[1].toIntOrNull() ?: 12
                 val minute = match.groupValues[2].toIntOrNull() ?: 0
                 val ampm = match.groupValues[3].lowercase()
-
+                
                 if (ampm == "pm" && hour < 12) hour += 12
                 if (ampm == "am" && hour == 12) hour = 0
-
+                
                 cal.set(Calendar.HOUR_OF_DAY, hour)
                 cal.set(Calendar.MINUTE, minute)
                 cal.set(Calendar.SECOND, 0)
                 cal.set(Calendar.MILLISECOND, 0)
                 hasTime = true
+                
                 if (!hasDate && cal.timeInMillis < System.currentTimeMillis()) {
                     cal.add(Calendar.DAY_OF_YEAR, 1)
                     hasDate = true
                 }
                 text = removeMatch(match)
             } ?: run {
-                val time24Regex = Regex("(?i)\\b(?:at\\s+)?(\\d{1,2}):(\\d{2})\\b")
+                val time24Regex = Regex("(?i)\\b(?:at\\s+)?(\\d{1,2})[:.](\\d{2})\\b")
                 time24Regex.find(text)?.let { match ->
                     val hour = match.groupValues[1].toIntOrNull() ?: 12
                     val minute = match.groupValues[2].toIntOrNull() ?: 0
@@ -332,6 +333,7 @@ object SmartDateParser {
                         cal.set(Calendar.SECOND, 0)
                         cal.set(Calendar.MILLISECOND, 0)
                         hasTime = true
+                        
                         if (!hasDate && cal.timeInMillis < System.currentTimeMillis()) {
                             cal.add(Calendar.DAY_OF_YEAR, 1)
                             hasDate = true
@@ -342,12 +344,24 @@ object SmartDateParser {
                     val timeAtRegex = Regex("(?i)\\bat\\s+(\\d{1,2})\\b")
                     timeAtRegex.find(text)?.let { match ->
                         var hour = match.groupValues[1].toIntOrNull() ?: 12
-                        if (hour in 1..7) hour += 12 // heuristics: "at 5" -> 5pm
+                        
+                        // Smart heuristic for "at 9" when it's currently 8 PM
+                        // If adding 12 puts it in the near future today, assume PM.
+                        if (hour in 1..11) {
+                            val nowHour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+                            if (hour + 12 > nowHour && hour <= nowHour) {
+                                hour += 12
+                            } else if (hour in 1..7) {
+                                hour += 12 // General heuristic: 1-7 is usually PM (e.g. 5pm)
+                            }
+                        }
+                        
                         cal.set(Calendar.HOUR_OF_DAY, hour)
                         cal.set(Calendar.MINUTE, 0)
                         cal.set(Calendar.SECOND, 0)
                         cal.set(Calendar.MILLISECOND, 0)
                         hasTime = true
+                        
                         if (!hasDate && cal.timeInMillis < System.currentTimeMillis()) {
                             cal.add(Calendar.DAY_OF_YEAR, 1)
                             hasDate = true
