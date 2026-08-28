@@ -573,9 +573,9 @@ fun MainAppScreen(
                 }
             }
             
-            // Economy Popup
+            // Economy Popup - Limited to Profile / Account tab only
             AnimatedVisibility(
-                visible = currentEconomyEvent != null,
+                visible = currentEconomyEvent != null && currentDestination?.route == Screen.Account.route,
                 enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
                 exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut(),
                 modifier = Modifier.align(Alignment.TopCenter).padding(top = 16.dp).padding(horizontal = 16.dp)

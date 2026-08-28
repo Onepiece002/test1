@@ -121,7 +121,7 @@ fun TodosScreen(viewModel: TaskViewModel, initialOpenAdd: Boolean = false) {
                     .fillMaxSize()
                     .padding(horizontal = 12.dp)
             ) {
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 
                 TodoSegmentedPill(
                     tabs = tabs,

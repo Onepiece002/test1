@@ -190,15 +190,10 @@ fun CustomRestrictionSection(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    Slider(
+                    ProfessionalSlider(
                         value = timeLimitMinutes.coerceIn(1, 120).toFloat(),
                         onValueChange = { onTimeLimitChange(it.toInt().coerceAtLeast(1)) },
                         valueRange = 1f..120f,
-                        colors = SliderDefaults.colors(
-                            thumbColor = MaterialTheme.colorScheme.primary,
-                            activeTrackColor = MaterialTheme.colorScheme.primary,
-                            inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
-                        ),
                         modifier = Modifier.fillMaxWidth()
                     )
 
@@ -306,16 +301,10 @@ fun CustomRestrictionSection(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    Slider(
+                    ProfessionalSlider(
                         value = clickLimitCount.coerceIn(1, 20).toFloat(),
                         onValueChange = { onClickLimitChange(it.toInt().coerceIn(1, 20)) },
                         valueRange = 1f..20f,
-                        steps = 18,
-                        colors = SliderDefaults.colors(
-                            thumbColor = MaterialTheme.colorScheme.primary,
-                            activeTrackColor = MaterialTheme.colorScheme.primary,
-                            inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
-                        ),
                         modifier = Modifier.fillMaxWidth()
                     )
 

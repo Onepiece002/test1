@@ -26,7 +26,8 @@ data class UserProfile(
     val pendingXp: Int = 0,
     val pendingGold: Int = 0,
     val lifetimeFocusMins: Int = 0,
-    val lifetimeResists: Int = 0
+    val lifetimeResists: Int = 0,
+    val lifetimeTasksCompleted: Int = 0
 )
 
 
@@ -46,7 +47,7 @@ object FocusEconomyManager {
     }
 
     private val _profileFlow = MutableStateFlow(
-        UserProfile("Focus Warrior", 0, 0, 1, 1, 0, 1, "tier_1", emptySet(), 0, 0, 0, 0, 0, 0)
+        UserProfile("Focus Warrior", 0, 0, 1, 1, 0, 1, "tier_1", emptySet(), 0, 0, 0, 0, 0, 0, 0)
     )
     val profileFlow: StateFlow<UserProfile> = _profileFlow.asStateFlow()
 
@@ -95,10 +96,11 @@ object FocusEconomyManager {
                 pendingXp = it.getInt("pending_xp", 0),
                 pendingGold = it.getInt("pending_gold", 0),
                 lifetimeFocusMins = it.getInt("lifetime_focus_mins", 0),
-                lifetimeResists = it.getInt("lifetime_resists", 0)
+                lifetimeResists = it.getInt("lifetime_resists", 0),
+                lifetimeTasksCompleted = it.getInt("lifetime_tasks_completed", 0)
             )
         }
-        if (oldProfile.xp > 0 || oldProfile.gold > 0 || oldProfile.lifetimeFocusMins > 0) {
+        if (oldProfile.xp > 0 || oldProfile.gold > 0 || oldProfile.lifetimeFocusMins > 0 || oldProfile.lifetimeTasksCompleted > 0) {
             checkAchievements(oldProfile, _profileFlow.value)
         }
     }
@@ -106,7 +108,6 @@ object FocusEconomyManager {
     private fun checkAchievements(old: UserProfile, new: UserProfile) {
         if (old.longestStreak < 3 && new.longestStreak >= 3) emitEvent(EconomyEvent.AchievementUnlocked("3-Day Streak"))
         if (old.longestStreak < 7 && new.longestStreak >= 7) emitEvent(EconomyEvent.AchievementUnlocked("7-Day Streak"))
-        if (old.longestStreak < 14 && new.longestStreak >= 14) emitEvent(EconomyEvent.AchievementUnlocked("14-Day Streak"))
         if (old.longestStreak < 30 && new.longestStreak >= 30) emitEvent(EconomyEvent.AchievementUnlocked("30-Day Streak"))
         if (old.longestStreak < 60 && new.longestStreak >= 60) emitEvent(EconomyEvent.AchievementUnlocked("60-Day Streak"))
         if (old.longestStreak < 100 && new.longestStreak >= 100) emitEvent(EconomyEvent.AchievementUnlocked("100-Day Streak"))
@@ -116,14 +117,12 @@ object FocusEconomyManager {
         if (old.gold < 1000 && new.gold >= 1000) emitEvent(EconomyEvent.AchievementUnlocked("Savings"))
         if (old.gold < 5000 && new.gold >= 5000) emitEvent(EconomyEvent.AchievementUnlocked("Wealthy"))
         if (old.gold < 10000 && new.gold >= 10000) emitEvent(EconomyEvent.AchievementUnlocked("Hoarder"))
-        if (old.gold < 25000 && new.gold >= 25000) emitEvent(EconomyEvent.AchievementUnlocked("Dragon's Hoard"))
         if (old.gold < 50000 && new.gold >= 50000) emitEvent(EconomyEvent.AchievementUnlocked("Midas Touch"))
         if (old.gold < 100000 && new.gold >= 100000) emitEvent(EconomyEvent.AchievementUnlocked("Treasury"))
         
         if (old.lifetimeFocusMins < 60 && new.lifetimeFocusMins >= 60) emitEvent(EconomyEvent.AchievementUnlocked("Getting Started"))
         if (old.lifetimeFocusMins < 600 && new.lifetimeFocusMins >= 600) emitEvent(EconomyEvent.AchievementUnlocked("Flow State"))
         if (old.lifetimeFocusMins < 3000 && new.lifetimeFocusMins >= 3000) emitEvent(EconomyEvent.AchievementUnlocked("Zone In"))
-        if (old.lifetimeFocusMins < 6000 && new.lifetimeFocusMins >= 6000) emitEvent(EconomyEvent.AchievementUnlocked("Deep Work Sentinel"))
         if (old.lifetimeFocusMins < 30000 && new.lifetimeFocusMins >= 30000) emitEvent(EconomyEvent.AchievementUnlocked("Monk Mode"))
         if (old.lifetimeFocusMins < 60000 && new.lifetimeFocusMins >= 60000) emitEvent(EconomyEvent.AchievementUnlocked("Time Lord"))
         if (old.lifetimeFocusMins < 120000 && new.lifetimeFocusMins >= 120000) emitEvent(EconomyEvent.AchievementUnlocked("Master of Time"))
@@ -132,8 +131,13 @@ object FocusEconomyManager {
         if (old.lifetimeResists < 10 && new.lifetimeResists >= 10) emitEvent(EconomyEvent.AchievementUnlocked("Iron Will"))
         if (old.lifetimeResists < 50 && new.lifetimeResists >= 50) emitEvent(EconomyEvent.AchievementUnlocked("Willpower"))
         if (old.lifetimeResists < 100 && new.lifetimeResists >= 100) emitEvent(EconomyEvent.AchievementUnlocked("Dopamine Detox"))
-        if (old.lifetimeResists < 500 && new.lifetimeResists >= 500) emitEvent(EconomyEvent.AchievementUnlocked("Unshatterable"))
         if (old.lifetimeResists < 1000 && new.lifetimeResists >= 1000) emitEvent(EconomyEvent.AchievementUnlocked("Zen Mind"))
+
+        // Task Completion Achievements
+        if (old.lifetimeTasksCompleted < 1 && new.lifetimeTasksCompleted >= 1) emitEvent(EconomyEvent.AchievementUnlocked("Task Starter"))
+        if (old.lifetimeTasksCompleted < 10 && new.lifetimeTasksCompleted >= 10) emitEvent(EconomyEvent.AchievementUnlocked("Productive Flow"))
+        if (old.lifetimeTasksCompleted < 50 && new.lifetimeTasksCompleted >= 50) emitEvent(EconomyEvent.AchievementUnlocked("Task Master"))
+        if (old.lifetimeTasksCompleted < 100 && new.lifetimeTasksCompleted >= 100) emitEvent(EconomyEvent.AchievementUnlocked("Unstoppable Finisher"))
         
         if (old.avatarTier < 1 && new.avatarTier >= 1) emitEvent(EconomyEvent.AchievementUnlocked("Scholar"))
         if (old.avatarTier < 2 && new.avatarTier >= 2) emitEvent(EconomyEvent.AchievementUnlocked("Knight"))
@@ -307,6 +311,42 @@ object FocusEconomyManager {
                 .apply()
             loadProfile()
         }
+    }
+
+    fun completeTaskReward(
+        taskTitle: String,
+        isPriority: Boolean,
+        type: com.focusbyrj.app.data.TaskType = com.focusbyrj.app.data.TaskType.TASK
+    ): Pair<Int, Int>? {
+        val p = prefs ?: return null
+
+        val baseXp = when {
+            isPriority -> 60
+            type != com.focusbyrj.app.data.TaskType.TASK -> 40
+            else -> 30
+        }
+        val baseGold = when {
+            isPriority -> 30
+            type != com.focusbyrj.app.data.TaskType.TASK -> 20
+            else -> 15
+        }
+
+        val currentLevel = _profileFlow.value.level
+        val goldMultiplier = getGoldMultiplier(currentLevel)
+        val finalGold = max(1, (baseGold * goldMultiplier).toInt())
+
+        val pXp = _profileFlow.value.pendingXp
+        val pGold = _profileFlow.value.pendingGold
+        val currentTasks = _profileFlow.value.lifetimeTasksCompleted
+
+        p.edit()
+            .putInt("pending_xp", pXp + baseXp)
+            .putInt("pending_gold", pGold + finalGold)
+            .putInt("lifetime_tasks_completed", currentTasks + 1)
+            .apply()
+
+        loadProfile()
+        return Pair(baseXp, finalGold)
     }
 
     fun addResist() {

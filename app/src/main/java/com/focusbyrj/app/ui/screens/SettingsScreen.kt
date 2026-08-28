@@ -18,6 +18,7 @@
 package com.focusbyrj.app.ui.screens
 
 import android.content.Context
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
@@ -43,6 +44,9 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.HourglassTop
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.LockOpen
+import androidx.compose.material.icons.filled.MonetizationOn
+import androidx.compose.material.icons.filled.Stars
+import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Palette

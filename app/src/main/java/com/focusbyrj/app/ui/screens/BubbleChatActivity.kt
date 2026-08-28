@@ -63,6 +63,7 @@ import com.focusbyrj.app.util.CustomCategoryManager
 import com.focusbyrj.app.util.CustomCategory
 import com.focusbyrj.app.util.BubbleChatManager
 import com.focusbyrj.app.util.PersistedChatMessage
+import com.focusbyrj.app.ui.components.ProfessionalSlider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -1015,35 +1016,11 @@ fun ChatTextSizeDialog(
                 }
 
                 // Classic professional slider
-                @OptIn(ExperimentalMaterial3Api::class)
-                Slider(
+                ProfessionalSlider(
                     value = fontSizeSp,
                     onValueChange = { onFontSizeChange(kotlin.math.round(it)) },
                     valueRange = 12f..24f,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = SliderDefaults.colors(
-                        thumbColor = MaterialTheme.colorScheme.primary,
-                        activeTrackColor = MaterialTheme.colorScheme.primary,
-                        inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
-                    ),
-                    thumb = {
-                        Surface(
-                            modifier = Modifier.size(20.dp),
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.primary,
-                            shadowElevation = 3.dp
-                        ) {}
-                    },
-                    track = { sliderState ->
-                        SliderDefaults.Track(
-                            sliderState = sliderState,
-                            modifier = Modifier.height(4.dp),
-                            colors = SliderDefaults.colors(
-                                activeTrackColor = MaterialTheme.colorScheme.primary,
-                                inactiveTrackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
-                            )
-                        )
-                    }
+                    modifier = Modifier.fillMaxWidth()
                 )
 
                 // Quick preset buttons

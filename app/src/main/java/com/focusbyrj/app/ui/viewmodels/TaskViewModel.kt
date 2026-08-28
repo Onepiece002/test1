@@ -57,6 +57,7 @@ class TaskViewModel(
             repository.updateTask(updatedTask)
             
             if (updatedTask.isCompleted) {
+                com.focusbyrj.app.util.FocusEconomyManager.completeTaskReward(task.title, task.isPriority, task.type)
                 TaskReminderHelper.cancelReminder(getApplication(), updatedTask)
                 if (updatedTask.recurrence != com.focusbyrj.app.data.RecurrencePattern.NONE) {
                     val nextTask = TaskReminderHelper.generateNextRecurringTask(updatedTask)

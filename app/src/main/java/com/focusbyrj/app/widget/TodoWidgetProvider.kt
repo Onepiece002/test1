@@ -294,6 +294,7 @@ class TodoWidgetProvider : AppWidgetProvider() {
                                 taskDao.updateTask(updated)
 
                                 if (updated.isCompleted) {
+                                    com.focusbyrj.app.util.FocusEconomyManager.completeTaskReward(task.title, task.isPriority, task.type)
                                     TaskReminderHelper.cancelReminder(context, updated)
                                     if (updated.recurrence != RecurrencePattern.NONE) {
                                         val nextTask = TaskReminderHelper.generateNextRecurringTask(updated)

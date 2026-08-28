@@ -55,6 +55,7 @@ class BubbleService : Service() {
 
     companion object {
         var isChatOpen = false
+        const val ACTION_SETTINGS_CHANGED = "com.focusbyrj.app.BUBBLE_SETTINGS_CHANGED"
         
         fun startIfEnabled(context: Context) {
             val prefs = context.getSharedPreferences("bubble_prefs", Context.MODE_PRIVATE)
@@ -90,6 +91,9 @@ class BubbleService : Service() {
                 BubbleChatManager.ACTION_UNREAD_COUNT_CHANGED -> {
                     updateBadgeCount()
                 }
+                ACTION_SETTINGS_CHANGED -> {
+                    applyBubbleStyleSettings()
+                }
             }
         }
     }
@@ -108,6 +112,7 @@ class BubbleService : Service() {
             addAction("com.focusbyrj.app.CHAT_CLOSED")
             addAction("com.focusbyrj.app.CHAT_OPENED")
             addAction(BubbleChatManager.ACTION_UNREAD_COUNT_CHANGED)
+            addAction(ACTION_SETTINGS_CHANGED)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
@@ -170,11 +175,19 @@ class BubbleService : Service() {
 
         // Subtle accent edge ring for peek & hide state
         val glowRing = View(this).apply {
+            val prefs = getSharedPreferences("bubble_prefs", Context.MODE_PRIVATE)
+            val accentColorStr = prefs.getString("bubble_accent_color", "#4ADE80") ?: "#4ADE80"
+            val glowIntensity = prefs.getInt("bubble_glow_intensity", 65) / 100f
+            val strokeWidthDp = (1.5f + (glowIntensity * 1.5f)).coerceIn(1.2f, 3.0f)
+            
             val glowDrawable = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
                 setColor(android.graphics.Color.TRANSPARENT)
-                // Refined subtle accent (muted slate-emerald) with sleek 1.5dp stroke
-                setStroke((1.5f * resources.displayMetrics.density).toInt(), android.graphics.Color.parseColor("#4ADE80"))
+                try {
+                    setStroke((strokeWidthDp * resources.displayMetrics.density).toInt(), android.graphics.Color.parseColor(accentColorStr))
+                } catch (_: Exception) {
+                    setStroke((1.5f * resources.displayMetrics.density).toInt(), android.graphics.Color.parseColor("#4ADE80"))
+                }
             }
             background = glowDrawable
             layoutParams = FrameLayout.LayoutParams(size, size)
@@ -321,6 +334,53 @@ class BubbleService : Service() {
         }
     }
 
+    private fun applyBubbleStyleSettings() {
+        val prefs = getSharedPreferences("bubble_prefs", Context.MODE_PRIVATE)
+        val isEnabled = prefs.getBoolean("bubble_enabled", false)
+        if (!isEnabled) {
+            bubbleView?.visibility = View.GONE
+            return
+        } else {
+            bubbleView?.visibility = View.VISIBLE
+        }
+
+        val accentColorStr = prefs.getString("bubble_accent_color", "#4ADE80") ?: "#4ADE80"
+        val glowIntensity = (prefs.getInt("bubble_glow_intensity", 65) / 100f).coerceIn(0f, 1f)
+        val hiddenOpacity = (prefs.getInt("bubble_hidden_opacity", 85) / 100f).coerceIn(0.1f, 1f)
+        val hiddenAmountRatio = (prefs.getInt("bubble_hidden_amount", 60) / 100f).coerceIn(0.2f, 0.9f)
+        val strokeWidthDp = (1.5f + (glowIntensity * 1.5f)).coerceIn(1.2f, 3.0f)
+
+        glowRingView?.let { gView ->
+            val glowDrawable = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(android.graphics.Color.TRANSPARENT)
+                try {
+                    setStroke((strokeWidthDp * resources.displayMetrics.density).toInt(), android.graphics.Color.parseColor(accentColorStr))
+                } catch (_: Exception) {
+                    setStroke((1.5f * resources.displayMetrics.density).toInt(), android.graphics.Color.parseColor("#4ADE80"))
+                }
+            }
+            gView.background = glowDrawable
+        }
+
+        if (isPeeking) {
+            val displayMetrics = resources.displayMetrics
+            val size = (60 * displayMetrics.density).toInt()
+            val screenWidth = displayMetrics.widthPixels
+            val isLeft = (layoutParams?.x ?: 0) < screenWidth / 2
+            val hideOffset = size * hiddenAmountRatio
+            val targetTranslation = if (isLeft) -hideOffset else hideOffset
+
+            glowRingView?.animate()?.cancel()
+            glowRingView?.alpha = glowIntensity
+            bubbleView?.animate()?.cancel()
+            bubbleView?.translationX = targetTranslation
+            bubbleView?.alpha = hiddenOpacity
+        }
+
+        resetHideTimer()
+    }
+
     private fun peekBubble() {
         if (isChatOpen || isPeeking) return
         val prefs = getSharedPreferences("bubble_prefs", Context.MODE_PRIVATE)
@@ -331,6 +391,26 @@ class BubbleService : Service() {
         val size = (60 * displayMetrics.density).toInt()
         val screenWidth = displayMetrics.widthPixels
         
+        val hiddenAmountRatio = (prefs.getInt("bubble_hidden_amount", 60) / 100f).coerceIn(0.2f, 0.9f)
+        val hiddenOpacity = (prefs.getInt("bubble_hidden_opacity", 85) / 100f).coerceIn(0.1f, 1f)
+        val glowIntensity = (prefs.getInt("bubble_glow_intensity", 65) / 100f).coerceIn(0f, 1f)
+        val accentColorStr = prefs.getString("bubble_accent_color", "#4ADE80") ?: "#4ADE80"
+        val strokeWidthDp = (1.5f + (glowIntensity * 1.5f)).coerceIn(1.2f, 3.0f)
+
+        // Ensure stroke and color are up to date
+        glowRingView?.let { gView ->
+            val glowDrawable = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(android.graphics.Color.TRANSPARENT)
+                try {
+                    setStroke((strokeWidthDp * resources.displayMetrics.density).toInt(), android.graphics.Color.parseColor(accentColorStr))
+                } catch (_: Exception) {
+                    setStroke((1.5f * resources.displayMetrics.density).toInt(), android.graphics.Color.parseColor("#4ADE80"))
+                }
+            }
+            gView.background = glowDrawable
+        }
+
         // Ensure bubble is snapped to edge first
         val isLeft = (layoutParams?.x ?: 0) < screenWidth / 2
         val targetX = if (isLeft) 0 else (screenWidth - size)
@@ -339,18 +419,17 @@ class BubbleService : Service() {
             windowManager.updateViewLayout(bubbleView, layoutParams)
         } catch (_: Exception) {}
 
-        // Translate ~58% of bubble offscreen so a clean, illuminated crescent arc tab remains visible
-        val hideOffset = size * 0.58f
+        val hideOffset = size * hiddenAmountRatio
         val targetTranslation = if (isLeft) -hideOffset else hideOffset
         
         glowRingView?.animate()
-            ?.alpha(0.65f)
+            ?.alpha(glowIntensity)
             ?.setDuration(300)
             ?.start()
 
         bubbleView?.animate()
             ?.translationX(targetTranslation)
-            ?.alpha(0.85f)
+            ?.alpha(hiddenOpacity)
             ?.setDuration(300)
             ?.start()
     }

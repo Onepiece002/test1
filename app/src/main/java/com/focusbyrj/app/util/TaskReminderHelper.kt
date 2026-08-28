@@ -107,6 +107,7 @@ object TaskReminderHelper {
                 if (existing != null && !existing.isCompleted) {
                     val updated = existing.copy(isCompleted = true, completedAt = System.currentTimeMillis())
                     taskDao.updateTask(updated)
+                    FocusEconomyManager.completeTaskReward(existing.title, existing.isPriority, existing.type)
                     if (updated.recurrence != RecurrencePattern.NONE) {
                         val nextTask = generateNextRecurringTask(updated)
                         val newId = taskDao.insertTask(nextTask)
