@@ -33,6 +33,7 @@ class BootReceiver : BroadcastReceiver() {
             FocusBlockerService.startService(context)
             com.focusbyrj.app.service.BubbleService.startIfEnabled(context)
             DailySummaryReceiver.scheduleDailySummaries(context)
+            AptitudeReminderReceiver.scheduleRandomDrillReminders(context)
             
             // Reschedule all task reminders on boot or update
             val app = context.applicationContext as FocusApplication

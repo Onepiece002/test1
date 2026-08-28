@@ -108,80 +108,55 @@ class FocusBlockerService : Service() {
     }
 
     private fun startForegroundServiceNotification() {
-        val prefs = applicationContext.getSharedPreferences("focus_prefs", Context.MODE_PRIVATE)
-        val notifyEnabled = prefs.getBoolean("routine_notifications", true)
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-        val channelId = "focus_blocker_channel"
-        val channelName = "Focus Guard Service"
-
-        if (notifyEnabled) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                val channel = NotificationChannel(
-                    channelId,
-                    channelName,
-                    NotificationManager.IMPORTANCE_LOW
-                ).apply {
-                    description = "Monitors restricted apps in background"
-                    setSound(null, null)
-                    setShowBadge(false)
-                }
-                notificationManager.createNotificationChannel(channel)
-            }
-
-            val notification = NotificationCompat.Builder(this, channelId)
-                .setSmallIcon(R.mipmap.ic_launcher_round)
-                .setOngoing(true)
-                .setContentTitle("Focus Guard Active")
-                .setContentText("Protecting your screen time and boundaries")
-                .setPriority(NotificationCompat.PRIORITY_LOW)
-                .build()
-
+        // Clean up legacy noisy notification channel
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             kotlin.runCatching {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                    startForeground(NOTIFICATION_ID, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
-                } else {
-                    startForeground(NOTIFICATION_ID, notification)
-                }
+                notificationManager.deleteNotificationChannel("focus_blocker_channel")
             }
-        } else {
-            // Notification is turned off by user: satisfy service lifecycle then dismiss notification
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                val channel = NotificationChannel(
-                    channelId,
-                    channelName,
-                    NotificationManager.IMPORTANCE_MIN
-                ).apply {
-                    description = "Monitors restricted apps in background"
-                    setSound(null, null)
-                    setShowBadge(false)
-                }
-                notificationManager.createNotificationChannel(channel)
-            }
+        }
 
-            val silentNotification = NotificationCompat.Builder(this, channelId)
-                .setSmallIcon(R.mipmap.ic_launcher_round)
-                .setPriority(NotificationCompat.PRIORITY_MIN)
-                .setNotificationSilent()
-                .build()
+        val channelId = "focus_guard_silent"
+        val channelName = "Focus Service Internal"
 
-            kotlin.runCatching {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                    startForeground(NOTIFICATION_ID, silentNotification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
-                } else {
-                    startForeground(NOTIFICATION_ID, silentNotification)
-                }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                channelId,
+                channelName,
+                NotificationManager.IMPORTANCE_MIN
+            ).apply {
+                description = "Background service keeper"
+                setSound(null, null)
+                setShowBadge(false)
+                enableVibration(false)
             }
+            notificationManager.createNotificationChannel(channel)
+        }
 
-            kotlin.runCatching {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                    stopForeground(STOP_FOREGROUND_REMOVE)
-                } else {
-                    @Suppress("DEPRECATION")
-                    stopForeground(true)
-                }
-                notificationManager.cancel(NOTIFICATION_ID)
+        val silentNotification = NotificationCompat.Builder(this, channelId)
+            .setSmallIcon(R.mipmap.ic_launcher_round)
+            .setPriority(NotificationCompat.PRIORITY_MIN)
+            .setNotificationSilent()
+            .setOngoing(false)
+            .build()
+
+        kotlin.runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                startForeground(NOTIFICATION_ID, silentNotification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+            } else {
+                startForeground(NOTIFICATION_ID, silentNotification)
             }
+        }
+
+        kotlin.runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                stopForeground(STOP_FOREGROUND_REMOVE)
+            } else {
+                @Suppress("DEPRECATION")
+                stopForeground(true)
+            }
+            notificationManager.cancel(NOTIFICATION_ID)
         }
     }
 
@@ -375,6 +350,26 @@ class FocusBlockerService : Service() {
     }
 
     private suspend fun checkAndBlockApp(packageName: String) {
+        // Ensure Ayva Floating Bubble remains alive if enabled
+        try {
+            val bubblePrefs = getSharedPreferences("bubble_prefs", Context.MODE_PRIVATE)
+            val isBubbleEnabled = bubblePrefs.getBoolean("bubble_enabled", false)
+            if (isBubbleEnabled && android.provider.Settings.canDrawOverlays(this)) {
+                val manager = getSystemService(Context.ACTIVITY_SERVICE) as? android.app.ActivityManager
+                val isServiceRunning = manager?.getRunningServices(Int.MAX_VALUE)?.any {
+                    it.service.className == BubbleService::class.java.name
+                } ?: false
+                if (!isServiceRunning) {
+                    val bubbleIntent = Intent(this, BubbleService::class.java)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        startForegroundService(bubbleIntent)
+                    } else {
+                        startService(bubbleIntent)
+                    }
+                }
+            }
+        } catch (_: Exception) {}
+
         if (isIgnoredPackage(packageName)) {
             android.os.Handler(android.os.Looper.getMainLooper()).post {
                 BlockOverlayManager.hideOverlay(this)

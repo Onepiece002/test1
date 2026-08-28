@@ -421,11 +421,11 @@ fun SettingsScreen(navController: NavController) {
                         color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
                     )
 
-                    // Routine & Focus Guard Notifications Toggle
+                    // Routine Notifications Toggle
                     SettingsSwitchRow(
                         icon = Icons.Filled.Notifications,
                         title = "Routine Notifications",
-                        subtitle = "Alerts for routine start/end and Focus Guard status",
+                        subtitle = "Alerts when routines start and end",
                         checked = routineNotifications,
                         onCheckedChange = { isEnabled ->
                             routineNotifications = isEnabled

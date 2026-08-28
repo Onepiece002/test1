@@ -62,7 +62,11 @@ class BubbleService : Service() {
             val prefs = context.getSharedPreferences("bubble_prefs", Context.MODE_PRIVATE)
             if (prefs.getBoolean("bubble_enabled", false) && android.provider.Settings.canDrawOverlays(context)) {
                 val intent = Intent(context, BubbleService::class.java)
-                context.startService(intent)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    context.startForegroundService(intent)
+                } else {
+                    context.startService(intent)
+                }
             }
         }
     }
@@ -109,6 +113,8 @@ class BubbleService : Service() {
     override fun onCreate() {
         super.onCreate()
         
+        startForegroundNotification()
+
         val filter = IntentFilter().apply {
             addAction("com.focusbyrj.app.CHAT_CLOSED")
             addAction("com.focusbyrj.app.CHAT_OPENED")
@@ -584,6 +590,58 @@ class BubbleService : Service() {
         startActivity(intent)
     }
 
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        // Ensure the service restarts if the app task was swiped away from recent apps
+        val restartServiceIntent = Intent(applicationContext, BubbleService::class.java).also {
+            it.setPackage(packageName)
+        }
+        val restartServicePendingIntent = android.app.PendingIntent.getService(this, 1, restartServiceIntent, android.app.PendingIntent.FLAG_ONE_SHOT or android.app.PendingIntent.FLAG_IMMUTABLE)
+        val alarmService = applicationContext.getSystemService(Context.ALARM_SERVICE) as? android.app.AlarmManager
+        alarmService?.set(android.app.AlarmManager.ELAPSED_REALTIME, android.os.SystemClock.elapsedRealtime() + 1000, restartServicePendingIntent)
+    }
+
+    private fun startForegroundNotification() {
+        val channelId = "ayva_bubble_fg_channel"
+        val channelName = "Ayva Floating Bubble"
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val manager = getSystemService(android.app.NotificationManager::class.java)
+            val channel = android.app.NotificationChannel(
+                channelId,
+                channelName,
+                android.app.NotificationManager.IMPORTANCE_MIN
+            ).apply {
+                description = "Keeps Ayva floating bubble active across all apps"
+                setShowBadge(false)
+            }
+            manager?.createNotificationChannel(channel)
+        }
+
+        val intent = Intent(this, com.focusbyrj.app.MainActivity::class.java)
+        val pendingIntent = android.app.PendingIntent.getActivity(this, 0, intent, android.app.PendingIntent.FLAG_IMMUTABLE)
+
+        val notification = androidx.core.app.NotificationCompat.Builder(this, channelId)
+            .setContentTitle("Ayva is active")
+            .setContentText("Tap to open Focus by RJ")
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentIntent(pendingIntent)
+            .setOngoing(true)
+            .setPriority(androidx.core.app.NotificationCompat.PRIORITY_MIN)
+            .setSilent(true)
+            .build()
+
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(2001, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+            } else {
+                startForeground(2001, notification)
+            }
+        } catch (_: Exception) {
+            startForeground(2001, notification)
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         hideHandler.removeCallbacks(hideRunnable)
@@ -592,7 +650,7 @@ class BubbleService : Service() {
             displayManager.unregisterDisplayListener(displayListener)
         } catch (_: Exception) {}
         bubbleView?.let {
-            windowManager.removeView(it)
+            try { windowManager.removeView(it) } catch (e: Exception) {}
         }
         closeView?.let {
             try { windowManager.removeView(it) } catch (e: Exception) {}

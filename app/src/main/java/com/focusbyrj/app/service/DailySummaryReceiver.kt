@@ -72,13 +72,16 @@ class DailySummaryReceiver : BroadcastReceiver() {
 
             val pendingIntent = PendingIntent.getBroadcast(context, requestCode, intent, flags)
 
+            // Intent to open app when alarm triggers
+            val showIntent = Intent(context, com.focusbyrj.app.MainActivity::class.java).apply {
+                this.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+            val showPendingIntent = PendingIntent.getActivity(context, requestCode + 100, showIntent, flags)
+
             try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    if (alarmManager.canScheduleExactAlarms()) {
-                        alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerTime, pendingIntent)
-                    } else {
-                        alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerTime, pendingIntent)
-                    }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    val alarmClockInfo = AlarmManager.AlarmClockInfo(triggerTime, showPendingIntent)
+                    alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
                 } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                     alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerTime, pendingIntent)
                 } else {
@@ -121,19 +124,34 @@ class DailySummaryReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
         val action = intent?.action ?: return
         val app = context.applicationContext as? FocusApplication ?: return
+        
+        // Acquire WakeLock to prevent CPU from sleeping while generating summary
+        val powerManager = context.getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager
+        val wakeLock = powerManager?.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "FocusByRJ:SummaryWakeLock")
+        try {
+            wakeLock?.acquire(10000L) // 10 seconds to generate and post summary
+        } catch (_: Exception) {}
 
         CoroutineScope(Dispatchers.IO).launch {
-            when (action) {
-                ACTION_MORNING_SUMMARY -> {
-                    handleMorningSummary(context, app)
-                    // Reschedule next morning
-                    scheduleDailySummaries(context)
+            try {
+                when (action) {
+                    ACTION_MORNING_SUMMARY -> {
+                        handleMorningSummary(context, app)
+                        // Reschedule next morning
+                        scheduleDailySummaries(context)
+                    }
+                    ACTION_EVENING_SUMMARY -> {
+                        handleEveningSummary(context, app)
+                        // Reschedule next evening
+                        scheduleDailySummaries(context)
+                    }
                 }
-                ACTION_EVENING_SUMMARY -> {
-                    handleEveningSummary(context, app)
-                    // Reschedule next evening
-                    scheduleDailySummaries(context)
-                }
+            } finally {
+                try {
+                    if (wakeLock != null && wakeLock.isHeld) {
+                        wakeLock.release()
+                    }
+                } catch (_: Exception) {}
             }
         }
     }
@@ -145,12 +163,15 @@ class DailySummaryReceiver : BroadcastReceiver() {
 
         val quote = com.focusbyrj.app.util.SummaryQuotes.getNextMorningQuote(context)
 
+        val cal = Calendar.getInstance()
+        val hour = cal.get(Calendar.HOUR_OF_DAY)
+        val dayOfWeek = cal.get(Calendar.DAY_OF_WEEK)
+
         val sb = StringBuilder()
-        sb.append("☀️ *__Morning Focus Briefing__*\n")
-        sb.append("_Good morning! Here's what's up for today:_\n\n")
+        sb.append(com.focusbyrj.app.util.AyvaDialogueEngine.getSummaryGreeting(context, false, hour, dayOfWeek)).append("\n\n")
 
         if (pendingTasks.isEmpty()) {
-            sb.append("📋 *Today's Agenda*: You have no tasks scheduled yet.\n_Type a task into the chat to add it!_\n")
+            sb.append("📋 *Today's Agenda*: ${com.focusbyrj.app.util.AyvaDialogueEngine.getEmptyDayMessage(context)}\n_Type a task in chat if you want to put something on my radar!_\n")
         } else {
             sb.append("📋 *Active Tasks (${pendingTasks.size})*:\n")
             if (priorityTasks.isNotEmpty()) {
@@ -171,11 +192,16 @@ class DailySummaryReceiver : BroadcastReceiver() {
 
         sb.append("\n💡 _\"$quote\"_")
 
+        if (pendingTasks.isNotEmpty()) {
+            sb.append("\n\n").append(com.focusbyrj.app.util.AyvaDialogueEngine.getReschedulePrompt(context))
+        }
+
         val message = PersistedChatMessage(
             id = "morning_${System.currentTimeMillis()}",
             text = sb.toString().trim(),
             isUser = false,
-            timestamp = System.currentTimeMillis()
+            timestamp = System.currentTimeMillis(),
+            isTaskSummary = pendingTasks.isNotEmpty()
         )
 
         BubbleChatManager.addMessage(context, message, incrementBadge = true)
@@ -186,9 +212,12 @@ class DailySummaryReceiver : BroadcastReceiver() {
         val completedToday = tasks.filter { it.isCompleted }
         val pendingTasks = tasks.filter { !it.isCompleted }
 
+        val cal = Calendar.getInstance()
+        val hour = cal.get(Calendar.HOUR_OF_DAY)
+        val dayOfWeek = cal.get(Calendar.DAY_OF_WEEK)
+
         val sb = StringBuilder()
-        sb.append("🌙 *__Evening Wrap-Up & Reflection__*\n")
-        sb.append("_Here is your daily focus breakdown:_\n\n")
+        sb.append(com.focusbyrj.app.util.AyvaDialogueEngine.getSummaryGreeting(context, false, hour, dayOfWeek)).append("\n\n")
 
         sb.append("✅ *Completed Tasks*: ${completedToday.size}\n")
         sb.append("⏳ *Remaining Tasks*: ${pendingTasks.size}\n\n")
@@ -202,17 +231,22 @@ class DailySummaryReceiver : BroadcastReceiver() {
                 sb.append("_...and ${pendingTasks.size - 5} more_\n")
             }
         } else {
-            sb.append("🎉 *Flawless execution! All tasks completed today.*\n")
+            sb.append("🎉 *Flawless execution! You crushed every single task today.*\n")
         }
 
         val quote = com.focusbyrj.app.util.SummaryQuotes.getNextEveningQuote(context)
         sb.append("\n💡 _\"$quote\"_")
 
+        if (pendingTasks.isNotEmpty()) {
+            sb.append("\n\n").append(com.focusbyrj.app.util.AyvaDialogueEngine.getReschedulePrompt(context))
+        }
+
         val message = PersistedChatMessage(
             id = "evening_${System.currentTimeMillis()}",
             text = sb.toString().trim(),
             isUser = false,
-            timestamp = System.currentTimeMillis()
+            timestamp = System.currentTimeMillis(),
+            isTaskSummary = pendingTasks.isNotEmpty()
         )
 
         BubbleChatManager.addMessage(context, message, incrementBadge = true)

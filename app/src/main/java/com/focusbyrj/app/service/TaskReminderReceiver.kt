@@ -7,6 +7,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import com.focusbyrj.app.R
 import com.focusbyrj.app.ui.screens.TaskReminderPopupActivity
@@ -17,7 +18,18 @@ class TaskReminderReceiver : BroadcastReceiver() {
         val taskId = intent.getLongExtra("taskId", -1L)
         if (taskId == -1L) return
 
-        val title = intent.getStringExtra("taskTitle") ?: "Task Reminder"
+        // Acquire a temporary WakeLock (5 seconds) to ensure CPU does not sleep during notification dispatch
+        val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
+        val wakeLock = powerManager?.newWakeLock(
+            PowerManager.PARTIAL_WAKE_LOCK,
+            "FocusByRJ:TaskReminderWakeLock"
+        )
+        try {
+            wakeLock?.acquire(5000L)
+        } catch (_: Exception) {}
+
+        try {
+            val title = intent.getStringExtra("taskTitle") ?: "Task Reminder"
         val details = intent.getStringExtra("taskDetails") ?: ""
         val dueDate = intent.getLongExtra("taskDueDate", System.currentTimeMillis())
         val typeStr = intent.getStringExtra("taskType") ?: "TASK"
@@ -28,7 +40,7 @@ class TaskReminderReceiver : BroadcastReceiver() {
         val prefs = context.getSharedPreferences("focus_prefs", Context.MODE_PRIVATE)
         val notificationStyle = prefs.getString("task_notification_style", "Both") ?: "Both"
 
-        val showNotification = isPriority || notificationStyle == "Both" || notificationStyle == "Notification Only"
+        val showNotification = true
         val showFloating = isPriority || notificationStyle == "Both" || notificationStyle == "Floating Bar"
 
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -43,6 +55,7 @@ class TaskReminderReceiver : BroadcastReceiver() {
                 description = "Pop up notifications and reminders for your tasks"
                 enableVibration(true)
                 setShowBadge(true)
+                lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
             }
             notificationManager.createNotificationChannel(channel)
         }
@@ -153,6 +166,14 @@ class TaskReminderReceiver : BroadcastReceiver() {
         if (isPersistent) {
             val intervalMins = prefs.getInt("persistent_reminder_interval", 15)
             TaskReminderHelper.scheduleNaggingReminder(context, taskId, title, intervalMins)
+        }
+        
+        } finally {
+            try {
+                if (wakeLock != null && wakeLock.isHeld) {
+                    wakeLock.release()
+                }
+            } catch (_: Exception) {}
         }
     }
 }

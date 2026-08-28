@@ -161,6 +161,8 @@ class MainActivity : FragmentActivity() {
         kotlin.runCatching { FocusBlockerService.startService(this) }
         kotlin.runCatching { com.focusbyrj.app.service.BubbleService.startIfEnabled(this) }
         kotlin.runCatching { com.focusbyrj.app.service.DailySummaryReceiver.scheduleDailySummaries(this) }
+        kotlin.runCatching { com.focusbyrj.app.service.AptitudeReminderReceiver.scheduleRandomDrillReminders(this) }
+        kotlin.runCatching { com.focusbyrj.app.util.TaskReminderHelper.scheduleAllPendingReminders(this) }
 
         val navigateTo = intent?.getStringExtra("navigate_to")
         val openAddDialog = intent?.getBooleanExtra("open_add_dialog", false) ?: false

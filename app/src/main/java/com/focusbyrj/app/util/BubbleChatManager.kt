@@ -29,13 +29,23 @@ data class PersistedChatMessage(
     val id: String,
     val text: String,
     val isUser: Boolean,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val isArithmetic: Boolean = false,
+    val arithmeticJson: String? = null,
+    val isDrillSummary: Boolean = false,
+    val drillSummaryJson: String? = null,
+    val isAptitudeProfile: Boolean = false,
+    val isStreakPrompt: Boolean = false,
+    val streakPromptJson: String? = null,
+    val isTaskSummary: Boolean = false
 )
 
 object BubbleChatManager {
     private const val PREFS_NAME = "bubble_chat_prefs"
     private const val KEY_MESSAGES = "chat_messages_json"
     private const val KEY_UNREAD_COUNT = "unread_message_count"
+    private const val KEY_LAST_ACTIVITY = "last_chat_activity_timestamp"
+    private const val INACTIVITY_TIMEOUT_MS = 10 * 60 * 1000L // 10 minutes
 
     const val ACTION_UNREAD_COUNT_CHANGED = "com.focusbyrj.app.UNREAD_COUNT_CHANGED"
 
@@ -71,8 +81,30 @@ object BubbleChatManager {
         setUnreadCount(context, 0)
     }
 
+    fun updateLastActivityTime(context: Context) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putLong(KEY_LAST_ACTIVITY, System.currentTimeMillis()).apply()
+    }
+
+    fun isInactiveTimeout(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val lastActive = prefs.getLong(KEY_LAST_ACTIVITY, 0L)
+        if (lastActive == 0L) return false
+        return (System.currentTimeMillis() - lastActive) > INACTIVITY_TIMEOUT_MS
+    }
+
     fun getMessages(context: Context): List<PersistedChatMessage> {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        
+        // Check 10 mins inactivity timeout
+        val lastActive = prefs.getLong(KEY_LAST_ACTIVITY, 0L)
+        val now = System.currentTimeMillis()
+        if (lastActive > 0L && (now - lastActive) > INACTIVITY_TIMEOUT_MS) {
+            clearMessages(context)
+            prefs.edit().putLong(KEY_LAST_ACTIVITY, now).apply()
+            return emptyList()
+        }
+
         val jsonStr = prefs.getString(KEY_MESSAGES, null) ?: return emptyList()
         val list = mutableListOf<PersistedChatMessage>()
         try {
@@ -84,7 +116,15 @@ object BubbleChatManager {
                         id = obj.optString("id", System.currentTimeMillis().toString()),
                         text = obj.optString("text", ""),
                         isUser = obj.optBoolean("isUser", false),
-                        timestamp = obj.optLong("timestamp", System.currentTimeMillis())
+                        timestamp = obj.optLong("timestamp", System.currentTimeMillis()),
+                        isArithmetic = obj.optBoolean("isArithmetic", false),
+                        arithmeticJson = if (obj.has("arithmeticJson") && !obj.isNull("arithmeticJson")) obj.optString("arithmeticJson", null) else null,
+                        isDrillSummary = obj.optBoolean("isDrillSummary", false),
+                        drillSummaryJson = if (obj.has("drillSummaryJson") && !obj.isNull("drillSummaryJson")) obj.optString("drillSummaryJson", null) else null,
+                        isAptitudeProfile = obj.optBoolean("isAptitudeProfile", false),
+                        isStreakPrompt = obj.optBoolean("isStreakPrompt", false),
+                        streakPromptJson = if (obj.has("streakPromptJson") && !obj.isNull("streakPromptJson")) obj.optString("streakPromptJson", null) else null,
+                        isTaskSummary = obj.optBoolean("isTaskSummary", false)
                     )
                 )
             }
@@ -104,10 +144,21 @@ object BubbleChatManager {
                     put("text", msg.text)
                     put("isUser", msg.isUser)
                     put("timestamp", msg.timestamp)
+                    put("isArithmetic", msg.isArithmetic)
+                    put("arithmeticJson", msg.arithmeticJson)
+                    put("isDrillSummary", msg.isDrillSummary)
+                    put("drillSummaryJson", msg.drillSummaryJson)
+                    put("isAptitudeProfile", msg.isAptitudeProfile)
+                    put("isStreakPrompt", msg.isStreakPrompt)
+                    put("streakPromptJson", msg.streakPromptJson)
+                    put("isTaskSummary", msg.isTaskSummary)
                 }
                 jsonArray.put(obj)
             }
-            prefs.edit().putString(KEY_MESSAGES, jsonArray.toString()).apply()
+            prefs.edit()
+                .putString(KEY_MESSAGES, jsonArray.toString())
+                .putLong(KEY_LAST_ACTIVITY, System.currentTimeMillis())
+                .apply()
         } catch (_: Exception) {}
     }
 
@@ -122,7 +173,7 @@ object BubbleChatManager {
 
     fun clearMessages(context: Context) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit().remove(KEY_MESSAGES).apply()
+        prefs.edit().remove(KEY_MESSAGES).putLong(KEY_LAST_ACTIVITY, System.currentTimeMillis()).apply()
         clearUnread(context)
     }
 }

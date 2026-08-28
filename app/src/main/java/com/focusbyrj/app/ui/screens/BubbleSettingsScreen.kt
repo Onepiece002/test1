@@ -62,6 +62,13 @@ fun BubbleSettingsScreen(navController: NavController) {
     var isBubbleEnabled by remember { mutableStateOf(prefs.getBoolean("bubble_enabled", false)) }
     var morningBriefTime by remember { mutableStateOf(prefs.getString("morning_brief_time", "08:00 AM") ?: "08:00 AM") }
     var eveningBriefTime by remember { mutableStateOf(prefs.getString("evening_brief_time", "08:00 PM") ?: "08:00 PM") }
+    var streakNotificationEnabled by remember { 
+        mutableStateOf(prefs.getBoolean("streak_notification_enabled", prefs.getBoolean("random_drills_notification_enabled", true))) 
+    }
+    var streakNotificationTime by remember { 
+        mutableStateOf(prefs.getString("streak_notification_time", "") ?: "") 
+    }
+    var showStreakTimeDialog by remember { mutableStateOf(false) }
     var smartRegexEnabled by remember { mutableStateOf(prefs.getBoolean("smart_regex_enabled", true)) }
     var autoHideEnabled by remember { mutableStateOf(prefs.getBoolean("auto_hide_enabled", false)) }
     var autoHideDuration by remember { mutableStateOf(prefs.getInt("auto_hide_duration_sec", 3)) }
@@ -423,8 +430,8 @@ fun BubbleSettingsScreen(navController: NavController) {
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // --- DAILY SUMMARIES ---
-                SettingsSectionHeader(title = "DAILY SUMMARIES")
+                // --- DAILY SUMMARIES & PRACTICE ---
+                SettingsSectionHeader(title = "DAILY SUMMARIES & PRACTICE")
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(20.dp),
@@ -462,7 +469,111 @@ fun BubbleSettingsScreen(navController: NavController) {
                                 }
                             }
                         )
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 12.dp),
+                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
+                        )
+                        SettingsSwitchRow(
+                            icon = Icons.Filled.Psychology,
+                            title = "Streak & Practice Alerts",
+                            subtitle = "Daily alerts to practice drills & build your streak",
+                            checked = streakNotificationEnabled,
+                            onCheckedChange = { enabled ->
+                                streakNotificationEnabled = enabled
+                                prefs.edit()
+                                    .putBoolean("streak_notification_enabled", enabled)
+                                    .putBoolean("random_drills_notification_enabled", enabled)
+                                    .apply()
+                                if (enabled) {
+                                    com.focusbyrj.app.service.AptitudeReminderReceiver.scheduleDrillReminders(context)
+                                } else {
+                                    com.focusbyrj.app.service.AptitudeReminderReceiver.cancelAllReminders(context)
+                                }
+                            }
+                        )
+                        if (streakNotificationEnabled) {
+                            HorizontalDivider(
+                                modifier = Modifier.padding(vertical = 12.dp),
+                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
+                            )
+                            val isRandom = streakNotificationTime.isBlank() || streakNotificationTime.equals("Random", ignoreCase = true)
+                            SettingsTimePickerRow(
+                                icon = Icons.Filled.AccessTime,
+                                title = "Practice Alert Time",
+                                subtitle = if (isRandom) "Randomized 2x daily (9:00 AM – 8:00 PM)" else "Daily at exact time",
+                                timeText = if (isRandom) "Random (9am-8pm)" else streakNotificationTime,
+                                onClick = {
+                                    showStreakTimeDialog = true
+                                }
+                            )
+                        }
                     }
+                }
+
+                if (showStreakTimeDialog) {
+                    val isCurrentlyRandom = streakNotificationTime.isBlank() || streakNotificationTime.equals("Random", ignoreCase = true)
+                    AlertDialog(
+                        onDismissRequest = { showStreakTimeDialog = false },
+                        title = { Text("Streak Notification Timing") },
+                        text = {
+                            Column {
+                                Text(
+                                    "Choose whether to receive streak practice alerts at an exact time every day or 2 randomized times between 9:00 AM and 8:00 PM.",
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                if (!isCurrentlyRandom) {
+                                    Text(
+                                        text = "Current exact time: $streakNotificationTime",
+                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                } else {
+                                    Text(
+                                        text = "Currently set to: Randomized (2x a day between 9 AM - 8 PM)",
+                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                        },
+                        confirmButton = {
+                            Button(
+                                onClick = {
+                                    showStreakTimeDialog = false
+                                    showTimePicker(
+                                        context, 
+                                        if (streakNotificationTime.isNotBlank() && !streakNotificationTime.equals("Random", ignoreCase = true)) streakNotificationTime else "06:00 PM"
+                                    ) { newTime ->
+                                        streakNotificationTime = newTime
+                                        prefs.edit().putString("streak_notification_time", newTime).apply()
+                                        com.focusbyrj.app.service.AptitudeReminderReceiver.scheduleDrillReminders(context)
+                                    }
+                                }
+                            ) {
+                                Text("Set Exact Time")
+                            }
+                        },
+                        dismissButton = {
+                            Row {
+                                if (!isCurrentlyRandom) {
+                                    TextButton(
+                                        onClick = {
+                                            showStreakTimeDialog = false
+                                            streakNotificationTime = ""
+                                            prefs.edit().putString("streak_notification_time", "").apply()
+                                            com.focusbyrj.app.service.AptitudeReminderReceiver.scheduleDrillReminders(context)
+                                        }
+                                    ) {
+                                        Text("Set to Random")
+                                    }
+                                }
+                                TextButton(onClick = { showStreakTimeDialog = false }) {
+                                    Text("Cancel")
+                                }
+                            }
+                        }
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))

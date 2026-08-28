@@ -13,6 +13,7 @@ import com.focusbyrj.app.service.TaskReminderReceiver
 import com.focusbyrj.app.widget.TodoWidgetProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Calendar
@@ -22,18 +23,33 @@ object TaskReminderHelper {
     fun scheduleReminder(context: Context, task: Task) {
         if (task.dueDate == null || task.isCompleted) return
 
+        val now = System.currentTimeMillis()
+        val intent = Intent(context, TaskReminderReceiver::class.java).apply {
+            data = android.net.Uri.parse("focusreminder://task/${task.id}")
+            putExtra("taskId", task.id)
+            putExtra("taskTitle", task.title)
+            putExtra("taskDetails", task.details)
+            putExtra("taskDueDate", task.dueDate)
+            putExtra("taskType", task.type.name)
+            putExtra("taskRecurrence", task.recurrence.name)
+            putExtra("isPersistent", task.isPersistent)
+            putExtra("isPriority", task.isPriority)
+        }
+
+        // If the task due time has arrived or passed recently (within 30 mins), trigger immediately
+        if (task.dueDate <= now) {
+            if (now - task.dueDate <= 30 * 60 * 1000L) {
+                kotlin.runCatching {
+                    context.sendBroadcast(intent)
+                }
+            }
+            return
+        }
+
+        val triggerTime = task.dueDate
+
         kotlin.runCatching {
             val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
-            val intent = Intent(context, TaskReminderReceiver::class.java).apply {
-                putExtra("taskId", task.id)
-                putExtra("taskTitle", task.title)
-                putExtra("taskDetails", task.details)
-                putExtra("taskDueDate", task.dueDate)
-                putExtra("taskType", task.type.name)
-                putExtra("taskRecurrence", task.recurrence.name)
-                putExtra("isPersistent", task.isPersistent)
-                putExtra("isPriority", task.isPriority)
-            }
             val pendingIntent = PendingIntent.getBroadcast(
                 context,
                 task.id.toInt(),
@@ -41,36 +57,46 @@ object TaskReminderHelper {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                if (alarmManager.canScheduleExactAlarms()) {
-                    alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, task.dueDate, pendingIntent)
-                } else {
-                    alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, task.dueDate, pendingIntent)
-                }
+            val showIntent = Intent(context, com.focusbyrj.app.MainActivity::class.java)
+            val showPendingIntent = PendingIntent.getActivity(
+                context,
+                task.id.toInt(),
+                showIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                val alarmClockInfo = AlarmManager.AlarmClockInfo(triggerTime, showPendingIntent)
+                alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerTime, pendingIntent)
             } else {
-                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, task.dueDate, pendingIntent)
+                alarmManager.set(AlarmManager.RTC_WAKEUP, triggerTime, pendingIntent)
             }
         }.onFailure {
             // Safe fallback
             kotlin.runCatching {
                 val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
-                val intent = Intent(context, TaskReminderReceiver::class.java).apply {
-                    putExtra("taskId", task.id)
-                    putExtra("taskTitle", task.title)
-                    putExtra("taskDetails", task.details)
-                    putExtra("taskDueDate", task.dueDate)
-                    putExtra("taskType", task.type.name)
-                    putExtra("taskRecurrence", task.recurrence.name)
-                    putExtra("isPersistent", task.isPersistent)
-                    putExtra("isPriority", task.isPriority)
-                }
                 val pendingIntent = PendingIntent.getBroadcast(
                     context,
                     task.id.toInt(),
                     intent,
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
-                alarmManager.set(AlarmManager.RTC_WAKEUP, task.dueDate, pendingIntent)
+                alarmManager.set(AlarmManager.RTC_WAKEUP, triggerTime, pendingIntent)
+            }
+        }
+    }
+
+    fun scheduleAllPendingReminders(context: Context) {
+        val app = context.applicationContext as? FocusApplication ?: return
+        CoroutineScope(Dispatchers.IO).launch {
+            kotlin.runCatching {
+                val tasks = app.taskRepository.allTasks.firstOrNull() ?: app.database.taskDao().getTaskById(0)?.let { listOf(it) } ?: emptyList()
+                val now = System.currentTimeMillis()
+                tasks.filter { !it.isCompleted && it.dueDate != null && it.dueDate > now }.forEach { task ->
+                    scheduleReminder(context, task)
+                }
             }
         }
     }
@@ -82,7 +108,9 @@ object TaskReminderHelper {
     fun cancelReminderById(context: Context, taskId: Long) {
         kotlin.runCatching {
             val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
-            val intent = Intent(context, TaskReminderReceiver::class.java)
+            val intent = Intent(context, TaskReminderReceiver::class.java).apply {
+                data = android.net.Uri.parse("focusreminder://task/${taskId}")
+            }
             val pendingIntent = PendingIntent.getBroadcast(
                 context,
                 taskId.toInt(),
