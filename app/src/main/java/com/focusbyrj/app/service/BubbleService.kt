@@ -36,6 +36,7 @@ class BubbleService : Service() {
     private var bubbleView: View? = null
     private var badgeView: TextView? = null
     private var glowRingView: View? = null
+    private var closeView: View? = null
     private var layoutParams: WindowManager.LayoutParams? = null
 
     private var lastX = 0
@@ -254,6 +255,37 @@ class BubbleService : Service() {
             y = 300
         }
 
+        val closeSize = (56 * resources.displayMetrics.density).toInt()
+        closeView = FrameLayout(this).apply {
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(android.graphics.Color.parseColor("#88000000"))
+            }
+            layoutParams = FrameLayout.LayoutParams(closeSize, closeSize)
+            elevation = 10f
+            
+            addView(TextView(this@BubbleService).apply {
+                text = "✕"
+                setTextColor(android.graphics.Color.WHITE)
+                textSize = 24f
+                gravity = Gravity.CENTER
+                layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+            })
+            visibility = View.GONE
+        }
+
+        val closeLayoutParams = WindowManager.LayoutParams(
+            closeSize,
+            closeSize,
+            overlayType,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+            x = 0
+            y = (40 * resources.displayMetrics.density).toInt()
+        }
+
         var initialX = 0
         var initialY = 0
         var initialTouchX = 0f
@@ -274,6 +306,7 @@ class BubbleService : Service() {
                     initialTouchX = event.rawX
                     initialTouchY = event.rawY
                     isMoved = false
+                    closeView?.visibility = View.VISIBLE
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
@@ -291,10 +324,33 @@ class BubbleService : Service() {
                         layoutParams!!.x = (initialX + dx.toInt()).coerceIn(0, screenWidth - bubbleSize)
                         layoutParams!!.y = (initialY + dy.toInt()).coerceIn(0, screenHeight - bubbleSize)
                         windowManager.updateViewLayout(bubbleView, layoutParams)
+                        
+                        val cSize = (56 * displayMetrics.density).toInt()
+                        val bubbleCenterX = layoutParams!!.x + bubbleSize / 2
+                        val bubbleCenterY = layoutParams!!.y + bubbleSize / 2
+                        val closeCenterX = screenWidth / 2
+                        val closeCenterY = screenHeight - (40 * displayMetrics.density).toInt() - cSize / 2
+                        
+                        val dist = Math.hypot((bubbleCenterX - closeCenterX).toDouble(), (bubbleCenterY - closeCenterY).toDouble())
+                        
+                        if (dist < cSize * 2.0) {
+                            (closeView?.background as? GradientDrawable)?.setColor(android.graphics.Color.parseColor("#FF5252"))
+                            closeView?.scaleX = 1.15f
+                            closeView?.scaleY = 1.15f
+                        } else {
+                            (closeView?.background as? GradientDrawable)?.setColor(android.graphics.Color.parseColor("#88000000"))
+                            closeView?.scaleX = 1.0f
+                            closeView?.scaleY = 1.0f
+                        }
                     }
                     true
                 }
                 MotionEvent.ACTION_UP -> {
+                    closeView?.visibility = View.GONE
+                    (closeView?.background as? GradientDrawable)?.setColor(android.graphics.Color.parseColor("#88000000"))
+                    closeView?.scaleX = 1.0f
+                    closeView?.scaleY = 1.0f
+
                     if (!isMoved) {
                         view.performClick()
                         if (isChatOpen) {
@@ -303,9 +359,39 @@ class BubbleService : Service() {
                             openChatWindow()
                         }
                     } else if (!isChatOpen) {
-                        snapToEdge()
+                        val displayMetrics = resources.displayMetrics
+                        val screenWidth = displayMetrics.widthPixels
+                        val screenHeight = displayMetrics.heightPixels
+                        val cSize = (56 * displayMetrics.density).toInt()
+                        val bubbleSize = (60 * displayMetrics.density).toInt()
+                        
+                        val bubbleCenterX = layoutParams!!.x + bubbleSize / 2
+                        val bubbleCenterY = layoutParams!!.y + bubbleSize / 2
+                        val closeCenterX = screenWidth / 2
+                        val closeCenterY = screenHeight - (40 * displayMetrics.density).toInt() - cSize / 2
+                        
+                        val dist = Math.hypot((bubbleCenterX - closeCenterX).toDouble(), (bubbleCenterY - closeCenterY).toDouble())
+                        
+                        if (dist < cSize * 2.0) {
+                            // Dragged to dismiss
+                            stopSelf()
+                            return@setOnTouchListener true
+                        }
+
+                        val dxTotal = event.rawX - initialTouchX
+                        val isLeft = (layoutParams!!.x + bubbleSize / 2) < screenWidth / 2
+                        
+                        if (isLeft && dxTotal < -(20 * displayMetrics.density)) {
+                            peekBubble(force = true)
+                        } else if (!isLeft && dxTotal > (20 * displayMetrics.density)) {
+                            peekBubble(force = true)
+                        } else {
+                            snapToEdge()
+                        }
                     }
-                    resetHideTimer()
+                    if (isChatOpen || !isPeeking) {
+                        resetHideTimer()
+                    }
                     true
                 }
                 else -> false
@@ -313,6 +399,7 @@ class BubbleService : Service() {
         }
 
         try {
+            windowManager.addView(closeView, closeLayoutParams)
             windowManager.addView(bubbleView, layoutParams)
             updateLandscapeVisibility()
             updateBadgeCount()
@@ -381,10 +468,10 @@ class BubbleService : Service() {
         resetHideTimer()
     }
 
-    private fun peekBubble() {
+    private fun peekBubble(force: Boolean = false) {
         if (isChatOpen || isPeeking) return
         val prefs = getSharedPreferences("bubble_prefs", Context.MODE_PRIVATE)
-        if (!prefs.getBoolean("auto_hide_enabled", false)) return
+        if (!force && !prefs.getBoolean("auto_hide_enabled", false)) return
 
         isPeeking = true
         val displayMetrics = resources.displayMetrics
@@ -506,6 +593,9 @@ class BubbleService : Service() {
         } catch (_: Exception) {}
         bubbleView?.let {
             windowManager.removeView(it)
+        }
+        closeView?.let {
+            try { windowManager.removeView(it) } catch (e: Exception) {}
         }
     }
 }
