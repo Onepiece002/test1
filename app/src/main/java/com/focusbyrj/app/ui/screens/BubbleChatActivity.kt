@@ -563,8 +563,17 @@ fun ChatInterface() {
                         }
                         "/clear" -> {
                             withContext(Dispatchers.Main) {
-                                messages = emptyList()
-                                BubbleChatManager.clearMessages(context)
+                                val welcome = ChatMessage(
+                                    id = "welcome_${System.currentTimeMillis()}",
+                                    text = com.focusbyrj.app.util.AyvaDialogueEngine.getHelloWelcomeMessage(context),
+                                    isUser = false,
+                                    timestamp = System.currentTimeMillis()
+                                )
+                                messages = listOf(welcome)
+                                BubbleChatManager.saveMessages(context, listOf(
+                                    PersistedChatMessage(welcome.id, welcome.text, welcome.isUser, welcome.timestamp)
+                                ))
+                                BubbleChatManager.clearUnread(context)
                             }
                             return@launch
                         }
