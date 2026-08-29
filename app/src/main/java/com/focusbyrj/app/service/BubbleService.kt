@@ -100,6 +100,12 @@ class BubbleService : Service() {
                 ACTION_SETTINGS_CHANGED -> {
                     applyBubbleStyleSettings()
                 }
+                Intent.ACTION_USER_PRESENT, Intent.ACTION_SCREEN_ON -> {
+                    if (!isChatOpen) {
+                        unpeekBubble(animate = false)
+                        resetHideTimer()
+                    }
+                }
             }
         }
     }
@@ -121,6 +127,8 @@ class BubbleService : Service() {
             addAction("com.focusbyrj.app.CHAT_OPENED")
             addAction(BubbleChatManager.ACTION_UNREAD_COUNT_CHANGED)
             addAction(ACTION_SETTINGS_CHANGED)
+            addAction(Intent.ACTION_USER_PRESENT)
+            addAction(Intent.ACTION_SCREEN_ON)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)

@@ -56,6 +56,13 @@ class TaskReminderReceiver : BroadcastReceiver() {
                             TaskReminderHelper.cancelReminderById(appContext, taskId)
                             return@launch
                         }
+
+                        // If the task was rescheduled to a time in the future, stop the current nagging loop.
+                        // (60s buffer to account for minor alarm trigger variances)
+                        if (task.dueDate != null && task.dueDate > System.currentTimeMillis() + 60000L) {
+                            TaskReminderHelper.cancelReminderById(appContext, taskId)
+                            return@launch
+                        }
                         
                         dbTitle = task.title
                         dbDetails = task.details
