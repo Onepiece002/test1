@@ -1,0 +1,29 @@
+--- app/src/main/java/com/focusbyrj/app/util/OfflineNluEngine.kt
++++ app/src/main/java/com/focusbyrj/app/util/OfflineNluEngine.kt
+@@ -10,7 +10,7 @@
+ import java.util.Calendar
+ 
+ enum class NluIntent {
+-    RESCHEDULE, COMPLETE, DELETE, LIST_TASKS, BLOCK_APP, BLOCK_FILTER, UNBLOCK, LIST_ROUTINES, UNKNOWN
++    RESCHEDULE, COMPLETE, DELETE, LIST_TASKS, BLOCK_APP, BLOCK_FILTER, UNBLOCK, LIST_ROUTINES, START_DRILL, SHOW_PROFILE, SHOW_SUMMARY, CLEAR_CHAT, UNKNOWN
+ }
+ 
+ data class NluParsedResult(
+@@ -40,15 +40,24 @@
+         val isBlock = matchesAnyFuzzy(tokens, listOf("block", "lock", "restrict"))
+         val isUnblock = matchesAnyFuzzy(tokens, listOf("unblock", "unlock", "allow"))
+         
+         val isListRoutines = matchesAnyFuzzy(tokens, listOf("list", "show", "what", "display")) && matchesAnyFuzzy(tokens, listOf("routine", "routines", "schedule", "schedules", "timings"))
++        
++        val isStartDrill = matchesAnyFuzzy(tokens, listOf("drill", "math", "arithmetic", "calculate", "test", "quiz"))
++        val isShowProfile = matchesAnyFuzzy(tokens, listOf("profile", "level", "aptitude", "streak", "stats", "statistics", "points", "xp"))
++        val isShowSummary = matchesAnyFuzzy(tokens, listOf("summary", "briefing", "report", "overview", "recap"))
++        val isClearChat = matchesAnyFuzzy(tokens, listOf("clear", "clean", "reset", "wipe")) && matchesAnyFuzzy(tokens, listOf("chat", "messages", "screen", "history", "all"))
+ 
+         return when {
++            isClearChat -> NluIntent.CLEAR_CHAT
++            isStartDrill -> NluIntent.START_DRILL
++            isShowProfile -> NluIntent.SHOW_PROFILE
++            isShowSummary -> NluIntent.SHOW_SUMMARY
+             isListRoutines -> NluIntent.LIST_ROUTINES
+             isBlock -> if (lower.contains("filter") || lower.contains("category")) NluIntent.BLOCK_FILTER else NluIntent.BLOCK_APP

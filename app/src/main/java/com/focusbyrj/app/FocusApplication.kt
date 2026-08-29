@@ -50,7 +50,9 @@ class FocusApplication : Application() {
             FocusDatabase.MIGRATION_4_5,
             FocusDatabase.MIGRATION_1_5,
             FocusDatabase.MIGRATION_5_6,
-            FocusDatabase.MIGRATION_1_6
+            FocusDatabase.MIGRATION_1_6,
+            FocusDatabase.MIGRATION_6_7,
+            FocusDatabase.MIGRATION_1_7
         )
         .fallbackToDestructiveMigrationOnDowngrade()
         .build() 

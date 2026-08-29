@@ -33,10 +33,18 @@ import androidx.compose.material.icons.filled.FormatSize
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.FormatListBulleted
+import androidx.compose.material.icons.filled.Today
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.outlined.AccessTime
 import androidx.compose.material3.*
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Close
+
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -98,7 +106,11 @@ data class ChatMessage(
     val isAptitudeProfile: Boolean = false,
     val isStreakPrompt: Boolean = false,
     val streakPromptJson: String? = null,
-    val isTaskSummary: Boolean = false
+    val isTaskSummary: Boolean = false,
+    val taskSummaryJson: String? = null,
+    val isTalkAction: Boolean = false,
+    val talkActionJson: String? = null,
+    val pendingActionJson: String? = null
 )
 
 class BubbleChatActivity : ComponentActivity() {
@@ -122,7 +134,7 @@ class BubbleChatActivity : ComponentActivity() {
             registerReceiver(closeReceiver, filter)
         }
         
-        sendBroadcast(Intent("com.focusbyrj.app.CHAT_OPENED"))
+
         
         setContent {
             FocusByRjTheme {
@@ -187,10 +199,23 @@ class BubbleChatActivity : ComponentActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        sendBroadcast(Intent("com.focusbyrj.app.CHAT_OPENED"))
+    }
+
+    override fun onPause() {
+        super.onPause()
+        sendBroadcast(Intent("com.focusbyrj.app.CHAT_CLOSED"))
+        if (isFinishing) {
+            // Optional: any specific finish logic
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         unregisterReceiver(closeReceiver)
-        sendBroadcast(Intent("com.focusbyrj.app.CHAT_CLOSED"))
+
     }
 }
 
@@ -219,7 +244,7 @@ fun ChatInterface() {
         }
         mutableStateOf<List<ChatMessage>>(
             initialList.map {
-                ChatMessage(it.id, it.text, it.isUser, it.timestamp, it.isArithmetic, it.arithmeticJson, it.isDrillSummary, it.drillSummaryJson, it.isAptitudeProfile, it.isStreakPrompt, it.streakPromptJson, it.isTaskSummary)
+                ChatMessage(it.id, it.text, it.isUser, it.timestamp, it.isArithmetic, it.arithmeticJson, it.isDrillSummary, it.drillSummaryJson, it.isAptitudeProfile, it.isStreakPrompt, it.streakPromptJson, it.isTaskSummary, it.taskSummaryJson, it.isTalkAction, it.talkActionJson, it.pendingActionJson)
             }
         ) 
     }
@@ -235,14 +260,15 @@ fun ChatInterface() {
 
     val quickActionCommands = remember {
         listOf(
+            QuickActionCommand("/talk", "/talk "),
+            QuickActionCommand("/tasks", "/tasks "),
+            QuickActionCommand("/tasks all", "/tasks all "),
             QuickActionCommand("/summary", "/summary "),
             QuickActionCommand("/drill", "/drill "),
             QuickActionCommand("/clear", "/clear "),
             QuickActionCommand("/priority", "/priority "),
             QuickActionCommand("/reschedule", "/reschedule "),
             QuickActionCommand("/profile", "/profile "),
-            QuickActionCommand("/lock all", "/lock all "),
-            QuickActionCommand("/unlock all", "/unlock all "),
             QuickActionCommand("/postpone all", "/postpone all ")
         )
     }
@@ -270,7 +296,7 @@ fun ChatInterface() {
     
     LaunchedEffect(messages) {
         BubbleChatManager.saveMessages(context, messages.map {
-            PersistedChatMessage(it.id, it.text, it.isUser, it.timestamp, it.isArithmetic, it.arithmeticJson, it.isDrillSummary, it.drillSummaryJson, it.isAptitudeProfile, it.isStreakPrompt, it.streakPromptJson, it.isTaskSummary)
+            PersistedChatMessage(it.id, it.text, it.isUser, it.timestamp, it.isArithmetic, it.arithmeticJson, it.isDrillSummary, it.drillSummaryJson, it.isAptitudeProfile, it.isStreakPrompt, it.streakPromptJson, it.isTaskSummary, it.taskSummaryJson, it.isTalkAction, it.talkActionJson, it.pendingActionJson)
         })
     }
     
@@ -342,9 +368,9 @@ fun ChatInterface() {
         withContext(Dispatchers.IO) {
             val pm = context.packageManager
             val packages = pm.getInstalledApplications(PackageManager.GET_META_DATA)
-            val apps = packages.mapNotNull { 
+            val apps = packages.filter { (it.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) == 0 && it.packageName != context.packageName }.mapNotNull { 
                 val name = pm.getApplicationLabel(it).toString()
-                if (name.isNotBlank() && it.packageName != context.packageName) {
+                if (name.isNotBlank()) {
                     val category = getCategoryForApp(it, it.packageName)
                     AppInfo(name, it.packageName, category)
                 } else null
@@ -360,13 +386,13 @@ fun ChatInterface() {
         
         when {
             parts.size == 1 -> {
-                val available = listOf("/summary", "/drill", "/profile", "/lock", "/unlock", "/priority", "/postpone all", "/reschedule", "/clear", "/block", "/unblock")
+                val available = listOf("/talk", "/tasks", "/tasks all", "/summary", "/summary all", "/drill", "/profile", "/priority", "/postpone all", "/reschedule", "/clear", "/help")
                 available.filter { it.startsWith(cmd) }.map { Suggestion(it, "$it ") }
             }
-            cmd == "/summary" && parts.size == 2 -> {
+            (cmd == "/summary" || cmd == "/tasks" || cmd == "/task") && parts.size == 2 -> {
                 val typed = parts[1].lowercase()
-                val modes = listOf("all")
-                modes.filter { it.startsWith(typed) }.map { Suggestion("all", "/summary all ") }
+                val modes = listOf("all", "today")
+                modes.filter { it.startsWith(typed) }.map { Suggestion("$cmd $it", "$cmd $it ") }
             }
             cmd == "/drill" && parts.size == 2 -> {
                 val typed = parts[1].lowercase()
@@ -398,86 +424,7 @@ fun ChatInterface() {
                     Suggestion(it, "/reschedule $num $it")
                 }
             }
-            cmd == "/lock" -> {
-                val query = parts.drop(1).joinToString(" ").lowercase().trim()
-                val standardFilters = listOf("25", "45", "60", "all", "Social", "Finance", "Shopping", "Games", "Utility", "Others")
-                val customFilters = CustomCategoryManager.getCategories(context).map { it.name }
-                val allFilterOptions = standardFilters + customFilters
-                
-                val matchedFilters = allFilterOptions
-                    .filter { it.lowercase().contains(query) }
-                    .map { Suggestion(it, "$cmd $it ") }
-                
-                val matchedApps = installedApps
-                    .filter { it.name.lowercase().contains(query) }
-                    .take(5)
-                    .map { Suggestion(it.name, "$cmd ${it.name} ") }
-                
-                matchedFilters + matchedApps
-            }
-            cmd == "/unlock" || cmd == "/unblock" -> {
-                val query = parts.drop(1).joinToString(" ").lowercase().trim()
-                
-                val lockedStandardFilters = mutableListOf<String>()
-                if (installedApps.any { it.category == AppCategory.SOCIAL && lockedPackages.contains(it.packageName) }) {
-                    lockedStandardFilters.add("Social")
-                }
-                if (installedApps.any { it.category == AppCategory.PAYMENT && lockedPackages.contains(it.packageName) }) {
-                    lockedStandardFilters.add("Finance")
-                }
-                if (installedApps.any { it.category == AppCategory.SHOPPING && lockedPackages.contains(it.packageName) }) {
-                    lockedStandardFilters.add("Shopping")
-                }
-                if (installedApps.any { it.category == AppCategory.GAMES && lockedPackages.contains(it.packageName) }) {
-                    lockedStandardFilters.add("Games")
-                }
-                if (installedApps.any { it.category == AppCategory.UTILITY && lockedPackages.contains(it.packageName) }) {
-                    lockedStandardFilters.add("Utility")
-                }
-                if (installedApps.any { it.category == AppCategory.OTHERS && lockedPackages.contains(it.packageName) }) {
-                    lockedStandardFilters.add("Others")
-                }
-                
-                val customCats = CustomCategoryManager.getCategories(context)
-                val lockedCustomFilters = customCats.filter { cat ->
-                    cat.packages.any { lockedPackages.contains(it) }
-                }.map { it.name }
-                
-                val lockedFilterOptions = (if (lockedPackages.isNotEmpty()) listOf("all") else emptyList()) + lockedStandardFilters + lockedCustomFilters
-                
-                val matchedFilters = lockedFilterOptions
-                    .filter { it.lowercase().contains(query) }
-                    .map { Suggestion("📁 $it", "$cmd $it ") }
-                
-                val matchedApps = installedApps
-                    .filter { lockedPackages.contains(it.packageName) && it.name.lowercase().contains(query) }
-                    .take(5)
-                    .map { Suggestion("📱 ${it.name}", "$cmd ${it.name} ") }
-                
-                if (matchedFilters.isEmpty() && matchedApps.isEmpty() && lockedPackages.isEmpty()) {
-                    listOf(Suggestion("ℹ️ No apps are currently locked", "$cmd "))
-                } else {
-                    matchedFilters + matchedApps
-                }
-            }
-            cmd == "/block" && parts.size == 2 -> {
-                val typed = parts[1].lowercase()
-                val modes = listOf("Hard", "Soft")
-                val filterMatches = listOf("all", "Social", "Finance", "Shopping", "Games", "Utility", "Others")
-                val customFilters = CustomCategoryManager.getCategories(context).map { it.name }
-                
-                val modeSuggestions = modes.filter { it.lowercase().startsWith(typed) }.map { Suggestion(it, "/block $it ") }
-                val filterSuggestions = (filterMatches + customFilters).filter { it.lowercase().contains(typed) }.map { Suggestion("📁 $it", "/block $it ") }
-                val appSuggestions = installedApps.filter { it.name.lowercase().contains(typed) }.take(5).map { Suggestion("📱 ${it.name}", "/block ${it.name} ") }
-                modeSuggestions + filterSuggestions + appSuggestions
-            }
-            (cmd == "/block" && parts.size >= 3) -> {
-                val query = parts.drop(2).joinToString(" ").lowercase()
-                val appSuggestions = installedApps.filter { it.name.lowercase().contains(query) }.take(5).map { 
-                    Suggestion(it.name, "/block ${parts[1]} ${it.name} ") 
-                }
-                appSuggestions
-            }
+
             else -> emptyList()
         }
     }
@@ -487,25 +434,58 @@ fun ChatInterface() {
         if (inputText.isNotBlank()) SmartDateParser.parse(inputText) else null
     }
 
-    fun sendMessage() {
-        if (inputText.isNotBlank()) {
-            val userMsg = ChatMessage(System.currentTimeMillis().toString(), inputText, true)
+    fun sendMessage(overrideText: String? = null) {
+        val textToSend = (overrideText ?: inputText).trim()
+        if (textToSend.isNotBlank()) {
+            val userMsg = ChatMessage(System.currentTimeMillis().toString(), textToSend, true)
             messages = messages + userMsg
-            val sentText = inputText.trim()
-            val finalTitle = parsedResult?.cleanText?.takeIf { it.isNotBlank() } ?: sentText
+            var sentText = textToSend
+            val finalTitle = parsedResult?.cleanText?.takeIf { it.isNotBlank() && overrideText == null } ?: sentText
             val dueDate = parsedResult?.timestamp ?: System.currentTimeMillis()
             
             val wasPriority = isHighPriority
             val wasPersistent = isPersistent
-            inputTextFieldValue = TextFieldValue("")
-            isHighPriority = false
-            isPersistent = false
+            if (overrideText == null) {
+                inputTextFieldValue = TextFieldValue("")
+                isHighPriority = false
+                isPersistent = false
+            }
             
             coroutineScope.launch(Dispatchers.IO) {
                 val app = context.applicationContext as com.focusbyrj.app.FocusApplication
                 val repo = app.taskRepository
                 val db = app.database
                 
+                if (sentText.lowercase().startsWith("/talk ") || sentText.lowercase().startsWith("/ask ") || sentText.lowercase().startsWith("/guide ")) {
+                    val rawQuery = sentText.substringAfter(" ").trim()
+                    val nluResult = com.focusbyrj.app.util.OfflineNluEngine.parse(rawQuery, pendingTasksList)
+                    when (nluResult.intent) {
+                        com.focusbyrj.app.util.NluIntent.LIST_TASKS -> {
+                            sentText = if (nluResult.isAllTasks) "/tasks all" else "/tasks"
+                        }
+                        com.focusbyrj.app.util.NluIntent.SHOW_PROFILE -> sentText = "/profile"
+                        com.focusbyrj.app.util.NluIntent.SHOW_SUMMARY -> sentText = "/summary"
+                        com.focusbyrj.app.util.NluIntent.START_DRILL -> sentText = "/drill"
+                        com.focusbyrj.app.util.NluIntent.CLEAR_CHAT -> sentText = "/clear"
+                        else -> {}
+                    }
+                }
+                
+                if (!sentText.startsWith("/")) {
+                    val nluResult = com.focusbyrj.app.util.OfflineNluEngine.parse(sentText, pendingTasksList)
+                    when (nluResult.intent) {
+                        com.focusbyrj.app.util.NluIntent.LIST_TASKS -> {
+                            sentText = if (nluResult.isAllTasks) "/tasks all" else "/tasks"
+                        }
+                        com.focusbyrj.app.util.NluIntent.SHOW_PROFILE -> sentText = "/profile"
+                        com.focusbyrj.app.util.NluIntent.SHOW_SUMMARY -> sentText = "/summary"
+                        com.focusbyrj.app.util.NluIntent.START_DRILL -> sentText = "/drill"
+                        com.focusbyrj.app.util.NluIntent.CLEAR_CHAT -> sentText = "/clear"
+                        com.focusbyrj.app.util.NluIntent.UNKNOWN -> {}
+                        else -> sentText = "/talk $sentText"
+                    }
+                }
+
                 if (sentText.startsWith("/")) {
                     val parts = sentText.split(" ")
                     val cmd = parts[0].lowercase()
@@ -561,6 +541,22 @@ fun ChatInterface() {
                             }
                             return@launch
                         }
+                        "/talk", "/guide", "/ask", "/how", "/help", "/faq" -> {
+                            val query = if (parts.size > 1) parts.drop(1).joinToString(" ") else ""
+                            val talkResp = com.focusbyrj.app.util.AyvaTalkEngine.answerTalkQueryWithActions(query, context)
+                            val talkMsg = ChatMessage(
+                                id = "talk_${System.currentTimeMillis()}",
+                                text = talkResp.formattedText,
+                                isUser = false,
+                                isTalkAction = talkResp.actions.isNotEmpty() || (talkResp.jsonPayload?.contains("\"status\":\"pending\"") == false && talkResp.jsonPayload != null),
+                                talkActionJson = if (talkResp.jsonPayload?.contains("\"status\":\"pending\"") == false) talkResp.jsonPayload else null,
+                                pendingActionJson = if (talkResp.jsonPayload?.contains("\"status\":\"pending\"") == true) talkResp.jsonPayload else null
+                            )
+                            withContext(Dispatchers.Main) {
+                                messages = messages + talkMsg
+                            }
+                            return@launch
+                        }
                         "/clear" -> {
                             withContext(Dispatchers.Main) {
                                 val welcome = ChatMessage(
@@ -577,8 +573,27 @@ fun ChatInterface() {
                             }
                             return@launch
                         }
-                        "/summary" -> {
-                            val isAll = parts.getOrNull(1)?.lowercase() == "all"
+                        "/summary", "/tasks", "/task" -> {
+                            val isSummaryCommand = parts[0].lowercase() == "/summary"
+                            val isAll = parts.getOrNull(1)?.lowercase() == "all" && parts.size == 2
+                            
+                            // INTELLIGENCE UPGRADE: If user typed extra words after the command, route to Talk Engine
+                            if (parts.size > 2 || (parts.size == 2 && !isAll)) {
+                                val query = sentText.removePrefix(parts[0]).trim()
+                                val talkResp = com.focusbyrj.app.util.AyvaTalkEngine.answerTalkQueryWithActions(query, context)
+                                val talkMsg = ChatMessage(
+                                    id = "talk_${System.currentTimeMillis()}",
+                                    text = talkResp.formattedText,
+                                    isUser = false,
+                                    isTalkAction = talkResp.actions.isNotEmpty() || (talkResp.jsonPayload?.contains("\"status\":\"pending\"") == false && talkResp.jsonPayload != null),
+                                talkActionJson = if (talkResp.jsonPayload?.contains("\"status\":\"pending\"") == false) talkResp.jsonPayload else null,
+                                pendingActionJson = if (talkResp.jsonPayload?.contains("\"status\":\"pending\"") == true) talkResp.jsonPayload else null
+                                )
+                                withContext(Dispatchers.Main) {
+                                    messages = messages + talkMsg
+                                }
+                                return@launch
+                            }
                             
                             val now = System.currentTimeMillis()
                             val startOfDay = java.util.Calendar.getInstance().apply {
@@ -605,12 +620,21 @@ fun ChatInterface() {
                             val overdueCount = targetTasks.count { it.dueDate != null && it.dueDate < now }
                             val sortedTasks = targetTasks.sortedWith(compareByDescending<com.focusbyrj.app.data.Task> { it.isPriority }.thenBy { it.dueDate ?: Long.MAX_VALUE })
                             
-                            withContext(Dispatchers.Main) {
-                                lastSummaryTasks = sortedTasks
+                            val taskJsonArray = org.json.JSONArray()
+                            sortedTasks.forEach { t ->
+                                val obj = org.json.JSONObject().apply {
+                                    put("id", t.id)
+                                    put("title", t.title)
+                                    put("isPriority", t.isPriority)
+                                    put("dueDate", t.dueDate ?: 0L)
+                                    put("isCompleted", t.isCompleted)
+                                    put("isPersistent", t.isPersistent)
+                                    put("filterMode", if (isAll) "all" else "today")
+                                }
+                                taskJsonArray.put(obj)
                             }
                             
                             val builder = StringBuilder()
-                            
                             val cal = java.util.Calendar.getInstance()
                             val hour = cal.get(java.util.Calendar.HOUR_OF_DAY)
                             val dayOfWeek = cal.get(java.util.Calendar.DAY_OF_WEEK)
@@ -672,7 +696,19 @@ fun ChatInterface() {
                                 builder.append("\n\n").append(com.focusbyrj.app.util.AyvaDialogueEngine.getReschedulePrompt(context))
                             }
                             
-                            replyMsg = builder.toString().trimEnd()
+                            val summaryResponse = ChatMessage(
+                                id = "summary_${System.currentTimeMillis()}",
+                                text = builder.toString().trimEnd(),
+                                isUser = false,
+                                isTaskSummary = !isSummaryCommand,
+                                taskSummaryJson = if (isSummaryCommand) null else taskJsonArray.toString()
+                            )
+                            
+                            withContext(Dispatchers.Main) {
+                                lastSummaryTasks = sortedTasks
+                                messages = messages + summaryResponse
+                            }
+                            return@launch
                         }
                         "/reschedule" -> {
                             val numStr = parts.getOrNull(1)
@@ -733,130 +769,6 @@ fun ChatInterface() {
                                 replyMsg = com.focusbyrj.app.util.AyvaDialogueEngine.getPostponeAllResponse(context, tasks.size)
                             }
                         }
-                        "/lock", "/block" -> {
-                            val isExplicitMode = parts.size >= 3 && (parts[1].equals("Hard", true) || parts[1].equals("Soft", true))
-                            val mode = if (isExplicitMode) parts[1].uppercase() else "HARD"
-                            val rawArg = if (isExplicitMode) parts.drop(2).joinToString(" ").trim() else parts.drop(1).joinToString(" ").trim()
-
-                            if (rawArg.isEmpty()) {
-                                val customCats = CustomCategoryManager.getCategories(context)
-                                val customNames = if (customCats.isNotEmpty()) ", " + customCats.joinToString(", ") { it.name } else ""
-                                replyMsg = "Usage: /lock <Filter/App/Duration>\nExamples: `/lock 25`, `/lock all`, `/lock Social`, `/lock Games`"
-                            } else if (rawArg.toIntOrNull() != null) {
-                                val minutes = rawArg.toInt()
-                                val targetApps = installedApps.filter { 
-                                    it.category == AppCategory.SOCIAL || it.category == AppCategory.GAMES || it.category == AppCategory.SHOPPING 
-                                }.ifEmpty { installedApps }
-                                val restrictions = targetApps.map {
-                                    AppRestriction(it.packageName, it.name, isRestricted = true, mode = mode, restrictionMode = "SIMPLE")
-                                }
-                                db.appRestrictionDao().insertRestrictions(restrictions)
-                                replyMsg = "🔒 *__Focus Guard Active ($minutes min)__*\n_Locked ${targetApps.size} distracting apps for $minutes minutes._"
-                            } else if (rawArg.equals("all", ignoreCase = true)) {
-                                val targetApps = installedApps
-                                val restrictions = targetApps.map {
-                                    AppRestriction(it.packageName, it.name, isRestricted = true, mode = mode, restrictionMode = "SIMPLE")
-                                }
-                                db.appRestrictionDao().insertRestrictions(restrictions)
-                                replyMsg = "🔒 *__Lock Protocol Active__*\n_All applications (${targetApps.size} apps) have been locked._"
-                            } else {
-                                val matchedStandardCat = when (rawArg.lowercase()) {
-                                    "social" -> AppCategory.SOCIAL
-                                    "finance", "finances", "payment" -> AppCategory.PAYMENT
-                                    "shopping" -> AppCategory.SHOPPING
-                                    "games", "game" -> AppCategory.GAMES
-                                    "utility", "utilities" -> AppCategory.UTILITY
-                                    "others", "other" -> AppCategory.OTHERS
-                                    else -> null
-                                }
-
-                                val customCats = CustomCategoryManager.getCategories(context)
-                                val matchedCustomCat = customCats.find { it.name.equals(rawArg, ignoreCase = true) }
-                                val matchedApp = installedApps.find { it.name.equals(rawArg, ignoreCase = true) }
-
-                                if (matchedStandardCat != null) {
-                                    val targetApps = installedApps.filter { it.category == matchedStandardCat }
-                                    if (targetApps.isEmpty()) {
-                                        replyMsg = "⚠️ _No applications found under '${matchedStandardCat.title}' category._"
-                                    } else {
-                                        val restrictions = targetApps.map {
-                                            AppRestriction(it.packageName, it.name, isRestricted = true, mode = mode, restrictionMode = "SIMPLE")
-                                        }
-                                        db.appRestrictionDao().insertRestrictions(restrictions)
-                                        replyMsg = "🔒 *__Lock Protocol Active__*\n_Locked all ${matchedStandardCat.title} apps (${targetApps.size} apps)._"
-                                    }
-                                } else if (matchedCustomCat != null) {
-                                    val targetApps = installedApps.filter { matchedCustomCat.packages.contains(it.packageName) }
-                                    if (targetApps.isEmpty()) {
-                                        replyMsg = "⚠️ _No apps currently assigned to custom filter '${matchedCustomCat.name}'._"
-                                    } else {
-                                        val restrictions = targetApps.map {
-                                            AppRestriction(it.packageName, it.name, isRestricted = true, mode = mode, restrictionMode = "SIMPLE")
-                                        }
-                                        db.appRestrictionDao().insertRestrictions(restrictions)
-                                        replyMsg = "🔒 *__Lock Protocol Active__*\n_Locked all apps in '${matchedCustomCat.name}' filter (${targetApps.size} apps)._"
-                                    }
-                                } else if (matchedApp != null) {
-                                    db.appRestrictionDao().insertRestriction(
-                                        AppRestriction(matchedApp.packageName, matchedApp.name, isRestricted = true, mode = mode, restrictionMode = "SIMPLE")
-                                    )
-                                    replyMsg = "🔒 *__Lock Protocol Active__*\n_Locked ${matchedApp.name} [$mode]._ "
-                                } else {
-                                    val customNames = if (customCats.isNotEmpty()) ", " + customCats.joinToString(", ") { it.name } else ""
-                                    replyMsg = "⚠️ _System could not find filter or app '$rawArg'._\n_Available filters: all, Social, Finance, Shopping, Games, Utility, Others$customNames._"
-                                }
-                            }
-                        }
-                        "/unlock", "/unblock" -> {
-                            val rawArg = parts.drop(1).joinToString(" ").trim()
-
-                            if (rawArg.isEmpty()) {
-                                val customCats = CustomCategoryManager.getCategories(context)
-                                val customNames = if (customCats.isNotEmpty()) ", " + customCats.joinToString(", ") { it.name } else ""
-                                replyMsg = "Usage: /unlock <Filter/App>\nAvailable filters: all, Social, Finance, Shopping, Games, Utility, Others$customNames"
-                            } else if (rawArg.equals("all", ignoreCase = true)) {
-                                db.appRestrictionDao().deleteAllRestrictions()
-                                replyMsg = "🔓 *__Lock Protocol Lifted__*\n_All applications have been unlocked._"
-                            } else {
-                                val matchedStandardCat = when (rawArg.lowercase()) {
-                                    "social" -> AppCategory.SOCIAL
-                                    "finance", "finances", "payment" -> AppCategory.PAYMENT
-                                    "shopping" -> AppCategory.SHOPPING
-                                    "games", "game" -> AppCategory.GAMES
-                                    "utility", "utilities" -> AppCategory.UTILITY
-                                    "others", "other" -> AppCategory.OTHERS
-                                    else -> null
-                                }
-
-                                val customCats = CustomCategoryManager.getCategories(context)
-                                val matchedCustomCat = customCats.find { it.name.equals(rawArg, ignoreCase = true) }
-                                val matchedApp = installedApps.find { it.name.equals(rawArg, ignoreCase = true) }
-
-                                if (matchedStandardCat != null) {
-                                    val targetApps = installedApps.filter { it.category == matchedStandardCat }
-                                    if (targetApps.isEmpty()) {
-                                        replyMsg = "⚠️ _No applications found under '${matchedStandardCat.title}' category._"
-                                    } else {
-                                        db.appRestrictionDao().deleteRestrictions(targetApps.map { it.packageName })
-                                        replyMsg = "🔓 *__Lock Protocol Lifted__*\n_Unlocked all ${matchedStandardCat.title} apps (${targetApps.size} apps)._"
-                                    }
-                                } else if (matchedCustomCat != null) {
-                                    val targetPkgs = matchedCustomCat.packages.toList()
-                                    if (targetPkgs.isEmpty()) {
-                                        replyMsg = "⚠️ _No apps configured in '${matchedCustomCat.name}' filter._"
-                                    } else {
-                                        db.appRestrictionDao().deleteRestrictions(targetPkgs)
-                                        replyMsg = "🔓 *__Lock Protocol Lifted__*\n_Unlocked all apps in '${matchedCustomCat.name}' filter (${targetPkgs.size} apps)._"
-                                    }
-                                } else if (matchedApp != null) {
-                                    db.appRestrictionDao().deleteRestriction(matchedApp.packageName)
-                                    replyMsg = "🔓 *__Lock Protocol Lifted__*\n_Unlocked ${matchedApp.name}._"
-                                } else {
-                                    val customNames = if (customCats.isNotEmpty()) ", " + customCats.joinToString(", ") { it.name } else ""
-                                    replyMsg = "⚠️ _System could not find filter or app '$rawArg'._\n_Available filters: all, Social, Finance, Shopping, Games, Utility, Others$customNames._"
-                                }
-                            }
-                        }
                     }
                     val isSummaryCmd = parts.firstOrNull()?.equals("/summary", ignoreCase = true) == true
                     withContext(Dispatchers.Main) {
@@ -868,6 +780,31 @@ fun ChatInterface() {
                         )
                     }
                     return@launch
+                }
+                
+                // INTELLIGENCE UPGRADE: Natural language intent interception
+                val lowerSent = sentText.lowercase()
+                val isLikelyTalkIntent = lowerSent.startsWith("set ") || lowerSent.startsWith("change ") ||
+                                         lowerSent.startsWith("why ") || lowerSent.startsWith("how ") || 
+                                         lowerSent.startsWith("what is ") || lowerSent.startsWith("disable ") ||
+                                         lowerSent.startsWith("enable ") || lowerSent.startsWith("turn on ") || lowerSent.startsWith("turn off ")
+                
+                if (isLikelyTalkIntent) {
+                    val talkResp = com.focusbyrj.app.util.AyvaTalkEngine.answerTalkQueryWithActions(sentText, context)
+                    if (!talkResp.formattedText.contains("🤔 I couldn't find") && !talkResp.formattedText.contains("Ask me any question")) {
+                        val talkMsg = ChatMessage(
+                            id = "talk_${System.currentTimeMillis()}",
+                            text = talkResp.formattedText,
+                            isUser = false,
+                            isTalkAction = talkResp.actions.isNotEmpty() || (talkResp.jsonPayload?.contains("\"status\":\"pending\"") == false && talkResp.jsonPayload != null),
+                                talkActionJson = if (talkResp.jsonPayload?.contains("\"status\":\"pending\"") == false) talkResp.jsonPayload else null,
+                                pendingActionJson = if (talkResp.jsonPayload?.contains("\"status\":\"pending\"") == true) talkResp.jsonPayload else null
+                        )
+                        withContext(Dispatchers.Main) {
+                            messages = messages + talkMsg
+                        }
+                        return@launch
+                    }
                 }
                 
                 val newTask = Task(
@@ -1028,6 +965,14 @@ fun ChatInterface() {
                         fontSizeSp = chatFontSizeSp,
                         isActiveDrill = isActiveDrill,
                         isActiveDrillRunning = activeDrillSession != null,
+                        onMessageUpdate = { updatedMsg ->
+                            val idx = messages.indexOfFirst { it.id == updatedMsg.id }
+                            if (idx != -1) {
+                                val newList = messages.toMutableList()
+                                newList[idx] = updatedMsg
+                                messages = newList
+                            }
+                        },
                         onStartStreakDrill = {
                             if (activeDrillSession == null) {
                                 val aptProfile = com.focusbyrj.app.util.AptitudeManager.profileFlow.value
@@ -1122,6 +1067,57 @@ fun ChatInterface() {
                                 text = rep,
                                 selection = TextRange(rep.length)
                             )
+                        },
+                        onTaskToggle = { taskId ->
+                            coroutineScope.launch(Dispatchers.IO) {
+                                val app = context.applicationContext as com.focusbyrj.app.FocusApplication
+                                val repo = app.taskRepository
+                                val task = repo.getTaskById(taskId)
+                                if (task != null) {
+                                    val newCompleted = !task.isCompleted
+                                    val updatedTask = task.copy(
+                                        isCompleted = newCompleted,
+                                        completedAt = if (newCompleted) System.currentTimeMillis() else null
+                                    )
+                                    repo.updateTask(updatedTask)
+                                    if (newCompleted) {
+                                        TaskReminderHelper.cancelReminderById(context, taskId)
+                                    } else if (updatedTask.dueDate != null) {
+                                        TaskReminderHelper.scheduleReminder(context, updatedTask)
+                                    }
+                                    TodoWidgetProvider.updateAllWidgets(context)
+                                    
+                                    withContext(Dispatchers.Main) {
+                                        messages = messages.map { m ->
+                                            if (m.taskSummaryJson != null) {
+                                                try {
+                                                    val arr = org.json.JSONArray(m.taskSummaryJson)
+                                                    val newArr = org.json.JSONArray()
+                                                    for (i in 0 until arr.length()) {
+                                                        val item = arr.getJSONObject(i)
+                                                        if (item.optLong("id") == taskId) {
+                                                            item.put("isCompleted", newCompleted)
+                                                        }
+                                                        newArr.put(item)
+                                                    }
+                                                    m.copy(taskSummaryJson = newArr.toString())
+                                                } catch (e: Exception) { m }
+                                            } else m
+                                        }
+                                        if (newCompleted) {
+                                            val ackMsg = ChatMessage(
+                                                id = "done_${System.currentTimeMillis()}",
+                                                text = "Checked off: *${task.title}* 🎉",
+                                                isUser = false
+                                            )
+                                            messages = messages + ackMsg
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        onFilterChange = { cmd ->
+                            sendMessage(cmd)
                         }
                     )
                     Spacer(modifier = Modifier.height(8.dp))
@@ -1500,7 +1496,11 @@ fun ChatBubble(
     onDrillAnswer: ((Boolean) -> Unit)? = null,
     onDrillEnd: (() -> Unit)? = null,
     onStartStreakDrill: (() -> Unit)? = null,
-    onRescheduleClick: (() -> Unit)? = null
+    onRescheduleClick: (() -> Unit)? = null,
+    onTaskToggle: ((Long) -> Unit)? = null,
+    onFilterChange: ((String) -> Unit)? = null,
+    onNavigateSummary: (() -> Unit)? = null,
+    onMessageUpdate: (ChatMessage) -> Unit = {}
 ) {
     if (message.isStreakPrompt) {
         StreakPromptCard(
@@ -1517,6 +1517,16 @@ fun ChatBubble(
     }
     if (message.isAptitudeProfile) {
         com.focusbyrj.app.ui.screens.AptitudeProfileCard()
+        return
+    }
+    if (message.isTaskSummary && !message.isUser) {
+        TaskSummaryCard(
+            message = message,
+            fontSizeSp = fontSizeSp,
+            onTaskToggle = onTaskToggle,
+            onRescheduleClick = onRescheduleClick,
+            onFilterChange = onFilterChange
+        )
         return
     }
 
@@ -1587,37 +1597,19 @@ fun ChatBubble(
                             )
                         )
 
-                        if (message.isTaskSummary && !message.isUser) {
-                            Spacer(modifier = Modifier.height(10.dp))
-                            androidx.compose.material3.Surface(
-                                onClick = { onRescheduleClick?.invoke() },
-                                shape = RoundedCornerShape(10.dp),
-                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Schedule,
-                                        contentDescription = "Reschedule a Task",
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(15.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = "Reschedule a Task",
-                                        style = MaterialTheme.typography.labelMedium.copy(
-                                            fontWeight = FontWeight.SemiBold,
-                                            fontSize = (fontSizeSp * 0.85f).sp
-                                        ),
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                            }
+                        if (message.isTalkAction && !message.talkActionJson.isNullOrBlank()) {
+                            com.focusbyrj.app.ui.components.TalkActionChips(
+                                talkActionJson = message.talkActionJson,
+                                fontSizeSp = fontSizeSp
+                            )
+                        }
+                        
+                        if (!message.pendingActionJson.isNullOrBlank()) {
+                            PendingActionCard(
+                                message = message,
+                                fontSizeSp = fontSizeSp,
+                                onMessageUpdate = onMessageUpdate
+                            )
                         }
                     }
                 }
@@ -1635,6 +1627,390 @@ fun ChatBubble(
                 start = if (message.isUser) 0.dp else 40.dp, 
                 end = if (message.isUser) 4.dp else 0.dp
             )
+        )
+    }
+}
+
+data class TaskItemData(
+    val id: Long,
+    val title: String,
+    val isPriority: Boolean,
+    val dueDate: Long,
+    val isCompleted: Boolean,
+    val isPersistent: Boolean = false,
+    val filterMode: String = "today"
+)
+
+@Composable
+fun TaskSummaryCard(
+    message: ChatMessage,
+    fontSizeSp: Float = 15f,
+    onTaskToggle: ((Long) -> Unit)? = null,
+    onRescheduleClick: (() -> Unit)? = null,
+    onFilterChange: ((String) -> Unit)? = null
+) {
+    val isDark = isSystemInDarkTheme()
+    val df = remember { SimpleDateFormat("hh:mm a", Locale.getDefault()) }
+    val timeString = df.format(Date(message.timestamp))
+    val maxBubbleWidth = (300 + (fontSizeSp - 15f) * 12f).coerceIn(300f, 380f).dp
+
+    var showFilterDropdown by remember { mutableStateOf(false) }
+
+    val taskItems = remember(message.taskSummaryJson) {
+        val list = mutableListOf<TaskItemData>()
+        if (!message.taskSummaryJson.isNullOrBlank()) {
+            try {
+                val arr = org.json.JSONArray(message.taskSummaryJson)
+                for (i in 0 until arr.length()) {
+                    val obj = arr.getJSONObject(i)
+                    list.add(
+                        TaskItemData(
+                            id = obj.optLong("id"),
+                            title = obj.optString("title", ""),
+                            isPriority = obj.optBoolean("isPriority", false),
+                            dueDate = obj.optLong("dueDate", 0L),
+                            isCompleted = obj.optBoolean("isCompleted", false),
+                            isPersistent = obj.optBoolean("isPersistent", false),
+                            filterMode = obj.optString("filterMode", "today")
+                        )
+                    )
+                }
+            } catch (_: Exception) {}
+        }
+        list
+    }
+
+    val isAllMode = taskItems.firstOrNull()?.filterMode == "all"
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        horizontalAlignment = Alignment.Start
+    ) {
+        Row(
+            verticalAlignment = Alignment.Bottom,
+            horizontalArrangement = Arrangement.Start
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black)
+                    .border(1.dp, Color(0x33FFFFFF), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                androidx.compose.foundation.Image(
+                    painter = androidx.compose.ui.res.painterResource(id = com.focusbyrj.app.R.drawable.ic_app_logo),
+                    contentDescription = "Ayva",
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Surface(
+                modifier = Modifier.widthIn(max = maxBubbleWidth),
+                shape = RoundedCornerShape(
+                    topStart = 20.dp,
+                    topEnd = 20.dp,
+                    bottomStart = 4.dp,
+                    bottomEnd = 20.dp
+                ),
+                color = if (isDark) Color(0xFF131316) else Color(0xFFF8FAFC),
+                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = if (isDark) 0.1f else 0.25f)),
+                shadowElevation = 4.dp
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    // Header Bar with Filter Dropdown
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = if (isAllMode) "All Tasks" else "Today's Tasks",
+                                style = MaterialTheme.typography.titleSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = (fontSizeSp * 0.95f).sp
+                                ),
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            if (taskItems.isNotEmpty()) {
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                                ) {
+                                    val leftCount = taskItems.count { !it.isCompleted }
+                                    Text(
+                                        text = "$leftCount left",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Bold
+                                        ),
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        // Dropdown Selector Button
+                        Box {
+                            Surface(
+                                onClick = { showFilterDropdown = true },
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (isDark) Color(0xFF1C1C20) else MaterialTheme.colorScheme.surface,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = if (isAllMode) "All" else "Today",
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Spacer(modifier = Modifier.width(2.dp))
+                                    Icon(
+                                        imageVector = Icons.Filled.ArrowDropDown,
+                                        contentDescription = "Select task view",
+                                        modifier = Modifier.size(14.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+
+                            DropdownMenu(
+                                expanded = showFilterDropdown,
+                                onDismissRequest = { showFilterDropdown = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Today's Tasks") },
+                                    onClick = {
+                                        showFilterDropdown = false
+                                        onFilterChange?.invoke("/tasks")
+                                    },
+                                    leadingIcon = {
+                                        Icon(Icons.Filled.Today, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("All Tasks") },
+                                    onClick = {
+                                        showFilterDropdown = false
+                                        onFilterChange?.invoke("/tasks all")
+                                    },
+                                    leadingIcon = {
+                                        Icon(Icons.Filled.FormatListBulleted, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Clean Task Items List or Empty State
+                    if (taskItems.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 12.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = if (isAllMode) "No tasks found" else "No tasks scheduled for today",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontSize = (fontSizeSp * 0.95f).sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                                )
+                            )
+                        }
+                    } else {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            taskItems.forEach { task ->
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = if (isDark) Color(0xFF131B26) else Color.White,
+                                    border = androidx.compose.foundation.BorderStroke(
+                                        1.dp,
+                                        if (task.isPriority && !task.isCompleted) Color(0xFFEF4444).copy(alpha = 0.3f) else MaterialTheme.colorScheme.outline.copy(alpha = if(isDark) 0.1f else 0.18f)
+                                    ),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { onTaskToggle?.invoke(task.id) }
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        // Clickable Circle Checkbox
+                                        Box(
+                                            modifier = Modifier
+                                                .size(22.dp)
+                                                .clip(CircleShape)
+                                                .background(
+                                                    if (task.isCompleted) MaterialTheme.colorScheme.primary else Color.Transparent
+                                                )
+                                                .border(
+                                                    width = 2.dp,
+                                                    color = when {
+                                                        task.isCompleted -> MaterialTheme.colorScheme.primary
+                                                        task.isPriority -> Color(0xFFEF4444).copy(alpha = 0.7f)
+                                                        else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+                                                    },
+                                                    shape = CircleShape
+                                                ),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            if (task.isCompleted) {
+                                                Icon(
+                                                    imageVector = Icons.Filled.Check,
+                                                    contentDescription = "Completed",
+                                                    tint = MaterialTheme.colorScheme.onPrimary,
+                                                    modifier = Modifier.size(14.dp)
+                                                )
+                                            }
+                                        }
+
+                                        Spacer(modifier = Modifier.width(12.dp))
+
+                                        // Task details
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text(
+                                                    text = task.title,
+                                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                                        fontSize = (fontSizeSp * 0.95f).sp,
+                                                        fontWeight = if (task.isPriority && !task.isCompleted) FontWeight.Bold else FontWeight.SemiBold,
+                                                        textDecoration = if (task.isCompleted) TextDecoration.LineThrough else TextDecoration.None
+                                                    ),
+                                                    color = if (task.isCompleted) {
+                                                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                                    } else if (task.isPriority) {
+                                                        Color(0xFFEF4444)
+                                                    } else {
+                                                        MaterialTheme.colorScheme.onSurface
+                                                    }
+                                                )
+                                            }
+
+                                            if (task.dueDate > 0L) {
+                                                val now = System.currentTimeMillis()
+                                                val isOverdue = task.dueDate < now && !task.isCompleted
+                                                Spacer(modifier = Modifier.height(2.dp))
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Icon(
+                                                        imageVector = Icons.Outlined.AccessTime,
+                                                        contentDescription = null,
+                                                        modifier = Modifier.size(11.dp),
+                                                        tint = if (isOverdue) Color(0xFFEF4444) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                                    )
+                                                    Spacer(modifier = Modifier.width(4.dp))
+                                                    Text(
+                                                        text = if (isOverdue) "Overdue: ${SmartDateParser.formatDueDate(task.dueDate)}" else SmartDateParser.formatDueDate(task.dueDate),
+                                                        style = MaterialTheme.typography.labelSmall.copy(
+                                                            fontSize = 11.sp,
+                                                            fontWeight = if (isOverdue) FontWeight.Bold else FontWeight.Medium
+                                                        ),
+                                                        color = if (isOverdue) Color(0xFFEF4444) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Bottom action row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Surface(
+                            onClick = { onRescheduleClick?.invoke() },
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = if(isDark) 0.1f else 0.08f),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = if(isDark) 0.3f else 0.25f)),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 7.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.AccessTime,
+                                    contentDescription = "Reschedule",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "Reschedule",
+                                    style = MaterialTheme.typography.labelMedium.copy(
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = (fontSizeSp * 0.8f).sp
+                                    ),
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+
+                        Surface(
+                            onClick = { onFilterChange?.invoke(if (isAllMode) "/tasks" else "/tasks all") },
+                            shape = RoundedCornerShape(10.dp),
+                            color = if(isDark) Color(0xFF1C1C20) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = if(isDark) 0.2f else 0.2f)),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 7.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = if (isAllMode) Icons.Filled.Today else Icons.Filled.FormatListBulleted,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = if (isAllMode) "Show Today" else "Show All",
+                                    style = MaterialTheme.typography.labelMedium.copy(
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = (fontSizeSp * 0.8f).sp
+                                    ),
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Text(
+            text = timeString,
+            style = MaterialTheme.typography.labelSmall.copy(
+                fontSize = (fontSizeSp * 0.72f).coerceIn(10f, 14f).sp,
+                fontWeight = FontWeight.Medium
+            ),
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+            modifier = Modifier.padding(top = 4.dp, start = 40.dp)
         )
     }
 }
@@ -1889,29 +2265,94 @@ class CommandVisualTransformation : VisualTransformation {
             }
             if (parts.size > 1) {
                 builder.append(" ")
-                val arg1 = parts[1]
-                if ((cmd == "/block" || cmd == "/lock") && (arg1.equals("Hard", true) || arg1.equals("Soft", true))) {
-                    builder.withStyle(SpanStyle(color = androidx.compose.ui.graphics.Color(0xFF10B981), fontWeight = FontWeight.SemiBold)) {
-                        builder.append(arg1)
-                    }
-                } else if (cmd == "/lock" || cmd == "/unlock" || cmd == "/block" || cmd == "/unblock") {
-                    builder.withStyle(SpanStyle(color = androidx.compose.ui.graphics.Color(0xFF10B981), fontWeight = FontWeight.SemiBold)) {
-                        builder.append(arg1)
-                    }
-                } else {
-                    builder.append(arg1)
-                }
-                
-                if (parts.size > 2) {
-                    builder.append(" ")
-                    builder.withStyle(SpanStyle(color = androidx.compose.ui.graphics.Color(0xFF8B5CF6))) {
-                        append(parts[2])
-                    }
-                }
+                builder.append(parts.drop(1).joinToString(" "))
             }
         } else {
             builder.append(input)
         }
         return TransformedText(builder.toAnnotatedString(), OffsetMapping.Identity)
+    }
+}
+
+@Composable
+fun PendingActionCard(message: ChatMessage, fontSizeSp: Float, onMessageUpdate: (ChatMessage) -> Unit) {
+    val context = LocalContext.current
+    val json = remember(message.pendingActionJson) { org.json.JSONObject(message.pendingActionJson) }
+    val status = json.optString("status", "pending")
+    val title = json.optString("title", "")
+    val displayVal = json.optString("displayVal", "")
+    
+    Spacer(modifier = Modifier.height(12.dp))
+    
+    if (status == "pending") {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            androidx.compose.material3.Button(
+                onClick = {
+                    val prefKey = json.optString("prefKey")
+                    val prefType = json.optString("prefType")
+                    val value = json.optString("value")
+                    
+                    val prefs = context.getSharedPreferences("focus_prefs", Context.MODE_PRIVATE).edit()
+                    val bubblePrefs = context.getSharedPreferences("bubble_prefs", Context.MODE_PRIVATE).edit()
+                    
+                    if (prefType == "int") {
+                        prefs.putInt(prefKey, value.toIntOrNull() ?: 0)
+                        bubblePrefs.putInt(prefKey, value.toIntOrNull() ?: 0)
+                    } else if (prefType == "boolean") {
+                        prefs.putBoolean(prefKey, value == "true")
+                        bubblePrefs.putBoolean(prefKey, value == "true")
+                    } else if (prefType == "string") {
+                        prefs.putString(prefKey, value)
+                        bubblePrefs.putString(prefKey, value)
+                    }
+                    prefs.apply()
+                    bubblePrefs.apply()
+                    
+                    if (prefKey == "streak_notification_time" || prefKey == "streak_notification_enabled") {
+                        com.focusbyrj.app.service.AptitudeReminderReceiver.scheduleDrillReminders(context)
+                    } else if (prefKey == "morning_brief_time" || prefKey == "evening_brief_time") {
+                        com.focusbyrj.app.service.DailySummaryReceiver.scheduleDailySummaries(context)
+                    }
+                    
+                    json.put("status", "executed")
+                    val updatedMessage = message.copy(pendingActionJson = json.toString())
+                    
+                    onMessageUpdate(updatedMessage)
+                },
+                modifier = Modifier.weight(1f),
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = androidx.compose.ui.graphics.Color(0xFF10B981)),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 8.dp)
+            ) {
+                Text("Yes, proceed", fontSize = (fontSizeSp * 0.9f).sp, fontWeight = FontWeight.SemiBold)
+            }
+            
+            androidx.compose.material3.OutlinedButton(
+                onClick = {
+                    json.put("status", "cancelled")
+                    val updatedMessage = message.copy(pendingActionJson = json.toString())
+                    
+                    onMessageUpdate(updatedMessage)
+                },
+                modifier = Modifier.weight(1f),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 8.dp)
+            ) {
+                Text("Cancel", fontSize = (fontSizeSp * 0.9f).sp, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    } else if (status == "executed") {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().background(androidx.compose.ui.graphics.Color(0xFF10B981).copy(alpha = 0.1f), RoundedCornerShape(8.dp)).padding(12.dp)) {
+            Icon(Icons.Rounded.CheckCircle, contentDescription = "Done", tint = androidx.compose.ui.graphics.Color(0xFF10B981), modifier = Modifier.size(18.dp))
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Changed successfully.", color = androidx.compose.ui.graphics.Color(0xFF10B981), fontSize = (fontSizeSp * 0.9f).sp, fontWeight = FontWeight.Medium)
+        }
+    } else {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().background(androidx.compose.material3.MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(8.dp)).padding(12.dp)) {
+            Icon(Icons.Rounded.Close, contentDescription = "Cancelled", tint = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Action cancelled.", color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant, fontSize = (fontSizeSp * 0.9f).sp, fontWeight = FontWeight.Medium)
+        }
     }
 }

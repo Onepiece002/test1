@@ -203,6 +203,7 @@ class FocusBlockerService : Service() {
         val currentlyActive = mutableMapOf<String, com.focusbyrj.app.data.FocusSchedule>()
         
         for (schedule in schedules) {
+            if (!schedule.isEnabled) continue
             val activeDays = schedule.daysOfWeek.split(",")
             if (activeDays.contains(currentDay.toString())) {
                 val startTotalMinutes = schedule.startHour * 60 + schedule.startMinute

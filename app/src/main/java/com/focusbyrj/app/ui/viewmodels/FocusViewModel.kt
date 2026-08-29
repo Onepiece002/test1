@@ -53,6 +53,7 @@ class FocusViewModel(private val repository: AppRepository, application: Applica
         val currentTotalMinutes = currentHour * 60 + currentMinute
 
         for (s in scheds) {
+            if (!s.isEnabled) continue
             val activeDays = s.daysOfWeek.split(",")
             val isActiveNow = if (activeDays.contains(currentDay.toString())) {
                 val startTotalMinutes = s.startHour * 60 + s.startMinute
@@ -119,7 +120,8 @@ class FocusViewModel(private val repository: AppRepository, application: Applica
         appsToBlock: String,
         restrictionMode: String = "SIMPLE",
         timeLimitMinutes: Int = 0,
-        clickLimitCount: Int = 0
+        clickLimitCount: Int = 0,
+        isEnabled: Boolean = true
     ) {
         viewModelScope.launch {
             repository.insertSchedule(
@@ -134,13 +136,18 @@ class FocusViewModel(private val repository: AppRepository, application: Applica
                     appsToBlock = appsToBlock,
                     restrictionMode = restrictionMode,
                     timeLimitMinutes = timeLimitMinutes,
-                    clickLimitCount = clickLimitCount
+                    clickLimitCount = clickLimitCount,
+                    isEnabled = isEnabled
                 )
             )
             com.focusbyrj.app.util.FocusStatsManager.addRoutineActivity(getApplication(), 15L)
         }
     }
     
+    fun toggleSchedule(schedule: FocusSchedule) {
+        updateSchedule(schedule.copy(isEnabled = !schedule.isEnabled))
+    }
+
     fun updateSchedule(schedule: FocusSchedule) {
         viewModelScope.launch {
             repository.insertSchedule(schedule)

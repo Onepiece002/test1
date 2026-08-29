@@ -22,7 +22,7 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [AppRestriction::class, FocusSchedule::class, Task::class], version = 6, exportSchema = false)
+@Database(entities = [AppRestriction::class, FocusSchedule::class, Task::class], version = 7, exportSchema = false)
 abstract class FocusDatabase : RoomDatabase() {
     abstract fun appRestrictionDao(): AppRestrictionDao
     abstract fun scheduleDao(): ScheduleDao
@@ -122,6 +122,19 @@ abstract class FocusDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 MIGRATION_1_5.migrate(db)
                 MIGRATION_5_6.migrate(db)
+            }
+        }
+
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                try { db.execSQL("ALTER TABLE `focus_schedules` ADD COLUMN `isEnabled` INTEGER NOT NULL DEFAULT 1") } catch (_: Exception) {}
+            }
+        }
+
+        val MIGRATION_1_7 = object : Migration(1, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                MIGRATION_1_6.migrate(db)
+                MIGRATION_6_7.migrate(db)
             }
         }
     }

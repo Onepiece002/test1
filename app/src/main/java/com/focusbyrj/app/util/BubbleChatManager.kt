@@ -37,7 +37,11 @@ data class PersistedChatMessage(
     val isAptitudeProfile: Boolean = false,
     val isStreakPrompt: Boolean = false,
     val streakPromptJson: String? = null,
-    val isTaskSummary: Boolean = false
+    val isTaskSummary: Boolean = false,
+    val taskSummaryJson: String? = null,
+    val isTalkAction: Boolean = false,
+    val talkActionJson: String? = null,
+    val pendingActionJson: String? = null
 )
 
 object BubbleChatManager {
@@ -124,7 +128,11 @@ object BubbleChatManager {
                         isAptitudeProfile = obj.optBoolean("isAptitudeProfile", false),
                         isStreakPrompt = obj.optBoolean("isStreakPrompt", false),
                         streakPromptJson = if (obj.has("streakPromptJson") && !obj.isNull("streakPromptJson")) obj.optString("streakPromptJson", null) else null,
-                        isTaskSummary = obj.optBoolean("isTaskSummary", false)
+                        isTaskSummary = obj.optBoolean("isTaskSummary", false),
+                        taskSummaryJson = if (obj.has("taskSummaryJson") && !obj.isNull("taskSummaryJson")) obj.optString("taskSummaryJson", null) else null,
+                        isTalkAction = obj.optBoolean("isTalkAction", false),
+                        talkActionJson = if (obj.has("talkActionJson") && !obj.isNull("talkActionJson")) obj.optString("talkActionJson", null) else null,
+                        pendingActionJson = if (obj.has("pendingActionJson") && !obj.isNull("pendingActionJson")) obj.optString("pendingActionJson", null) else null
                     )
                 )
             }
@@ -152,6 +160,10 @@ object BubbleChatManager {
                     put("isStreakPrompt", msg.isStreakPrompt)
                     put("streakPromptJson", msg.streakPromptJson)
                     put("isTaskSummary", msg.isTaskSummary)
+                    put("taskSummaryJson", msg.taskSummaryJson)
+                    put("isTalkAction", msg.isTalkAction)
+                    put("talkActionJson", msg.talkActionJson)
+                    put("pendingActionJson", msg.pendingActionJson)
                 }
                 jsonArray.put(obj)
             }
@@ -168,6 +180,15 @@ object BubbleChatManager {
         saveMessages(context, current)
         if (incrementBadge) {
             incrementUnread(context)
+        }
+    }
+
+    fun updateMessage(context: Context, updatedMessage: PersistedChatMessage) {
+        val current = getMessages(context).toMutableList()
+        val index = current.indexOfFirst { it.id == updatedMessage.id }
+        if (index != -1) {
+            current[index] = updatedMessage
+            saveMessages(context, current)
         }
     }
 

@@ -285,6 +285,7 @@ object TaskReminderHelper {
         kotlin.runCatching {
             val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
             val intent = Intent(context, TaskReminderReceiver::class.java).apply {
+                data = android.net.Uri.parse("focusreminder://task/${taskId}")
                 putExtra("taskId", taskId)
                 putExtra("taskTitle", title)
                 putExtra("isPersistent", true)

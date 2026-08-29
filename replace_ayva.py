@@ -1,4 +1,6 @@
-package com.focusbyrj.app.util
+import os
+
+content = """package com.focusbyrj.app.util
 
 import android.content.Context
 import android.content.SharedPreferences
@@ -38,7 +40,7 @@ object AyvaDialogueEngine {
     }
 
     private fun containsAnyFuzzy(text: String, keywords: List<String>, maxDistance: Int = 1): Boolean {
-        val words = text.lowercase().split(Regex("\\W+")).filter { it.isNotBlank() }
+        val words = text.lowercase().split(Regex("\\\\W+")).filter { it.isNotBlank() }
         for (word in words) {
             for (keyword in keywords) {
                 if (isFuzzyMatch(word, keyword, maxDistance)) {
@@ -113,21 +115,21 @@ object AyvaDialogueEngine {
         // Context: Time of Day
         if (hour < 6) {
             val lateNightQuips = listOf(
-                "${moodPrefix}Adding tasks in the dead of night? I admire the insomnia grind, but get some sleep soon! Logged: \"$title\"$dueSuffix.",
-                "${moodPrefix}Late night inspiration strikes! Locked in \"$title\"$dueSuffix. Now please get some rest! 🌙",
-                "${moodPrefix}Logged \"$title\"$dueSuffix at $hour AM. Future you will either thank you or wonder what you were drinking. 🦉",
-                "${moodPrefix}Got it: \"$title\"$dueSuffix. You're working while the world sleeps — mysterious and productive.",
-                "${moodPrefix}Midnight warrior mode activated. Added \"$title\"$dueSuffix to the queue. ☕"
+                "${moodPrefix}Adding tasks in the dead of night? I admire the insomnia grind, but get some sleep soon! Logged: \\"$title\\"$dueSuffix.",
+                "${moodPrefix}Late night inspiration strikes! Locked in \\"$title\\"$dueSuffix. Now please get some rest! 🌙",
+                "${moodPrefix}Logged \\"$title\\"$dueSuffix at $hour AM. Future you will either thank you or wonder what you were drinking. 🦉",
+                "${moodPrefix}Got it: \\"$title\\"$dueSuffix. You're working while the world sleeps — mysterious and productive.",
+                "${moodPrefix}Midnight warrior mode activated. Added \\"$title\\"$dueSuffix to the queue. ☕"
             )
             return getNextFromDeck(context, "task_late_night", lateNightQuips)
         }
         if (hour in 6..8) {
             val earlyMorningQuips = listOf(
-                "${moodPrefix}Up with the sun and already locking in goals? Respect. Added$attrSuffix: \"$title\"$dueSuffix. 🌅",
-                "${moodPrefix}Early bird getting the worm! \"$title\"$dueSuffix is on today's hit list.",
-                "${moodPrefix}Starting strong before the rest of the world wakes up. Added: \"$title\"$dueSuffix. ⚡",
-                "${moodPrefix}Morning energy detected! Logged$attrSuffix: \"$title\"$dueSuffix. Let's make today count.",
-                "${moodPrefix}Coffee in hand, goals in sight. Added \"$title\"$dueSuffix. Let's roll! ☕"
+                "${moodPrefix}Up with the sun and already locking in goals? Respect. Added$attrSuffix: \\"$title\\"$dueSuffix. 🌅",
+                "${moodPrefix}Early bird getting the worm! \\"$title\\"$dueSuffix is on today's hit list.",
+                "${moodPrefix}Starting strong before the rest of the world wakes up. Added: \\"$title\\"$dueSuffix. ⚡",
+                "${moodPrefix}Morning energy detected! Logged$attrSuffix: \\"$title\\"$dueSuffix. Let's make today count.",
+                "${moodPrefix}Coffee in hand, goals in sight. Added \\"$title\\"$dueSuffix. Let's roll! ☕"
             )
             return getNextFromDeck(context, "task_early_morning", earlyMorningQuips)
         }
@@ -135,11 +137,11 @@ object AyvaDialogueEngine {
         // Context: High Priority
         if (isPriority) {
             val priorityQuips = listOf(
-                "🚨 Top priority alert! Moved \"$title\"$dueSuffix straight to the VIP lounge of your task list.",
-                "Red banner engaged! \"$title\"$dueSuffix is marked high priority. All eyes on this one! 🎯",
-                "Marked as critical! \"$title\"$dueSuffix is at the top of my radar. Let's conquer it.",
-                "Priority stamped! \"$title\"$dueSuffix is not to be messed around with today. 🔥",
-                "Locked in as urgent: \"$title\"$dueSuffix. Don't let this one linger!"
+                "🚨 Top priority alert! Moved \\"$title\\"$dueSuffix straight to the VIP lounge of your task list.",
+                "Red banner engaged! \\"$title\\"$dueSuffix is marked high priority. All eyes on this one! 🎯",
+                "Marked as critical! \\"$title\\"$dueSuffix is at the top of my radar. Let's conquer it.",
+                "Priority stamped! \\"$title\\"$dueSuffix is not to be messed around with today. 🔥",
+                "Locked in as urgent: \\"$title\\"$dueSuffix. Don't let this one linger!"
             )
             return getNextFromDeck(context, "task_priority", priorityQuips)
         }
@@ -148,10 +150,10 @@ object AyvaDialogueEngine {
         val fitnessSynonyms = listOf("gym", "workout", "run", "exercise", "lift", "jog", "sprint", "cardio", "marathon", "fitness", "yoga")
         if (containsAnyFuzzy(lower, fitnessSynonyms)) {
             val fitnessQuips = listOf(
-                "${moodPrefix}Gains incoming! Added \"$title\"$dueSuffix. Don't skip leg day! 🏋️",
-                "${moodPrefix}Locked in: \"$title\"$dueSuffix. Sweating today means flexing tomorrow. 💪",
-                "${moodPrefix}Added \"$title\"$dueSuffix. Hydrate, conquer, repeat! 🏃",
-                "${moodPrefix}Fitness item logged: \"$title\"$dueSuffix. Your future self is already feeling stronger."
+                "${moodPrefix}Gains incoming! Added \\"$title\\"$dueSuffix. Don't skip leg day! 🏋️",
+                "${moodPrefix}Locked in: \\"$title\\"$dueSuffix. Sweating today means flexing tomorrow. 💪",
+                "${moodPrefix}Added \\"$title\\"$dueSuffix. Hydrate, conquer, repeat! 🏃",
+                "${moodPrefix}Fitness item logged: \\"$title\\"$dueSuffix. Your future self is already feeling stronger."
             )
             return getNextFromDeck(context, "task_fitness", fitnessQuips)
         }
@@ -159,10 +161,10 @@ object AyvaDialogueEngine {
         val studySynonyms = listOf("study", "exam", "assignment", "read", "chapter", "homework", "quiz", "test", "essay", "learn")
         if (containsAnyFuzzy(lower, studySynonyms)) {
             val studyQuips = listOf(
-                "${moodPrefix}Brain gains on the schedule! Added \"$title\"$dueSuffix. Focus mode primed! 📚",
-                "${moodPrefix}Knowledge is power. Locked in: \"$title\"$dueSuffix. Let's absorb that info! 🧠",
-                "${moodPrefix}Academic hustle logged: \"$title\"$dueSuffix. Coffee and deep focus incoming.",
-                "${moodPrefix}Added study mission: \"$title\"$dueSuffix. Lock in and conquer the material!"
+                "${moodPrefix}Brain gains on the schedule! Added \\"$title\\"$dueSuffix. Focus mode primed! 📚",
+                "${moodPrefix}Knowledge is power. Locked in: \\"$title\\"$dueSuffix. Let's absorb that info! 🧠",
+                "${moodPrefix}Academic hustle logged: \\"$title\\"$dueSuffix. Coffee and deep focus incoming.",
+                "${moodPrefix}Added study mission: \\"$title\\"$dueSuffix. Lock in and conquer the material!"
             )
             return getNextFromDeck(context, "task_study", studyQuips)
         }
@@ -170,10 +172,10 @@ object AyvaDialogueEngine {
         val devSynonyms = listOf("code", "bug", "deploy", "build", "git", "refactor", "programming", "developer", "backend", "frontend", "api")
         if (containsAnyFuzzy(lower, devSynonyms)) {
             val devQuips = listOf(
-                "${moodPrefix}Zero bugs allowed! Added \"$title\"$dueSuffix. May your builds be green! 💻",
-                "${moodPrefix}Locked in: \"$title\"$dueSuffix. Semicolons placed, compiler pacified. 🚀",
-                "${moodPrefix}Dev task registered: \"$title\"$dueSuffix. Time to turn caffeine into clean code.",
-                "${moodPrefix}Added: \"$title\"$dueSuffix. Git commit, git push, git productive!"
+                "${moodPrefix}Zero bugs allowed! Added \\"$title\\"$dueSuffix. May your builds be green! 💻",
+                "${moodPrefix}Locked in: \\"$title\\"$dueSuffix. Semicolons placed, compiler pacified. 🚀",
+                "${moodPrefix}Dev task registered: \\"$title\\"$dueSuffix. Time to turn caffeine into clean code.",
+                "${moodPrefix}Added: \\"$title\\"$dueSuffix. Git commit, git push, git productive!"
             )
             return getNextFromDeck(context, "task_coding", devQuips)
         }
@@ -181,36 +183,36 @@ object AyvaDialogueEngine {
         val choreSynonyms = listOf("clean", "laundry", "dish", "dishes", "room", "trash", "grocer", "groceries", "sweep", "mop", "vacuum")
         if (containsAnyFuzzy(lower, choreSynonyms)) {
             val choreQuips = listOf(
-                "${moodPrefix}Adulting in progress! Added \"$title\"$dueSuffix. A clean space equals a clean mind. 🧹",
-                "${moodPrefix}Domestic victory logged: \"$title\"$dueSuffix. Get it done and enjoy the peace! ✨",
-                "${moodPrefix}Added \"$title\"$dueSuffix. Put on some music and knock it out in 10 minutes.",
-                "${moodPrefix}Chore locked: \"$title\"$dueSuffix. You'll feel so much lighter once it's checked off."
+                "${moodPrefix}Adulting in progress! Added \\"$title\\"$dueSuffix. A clean space equals a clean mind. 🧹",
+                "${moodPrefix}Domestic victory logged: \\"$title\\"$dueSuffix. Get it done and enjoy the peace! ✨",
+                "${moodPrefix}Added \\"$title\\"$dueSuffix. Put on some music and knock it out in 10 minutes.",
+                "${moodPrefix}Chore locked: \\"$title\\"$dueSuffix. You'll feel so much lighter once it's checked off."
             )
             return getNextFromDeck(context, "task_chore", choreQuips)
         }
 
         // Generic Witty Master Pool (Huge variety)
         val masterPool = listOf(
-            "${moodPrefix}Locked and loaded! Added$attrSuffix: \"$title\"$dueSuffix. Let's make it happen! 😉",
-            "${moodPrefix}On it! Added$attrSuffix: \"$title\"$dueSuffix. No backing out now! 🎯",
-            "${moodPrefix}Gotcha! Added$attrSuffix: \"$title\"$dueSuffix. Future you says thanks! ✨",
-            "${moodPrefix}Noted and penned into reality: \"$title\"$dueSuffix. You've got this!",
-            "${moodPrefix}Consider it on my radar! Added$attrSuffix: \"$title\"$dueSuffix. ⚡",
-            "${moodPrefix}Added \"$title\"$dueSuffix to the queue. One small step for you, one giant leap for today's productivity!",
-            "${moodPrefix}Logged: \"$title\"$dueSuffix. Clean execution is the name of the game today. 🚀",
-            "${moodPrefix}Done deal! \"$title\"$dueSuffix is officially in play.",
-            "${moodPrefix}Added! \"$title\"$dueSuffix is scheduled. Ready whenever you are.",
-            "${moodPrefix}Boom! \"$title\"$dueSuffix is safely recorded. Now the fun part: doing it! 🔥",
-            "${moodPrefix}Stamped and stored: \"$title\"$dueSuffix. Let's check this off in style later.",
-            "${moodPrefix}Your wish is my command. Added$attrSuffix: \"$title\"$dueSuffix. 📋",
-            "${moodPrefix}Registered: \"$title\"$dueSuffix. I'll make sure you don't forget this one.",
-            "${moodPrefix}In the books! Added \"$title\"$dueSuffix. Keep this awesome momentum rolling.",
-            "${moodPrefix}Locked in! Added \"$title\"$dueSuffix. Distractions don't stand a chance.",
-            "${moodPrefix}Aye aye! \"$title\"$dueSuffix has entered the arena. ⚔️",
-            "${moodPrefix}Secured: \"$title\"$dueSuffix. Another puzzle piece added to today's roadmap.",
-            "${moodPrefix}Added! \"$title\"$dueSuffix is lined up. Ready to crush it?",
-            "${moodPrefix}Pen to paper, bits to bytes: \"$title\"$dueSuffix is live! ✨",
-            "${moodPrefix}Logged$attrSuffix: \"$title\"$dueSuffix. Let's turn intentions into achievements!"
+            "${moodPrefix}Locked and loaded! Added$attrSuffix: \\"$title\\"$dueSuffix. Let's make it happen! 😉",
+            "${moodPrefix}On it! Added$attrSuffix: \\"$title\\"$dueSuffix. No backing out now! 🎯",
+            "${moodPrefix}Gotcha! Added$attrSuffix: \\"$title\\"$dueSuffix. Future you says thanks! ✨",
+            "${moodPrefix}Noted and penned into reality: \\"$title\\"$dueSuffix. You've got this!",
+            "${moodPrefix}Consider it on my radar! Added$attrSuffix: \\"$title\\"$dueSuffix. ⚡",
+            "${moodPrefix}Added \\"$title\\"$dueSuffix to the queue. One small step for you, one giant leap for today's productivity!",
+            "${moodPrefix}Logged: \\"$title\\"$dueSuffix. Clean execution is the name of the game today. 🚀",
+            "${moodPrefix}Done deal! \\"$title\\"$dueSuffix is officially in play.",
+            "${moodPrefix}Added! \\"$title\\"$dueSuffix is scheduled. Ready whenever you are.",
+            "${moodPrefix}Boom! \\"$title\\"$dueSuffix is safely recorded. Now the fun part: doing it! 🔥",
+            "${moodPrefix}Stamped and stored: \\"$title\\"$dueSuffix. Let's check this off in style later.",
+            "${moodPrefix}Your wish is my command. Added$attrSuffix: \\"$title\\"$dueSuffix. 📋",
+            "${moodPrefix}Registered: \\"$title\\"$dueSuffix. I'll make sure you don't forget this one.",
+            "${moodPrefix}In the books! Added \\"$title\\"$dueSuffix. Keep this awesome momentum rolling.",
+            "${moodPrefix}Locked in! Added \\"$title\\"$dueSuffix. Distractions don't stand a chance.",
+            "${moodPrefix}Aye aye! \\"$title\\"$dueSuffix has entered the arena. ⚔️",
+            "${moodPrefix}Secured: \\"$title\\"$dueSuffix. Another puzzle piece added to today's roadmap.",
+            "${moodPrefix}Added! \\"$title\\"$dueSuffix is lined up. Ready to crush it?",
+            "${moodPrefix}Pen to paper, bits to bytes: \\"$title\\"$dueSuffix is live! ✨",
+            "${moodPrefix}Logged$attrSuffix: \\"$title\\"$dueSuffix. Let's turn intentions into achievements!"
         )
         return getNextFromDeck(context, "task_master_pool", masterPool)
     }
@@ -246,9 +248,9 @@ object AyvaDialogueEngine {
 
     fun getRescheduleHelpResponse(): String {
         val helpVariants = listOf(
-            "Usage: /reschedule <number> <time/date>\n_Example: `/reschedule 1 4pm` or `/reschedule 2 tomorrow morning`_",
-            "Need to bump a task? Format is: `/reschedule <task#>` `<time>`\n_Example: `/reschedule 1 tomorrow at 10am`_",
-            "Usage: `/reschedule <number> <when>`\n_Example: `/reschedule 1 5pm` or `/reschedule 3 next monday`_"
+            "Usage: /reschedule <number> <time/date>\\n_Example: `/reschedule 1 4pm` or `/reschedule 2 tomorrow morning`_",
+            "Need to bump a task? Format is: `/reschedule <task#>` `<time>`\\n_Example: `/reschedule 1 tomorrow at 10am`_",
+            "Usage: `/reschedule <number> <when>`\\n_Example: `/reschedule 1 5pm` or `/reschedule 3 next monday`_"
         )
         return helpVariants.random()
     }
@@ -259,38 +261,38 @@ object AyvaDialogueEngine {
     fun getSummaryGreeting(context: Context, isAll: Boolean, hour: Int, dayOfWeek: Int): String {
         if (isAll) {
             val allBriefings = listOf(
-                "📋 *__Ayva's Master Briefing__*\n_Here's the full bird's-eye view of everything on deck:_\n",
-                "📋 *__The Grand Ledger with Ayva__*\n_Everything pending across all horizons:_\n",
-                "📋 *__Master Task Radar__*\n_All open loops in your universe right now:_\n"
+                "📋 *__Ayva's Master Briefing__*\\n_Here's the full bird's-eye view of everything on deck:_\\n",
+                "📋 *__The Grand Ledger with Ayva__*\\n_Everything pending across all horizons:_\\n",
+                "📋 *__Master Task Radar__*\\n_All open loops in your universe right now:_\\n"
             )
             return getNextFromDeck(context, "briefing_all", allBriefings)
         }
 
         if (hour < 12) {
             val morningBriefings = listOf(
-                "🌅 *__Morning Check-In with Ayva__*\n_Rise and shine! Here's today's playbook:_\n",
-                "☀️ *__Good Morning, Champion!__*\n_Coffee brewed, goals aligned. Here's what we've got today:_\n",
-                "🌅 *__Ayva's Morning Kickstart__*\n_New day, new wins. Here's what's on today's agenda:_\n",
-                "☀️ *__Morning Briefing with Ayva__*\n_Let's take a look at what we're tackling today:_\n"
+                "🌅 *__Morning Check-In with Ayva__*\\n_Rise and shine! Here's today's playbook:_\\n",
+                "☀️ *__Good Morning, Champion!__*\\n_Coffee brewed, goals aligned. Here's what we've got today:_\\n",
+                "🌅 *__Ayva's Morning Kickstart__*\\n_New day, new wins. Here's what's on today's agenda:_\\n",
+                "☀️ *__Morning Briefing with Ayva__*\\n_Let's take a look at what we're tackling today:_\\n"
             )
             return getNextFromDeck(context, "briefing_morning", morningBriefings)
         }
 
         if (hour < 17) {
             val midDayBriefings = listOf(
-                "☀️ *__Midday Check-In with Ayva__*\n_Halfway through the day! Here's the current pulse:_\n",
-                "⚡ *__Ayva's Afternoon Reality Check__*\n_Quick glance at where our momentum stands:_\n",
-                "☀️ *__Midday Status Report__*\n_Here's how today is shaping up so far:_\n",
-                "🌤️ *__Afternoon Progress Check with Ayva__*\n_Stay focused! Here's what's still waiting for you:_\n"
+                "☀️ *__Midday Check-In with Ayva__*\\n_Halfway through the day! Here's the current pulse:_\\n",
+                "⚡ *__Ayva's Afternoon Reality Check__*\\n_Quick glance at where our momentum stands:_\\n",
+                "☀️ *__Midday Status Report__*\\n_Here's how today is shaping up so far:_\\n",
+                "🌤️ *__Afternoon Progress Check with Ayva__*\\n_Stay focused! Here's what's still waiting for you:_\\n"
             )
             return getNextFromDeck(context, "briefing_afternoon", midDayBriefings)
         }
 
         val eveningBriefings = listOf(
-            "🌙 *__Evening Debrief with Ayva__*\n_Wrapping up the day! Here's how we finished:_\n",
-            "🌙 *__Nightly Wrap-Up with Ayva__*\n_Time to review today's scorecard:_\n",
-            "✨ *__Ayva's Evening Reflection__*\n_Here's what got crushed today and what carried over:_\n",
-            "🌙 *__End of Day Check-In__*\n_Let's see where the day landed:_\n"
+            "🌙 *__Evening Debrief with Ayva__*\\n_Wrapping up the day! Here's how we finished:_\\n",
+            "🌙 *__Nightly Wrap-Up with Ayva__*\\n_Time to review today's scorecard:_\\n",
+            "✨ *__Ayva's Evening Reflection__*\\n_Here's what got crushed today and what carried over:_\\n",
+            "🌙 *__End of Day Check-In__*\\n_Let's see where the day landed:_\\n"
         )
         return getNextFromDeck(context, "briefing_evening", eveningBriefings)
     }
@@ -332,19 +334,19 @@ object AyvaDialogueEngine {
 
     fun getLockCommandResponse(context: Context, durationMin: Int): String {
         val lockPool = listOf(
-            "🔒 *Focus Lock Engaged for ${durationMin}m!*\n_Distractions are locked in the vault. Go be unstoppable! 🚀_",
-            "🛡️ *Shields Up! ${durationMin}m Deep Work Mode Active.*\n_No notifications, no excuses. Time to lock in! ⚡_",
-            "🎯 *${durationMin} Minutes of Pure Focus Begins Now!*\n_Tune out the world and build your empire._",
-            "🔒 *Ayva's Focus Guard Activated (${durationMin}m).*\n_Put your head down and show them how it's done! ✨_"
+            "🔒 *Focus Lock Engaged for ${durationMin}m!*\\n_Distractions are locked in the vault. Go be unstoppable! 🚀_",
+            "🛡️ *Shields Up! ${durationMin}m Deep Work Mode Active.*\\n_No notifications, no excuses. Time to lock in! ⚡_",
+            "🎯 *${durationMin} Minutes of Pure Focus Begins Now!*\\n_Tune out the world and build your empire._",
+            "🔒 *Ayva's Focus Guard Activated (${durationMin}m).*\\n_Put your head down and show them how it's done! ✨_"
         )
         return getNextFromDeck(context, "lock_command", lockPool)
     }
 
     fun getClearChatIntro(context: Context): String {
         val intros = listOf(
-            "💬 *__Ayva__* ✨\n_Your witty focus companion is on deck._\n_Type a task below to lock it in, or use `/` for commands._",
-            "💬 *__Ayva's Command Center__* ⚡\n_Clean slate! I'm ready for your tasks, drills, or schedule adjustments._\n_Type away or type `/` for shortcuts._",
-            "💬 *__Ayva__* 🎯\n_Fresh chat, clear mind. What are we conquering next?_\n_Add a task or run `/help` anytime._"
+            "💬 *__Ayva__* ✨\\n_Your witty focus companion is on deck._\\n_Type a task below to lock it in, or use `/` for commands._",
+            "💬 *__Ayva's Command Center__* ⚡\\n_Clean slate! I'm ready for your tasks, drills, or schedule adjustments._\\n_Type away or type `/` for shortcuts._",
+            "💬 *__Ayva__* 🎯\\n_Fresh chat, clear mind. What are we conquering next?_\\n_Add a task or run `/help` anytime._"
         )
         return getNextFromDeck(context, "clear_chat_intro", intros)
     }
@@ -358,11 +360,11 @@ object AyvaDialogueEngine {
             else -> "Good evening!"
         }
         val helloPool = listOf(
-            "👋 *Hey there! I'm Ayva, your personal focus companion.* ✨\n\n$timeGreeting Ready to conquer your day? Drop a task below or let me know what we're tackling first!",
-            "✨ *Ayva here! Fresh chat, clear mind, zero excuses.* 🚀\n\n$timeGreeting I'm locked in and ready to help you stay on track. What's on your radar today?",
-            "👋 *Hello! I'm Ayva — your witty partner in anti-procrastination.* 😉\n\n$timeGreeting Clean slate mode activated. What are we making happen first?",
-            "🌟 *Hey! Ayva is on deck and ready for action.* ⚡\n\n$timeGreeting Whether you've got big goals or quick errands, I've got your back. What's top of mind?",
-            "👋 *Welcome! I'm Ayva.* ✨\n\n$timeGreeting Let's turn intentions into achievements today. What are we working on first? 🚀"
+            "👋 *Hey there! I'm Ayva, your personal focus companion.* ✨\\n\\n$timeGreeting Ready to conquer your day? Drop a task below or let me know what we're tackling first!",
+            "✨ *Ayva here! Fresh chat, clear mind, zero excuses.* 🚀\\n\\n$timeGreeting I'm locked in and ready to help you stay on track. What's on your radar today?",
+            "👋 *Hello! I'm Ayva — your witty partner in anti-procrastination.* 😉\\n\\n$timeGreeting Clean slate mode activated. What are we making happen first?",
+            "🌟 *Hey! Ayva is on deck and ready for action.* ⚡\\n\\n$timeGreeting Whether you've got big goals or quick errands, I've got your back. What's top of mind?",
+            "👋 *Welcome! I'm Ayva.* ✨\\n\\n$timeGreeting Let's turn intentions into achievements today. What are we working on first? 🚀"
         )
         return getNextFromDeck(context, "hello_welcome", helloPool)
     }
@@ -420,3 +422,8 @@ object AyvaDialogueEngine {
         }
     }
 }
+"""
+
+with open("app/src/main/java/com/focusbyrj/app/util/AyvaDialogueEngine.kt", "w") as f:
+    f.write(content)
+

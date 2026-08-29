@@ -1,26 +1,19 @@
-package com.focusbyrj.app.service
+const fs = require('fs');
+const path = 'app/src/main/java/com/focusbyrj/app/service/TaskReminderReceiver.kt';
+let code = fs.readFileSync(path, 'utf8');
 
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.PendingIntent
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.content.Intent
-import android.os.Build
-import android.os.PowerManager
-import androidx.core.app.NotificationCompat
-import com.focusbyrj.app.R
-import com.focusbyrj.app.ui.screens.TaskReminderPopupActivity
-import com.focusbyrj.app.util.TaskReminderHelper
-
+// Add imports for Coroutines and FocusApplication
+const newImports = `
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import com.focusbyrj.app.FocusApplication
+`;
 
+code = code.replace('import com.focusbyrj.app.util.TaskReminderHelper', 'import com.focusbyrj.app.util.TaskReminderHelper\n' + newImports);
 
-class TaskReminderReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) {
+// Replace onReceive method body
+const newBody = `    override fun onReceive(context: Context, intent: Intent) {
         val taskId = intent.getLongExtra("taskId", -1L)
         if (taskId == -1L) return
 
@@ -166,7 +159,7 @@ class TaskReminderReceiver : BroadcastReceiver() {
                         .setSmallIcon(R.mipmap.ic_launcher_round)
                         .setContentTitle(title)
                         .setContentText(contentSubtitle)
-                        .setStyle(NotificationCompat.BigTextStyle().bigText(if (details.isNotBlank()) "$details\nTap to view or manage task." else "Scheduled task reminder is due."))
+                        .setStyle(NotificationCompat.BigTextStyle().bigText(if (details.isNotBlank()) "$details\\nTap to view or manage task." else "Scheduled task reminder is due."))
                         .setPriority(NotificationCompat.PRIORITY_HIGH)
                         .setCategory(NotificationCompat.CATEGORY_REMINDER)
                         .setContentIntent(popupPendingIntent)
@@ -216,4 +209,17 @@ class TaskReminderReceiver : BroadcastReceiver() {
             }
         }
     }
+`;
+
+const startIndex = code.indexOf('    override fun onReceive(context: Context, intent: Intent) {');
+const endIndex = code.lastIndexOf('}') + 1; // get the last closing brace of the class
+if (startIndex !== -1) {
+    // find the matching closing brace for the class
+    // Wait, the file ends with the class body closing brace. 
+    // We can just replace from startIndex to the end of file with newBody + '}'
+    code = code.substring(0, startIndex) + newBody + '}\n';
+    fs.writeFileSync(path, code);
+    console.log("Successfully patched TaskReminderReceiver.kt");
+} else {
+    console.log("Could not find onReceive method");
 }

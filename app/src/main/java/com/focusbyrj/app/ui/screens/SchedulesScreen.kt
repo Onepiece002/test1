@@ -130,6 +130,7 @@ fun SchedulesScreen(viewModel: FocusViewModel) {
                         items(schedules) { schedule ->
                             RoutineCard(
                                 schedule = schedule, 
+                                onToggle = { isChecked -> viewModel.updateSchedule(schedule.copy(isEnabled = isChecked)) },
                                 onEdit = { scheduleToEdit = schedule },
                                 onDelete = { viewModel.deleteSchedule(schedule) }
                             )
@@ -142,19 +143,59 @@ fun SchedulesScreen(viewModel: FocusViewModel) {
 }
 
 @Composable
-fun RoutineCard(schedule: com.focusbyrj.app.data.FocusSchedule, onEdit: () -> Unit, onDelete: () -> Unit) {
+fun RoutineCard(
+    schedule: com.focusbyrj.app.data.FocusSchedule, 
+    onToggle: (Boolean) -> Unit,
+    onEdit: () -> Unit, 
+    onDelete: () -> Unit
+) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(28.dp))
             .background(MaterialTheme.colorScheme.surface)
-            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(28.dp))
+            .border(
+                1.dp, 
+                if (schedule.isEnabled) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f), 
+                RoundedCornerShape(28.dp)
+            )
             .padding(24.dp)
     ) {
         Column {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text(schedule.name, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface)
-                Row {
+            Row(
+                modifier = Modifier.fillMaxWidth(), 
+                horizontalArrangement = Arrangement.SpaceBetween, 
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            schedule.name, 
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold), 
+                            color = if (schedule.isEnabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                        )
+                        if (!schedule.isEnabled) {
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
+                            ) {
+                                Text(
+                                    text = "OFF",
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Switch(
+                        checked = schedule.isEnabled,
+                        onCheckedChange = { onToggle(it) },
+                        modifier = Modifier.padding(end = 4.dp)
+                    )
                     IconButton(onClick = onEdit) {
                         Icon(Icons.Filled.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.onSurface)
                     }
@@ -165,7 +206,11 @@ fun RoutineCard(schedule: com.focusbyrj.app.data.FocusSchedule, onEdit: () -> Un
             }
             Spacer(modifier = Modifier.height(8.dp))
             val timeString = "${String.format("%02d:%02d", schedule.startHour, schedule.startMinute)} - ${String.format("%02d:%02d", schedule.endHour, schedule.endMinute)}"
-            Text(timeString, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+            Text(
+                timeString, 
+                style = MaterialTheme.typography.titleMedium, 
+                color = if (schedule.isEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+            )
             Spacer(modifier = Modifier.height(16.dp))
             
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -173,17 +218,27 @@ fun RoutineCard(schedule: com.focusbyrj.app.data.FocusSchedule, onEdit: () -> Un
                 val activeDays = schedule.daysOfWeek.split(",")
                 days.forEachIndexed { index, day ->
                     val isActive = activeDays.contains((index + 1).toString())
+                    val dayBg = if (!schedule.isEnabled) {
+                        if (isActive) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                    } else {
+                        if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
+                    }
+                    val dayColor = if (!schedule.isEnabled) {
+                        if (isActive) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                    } else {
+                        if (isActive) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                    }
                     Box(
                         modifier = Modifier
                             .size(32.dp)
                             .clip(CircleShape)
-                            .background(if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
-                            .border(1.dp, if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, CircleShape),
+                            .background(dayBg)
+                            .border(1.dp, if (isActive && schedule.isEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             day, 
-                            color = if (isActive) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant, 
+                            color = dayColor, 
                             fontSize = 12.sp, 
                             fontWeight = FontWeight.Bold
                         )
@@ -192,7 +247,11 @@ fun RoutineCard(schedule: com.focusbyrj.app.data.FocusSchedule, onEdit: () -> Un
             }
             Spacer(modifier = Modifier.height(16.dp))
             val appCount = if (schedule.appsToBlock.isEmpty()) 0 else schedule.appsToBlock.split(",").size
-            Text("$appCount Apps Shielded", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                if (schedule.isEnabled) "$appCount Apps Shielded" else "$appCount Apps Shielded • Paused", 
+                style = MaterialTheme.typography.labelMedium, 
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

@@ -45,6 +45,7 @@ class BubbleService : Service() {
     private val hideHandler = Handler(Looper.getMainLooper())
     private var isPeeking = false
     private var hideRunnable = Runnable { peekBubble() }
+    private var peekAnimator: android.animation.ValueAnimator? = null
 
     private val displayListener = object : DisplayManager.DisplayListener {
         override fun onDisplayAdded(displayId: Int) {}
@@ -304,6 +305,7 @@ class BubbleService : Service() {
                 MotionEvent.ACTION_DOWN -> {
                     hideHandler.removeCallbacks(hideRunnable)
                     bubbleView?.animate()?.cancel()
+                    peekAnimator?.cancel()
                     if (isPeeking) {
                         unpeekBubble(animate = false)
                     }
@@ -317,6 +319,8 @@ class BubbleService : Service() {
                 }
                 MotionEvent.ACTION_MOVE -> {
                     if (isChatOpen) return@setOnTouchListener true // don't drag if chat open
+                    
+                    peekAnimator?.cancel()
                     
                     val dx = event.rawX - initialTouchX
                     val dy = event.rawY - initialTouchY
@@ -504,16 +508,9 @@ class BubbleService : Service() {
             gView.background = glowDrawable
         }
 
-        // Ensure bubble is snapped to edge first
         val isLeft = (layoutParams?.x ?: 0) < screenWidth / 2
-        val targetX = if (isLeft) 0 else (screenWidth - size)
-        layoutParams?.x = targetX
-        try {
-            windowManager.updateViewLayout(bubbleView, layoutParams)
-        } catch (_: Exception) {}
-
-        val hideOffset = size * hiddenAmountRatio
-        val targetTranslation = if (isLeft) -hideOffset else hideOffset
+        val hideOffset = (size * hiddenAmountRatio).toInt()
+        val targetX = if (isLeft) -hideOffset else (screenWidth - size + hideOffset)
         
         glowRingView?.animate()
             ?.alpha(glowIntensity)
@@ -521,15 +518,34 @@ class BubbleService : Service() {
             ?.start()
 
         bubbleView?.animate()
-            ?.translationX(targetTranslation)
+            ?.translationX(0f)
             ?.alpha(hiddenOpacity)
             ?.setDuration(300)
             ?.start()
+            
+        peekAnimator?.cancel()
+        peekAnimator = android.animation.ValueAnimator.ofInt(layoutParams!!.x, targetX).apply {
+            duration = 300
+            addUpdateListener { anim ->
+                layoutParams!!.x = anim.animatedValue as Int
+                try { windowManager.updateViewLayout(bubbleView, layoutParams) } catch (e: Exception) {}
+            }
+            start()
+        }
     }
 
     private fun unpeekBubble(animate: Boolean) {
         if (!isPeeking) return
         isPeeking = false
+        
+        val displayMetrics = resources.displayMetrics
+        val screenWidth = displayMetrics.widthPixels
+        val size = (60 * displayMetrics.density).toInt()
+        val isLeft = (layoutParams?.x ?: 0) < screenWidth / 2
+        val targetX = if (isLeft) 0 else (screenWidth - size)
+        
+        peekAnimator?.cancel()
+        
         if (animate) {
             glowRingView?.animate()
                 ?.alpha(0f)
@@ -540,12 +556,24 @@ class BubbleService : Service() {
                 ?.alpha(1.0f)
                 ?.setDuration(250)
                 ?.start()
+                
+            peekAnimator = android.animation.ValueAnimator.ofInt(layoutParams!!.x, targetX).apply {
+                duration = 250
+                addUpdateListener { anim ->
+                    layoutParams!!.x = anim.animatedValue as Int
+                    try { windowManager.updateViewLayout(bubbleView, layoutParams) } catch (e: Exception) {}
+                }
+                start()
+            }
         } else {
             glowRingView?.animate()?.cancel()
             glowRingView?.alpha = 0f
             bubbleView?.animate()?.cancel()
             bubbleView?.translationX = 0f
             bubbleView?.alpha = 1.0f
+            
+            layoutParams!!.x = targetX
+            try { windowManager.updateViewLayout(bubbleView, layoutParams) } catch (e: Exception) {}
         }
     }
 
@@ -572,13 +600,15 @@ class BubbleService : Service() {
         bubbleView?.translationX = 0f
         bubbleView?.alpha = 1.0f
         
-        val animator = ValueAnimator.ofInt(layoutParams!!.x, targetX)
-        animator.duration = 200
-        animator.addUpdateListener { anim ->
-            layoutParams!!.x = anim.animatedValue as Int
-            windowManager.updateViewLayout(bubbleView, layoutParams)
+        peekAnimator?.cancel()
+        peekAnimator = ValueAnimator.ofInt(layoutParams!!.x, targetX).apply {
+            duration = 200
+            addUpdateListener { anim ->
+                layoutParams!!.x = anim.animatedValue as Int
+                try { windowManager.updateViewLayout(bubbleView, layoutParams) } catch (e: Exception) {}
+            }
+            start()
         }
-        animator.start()
     }
 
     private fun openChatWindow() {

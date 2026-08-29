@@ -43,12 +43,18 @@ object SmartDateParser {
         var text = input.trim()
         val cal = Calendar.getInstance()
         val nowCal = Calendar.getInstance()
-        var hasDate = false
-        var hasTime = false
+        var hasExplicitDate = false
+        var hasExplicitTime = false
         var detectedRecurrence = RecurrencePattern.NONE
 
         fun removeMatch(match: MatchResult): String {
             return text.removeRange(match.range).trim().replace("\\s+".toRegex(), " ")
+        }
+
+        // 0. Clean task command prefixes like "task ,", "task:", "task -", "todo:", "remind me to"
+        val prefixRegex = Regex("(?i)^\\s*(?:task|todo|remind\\s+me\\s+to)\\s*[,:\\-]?\\s*")
+        prefixRegex.find(text)?.let { match ->
+            text = removeMatch(match)
         }
 
         // 1. Recurrence pattern detection
@@ -94,7 +100,7 @@ object SmartDateParser {
             var diff = targetDay - currentDay
             if (diff < 0) diff += 7
             cal.add(Calendar.DAY_OF_YEAR, diff)
-            hasDate = true
+            hasExplicitDate = true
             text = removeMatch(match)
         }
 
@@ -105,49 +111,55 @@ object SmartDateParser {
             val unit = match.groupValues[3].lowercase()
             if (unit.startsWith("mo") || unit.contains("month")) {
                 cal.add(Calendar.MONTH, amount)
-                hasDate = true
+                hasExplicitDate = true
             } else if (unit.startsWith("y") || unit.contains("year")) {
                 cal.add(Calendar.YEAR, amount)
-                hasDate = true
+                hasExplicitDate = true
             } else if (unit.startsWith("m")) {
                 cal.add(Calendar.MINUTE, amount)
-                hasTime = true
-                hasDate = true
+                hasExplicitTime = true
+                hasExplicitDate = true
             } else if (unit.startsWith("h")) {
                 cal.add(Calendar.HOUR, amount)
-                hasTime = true
-                hasDate = true
+                hasExplicitTime = true
+                hasExplicitDate = true
             } else if (unit.startsWith("d")) {
                 cal.add(Calendar.DAY_OF_YEAR, amount)
-                hasDate = true
+                hasExplicitDate = true
             } else if (unit.startsWith("w")) {
                 cal.add(Calendar.WEEK_OF_YEAR, amount)
-                hasDate = true
+                hasExplicitDate = true
             }
             text = removeMatch(match)
         }
 
-        // 3. "today", "tomorrow", "tonight", "next year"
-        if (!hasDate) {
-            val dayRegex = Regex("(?i)\\b(today|tomorrow|tonight|next\\s+year)\\b")
+        // 3. Named relative days: "today", "tomorrow", "tmrw", "tmr", "tonight", "next year"
+        if (!hasExplicitDate) {
+            val dayRegex = Regex("(?i)\\b(today|tomorrow|tmrw|tmr|tonight|next\\s+year)\\b")
             dayRegex.find(text)?.let { match ->
                 val word = match.groupValues[1].lowercase()
-                if (word == "tomorrow") {
+                if (word == "tomorrow" || word == "tmrw" || word == "tmr") {
                     cal.add(Calendar.DAY_OF_YEAR, 1)
+                    hasExplicitDate = true
                 } else if (word == "tonight") {
                     cal.set(Calendar.HOUR_OF_DAY, 20)
                     cal.set(Calendar.MINUTE, 0)
-                    hasTime = true
+                    cal.set(Calendar.SECOND, 0)
+                    cal.set(Calendar.MILLISECOND, 0)
+                    hasExplicitTime = true
+                    hasExplicitDate = true
                 } else if (word.contains("year")) {
                     cal.add(Calendar.YEAR, 1)
+                    hasExplicitDate = true
+                } else if (word == "today") {
+                    hasExplicitDate = true
                 }
-                hasDate = true
                 text = removeMatch(match)
             }
         }
 
-        // 4. Numeric standard dates (e.g. 2033-05-20, 2033/05/20, 20/05/2033, 05/20/2033)
-        if (!hasDate) {
+        // 4. ISO & Numeric dates (e.g. 2026-05-20, 2026/05/20, 20/05/2026, 05/20/2026)
+        if (!hasExplicitDate) {
             val isoRegex = Regex("(?i)\\b((?:19|20|21)\\d{2})[-/.](0?[1-9]|1[0-2])[-/.](0?[1-9]|[12]\\d|3[01])\\b")
             isoRegex.find(text)?.let { match ->
                 val year = match.groupValues[1].toIntOrNull()
@@ -157,7 +169,7 @@ object SmartDateParser {
                     cal.set(Calendar.YEAR, year)
                     cal.set(Calendar.MONTH, month - 1)
                     cal.set(Calendar.DAY_OF_MONTH, day)
-                    hasDate = true
+                    hasExplicitDate = true
                     text = removeMatch(match)
                 }
             } ?: run {
@@ -175,19 +187,18 @@ object SmartDateParser {
                             cal.set(Calendar.MONTH, (num1 - 1).coerceIn(0, 11))
                             cal.set(Calendar.DAY_OF_MONTH, num2)
                         } else {
-                            // Default to month/day/year
                             cal.set(Calendar.MONTH, (num1 - 1).coerceIn(0, 11))
                             cal.set(Calendar.DAY_OF_MONTH, num2)
                         }
-                        hasDate = true
+                        hasExplicitDate = true
                         text = removeMatch(match)
                     }
                 }
             }
         }
 
-        // 5. Specific Month + Day with optional Year (e.g., "may 20 2033", "may 20, 2033", "Jan 15th 2027", "15th of January 2030", "on April 19 th 2033")
-        if (!hasDate) {
+        // 5. Month + Day (e.g., "may 20 2026", "may 20th", "15th of January", "Jan 15")
+        if (!hasExplicitDate) {
             val monthNames = listOf("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec")
             val monthRegex = Regex("(?i)\\b(?:on\\s+)?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\\s+(\\d{1,2})(?:\\s*(?:st|nd|rd|th))?(?:[\\s,]+((?:19|20|21)\\d{2}))?\\b")
             monthRegex.find(text)?.let { match ->
@@ -207,7 +218,7 @@ object SmartDateParser {
                     if (yearStr.isBlank() && cal.timeInMillis < System.currentTimeMillis() - 86400000L) {
                         cal.add(Calendar.YEAR, 1)
                     }
-                    hasDate = true
+                    hasExplicitDate = true
                     text = removeMatch(match)
                 }
             } ?: run {
@@ -229,51 +240,15 @@ object SmartDateParser {
                         if (yearStr.isBlank() && cal.timeInMillis < System.currentTimeMillis() - 86400000L) {
                             cal.add(Calendar.YEAR, 1)
                         }
-                        hasDate = true
+                        hasExplicitDate = true
                         text = removeMatch(match)
                     }
-                } ?: run {
-                    // Month + Year with no day (e.g. "in May 2033", "May 2033")
-                    val monthYearRegex = Regex("(?i)\\b(?:in\\s+|on\\s+)?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[\\s,]+((?:19|20|21)\\d{2})\\b")
-                    monthYearRegex.find(text)?.let { match ->
-                        val monthStr = match.groupValues[1].lowercase()
-                        val year = match.groupValues[2].toIntOrNull()
-                        val monthIdx = monthNames.indexOf(monthStr)
-                        if (monthIdx != -1 && year != null) {
-                            cal.set(Calendar.YEAR, year)
-                            cal.set(Calendar.MONTH, monthIdx)
-                            cal.set(Calendar.DAY_OF_MONTH, 1)
-                            hasDate = true
-                            text = removeMatch(match)
-                        }
-                    }
                 }
             }
         }
 
-        // 6. Day-of-month ordinal with NO month specified (e.g. "on 19 th", "19th", "on the 19th", "on 19", "every 19th")
-        if (!hasDate) {
-            val ordinalDayRegex = Regex("(?i)\\b(?:on\\s+(?:the\\s+)?|every\\s+|the\\s+)?(\\d{1,2})\\s*(?:st|nd|rd|th)\\b")
-            val onDayRegex = Regex("(?i)\\b(?:on\\s+(?:the\\s+)?)(\\d{1,2})\\b")
-
-            val match = ordinalDayRegex.find(text) ?: onDayRegex.find(text)
-            match?.let { m ->
-                val day = m.groupValues[1].toIntOrNull() ?: 1
-                if (day in 1..31) {
-                    val nowDay = nowCal.get(Calendar.DAY_OF_MONTH)
-                    cal.set(Calendar.DAY_OF_MONTH, day)
-                    // If the day in the current month has already passed, default to next month!
-                    if (day < nowDay) {
-                        cal.add(Calendar.MONTH, 1)
-                    }
-                    hasDate = true
-                    text = removeMatch(m)
-                }
-            }
-        }
-
-        // 7. Day of week (e.g. "on monday", "next friday", "this sunday")
-        if (!hasDate) {
+        // 6. Day of week (e.g. "on monday", "next friday", "this sunday")
+        if (!hasExplicitDate) {
             val dowRegex = Regex("(?i)\\b(?:on\\s+|next\\s+|this\\s+)?(mon|tue|wed|thu|fri|sat|sun)(?:day|nes)?(?:day)?\\b")
             dowRegex.find(text)?.let { match ->
                 val dayStr = match.groupValues[1].lowercase()
@@ -295,87 +270,130 @@ object SmartDateParser {
                 if (isNext) diff += 7
 
                 cal.add(Calendar.DAY_OF_YEAR, diff)
-                hasDate = true
+                hasExplicitDate = true
                 text = removeMatch(match)
             }
         }
 
-        // 8. Time parsing: "at 5pm", "5:30 am", "5.45 pm", "5pm", "10am", "at 14:00", "at 5"
-        if (!hasTime) {
+        // 7. Ordinal day with mandatory "st/nd/rd/th" OR strict "on [the] <day>"
+        // (CRITICAL: Do NOT match lone digits without "on" or ordinal suffix!)
+        if (!hasExplicitDate) {
+            val ordinalDayRegex = Regex("(?i)\\b(?:on\\s+(?:the\\s+)?|the\\s+)?(\\d{1,2})\\s*(?:st|nd|rd|th)\\b")
+            val strictOnDayRegex = Regex("(?i)\\bon\\s+(?:the\\s+)?(\\d{1,2})\\b")
+
+            val match = ordinalDayRegex.find(text) ?: strictOnDayRegex.find(text)
+            match?.let { m ->
+                val day = m.groupValues[1].toIntOrNull() ?: 1
+                if (day in 1..31) {
+                    val nowDay = nowCal.get(Calendar.DAY_OF_MONTH)
+                    cal.set(Calendar.DAY_OF_MONTH, day)
+                    if (day < nowDay) {
+                        cal.add(Calendar.MONTH, 1)
+                    }
+                    hasExplicitDate = true
+                    text = removeMatch(m)
+                }
+            }
+        }
+
+        // 8. Time parsing: "at 9.45 pm", "at 9:45 pm", "9:45pm", "9.45pm", "9:45 pm", "9.45 pm", "at 9pm", "9pm", "9 am", "at 14:00", "at 9"
+        if (!hasExplicitTime) {
+            // Check time with AM/PM (supporting ':' or '.' as separator)
             val timeAmPmRegex = Regex("(?i)\\b(?:at\\s+)?(\\d{1,2})(?:[:.](\\d{2}))?\\s*(am|pm)\\b")
             timeAmPmRegex.find(text)?.let { match ->
                 var hour = match.groupValues[1].toIntOrNull() ?: 12
                 val minute = match.groupValues[2].toIntOrNull() ?: 0
                 val ampm = match.groupValues[3].lowercase()
-                
+
                 if (ampm == "pm" && hour < 12) hour += 12
                 if (ampm == "am" && hour == 12) hour = 0
-                
+
                 cal.set(Calendar.HOUR_OF_DAY, hour)
                 cal.set(Calendar.MINUTE, minute)
                 cal.set(Calendar.SECOND, 0)
                 cal.set(Calendar.MILLISECOND, 0)
-                hasTime = true
-                
-                if (!hasDate && cal.timeInMillis < System.currentTimeMillis()) {
-                    cal.add(Calendar.DAY_OF_YEAR, 1)
-                    hasDate = true
-                }
+                hasExplicitTime = true
                 text = removeMatch(match)
             } ?: run {
-                val time24Regex = Regex("(?i)\\b(?:at\\s+)?(\\d{1,2})[:.](\\d{2})\\b")
-                time24Regex.find(text)?.let { match ->
-                    val hour = match.groupValues[1].toIntOrNull() ?: 12
+                // Check 24-hour time or time with separator (e.g. "at 14:30", "14.30", "at 9:45")
+                val timeColonRegex = Regex("(?i)\\b(?:at\\s+)?(\\d{1,2})[:.](\\d{2})\\b")
+                timeColonRegex.find(text)?.let { match ->
+                    val rawHour = match.groupValues[1].toIntOrNull() ?: 12
                     val minute = match.groupValues[2].toIntOrNull() ?: 0
-                    if (hour in 0..23 && minute in 0..59) {
+                    if (rawHour in 0..23 && minute in 0..59) {
+                        var hour = rawHour
+                        // Heuristic: if user writes "at 9.45" without am/pm, and now is 8pm (20:00), 9.45 is likely 21:45
+                        if (hour in 1..11) {
+                            val nowHour = nowCal.get(Calendar.HOUR_OF_DAY)
+                            if (nowHour in 12..23 && (hour + 12) > nowHour) {
+                                hour += 12
+                            }
+                        }
                         cal.set(Calendar.HOUR_OF_DAY, hour)
                         cal.set(Calendar.MINUTE, minute)
                         cal.set(Calendar.SECOND, 0)
                         cal.set(Calendar.MILLISECOND, 0)
-                        hasTime = true
-                        
-                        if (!hasDate && cal.timeInMillis < System.currentTimeMillis()) {
-                            cal.add(Calendar.DAY_OF_YEAR, 1)
-                            hasDate = true
-                        }
+                        hasExplicitTime = true
                         text = removeMatch(match)
                     }
                 } ?: run {
+                    // Check "at <hour>" (e.g. "at 9", "at 5")
                     val timeAtRegex = Regex("(?i)\\bat\\s+(\\d{1,2})\\b")
                     timeAtRegex.find(text)?.let { match ->
                         var hour = match.groupValues[1].toIntOrNull() ?: 12
-                        
-                        // Smart heuristic for "at 9" when it's currently 8 PM
-                        // If adding 12 puts it in the near future today, assume PM.
                         if (hour in 1..11) {
-                            val nowHour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+                            val nowHour = nowCal.get(Calendar.HOUR_OF_DAY)
                             if (hour + 12 > nowHour && hour <= nowHour) {
                                 hour += 12
                             } else if (hour in 1..7) {
-                                hour += 12 // General heuristic: 1-7 is usually PM (e.g. 5pm)
+                                hour += 12
                             }
                         }
-                        
                         cal.set(Calendar.HOUR_OF_DAY, hour)
                         cal.set(Calendar.MINUTE, 0)
                         cal.set(Calendar.SECOND, 0)
                         cal.set(Calendar.MILLISECOND, 0)
-                        hasTime = true
-                        
-                        if (!hasDate && cal.timeInMillis < System.currentTimeMillis()) {
-                            cal.add(Calendar.DAY_OF_YEAR, 1)
-                            hasDate = true
-                        }
+                        hasExplicitTime = true
                         text = removeMatch(match)
+                    } ?: run {
+                        // Named time shortcuts: "noon", "midnight"
+                        val namedTimeRegex = Regex("(?i)\\b(noon|midnight)\\b")
+                        namedTimeRegex.find(text)?.let { match ->
+                            val word = match.groupValues[1].lowercase()
+                            if (word == "noon") {
+                                cal.set(Calendar.HOUR_OF_DAY, 12)
+                            } else {
+                                cal.set(Calendar.HOUR_OF_DAY, 0)
+                            }
+                            cal.set(Calendar.MINUTE, 0)
+                            cal.set(Calendar.SECOND, 0)
+                            cal.set(Calendar.MILLISECOND, 0)
+                            hasExplicitTime = true
+                            text = removeMatch(match)
+                        }
                     }
                 }
             }
         }
 
-        // Clean trailing leftover words like "on", "at", "every", "the"
+        // 9. If time was set but NO explicit date was set:
+        // If the parsed time is already past today, roll over to tomorrow!
+        // Otherwise keep today!
+        if (hasExplicitTime && !hasExplicitDate) {
+            if (cal.timeInMillis < System.currentTimeMillis()) {
+                cal.add(Calendar.DAY_OF_YEAR, 1)
+            }
+            hasExplicitDate = true
+        }
+
+        // 10. Clean leftover commas, punctuation, and prepositions
         var clean = text.trim()
+            .replace(Regex("^[,:\\- ]+"), "")
+            .replace(Regex("[,:\\- ]+$"), "")
             .replace(Regex("(?i)\\b(on|at|every|the|for|by|in)\\s*$"), "")
             .replace(Regex("^\\s*(on|at|every|the|for|by|in)\\b(?i)"), "")
+            .replace(Regex("^[,:\\- ]+"), "")
+            .replace(Regex("[,:\\- ]+$"), "")
             .trim()
             .replace("\\s+".toRegex(), " ")
 
@@ -383,16 +401,15 @@ object SmartDateParser {
             clean = input.trim()
         }
 
-        if (hasDate && !hasTime) {
+        if (hasExplicitDate && !hasExplicitTime) {
             cal.set(Calendar.HOUR_OF_DAY, 8)
             cal.set(Calendar.MINUTE, 0)
             cal.set(Calendar.SECOND, 0)
             cal.set(Calendar.MILLISECOND, 0)
-        } else if (!hasDate && !hasTime && detectedRecurrence == RecurrencePattern.NONE) {
+        } else if (!hasExplicitDate && !hasExplicitTime && detectedRecurrence == RecurrencePattern.NONE) {
             return ParseResult(input.trim(), null, false, RecurrencePattern.NONE)
-        } else if (!hasDate && detectedRecurrence != RecurrencePattern.NONE) {
-            // When recurrence is detected without explicit date (e.g. "workout every day"), set date to today/now
-            if (!hasTime) {
+        } else if (!hasExplicitDate && detectedRecurrence != RecurrencePattern.NONE) {
+            if (!hasExplicitTime) {
                 cal.set(Calendar.HOUR_OF_DAY, 8)
                 cal.set(Calendar.MINUTE, 0)
                 cal.set(Calendar.SECOND, 0)
@@ -407,11 +424,9 @@ object SmartDateParser {
                     else -> {}
                 }
             }
-            hasDate = true
+            hasExplicitDate = true
         }
 
-        return ParseResult(clean, cal.timeInMillis, hasTime, detectedRecurrence)
+        return ParseResult(clean, cal.timeInMillis, hasExplicitTime, detectedRecurrence)
     }
 }
-
-

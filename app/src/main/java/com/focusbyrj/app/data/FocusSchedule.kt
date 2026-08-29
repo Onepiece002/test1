@@ -33,5 +33,6 @@ data class FocusSchedule(
     val restrictionMode: String = "SIMPLE",
     val timeLimitMinutes: Int = 0,
     val clickLimitCount: Int = 0,
-    val appsToBlock: String = "" // Comma separated package names
+    val appsToBlock: String = "", // Comma separated package names
+    val isEnabled: Boolean = true
 )

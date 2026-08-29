@@ -1,0 +1,26 @@
+--- app/src/main/java/com/focusbyrj/app/ui/screens/BubbleChatActivity.kt
++++ app/src/main/java/com/focusbyrj/app/ui/screens/BubbleChatActivity.kt
+@@ -506,7 +506,7 @@
+             }
+ 
+-            val sentText = textToSend
++            var sentText = textToSend
+             val finalTitle = parsedResult?.cleanText?.takeIf { it.isNotBlank() && overrideText == null } ?: sentText
+             val dueDate = parsedResult?.timestamp
+@@ -522,6 +522,17 @@
+                 val repo = app.taskRepository
+                 val db = app.database
+                 
++                if (!sentText.startsWith("/")) {
++                    val nluResult = com.focusbyrj.app.util.OfflineNluEngine.parse(sentText, pendingTasksList)
++                    if (nluResult.intent == com.focusbyrj.app.util.NluIntent.LIST_TASKS) {
++                        sentText = if (nluResult.isAllTasks) "/tasks all" else "/tasks"
++                    } else if (nluResult.intent == com.focusbyrj.app.util.NluIntent.BLOCK_APP || nluResult.intent == com.focusbyrj.app.util.NluIntent.BLOCK_FILTER || nluResult.intent == com.focusbyrj.app.util.NluIntent.UNBLOCK) {
++                        sentText = "/talk $sentText"
++                    } else if (nluResult.intent != com.focusbyrj.app.util.NluIntent.UNKNOWN) {
++                        sentText = "/talk $sentText"
++                    }
++                }
++
+                 if (sentText.startsWith("/")) {
+                     val parts = sentText.split(" ")

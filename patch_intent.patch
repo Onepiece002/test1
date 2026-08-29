@@ -1,0 +1,60 @@
+--- app/src/main/java/com/focusbyrj/app/util/AyvaTalkEngine.kt
++++ app/src/main/java/com/focusbyrj/app/util/AyvaTalkEngine.kt
+@@ -592,27 +592,48 @@
+             return TalkResponse(idMatch.formatResponse(context), actions, idMatch.id, json)
+         }
+ 
+-        // --- 3. INTENT EXTRACTION (e.g. "set wait timer to 15") ---
+-        if ((cleanQuery.startsWith("set ") || cleanQuery.startsWith("change ")) && context != null) {
+-            var num = cleanQuery.replace(Regex("[^0-9]"), "").toIntOrNull()
+-            if (num != null) {
+-                if ((cleanQuery.contains("hour") || cleanQuery.contains("hr")) && num < 24) {
+-                    num *= 60
+-                }
+-                val intentTopic = getTopicsDatabase(context).maxByOrNull { t ->
+-                    val kwScore = t.keywords.count { cleanQuery.contains(it) } * 10
+-                    val titleScore = if (cleanQuery.contains(t.title.lowercase())) 20 else 0
+-                    kwScore + titleScore
+-                }
+-                if (intentTopic != null && intentTopic.prefKey != null && intentTopic.prefType == "int") {
+-                    context.getSharedPreferences("focus_prefs", Context.MODE_PRIVATE)
+-                        .edit().putInt(intentTopic.prefKey, num).apply()
+-                    
+-                    val displayVal = if (num >= 60 && num % 60 == 0) "${num / 60} hour(s)" else "$num"
+-                    return TalkResponse("✅ Direct Action: Changed ${intentTopic.title} to $displayVal.")
+-                }
+-            }
+-        }
+-
+-        // --- 4. Semantic & Fuzzy Scoring ---
++        // --- 3. Semantic & Fuzzy Scoring ---
+         var bestTopic: SpecificTopic? = null
+         var highestScore = 0
+ 
+@@ -659,6 +680,24 @@
+             }
+         }
+ 
++        // --- 4. INTENT EXTRACTION (e.g. "set wait timer to 15") ---
++        if (bestTopic != null && (cleanQuery.startsWith("set ") || cleanQuery.startsWith("change ") || cleanQuery.contains("set ")) && context != null) {
++            var num = cleanQuery.replace(Regex("[^0-9]"), "").toIntOrNull()
++            if (num != null) {
++                if ((cleanQuery.contains("hour") || cleanQuery.contains("hr")) && num < 24) {
++                    num *= 60
++                }
++                if (bestTopic.prefKey != null && bestTopic.prefType == "int") {
++                    context.getSharedPreferences("focus_prefs", Context.MODE_PRIVATE)
++                        .edit().putInt(bestTopic.prefKey!!, num).apply()
++                    
++                    val displayVal = if (num >= 60 && num % 60 == 0) "${num / 60} hour(s)" else if (bestTopic.id.contains("minute")) "$num minute(s)" else if (bestTopic.id.contains("hour")) "$num hour(s)" else "$num"
++                    return TalkResponse(
++                        formattedText = "✅ Direct Action: Changed ${bestTopic.title} to $displayVal.",
++                        actions = emptyList(),
++                        associatedTopicId = bestTopic.id,
++                        actionsJson = null
++                    )
++                }
++            }
++        }
++
+         if (bestTopic != null && highestScore >= 12) {
