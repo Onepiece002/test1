@@ -175,6 +175,15 @@ object AyvaTalkEngine {
     private fun resolveDiagnostic(key: String, ctx: Context): String? {
         val prefs = ctx.getSharedPreferences("focus_prefs", Context.MODE_PRIVATE)
         return when (key) {
+            "vacation_mode" -> {
+                val isVacation = AptitudeManager.isVacationMode(ctx)
+                val currentStreak = AptitudeManager.profileFlow.value.currentStreak
+                if (isVacation) {
+                    "• Status: *ACTIVE (Streak Frozen ❄️)*\n• Frozen Streak: *$currentStreak days*\n• Practice Alerts: *PAUSED 🔕*"
+                } else {
+                    "• Status: *DISABLED (Normal Daily Tests ⚡)*\n• Current Streak: *$currentStreak days*\n• Practice Alerts: *ACTIVE 🔔*"
+                }
+            }
             "persistent_reminders" -> {
                 val current = prefs.getInt("persistent_reminder_interval", 15)
                 val display = if (current >= 60) "${current / 60}h" else "${current}m"
@@ -203,6 +212,18 @@ object AyvaTalkEngine {
 
     private fun resolveCustomActions(key: String, ctx: Context): List<TalkAction> {
         return when (key) {
+            "vacation_mode" -> {
+                val isVacation = AptitudeManager.isVacationMode(ctx)
+                if (isVacation) {
+                    listOf(
+                        TalkAction.DirectPrefUpdate("vacation_mode", "boolean", "false", "Turn Off", "Disable Vacation Mode", "⚡")
+                    )
+                } else {
+                    listOf(
+                        TalkAction.DirectPrefUpdate("vacation_mode", "boolean", "true", "Turn On", "Enable Vacation Mode 🏖️", "❄️")
+                    )
+                }
+            }
             "persistent_reminders" -> listOf(
                 TalkAction.DirectPrefUpdate("persistent_reminder_interval", "int", "5", "5m", "Set to 5m", "⚡"),
                 TalkAction.DirectPrefUpdate("persistent_reminder_interval", "int", "15", "15m", "Set to 15m", "⚡"),
@@ -651,10 +672,20 @@ object AyvaTalkEngine {
             }
         }
 
-        // --- 4. INTENT EXTRACTION (e.g. "set wait timer to 15") ---
-        if (bestTopic != null && (cleanQuery.startsWith("set ") || cleanQuery.startsWith("change ") || cleanQuery.startsWith("turn ") || cleanQuery.startsWith("toggle ") || cleanQuery.contains("set ") || cleanQuery.contains("turn ") || cleanQuery.contains("change ")) && context != null) {
-            val isBooleanTurnOn = cleanQuery.contains(" on") || cleanQuery.contains("enable") || cleanQuery.contains("true")
-            val isBooleanTurnOff = cleanQuery.contains(" off") || cleanQuery.contains("disable") || cleanQuery.contains("false")
+        // --- 4. INTENT EXTRACTION (e.g. "set wait timer to 15", "freeze streak", "turn on vacation mode") ---
+        val hasIntentPrefix = cleanQuery.startsWith("set ") || cleanQuery.startsWith("change ") || 
+            cleanQuery.startsWith("turn ") || cleanQuery.startsWith("toggle ") || 
+            cleanQuery.startsWith("enable ") || cleanQuery.startsWith("disable ") || 
+            cleanQuery.startsWith("freeze ") || cleanQuery.startsWith("unfreeze ") || 
+            cleanQuery.startsWith("activate ") || cleanQuery.startsWith("deactivate ") ||
+            cleanQuery.contains("set ") || cleanQuery.contains("turn ") || 
+            cleanQuery.contains("change ") || cleanQuery.contains("toggle ") ||
+            cleanQuery.contains("freeze") || cleanQuery.contains("unfreeze") ||
+            cleanQuery.contains("vacation")
+
+        if (bestTopic != null && hasIntentPrefix && context != null) {
+            val isBooleanTurnOn = cleanQuery.contains(" on") || cleanQuery.contains("enable") || cleanQuery.contains("true") || cleanQuery.contains("activate") || cleanQuery.contains("freeze") || cleanQuery.startsWith("freeze")
+            val isBooleanTurnOff = cleanQuery.contains(" off") || cleanQuery.contains("disable") || cleanQuery.contains("false") || cleanQuery.contains("deactivate") || cleanQuery.contains("unfreeze") || cleanQuery.startsWith("unfreeze")
             
             var num = cleanQuery.replace(Regex("[^0-9]"), "").toIntOrNull()
             var stringVal: String? = null

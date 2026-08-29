@@ -199,6 +199,11 @@ class BubbleChatActivity : ComponentActivity() {
         }
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+    }
+
     override fun onResume() {
         super.onResume()
         sendBroadcast(Intent("com.focusbyrj.app.CHAT_OPENED"))
@@ -286,6 +291,40 @@ fun ChatInterface() {
         prefs.edit().putFloat("chat_font_size_sp", clamped).apply()
     }
     
+    val persistedFlowMessages by BubbleChatManager.messagesFlow.collectAsState()
+    
+    // Dynamically sync messages whenever background alerts (streak prompts, summaries) are received
+    LaunchedEffect(persistedFlowMessages) {
+        if (persistedFlowMessages.isNotEmpty()) {
+            val mapped = persistedFlowMessages.map {
+                ChatMessage(it.id, it.text, it.isUser, it.timestamp, it.isArithmetic, it.arithmeticJson, it.isDrillSummary, it.drillSummaryJson, it.isAptitudeProfile, it.isStreakPrompt, it.streakPromptJson, it.isTaskSummary, it.taskSummaryJson, it.isTalkAction, it.talkActionJson, it.pendingActionJson)
+            }
+            if (mapped.map { it.id } != messages.map { it.id }) {
+                messages = mapped
+            }
+        }
+    }
+
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                BubbleChatManager.clearUnread(context)
+                val stored = BubbleChatManager.getMessages(context)
+                if (stored.isNotEmpty()) {
+                    val mapped = stored.map {
+                        ChatMessage(it.id, it.text, it.isUser, it.timestamp, it.isArithmetic, it.arithmeticJson, it.isDrillSummary, it.drillSummaryJson, it.isAptitudeProfile, it.isStreakPrompt, it.streakPromptJson, it.isTaskSummary, it.taskSummaryJson, it.isTalkAction, it.talkActionJson, it.pendingActionJson)
+                    }
+                    if (mapped.map { it.id } != messages.map { it.id }) {
+                        messages = mapped
+                    }
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     
     LaunchedEffect(messages.size) {
@@ -2338,6 +2377,8 @@ fun PendingActionCard(message: ChatMessage, fontSizeSp: Float, onMessageUpdate: 
                         com.focusbyrj.app.service.AptitudeReminderReceiver.scheduleDrillReminders(context)
                     } else if (prefKey == "morning_brief_time" || prefKey == "evening_brief_time") {
                         com.focusbyrj.app.service.DailySummaryReceiver.scheduleDailySummaries(context)
+                    } else if (prefKey == "vacation_mode") {
+                        com.focusbyrj.app.util.AptitudeManager.setVacationMode(context, value == "true")
                     }
                     
                     json.put("status", "executed")

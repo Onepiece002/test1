@@ -52,13 +52,18 @@ object BubbleChatManager {
     private const val INACTIVITY_TIMEOUT_MS = 10 * 60 * 1000L // 10 minutes
 
     const val ACTION_UNREAD_COUNT_CHANGED = "com.focusbyrj.app.UNREAD_COUNT_CHANGED"
+    const val ACTION_MESSAGES_CHANGED = "com.focusbyrj.app.CHAT_MESSAGES_CHANGED"
 
     private val _unreadCountFlow = MutableStateFlow(0)
     val unreadCountFlow: StateFlow<Int> = _unreadCountFlow.asStateFlow()
 
+    private val _messagesFlow = MutableStateFlow<List<PersistedChatMessage>>(emptyList())
+    val messagesFlow: StateFlow<List<PersistedChatMessage>> = _messagesFlow.asStateFlow()
+
     fun init(context: Context) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         _unreadCountFlow.value = prefs.getInt(KEY_UNREAD_COUNT, 0)
+        _messagesFlow.value = getMessages(context)
     }
 
     fun getUnreadCount(context: Context): Int {
@@ -91,6 +96,7 @@ object BubbleChatManager {
     }
 
     fun isInactiveTimeout(context: Context): Boolean {
+        if (getUnreadCount(context) > 0) return false
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val lastActive = prefs.getLong(KEY_LAST_ACTIVITY, 0L)
         if (lastActive == 0L) return false
@@ -100,10 +106,11 @@ object BubbleChatManager {
     fun getMessages(context: Context): List<PersistedChatMessage> {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         
-        // Check 10 mins inactivity timeout
+        // Check 10 mins inactivity timeout only if there are no unread notifications
+        val unread = prefs.getInt(KEY_UNREAD_COUNT, 0)
         val lastActive = prefs.getLong(KEY_LAST_ACTIVITY, 0L)
         val now = System.currentTimeMillis()
-        if (lastActive > 0L && (now - lastActive) > INACTIVITY_TIMEOUT_MS) {
+        if (unread == 0 && lastActive > 0L && (now - lastActive) > INACTIVITY_TIMEOUT_MS) {
             clearMessages(context)
             prefs.edit().putLong(KEY_LAST_ACTIVITY, now).apply()
             return emptyList()
@@ -137,6 +144,7 @@ object BubbleChatManager {
                 )
             }
         } catch (_: Exception) {}
+        _messagesFlow.value = list
         return list
     }
 
@@ -171,6 +179,8 @@ object BubbleChatManager {
                 .putString(KEY_MESSAGES, jsonArray.toString())
                 .putLong(KEY_LAST_ACTIVITY, System.currentTimeMillis())
                 .apply()
+            _messagesFlow.value = trimmed
+            context.sendBroadcast(Intent(ACTION_MESSAGES_CHANGED))
         } catch (_: Exception) {}
     }
 
@@ -195,6 +205,8 @@ object BubbleChatManager {
     fun clearMessages(context: Context) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit().remove(KEY_MESSAGES).putLong(KEY_LAST_ACTIVITY, System.currentTimeMillis()).apply()
+        _messagesFlow.value = emptyList()
         clearUnread(context)
+        context.sendBroadcast(Intent(ACTION_MESSAGES_CHANGED))
     }
 }

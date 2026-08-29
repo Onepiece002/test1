@@ -42,6 +42,10 @@ class BubbleService : Service() {
     private var lastX = 0
     private var lastY = 300
 
+    private var lastIsLandscape: Boolean? = null
+    private var lastScreenWidth: Int = 0
+    private var lastScreenHeight: Int = 0
+
     private val hideHandler = Handler(Looper.getMainLooper())
     private var isPeeking = false
     private var hideRunnable = Runnable { peekBubble() }
@@ -51,7 +55,7 @@ class BubbleService : Service() {
         override fun onDisplayAdded(displayId: Int) {}
         override fun onDisplayRemoved(displayId: Int) {}
         override fun onDisplayChanged(displayId: Int) {
-            updateLandscapeVisibility()
+            updateLandscapeVisibility(force = false)
         }
     }
 
@@ -145,7 +149,7 @@ class BubbleService : Service() {
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
-        updateLandscapeVisibility()
+        updateLandscapeVisibility(force = true)
     }
 
     private fun isLandscapeMode(): Boolean {
@@ -156,11 +160,28 @@ class BubbleService : Service() {
         return false
     }
 
-    private fun updateLandscapeVisibility() {
+    private fun updateLandscapeVisibility(force: Boolean = false) {
         val prefs = getSharedPreferences("bubble_prefs", Context.MODE_PRIVATE)
         val hideInLandscape = prefs.getBoolean("hide_in_landscape", true)
-        
-        if (hideInLandscape && isLandscapeMode()) {
+        val isLandscape = isLandscapeMode()
+        val displayMetrics = resources.displayMetrics
+        val currentWidth = displayMetrics.widthPixels
+        val currentHeight = displayMetrics.heightPixels
+
+        val orientationChanged = lastIsLandscape != isLandscape
+        val dimensionsChanged = lastScreenWidth != currentWidth || lastScreenHeight != currentHeight
+
+        if (!force && !orientationChanged && !dimensionsChanged) {
+            // Display refresh rate, HDR, or surface changes during video calls/streaming:
+            // Do NOT unhide the bubble or interfere with the hide timer!
+            return
+        }
+
+        lastIsLandscape = isLandscape
+        lastScreenWidth = currentWidth
+        lastScreenHeight = currentHeight
+
+        if (hideInLandscape && isLandscape) {
             hideHandler.removeCallbacks(hideRunnable)
             bubbleView?.visibility = View.GONE
             if (isChatOpen) {
@@ -170,8 +191,12 @@ class BubbleService : Service() {
             val isEnabled = prefs.getBoolean("bubble_enabled", false)
             if (isEnabled) {
                 bubbleView?.visibility = View.VISIBLE
-                snapToEdge()
-                resetHideTimer()
+                if (isPeeking) {
+                    peekBubble(force = true)
+                } else {
+                    snapToEdge()
+                    resetHideTimer()
+                }
             }
         }
     }
@@ -469,25 +494,15 @@ class BubbleService : Service() {
         }
 
         if (isPeeking) {
-            val displayMetrics = resources.displayMetrics
-            val size = (60 * displayMetrics.density).toInt()
-            val screenWidth = displayMetrics.widthPixels
-            val isLeft = (layoutParams?.x ?: 0) < screenWidth / 2
-            val hideOffset = size * hiddenAmountRatio
-            val targetTranslation = if (isLeft) -hideOffset else hideOffset
-
-            glowRingView?.animate()?.cancel()
-            glowRingView?.alpha = glowIntensity
-            bubbleView?.animate()?.cancel()
-            bubbleView?.translationX = targetTranslation
-            bubbleView?.alpha = hiddenOpacity
+            peekBubble(force = true)
         }
 
         resetHideTimer()
     }
 
     private fun peekBubble(force: Boolean = false) {
-        if (isChatOpen || isPeeking) return
+        if (isChatOpen) return
+        if (!force && isPeeking) return
         val prefs = getSharedPreferences("bubble_prefs", Context.MODE_PRIVATE)
         if (!force && !prefs.getBoolean("auto_hide_enabled", false)) return
 
@@ -532,10 +547,11 @@ class BubbleService : Service() {
             ?.start()
             
         peekAnimator?.cancel()
-        peekAnimator = android.animation.ValueAnimator.ofInt(layoutParams!!.x, targetX).apply {
+        val currentX = layoutParams?.x ?: 0
+        peekAnimator = android.animation.ValueAnimator.ofInt(currentX, targetX).apply {
             duration = 300
             addUpdateListener { anim ->
-                layoutParams!!.x = anim.animatedValue as Int
+                layoutParams?.x = anim.animatedValue as Int
                 try { windowManager.updateViewLayout(bubbleView, layoutParams) } catch (e: Exception) {}
             }
             start()
@@ -565,10 +581,11 @@ class BubbleService : Service() {
                 ?.setDuration(250)
                 ?.start()
                 
-            peekAnimator = android.animation.ValueAnimator.ofInt(layoutParams!!.x, targetX).apply {
+            val currentX = layoutParams?.x ?: 0
+            peekAnimator = android.animation.ValueAnimator.ofInt(currentX, targetX).apply {
                 duration = 250
                 addUpdateListener { anim ->
-                    layoutParams!!.x = anim.animatedValue as Int
+                    layoutParams?.x = anim.animatedValue as Int
                     try { windowManager.updateViewLayout(bubbleView, layoutParams) } catch (e: Exception) {}
                 }
                 start()
@@ -580,7 +597,7 @@ class BubbleService : Service() {
             bubbleView?.translationX = 0f
             bubbleView?.alpha = 1.0f
             
-            layoutParams!!.x = targetX
+            layoutParams?.x = targetX
             try { windowManager.updateViewLayout(bubbleView, layoutParams) } catch (e: Exception) {}
         }
     }
@@ -596,12 +613,14 @@ class BubbleService : Service() {
     }
 
     private fun snapToEdge() {
+        isPeeking = false
         val displayMetrics = resources.displayMetrics
         val screenWidth = displayMetrics.widthPixels
         val size = (60 * displayMetrics.density).toInt()
         val centerX = screenWidth / 2
 
-        val targetX = if (layoutParams!!.x < centerX) 0 else (screenWidth - size)
+        val currentX = layoutParams?.x ?: 0
+        val targetX = if (currentX < centerX) 0 else (screenWidth - size)
         glowRingView?.animate()?.cancel()
         glowRingView?.alpha = 0f
         bubbleView?.animate()?.cancel()
@@ -609,10 +628,10 @@ class BubbleService : Service() {
         bubbleView?.alpha = 1.0f
         
         peekAnimator?.cancel()
-        peekAnimator = ValueAnimator.ofInt(layoutParams!!.x, targetX).apply {
+        peekAnimator = ValueAnimator.ofInt(currentX, targetX).apply {
             duration = 200
             addUpdateListener { anim ->
-                layoutParams!!.x = anim.animatedValue as Int
+                layoutParams?.x = anim.animatedValue as Int
                 try { windowManager.updateViewLayout(bubbleView, layoutParams) } catch (e: Exception) {}
             }
             start()

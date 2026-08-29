@@ -774,5 +774,36 @@
     "prefKey": "smart_regex_enabled",
     "prefType": "boolean",
     "diagnosticKey": "smart_regex_enabled"
+  },
+  {
+    "id": "vacation_mode",
+    "title": "Vacation Mode (Streak Freeze)",
+    "emoji": "🏖️",
+    "directExplanation": "Freezes your daily test streak so you won't lose your streak while traveling or taking a break, and silences all practice reminders.",
+    "whereToGo": "Settings -> Bubble Settings -> Daily Summaries & Practice -> Vacation Mode",
+    "whatToClick": [
+      "Open Bubble Settings",
+      "Scroll to Daily Summaries & Practice",
+      "Toggle Vacation Mode"
+    ],
+    "keywords": [
+      "vacation mode",
+      "vacation",
+      "freeze streak",
+      "streak freeze",
+      "pause streak",
+      "holiday mode",
+      "travel mode",
+      "trip",
+      "holiday",
+      "pause tests",
+      "freeze daily tests",
+      "stop practice notifications"
+    ],
+    "route": "settings",
+    "isPackageSettingUri": false,
+    "prefKey": "vacation_mode",
+    "prefType": "boolean",
+    "diagnosticKey": "vacation_mode"
   }
 ]

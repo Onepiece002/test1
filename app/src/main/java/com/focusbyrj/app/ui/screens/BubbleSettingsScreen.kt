@@ -62,6 +62,7 @@ fun BubbleSettingsScreen(navController: NavController) {
     var isBubbleEnabled by remember { mutableStateOf(prefs.getBoolean("bubble_enabled", false)) }
     var morningBriefTime by remember { mutableStateOf(prefs.getString("morning_brief_time", "08:00 AM") ?: "08:00 AM") }
     var eveningBriefTime by remember { mutableStateOf(prefs.getString("evening_brief_time", "08:00 PM") ?: "08:00 PM") }
+    var vacationMode by remember { mutableStateOf(prefs.getBoolean("vacation_mode", false)) }
     var streakNotificationEnabled by remember { 
         mutableStateOf(prefs.getBoolean("streak_notification_enabled", prefs.getBoolean("random_drills_notification_enabled", true))) 
     }
@@ -469,6 +470,48 @@ fun BubbleSettingsScreen(navController: NavController) {
                                 }
                             }
                         )
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 12.dp),
+                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
+                        )
+                        SettingsSwitchRow(
+                            icon = Icons.Filled.BeachAccess,
+                            title = "Vacation Mode",
+                            subtitle = "Freezes daily test streak & turns off practice alerts during trips",
+                            checked = vacationMode,
+                            onCheckedChange = { enabled ->
+                                vacationMode = enabled
+                                com.focusbyrj.app.util.AptitudeManager.setVacationMode(context, enabled)
+                            }
+                        )
+                        AnimatedVisibility(visible = vacationMode) {
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 8.dp, bottom = 4.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        Icons.Filled.AcUnit,
+                                        contentDescription = "Frozen",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Vacation Mode Active: Daily test streak is safely frozen and practice alerts are silenced.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                        }
                         HorizontalDivider(
                             modifier = Modifier.padding(vertical = 12.dp),
                             color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)

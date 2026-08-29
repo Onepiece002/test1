@@ -73,10 +73,30 @@ sealed class TalkAction(
                 }
                 is DirectPrefUpdate -> {
                     val prefs = context.getSharedPreferences("focus_prefs", Context.MODE_PRIVATE)
+                    val bubblePrefs = context.getSharedPreferences("bubble_prefs", Context.MODE_PRIVATE)
                     when (prefType) {
-                        "int" -> prefs.edit().putInt(prefKey, targetValue.toIntOrNull() ?: 0).apply()
-                        "boolean" -> prefs.edit().putBoolean(prefKey, targetValue.toBooleanStrictOrNull() ?: false).apply()
-                        "string" -> prefs.edit().putString(prefKey, targetValue).apply()
+                        "int" -> {
+                            val v = targetValue.toIntOrNull() ?: 0
+                            prefs.edit().putInt(prefKey, v).apply()
+                            bubblePrefs.edit().putInt(prefKey, v).apply()
+                        }
+                        "boolean" -> {
+                            val b = targetValue.toBooleanStrictOrNull() ?: false
+                            prefs.edit().putBoolean(prefKey, b).apply()
+                            bubblePrefs.edit().putBoolean(prefKey, b).apply()
+                        }
+                        "string" -> {
+                            prefs.edit().putString(prefKey, targetValue).apply()
+                            bubblePrefs.edit().putString(prefKey, targetValue).apply()
+                        }
+                    }
+                    if (prefKey == "vacation_mode") {
+                        val b = targetValue.toBooleanStrictOrNull() ?: false
+                        AptitudeManager.setVacationMode(context, b)
+                    } else if (prefKey == "streak_notification_time" || prefKey == "streak_notification_enabled") {
+                        com.focusbyrj.app.service.AptitudeReminderReceiver.scheduleDrillReminders(context)
+                    } else if (prefKey == "morning_brief_time" || prefKey == "evening_brief_time") {
+                        com.focusbyrj.app.service.DailySummaryReceiver.scheduleDailySummaries(context)
                     }
                     true
                 }

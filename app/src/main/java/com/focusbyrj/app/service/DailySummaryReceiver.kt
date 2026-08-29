@@ -159,7 +159,6 @@ class DailySummaryReceiver : BroadcastReceiver() {
     private suspend fun handleMorningSummary(context: Context, app: FocusApplication) {
         val tasks = app.taskRepository.allTasks.firstOrNull() ?: emptyList()
         val pendingTasks = tasks.filter { !it.isCompleted }
-        val priorityTasks = pendingTasks.filter { it.isPriority }
 
         val quote = com.focusbyrj.app.util.SummaryQuotes.getNextMorningQuote(context)
 
@@ -173,20 +172,12 @@ class DailySummaryReceiver : BroadcastReceiver() {
         if (pendingTasks.isEmpty()) {
             sb.append("📋 *Today's Agenda*: ${com.focusbyrj.app.util.AyvaDialogueEngine.getEmptyDayMessage(context)}\n_Type a task in chat if you want to put something on my radar!_\n")
         } else {
-            sb.append("📋 *Active Tasks (${pendingTasks.size})*:\n")
-            if (priorityTasks.isNotEmpty()) {
-                sb.append("⭐ *Priority Focus (${priorityTasks.size})*:\n")
-                priorityTasks.take(5).forEachIndexed { index, task ->
-                    sb.append("  ${index + 1}. ⚡ ${task.title}\n")
-                }
-            }
-            sb.append("\n📝 *Task List*:\n")
-            pendingTasks.take(8).forEachIndexed { index, task ->
-                val prio = if (task.isPriority) "[High Priority] " else ""
-                sb.append("${index + 1}. $prio${task.title}\n")
-            }
-            if (pendingTasks.size > 8) {
-                sb.append("_...and ${pendingTasks.size - 8} more tasks_\n")
+            val sortedPending = pendingTasks.sortedWith(compareByDescending<com.focusbyrj.app.data.Task> { it.isPriority }.thenBy { it.dueDate ?: Long.MAX_VALUE })
+            sb.append("📋 *All Active Tasks (${sortedPending.size})*:\n")
+            sortedPending.forEachIndexed { index, task ->
+                val prio = if (task.isPriority) "🔥 " else ""
+                val dueStr = if (task.dueDate != null) " _(Due: ${com.focusbyrj.app.util.SmartDateParser.formatDueDate(task.dueDate)})_" else ""
+                sb.append("${index + 1}. $prio${task.title}$dueStr\n")
             }
         }
 
@@ -223,12 +214,12 @@ class DailySummaryReceiver : BroadcastReceiver() {
         sb.append("⏳ *Remaining Tasks*: ${pendingTasks.size}\n\n")
 
         if (pendingTasks.isNotEmpty()) {
-            sb.append("📋 *Carried Forward to Tomorrow*:\n")
-            pendingTasks.take(5).forEachIndexed { index, task ->
-                sb.append("${index + 1}. ${task.title}\n")
-            }
-            if (pendingTasks.size > 5) {
-                sb.append("_...and ${pendingTasks.size - 5} more_\n")
+            val sortedPending = pendingTasks.sortedWith(compareByDescending<com.focusbyrj.app.data.Task> { it.isPriority }.thenBy { it.dueDate ?: Long.MAX_VALUE })
+            sb.append("📋 *Carried Forward to Tomorrow (${sortedPending.size})*:\n")
+            sortedPending.forEachIndexed { index, task ->
+                val prio = if (task.isPriority) "🔥 " else ""
+                val dueStr = if (task.dueDate != null) " _(Due: ${com.focusbyrj.app.util.SmartDateParser.formatDueDate(task.dueDate)})_" else ""
+                sb.append("${index + 1}. $prio${task.title}$dueStr\n")
             }
         } else {
             sb.append("🎉 *Flawless execution! You crushed every single task today.*\n")

@@ -24,7 +24,8 @@ data class AptitudeProfile(
     val totalDrills: Int = 0,
     val currentStreak: Int = 0,
     val longestStreak: Int = 0,
-    val streakBonusPercent: Int = 0
+    val streakBonusPercent: Int = 0,
+    val isVacationMode: Boolean = false
 ) {
     val accuracy: Float
         get() = if (totalQuestions > 0) (correctQuestions.toFloat() / totalQuestions) * 100f else 0f
@@ -39,14 +40,59 @@ object AptitudeManager {
     private const val KEY_CURRENT_STREAK = "current_streak"
     private const val KEY_LONGEST_STREAK = "longest_streak"
     private const val KEY_LAST_ACTIVE_DATE = "last_active_date"
+    const val KEY_VACATION_MODE = "vacation_mode"
     
     private var prefs: SharedPreferences? = null
     
-    private val _profileFlow = MutableStateFlow(calculateProfile(0, 0, 0, 0, 0, 0, ""))
+    private val _profileFlow = MutableStateFlow(calculateProfile(0, 0, 0, 0, 0, 0, "", false))
     val profileFlow: StateFlow<AptitudeProfile> = _profileFlow.asStateFlow()
 
     fun init(context: Context) {
         prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val bubblePrefs = context.getSharedPreferences("bubble_prefs", Context.MODE_PRIVATE)
+        // Sync vacation mode if present in bubble_prefs
+        if (bubblePrefs.contains(KEY_VACATION_MODE)) {
+            val vm = bubblePrefs.getBoolean(KEY_VACATION_MODE, false)
+            prefs?.edit()?.putBoolean(KEY_VACATION_MODE, vm)?.apply()
+        }
+        refreshProfile()
+    }
+
+    fun isVacationMode(context: Context? = null): Boolean {
+        if (context != null) {
+            val bubblePrefs = context.getSharedPreferences("bubble_prefs", Context.MODE_PRIVATE)
+            if (bubblePrefs.contains(KEY_VACATION_MODE)) {
+                return bubblePrefs.getBoolean(KEY_VACATION_MODE, false)
+            }
+        }
+        return prefs?.getBoolean(KEY_VACATION_MODE, false) ?: false
+    }
+
+    fun setVacationMode(context: Context, enabled: Boolean) {
+        prefs?.edit()?.putBoolean(KEY_VACATION_MODE, enabled)?.apply()
+        context.getSharedPreferences("bubble_prefs", Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(KEY_VACATION_MODE, enabled)
+            .apply()
+        context.getSharedPreferences("focus_prefs", Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(KEY_VACATION_MODE, enabled)
+            .apply()
+
+        // When disabling vacation mode, set last active date to yesterday so today's drill seamlessly continues the streak
+        if (!enabled) {
+            val current = _profileFlow.value.currentStreak
+            if (current > 0) {
+                val yesterday = getYesterdayDateString()
+                prefs?.edit()?.putString(KEY_LAST_ACTIVE_DATE, yesterday)?.apply()
+            }
+            // Re-schedule drill reminders if enabled
+            com.focusbyrj.app.service.AptitudeReminderReceiver.scheduleDrillReminders(context)
+        } else {
+            // Cancel drill reminders while in vacation mode
+            com.focusbyrj.app.service.AptitudeReminderReceiver.cancelAllReminders(context)
+        }
+
         refreshProfile()
     }
 
@@ -69,8 +115,9 @@ object AptitudeManager {
         val savedStreak = p.getInt(KEY_CURRENT_STREAK, 0)
         val longestStreak = p.getInt(KEY_LONGEST_STREAK, 0)
         val lastDate = p.getString(KEY_LAST_ACTIVE_DATE, "") ?: ""
+        val vacation = p.getBoolean(KEY_VACATION_MODE, false)
         
-        _profileFlow.value = calculateProfile(savedXp, tQ, cQ, tD, savedStreak, longestStreak, lastDate)
+        _profileFlow.value = calculateProfile(savedXp, tQ, cQ, tD, savedStreak, longestStreak, lastDate, vacation)
     }
 
     fun addAptitudeXp(amount: Int) {
@@ -95,8 +142,10 @@ object AptitudeManager {
         val lastDate = prefs?.getString(KEY_LAST_ACTIVE_DATE, "") ?: ""
         val savedStreak = prefs?.getInt(KEY_CURRENT_STREAK, 0) ?: 0
         val savedLongest = prefs?.getInt(KEY_LONGEST_STREAK, 0) ?: 0
+        val vacation = prefs?.getBoolean(KEY_VACATION_MODE, false) ?: false
 
         val newStreak = when {
+            vacation -> savedStreak + 1
             lastDate == today -> if (savedStreak <= 0) 1 else savedStreak
             lastDate == yesterday -> savedStreak + 1
             else -> 1
@@ -118,7 +167,7 @@ object AptitudeManager {
             putString(KEY_LAST_ACTIVE_DATE, today)
         }?.apply()
         
-        _profileFlow.value = calculateProfile(newXp, newTQ, newCQ, newTD, newStreak, newLongest, today)
+        _profileFlow.value = calculateProfile(newXp, newTQ, newCQ, newTD, newStreak, newLongest, today, vacation)
     }
 
     // Level formula: xp = (level-1)^2 * 100
@@ -138,7 +187,8 @@ object AptitudeManager {
         tD: Int, 
         savedStreak: Int, 
         longestStreak: Int, 
-        lastDate: String
+        lastDate: String,
+        isVacationMode: Boolean
     ): AptitudeProfile {
         val level = getLevelForXp(xp)
         val currentLevelXp = getXpForLevel(level)
@@ -156,9 +206,10 @@ object AptitudeManager {
         val today = getTodayDateString()
         val yesterday = getYesterdayDateString()
         val currentStreak = when {
+            isVacationMode -> savedStreak // Frozen streak in vacation mode
             lastDate.isEmpty() -> 0
             lastDate == today || lastDate == yesterday -> savedStreak
-            else -> 0 // Broken streak if missed a day
+            else -> 0 // Broken streak if missed a day and not on vacation
         }
 
         // Streak bonus starts from 1 day up to 7 days (+5% per day up to +35% max)
@@ -176,7 +227,8 @@ object AptitudeManager {
             totalDrills = tD,
             currentStreak = currentStreak,
             longestStreak = maxOf(longestStreak, currentStreak),
-            streakBonusPercent = streakBonusPercent
+            streakBonusPercent = streakBonusPercent,
+            isVacationMode = isVacationMode
         )
     }
 }

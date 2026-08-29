@@ -30,8 +30,9 @@ class AptitudeReminderReceiver : BroadcastReceiver() {
         fun scheduleDrillReminders(context: Context) {
             val prefs = context.getSharedPreferences("bubble_prefs", Context.MODE_PRIVATE)
             val isEnabled = prefs.getBoolean("streak_notification_enabled", prefs.getBoolean("random_drills_notification_enabled", true))
+            val isVacationMode = AptitudeManager.isVacationMode(context)
             
-            if (!isEnabled) {
+            if (!isEnabled || isVacationMode) {
                 cancelAllReminders(context)
                 return
             }
@@ -102,15 +103,24 @@ class AptitudeReminderReceiver : BroadcastReceiver() {
             var hour = 18
             var minute = 0
             try {
-                val parts = timeStr.split(":", " ")
-                if (parts.size == 3) {
-                    var h = parts[0].toInt()
-                    val m = parts[1].toInt()
-                    val amPm = parts[2]
-                    if (amPm.equals("PM", ignoreCase = true) && h != 12) h += 12
-                    if (amPm.equals("AM", ignoreCase = true) && h == 12) h = 0
-                    hour = h
-                    minute = m
+                val cleaned = timeStr.trim()
+                if (cleaned.contains("AM", ignoreCase = true) || cleaned.contains("PM", ignoreCase = true)) {
+                    val parts = cleaned.split(":", " ").filter { it.isNotBlank() }
+                    if (parts.size >= 3) {
+                        var h = parts[0].toInt()
+                        val m = parts[1].toInt()
+                        val amPm = parts[2]
+                        if (amPm.equals("PM", ignoreCase = true) && h != 12) h += 12
+                        if (amPm.equals("AM", ignoreCase = true) && h == 12) h = 0
+                        hour = h
+                        minute = m
+                    }
+                } else {
+                    val parts = cleaned.split(":")
+                    if (parts.size >= 2) {
+                        hour = parts[0].toInt()
+                        minute = parts[1].toInt()
+                    }
                 }
             } catch (_: Exception) {}
 
@@ -223,8 +233,9 @@ class AptitudeReminderReceiver : BroadcastReceiver() {
         try {
             val prefs = context.getSharedPreferences("bubble_prefs", Context.MODE_PRIVATE)
             val isEnabled = prefs.getBoolean("streak_notification_enabled", prefs.getBoolean("random_drills_notification_enabled", true))
+            val isVacationMode = AptitudeManager.isVacationMode(context)
             
-            if (!isEnabled) return
+            if (!isEnabled || isVacationMode) return
 
         val profile = AptitudeManager.profileFlow.value
         val streakText = if (profile.currentStreak > 0) "🔥 *${profile.currentStreak}-Day Streak Active!*\n" else ""
