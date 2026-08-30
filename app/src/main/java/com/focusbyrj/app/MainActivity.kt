@@ -93,7 +93,6 @@ import com.focusbyrj.app.ui.navigation.Screen
 import com.focusbyrj.app.ui.screens.AccountScreen
 import com.focusbyrj.app.ui.screens.AddRestrictionScreen
 import com.focusbyrj.app.ui.screens.DashboardScreen
-import com.focusbyrj.app.ui.screens.PermissionsScreen
 import com.focusbyrj.app.ui.screens.SchedulesScreen
 import com.focusbyrj.app.ui.screens.SecurityScreen
 import com.focusbyrj.app.ui.screens.SettingsScreen
@@ -325,31 +324,13 @@ fun MainAppScreen(
 
                 NavigationDrawerItem(
                     icon = { Icon(Icons.Filled.Security, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-                    label = { Text("Security", color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodyLarge) },
-                    selected = false,
-                    onClick = {
-                        scope.launch { drawerState.close() }
-                        kotlin.runCatching {
-                            navController.navigate(Screen.Security.route) {
-                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        }
-                    },
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                    colors = NavigationDrawerItemDefaults.colors(unselectedContainerColor = Color.Transparent)
-                )
-
-                NavigationDrawerItem(
-                    icon = { Icon(Icons.Filled.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.secondary) },
                     label = {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text("Permissions", color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodyLarge)
+                            Text("Security & Permissions", color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodyLarge)
                             if (allConfigured) {
                                 Icon(Icons.Filled.CheckCircle, contentDescription = "Configured", tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(16.dp))
                             } else {
@@ -361,7 +342,7 @@ fun MainAppScreen(
                     onClick = {
                         scope.launch { drawerState.close() }
                         kotlin.runCatching {
-                            navController.navigate(Screen.Permissions.route) {
+                            navController.navigate(Screen.Security.route) {
                                 popUpTo(navController.graph.findStartDestination().id) { saveState = true }
                                 launchSingleTop = true
                                 restoreState = true
@@ -490,7 +471,6 @@ fun MainAppScreen(
                 val hideBottomBarRoutes = listOf(
                     Screen.AddRestriction.route,
                     Screen.Security.route,
-                    Screen.Permissions.route,
                     Screen.Settings.route
                 )
                 if (currentDestination?.route !in hideBottomBarRoutes && !isSessionActive) {
@@ -557,9 +537,6 @@ fun MainAppScreen(
                 }
                 composable(Screen.Security.route) {
                     SecurityScreen(navController)
-                }
-                composable(Screen.Permissions.route) {
-                    PermissionsScreen(navController)
                 }
                 composable(Screen.Settings.route) {
                     SettingsScreen(navController)

@@ -139,15 +139,14 @@ object AyvaTalkEngine {
 
             if (route != null) {
                 val routeName = when (route) {
-                    "settings" -> "Open Settings"
-                    "security" -> "Open Security"
-                    "permissions" -> "Open Permissions"
-                    "dashboard" -> "Open Focus Screen"
-                    "todos" -> "Open To-Do List"
-                    "schedules" -> "Open Routines"
-                    "time" -> "Open Time Stats"
-                    "account" -> "Open Account"
-                    "bubble_settings" -> "Open Bubble Settings"
+                    "settings" -> "Settings ⚙️"
+                    "security" -> "Security 🔒"
+                    "dashboard" -> "Focus 🎯"
+                    "todos" -> "Tasks 📋"
+                    "schedules" -> "Routines 📅"
+                    "time" -> "Time Stats 📊"
+                    "account" -> "Account 👤"
+                    "bubble_settings" -> "Bubble 🫧"
                     else -> "Open Screen"
                 }
                 list.add(TalkAction.NavigateAppScreen(route, routeName, "🚀"))
@@ -155,11 +154,11 @@ object AyvaTalkEngine {
 
             if (systemSettingAction != null) {
                 val label = when (systemSettingAction) {
-                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION -> "Open Overlay Settings"
-                    Settings.ACTION_USAGE_ACCESS_SETTINGS -> "Open Usage Access"
-                    Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS, Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS -> "Battery Optimization"
-                    Settings.ACTION_APP_NOTIFICATION_SETTINGS -> "Notification Settings"
-                    else -> "Open Android Settings"
+                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION -> "Overlay ⚙️"
+                    Settings.ACTION_USAGE_ACCESS_SETTINGS -> "Usage Access ⚙️"
+                    Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS, Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS -> "Battery ⚡"
+                    Settings.ACTION_APP_NOTIFICATION_SETTINGS -> "Notifications 🔔"
+                    else -> "Android Settings ⚙️"
                 }
                 list.add(TalkAction.OpenSystemSetting(systemSettingAction, label, "⚙️", isPackageSettingUri))
             }
@@ -216,29 +215,29 @@ object AyvaTalkEngine {
                 val isVacation = AptitudeManager.isVacationMode(ctx)
                 if (isVacation) {
                     listOf(
-                        TalkAction.DirectPrefUpdate("vacation_mode", "boolean", "false", "Turn Off", "Disable Vacation Mode", "⚡")
+                        TalkAction.DirectPrefUpdate("vacation_mode", "boolean", "false", "Turn Off", "Disable ⚡", "⚡")
                     )
                 } else {
                     listOf(
-                        TalkAction.DirectPrefUpdate("vacation_mode", "boolean", "true", "Turn On", "Enable Vacation Mode 🏖️", "❄️")
+                        TalkAction.DirectPrefUpdate("vacation_mode", "boolean", "true", "Turn On", "Enable 🏖️", "❄️")
                     )
                 }
             }
             "persistent_reminders" -> listOf(
-                TalkAction.DirectPrefUpdate("persistent_reminder_interval", "int", "5", "5m", "Set to 5m", "⚡"),
-                TalkAction.DirectPrefUpdate("persistent_reminder_interval", "int", "15", "15m", "Set to 15m", "⚡"),
-                TalkAction.DirectPrefUpdate("persistent_reminder_interval", "int", "30", "30m", "Set to 30m", "⚡"),
-                TalkAction.DirectPrefUpdate("persistent_reminder_interval", "int", "60", "1h", "Set to 1h", "⚡")
+                TalkAction.DirectPrefUpdate("persistent_reminder_interval", "int", "5", "5m", "5m", "⚡"),
+                TalkAction.DirectPrefUpdate("persistent_reminder_interval", "int", "15", "15m", "15m", "⚡"),
+                TalkAction.DirectPrefUpdate("persistent_reminder_interval", "int", "30", "30m", "30m", "⚡"),
+                TalkAction.DirectPrefUpdate("persistent_reminder_interval", "int", "60", "1h", "1h", "⚡")
             )
             "soft_mode_wait_timer" -> listOf(
-                TalkAction.DirectPrefUpdate("soft_lock_duration", "int", "5", "5s", "Set 5s Delay", "⏱️"),
-                TalkAction.DirectPrefUpdate("soft_lock_duration", "int", "10", "10s", "Set 10s Delay", "⏱️"),
-                TalkAction.DirectPrefUpdate("soft_lock_duration", "int", "20", "20s", "Set 20s Delay", "⏱️")
+                TalkAction.DirectPrefUpdate("soft_lock_duration", "int", "5", "5s", "5s Delay", "⏱️"),
+                TalkAction.DirectPrefUpdate("soft_lock_duration", "int", "10", "10s", "10s Delay", "⏱️"),
+                TalkAction.DirectPrefUpdate("soft_lock_duration", "int", "20", "20s", "20s Delay", "⏱️")
             )
             "soft_mode_relief_duration" -> listOf(
-                TalkAction.DirectPrefUpdate("soft_unlock_duration", "int", "2", "2m", "Set 2 min Relief", "⏱️"),
-                TalkAction.DirectPrefUpdate("soft_unlock_duration", "int", "5", "5m", "Set 5 min Relief", "⏱️"),
-                TalkAction.DirectPrefUpdate("soft_unlock_duration", "int", "10", "10m", "Set 10 min Relief", "⏱️")
+                TalkAction.DirectPrefUpdate("soft_unlock_duration", "int", "2", "2m", "2m Relief", "⏱️"),
+                TalkAction.DirectPrefUpdate("soft_unlock_duration", "int", "5", "5m", "5m Relief", "⏱️"),
+                TalkAction.DirectPrefUpdate("soft_unlock_duration", "int", "10", "10m", "10m Relief", "⏱️")
             )
             else -> emptyList()
         }
@@ -348,24 +347,93 @@ object AyvaTalkEngine {
         val trimmed = query.trim()
         val lower = trimmed.lowercase()
 
-        // Clean query prefix if user typed /talk or /ask
-        val cleanQuery = when {
-            lower.startsWith("/talk") -> lower.removePrefix("/talk").trim()
-            lower.startsWith("/ask") -> lower.removePrefix("/ask").trim()
-            lower.startsWith("/guide") -> lower.removePrefix("/guide").trim()
-            lower.startsWith("/how") -> lower.removePrefix("/how").trim()
-            lower.startsWith("/faq") -> lower.removePrefix("/faq").trim()
-            lower.startsWith("/help") -> lower.removePrefix("/help").trim()
-            else -> lower
-        }.replace("?", "").replace("!", "").replace(",", "").trim()
+        // Clean query prefix if user typed /talk, /ask, /guide, /how, /faq, /help, etc.
+        val cleanQuery = lower
+            .removePrefix("/talk").trim()
+            .removePrefix("/ask").trim()
+            .removePrefix("/guide").trim()
+            .removePrefix("/how").trim()
+            .removePrefix("/faq").trim()
+            .removePrefix("/help").trim()
+            .removePrefix("/info").trim()
+            .removePrefix("/").trim()
+            .replace("?", "")
+            .replace("!", "")
+            .replace(",", "")
+            .replace("\"", "")
+            .replace("'", "")
+            .trim()
 
-        if (cleanQuery.isEmpty()) {
+        val isQuestionQuery = lower.startsWith("how") || lower.startsWith("why") ||
+            lower.startsWith("what") || lower.startsWith("where") ||
+            lower.startsWith("who") || lower.startsWith("can") ||
+            lower.startsWith("is ") || lower.startsWith("are ") ||
+            lower.startsWith("explain") || lower.startsWith("tell me") ||
+            lower.startsWith("which") || lower.startsWith("does") ||
+            lower.startsWith("do ") || lower.contains("?") ||
+            lower.contains("how to") || lower.contains("how do") ||
+            lower.contains("why is") || lower.contains("what is")
+
+        val isGeneralHelp = cleanQuery.isEmpty() || cleanQuery in listOf(
+            "help", "commands", "menu", "guide", "info", "what can you do", "features", "options", "talk"
+        )
+        if (isGeneralHelp) {
+            val defaultActions = listOf(
+                TalkAction.AskQuery("vacation mode", "🏖️ Vacation Mode"),
+                TalkAction.AskQuery("persistent reminders", "⏰ Persistent Reminders"),
+                TalkAction.AskQuery("bubble auto hide", "🫧 Bubble Auto-Hide"),
+                TalkAction.AskQuery("soft mode wait timer", "⏱️ Soft Mode Delay"),
+                TalkAction.AskQuery("why apps not blocking", "🛡️ Troubleshooting"),
+                TalkAction.AskQuery("/summary", "📊 Daily Summary"),
+                TalkAction.NavigateAppScreen("settings", "Open Settings", "⚙️")
+            )
+            val json = serializeActionsJson("help", defaultActions)
             return TalkResponse(
-                formattedText = "💬 Ask me any question about FocusByRj!\n\nFor example:\n• *\"/talk persistent reminders\"*\n• *\"/talk where do I change the app theme?\"*\n• *\"/talk how does soft mode wait timer work?\"*\n• *\"/talk why are apps not blocking?\"*\n• *\"/talk why can't I uninstall the app?\"*",
-                actions = listOf(
-                    TalkAction.NavigateAppScreen("settings", "Open Settings", "⚙️"),
-                    TalkAction.NavigateAppScreen("permissions", "Check Permissions", "🛡️")
-                )
+                formattedText = "💬 **Ayva Assistant** is ready to help!\n\nYou can ask me questions about any feature, diagnose settings, or manage your focus:\n\n• *\"vacation mode on\"* (freeze streak & pause alerts)\n• *\"persistent reminders\"* (recurring task alarms)\n• *\"bubble auto hide\"* (video call auto-hiding & edge peeking)\n• *\"why are apps not blocking?\"* (troubleshooting permissions)\n• *\"soft mode vs strict mode\"*\n• *\"math drills\"* (mental warm-ups)\n• *\"reschedule all tasks to tomorrow\"*",
+                actions = defaultActions,
+                topicId = "help",
+                jsonPayload = json
+            )
+        }
+
+        // --- GREETINGS & CASUAL INTERACTION ---
+        val isGreeting = cleanQuery in listOf(
+            "hi", "hello", "hey", "hey ayva", "hello ayva", "hi ayva", "good morning", "good afternoon", "good evening", "howdy", "sup"
+        )
+        if (isGreeting) {
+            val actions = listOf(
+                TalkAction.AskQuery("/summary", "📊 Today's Summary"),
+                TalkAction.AskQuery("streak", "⚡ Streak Status"),
+                TalkAction.AskQuery("/drill", "🧮 Math Drill"),
+                TalkAction.AskQuery("vacation mode", "🏖️ Vacation Mode")
+            )
+            return TalkResponse(
+                formattedText = "👋 **Hello!** I'm Ayva, your intelligent focus companion.\n\nHow can I support your productivity today? You can check your daily summary, test your mental agility with a math drill, or ask me about any app settings.",
+                actions = actions,
+                topicId = "greeting",
+                jsonPayload = serializeActionsJson("greeting", actions)
+            )
+        }
+
+        val isThankYou = cleanQuery in listOf("thank you", "thanks", "thx", "appreciate it", "great thanks", "thanks ayva")
+        if (isThankYou) {
+            return TalkResponse("😊 You're very welcome! Stay focused and let me know whenever you need assistance.")
+        }
+
+        val isWhoAreYou = cleanQuery in listOf(
+            "who are you", "what are you", "who made you", "who created you", "tell me about yourself", "about ayva", "about focusbyrj"
+        )
+        if (isWhoAreYou) {
+            val actions = listOf(
+                TalkAction.AskQuery("/summary", "📊 Daily Summary"),
+                TalkAction.AskQuery("features", "✨ Features Guide"),
+                TalkAction.NavigateAppScreen("settings", "Open Settings", "⚙️")
+            )
+            return TalkResponse(
+                formattedText = "🤖 **I am Ayva**, your on-device AI productivity and focus assistant for **FocusByRj**.\n\n• **App Blocker Engine**: Direct window overlay protection for Soft & Strict modes.\n• **Task Manager**: Smart natural language due dates with persistent alarms.\n• **Cognitive Agility**: Daily arithmetic drills and streak tracking.\n• **Floating Bubble**: Omnipresent task radar that intelligently auto-hides during video calls and landscape gaming.",
+                actions = actions,
+                topicId = "about",
+                jsonPayload = serializeActionsJson("about", actions)
             )
         }
 
@@ -402,195 +470,346 @@ object AyvaTalkEngine {
         }
 
         // --- 0.2 PERMISSIONS CHECK INTERCEPT ---
-        if (context != null && (cleanQuery.contains("permission") || cleanQuery.contains("permissions"))) {
-            if (cleanQuery.contains("are") || cleanQuery.contains("check") || cleanQuery.contains("granted") || cleanQuery.contains("all") || cleanQuery.contains("what") || cleanQuery.contains("missing") || cleanQuery.contains("necessary")) {
-                val missingPermissions = mutableListOf<String>()
-                val actions = mutableListOf<TalkAction>()
-                
-                if (!PermissionUtils.hasUsageStatsPermission(context)) {
-                    missingPermissions.add("Usage Access (App Detection)")
-                    actions.add(TalkAction.OpenSystemSetting(android.provider.Settings.ACTION_USAGE_ACCESS_SETTINGS, "Open Usage Access", "⚙️", false))
-                }
-                if (!PermissionUtils.hasOverlayPermission(context)) {
-                    missingPermissions.add("Display Over Other Apps (Blocker Screen)")
-                    actions.add(TalkAction.OpenSystemSetting(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION, "Open Overlay Settings", "⚙️", true))
-                }
-                if (!PermissionUtils.isIgnoringBatteryOptimizations(context)) {
-                    missingPermissions.add("Battery Optimization (Background Reliability)")
-                    actions.add(TalkAction.OpenSystemSetting(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, "Battery Optimization", "⚙️", true))
-                }
-                if (!PermissionUtils.hasNotificationPermission(context)) {
-                    missingPermissions.add("Notifications (Reminders)")
-                    actions.add(TalkAction.OpenSystemSetting(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS, "Notification Settings", "⚙️", true))
-                }
-                
-                val text = if (missingPermissions.isEmpty()) {
-                    "✅ **All necessary permissions are granted.** FocusByRj is fully optimized and ready!"
-                } else {
-                    "⚠️ **Missing Permissions Detected:**\nYou need to grant the following for the app to work correctly:\n\n" +
-                    missingPermissions.joinToString("\n") { "• $it" } +
-                    "\n\nTap the buttons below to fix them."
-                }
-                
-                return TalkResponse(text, actions)
+        if (context != null && (cleanQuery.contains("permission") || cleanQuery.contains("permissions") || cleanQuery == "check permissions" || cleanQuery == "permissions check")) {
+            val missingPermissions = mutableListOf<String>()
+            val actions = mutableListOf<TalkAction>()
+            
+            if (!PermissionUtils.hasUsageStatsPermission(context)) {
+                missingPermissions.add("Usage Access (App Detection)")
+                actions.add(TalkAction.OpenSystemSetting(android.provider.Settings.ACTION_USAGE_ACCESS_SETTINGS, "Open Usage Access", "⚙️", false))
             }
+            if (!PermissionUtils.hasOverlayPermission(context)) {
+                missingPermissions.add("Display Over Other Apps (Blocker Screen)")
+                actions.add(TalkAction.OpenSystemSetting(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION, "Open Overlay Settings", "⚙️", true))
+            }
+            if (!PermissionUtils.isIgnoringBatteryOptimizations(context)) {
+                missingPermissions.add("Battery Optimization (Background Reliability)")
+                actions.add(TalkAction.OpenSystemSetting(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, "Battery Optimization", "⚙️", true))
+            }
+            if (!PermissionUtils.hasNotificationPermission(context)) {
+                missingPermissions.add("Notifications (Reminders)")
+                actions.add(TalkAction.OpenSystemSetting(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS, "Notification Settings", "⚙️", true))
+            }
+            
+            val text = if (missingPermissions.isEmpty()) {
+                "✅ **All necessary permissions are granted.** FocusByRj is fully optimized and ready!"
+            } else {
+                "⚠️ **Missing Permissions Detected:**\nYou need to grant the following for app blocking and alerts to work reliably:\n\n" +
+                missingPermissions.joinToString("\n") { "• $it" } +
+                "\n\nTap the buttons below to fix them."
+            }
+            val json = serializeActionsJson("permissions", actions)
+            return TalkResponse(text, actions, "permissions", json)
         }
 
-        // --- 0.5 DATA INTROSPECTION (DATABASE INJECTION) ---
+        // --- 0.5 DATA INTROSPECTION (LIVE CONTEXT & DATABASE INJECTION) ---
         if (context != null) {
-            val app = context.applicationContext as? com.focusbyrj.app.FocusApplication
-            if (app != null) {
-                // Check if asking about tasks
-                val nluResult = OfflineNluEngine.parse(cleanQuery, app.taskRepository.allTasks.first().filter { !it.isCompleted })
-                if (nluResult.intent != NluIntent.UNKNOWN) {
-                    val tasks = app.taskRepository.allTasks.first()
-                    val pending = tasks.filter { !it.isCompleted }
-                    val overdue = pending.filter { it.dueDate != null && it.dueDate < System.currentTimeMillis() }
+            try {
+                val app = context.applicationContext as? com.focusbyrj.app.FocusApplication
+                if (app != null) {
+                    val isSummaryContextQuery = cleanQuery in listOf(
+                        "summary", "today", "today's summary", "summary today", "daily summary", "daily progress",
+                        "today tasks", "tasks today", "what's on today", "what do i have today", "how is my day",
+                        "hit list", "overview", "briefing", "my day", "recap", "today summary", "progress"
+                    ) || cleanQuery.startsWith("summary ") || cleanQuery.startsWith("what's on ") || cleanQuery.startsWith("what is on ")
 
-                    if (nluResult.intent == NluIntent.RESCHEDULE || nluResult.intent == NluIntent.COMPLETE || nluResult.intent == NluIntent.DELETE) {
-                        if (nluResult.isAllTasks) {
-                            if (nluResult.intent == NluIntent.RESCHEDULE) {
-                                val newDate = nluResult.targetDateMs ?: (System.currentTimeMillis() + 86400000L)
-                                pending.forEach { app.taskRepository.updateTask(it.copy(dueDate = newDate)) }
-                                return TalkResponse("✅ Rescheduled all ${pending.size} tasks.")
-                            } else if (nluResult.intent == NluIntent.COMPLETE) {
-                                pending.forEach { app.taskRepository.updateTask(it.copy(isCompleted = true)) }
-                                return TalkResponse("✅ Completed all ${pending.size} tasks.")
-                            } else if (nluResult.intent == NluIntent.DELETE) {
-                                pending.forEach { app.taskRepository.deleteTask(it) }
-                                return TalkResponse("✅ Deleted all ${pending.size} tasks.")
-                            }
-                        } else if (nluResult.targetTask != null) {
-                            val targetTask = nluResult.targetTask
-                            if (nluResult.intent == NluIntent.COMPLETE) {
-                                app.taskRepository.updateTask(targetTask.copy(isCompleted = true))
-                                return TalkResponse("✅ Marked '${targetTask.title}' as complete.")
-                            } else if (nluResult.intent == NluIntent.DELETE) {
-                                app.taskRepository.deleteTask(targetTask)
-                                return TalkResponse("✅ Deleted '${targetTask.title}'.")
-                            } else if (nluResult.intent == NluIntent.RESCHEDULE) {
-                                val newDate = nluResult.targetDateMs ?: (System.currentTimeMillis() + 86400000L)
-                                app.taskRepository.updateTask(targetTask.copy(dueDate = newDate))
-                                return TalkResponse("✅ Rescheduled '${targetTask.title}'.")
-                            }
+                    if (isSummaryContextQuery) {
+                        lastQueriedTopicId = "summary"
+                        val now = System.currentTimeMillis()
+                        val startOfDay = java.util.Calendar.getInstance().apply {
+                            set(java.util.Calendar.HOUR_OF_DAY, 0)
+                            set(java.util.Calendar.MINUTE, 0)
+                            set(java.util.Calendar.SECOND, 0)
+                            set(java.util.Calendar.MILLISECOND, 0)
+                        }.timeInMillis
+                        val endOfDay = startOfDay + 86400000L - 1
+
+                        val allTasks = app.taskRepository.allTasks.firstOrNull() ?: emptyList()
+                        val completedToday = allTasks.filter { it.isCompleted && it.completedAt != null && it.completedAt >= startOfDay }
+                        val pendingTasks = allTasks.filter { !it.isCompleted }
+                        val todayTasks = pendingTasks.filter { it.dueDate == null || (it.dueDate in startOfDay..endOfDay) || it.dueDate < startOfDay }
+                        val overdueCount = todayTasks.count { it.dueDate != null && it.dueDate < now }
+                        val sortedTasks = todayTasks.sortedWith(compareByDescending<com.focusbyrj.app.data.Task> { it.isPriority }.thenBy { it.dueDate ?: Long.MAX_VALUE })
+
+                        val totalToday = completedToday.size + todayTasks.size
+                        val percent = if (totalToday > 0) (completedToday.size * 100) / totalToday else 100
+                        val filledBlocks = (percent / 10).coerceIn(0, 10)
+                        val emptyBlocks = 10 - filledBlocks
+                        val progressBar = "█".repeat(filledBlocks) + "░".repeat(emptyBlocks)
+
+                        val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+                        val dayOfWeek = java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_WEEK)
+                        val greeting = com.focusbyrj.app.util.AyvaDialogueEngine.getSummaryGreeting(context, false, hour, dayOfWeek)
+
+                        val sb = StringBuilder()
+                        sb.append(greeting).append("\n\n")
+
+                        if (completedToday.isNotEmpty()) {
+                            sb.append("✅ *__Crushed Today__* *(${completedToday.size})*:\n")
+                            completedToday.forEach { sb.append("• _${it.title}_\n") }
+                            sb.append("\n")
                         }
-                    }
-                    
-                    if (nluResult.intent == NluIntent.LIST_TASKS || cleanQuery.contains("today")) {
-                        return TalkResponse("", emptyList(), cliCommandRedirect = if (nluResult.isAllTasks || cleanQuery.contains("all")) "/tasks all" else "/tasks")
-                    }
-                    
-                    if (nluResult.intent == NluIntent.LIST_ROUTINES) {
-                        val scheds = app.repository.allSchedules.first()
-                        val enabledScheds = scheds.filter { it.isEnabled }
-                        val today = java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_WEEK)
-                        val todayScheds = enabledScheds.filter { it.daysOfWeek.split(",").contains(today.toString()) }
-                                            
-                        val text = if (todayScheds.isEmpty()) {
-                            "🗓️ You have **no active routines scheduled for today**."
+
+                        if (sortedTasks.isEmpty()) {
+                            sb.append("🎉 You're all caught up for today! No pending tasks.\n")
+                            val nextTask = pendingTasks.filter { it.dueDate != null && it.dueDate > endOfDay }.minByOrNull { it.dueDate!! }
+                            if (nextTask != null) {
+                                sb.append("\n🗓️ *__Up Next On The Horizon__*: *${nextTask.title}* _(${SmartDateParser.formatDueDate(nextTask.dueDate)})_\n")
+                            }
                         } else {
-                            "🗓️ You have **${todayScheds.size} routine(s) scheduled today**:\n\n" +
-                            todayScheds.joinToString("\n\n") {
-                                val startStr = String.format("%02d:%02d", it.startHour, it.startMinute)
-                                val endStr = String.format("%02d:%02d", it.endHour, it.endMinute)
-                                val appsStr = if (it.appsToBlock.isNotBlank()) "Apps: ${it.appsToBlock.split(",").size} restricted" else "No apps restricted"
-                                "• **${it.name}** ($startStr - $endStr)\n  └ $appsStr" 
+                            sb.append("⚡ *__On Today's Hit List__* *(${sortedTasks.size})*")
+                            if (overdueCount > 0) sb.append(" *[⚠️ $overdueCount Overdue]*")
+                            sb.append(":\n")
+                            sortedTasks.forEachIndexed { idx, t ->
+                                val p = if (t.isPriority) "🔥 " else ""
+                                val d = if (t.dueDate != null) " _(${SmartDateParser.formatDueDate(t.dueDate)})_" else ""
+                                sb.append("${idx + 1}. $p*${t.title}*$d\n")
                             }
                         }
-                        return TalkResponse(text, listOf(TalkAction.NavigateAppScreen("schedules", "View Schedules", "📅")))
-                    }
-                    
-                    if (nluResult.intent == NluIntent.BLOCK_APP || nluResult.intent == NluIntent.BLOCK_FILTER || nluResult.intent == NluIntent.UNBLOCK) {
-                        val isUnblock = (nluResult.intent == NluIntent.UNBLOCK)
-                        val target = nluResult.targetFilterOrAppName ?: ""
-                        val mode = nluResult.blockMode ?: "HARD"
-                        val dao = app.database.appRestrictionDao()
-                        
-                        val pm = context.packageManager
-                        val installedApps = pm.getInstalledApplications(android.content.pm.PackageManager.GET_META_DATA).mapNotNull {
-                            val name = pm.getApplicationLabel(it).toString()
-                            if (name.isNotBlank() && it.packageName != context.packageName) {
-                                val category = com.focusbyrj.app.ui.screens.getCategoryForApp(it, it.packageName)
-                                com.focusbyrj.app.ui.screens.AppInfo(name, it.packageName, category)
-                            } else null
+
+                        sb.append("\n📊 *__Daily Progress__*:\n")
+                        sb.append("`[$progressBar]` *$percent%*")
+
+                        val quote = if (hour < 15) {
+                            com.focusbyrj.app.util.SummaryQuotes.getNextMorningQuote(context)
+                        } else {
+                            com.focusbyrj.app.util.SummaryQuotes.getNextEveningQuote(context)
                         }
-                        
-                        val matchedApp = installedApps.filter { target.contains(it.name, ignoreCase = true) || OfflineNluEngine.levenshtein(target.lowercase(), it.name.lowercase()) <= 1 }.maxByOrNull { it.name.length }
-                        val customCats = CustomCategoryManager.getCategories(context)
-                        val matchedCustomCat = customCats.find { target.contains(it.name, ignoreCase = true) || OfflineNluEngine.levenshtein(target.lowercase(), it.name.lowercase()) <= 1 }
-                        
-                        val standardCatMapping = mapOf(
-                            "social" to com.focusbyrj.app.ui.screens.AppCategory.SOCIAL,
-                            "finance" to com.focusbyrj.app.ui.screens.AppCategory.PAYMENT,
-                            "fianance" to com.focusbyrj.app.ui.screens.AppCategory.PAYMENT,
-                            "payment" to com.focusbyrj.app.ui.screens.AppCategory.PAYMENT,
-                            "shopping" to com.focusbyrj.app.ui.screens.AppCategory.SHOPPING,
-                            "game" to com.focusbyrj.app.ui.screens.AppCategory.GAMES,
-                            "games" to com.focusbyrj.app.ui.screens.AppCategory.GAMES,
-                            "utility" to com.focusbyrj.app.ui.screens.AppCategory.UTILITY,
-                            "utilities" to com.focusbyrj.app.ui.screens.AppCategory.UTILITY,
-                            "other" to com.focusbyrj.app.ui.screens.AppCategory.OTHERS,
-                            "others" to com.focusbyrj.app.ui.screens.AppCategory.OTHERS
+                        sb.append("\n\n💡 _\"$quote\"_")
+
+                        val actions = listOf(
+                            TalkAction.AskQuery("/summary", "📋 Full Summary Card"),
+                            TalkAction.AskQuery("/tasks", "⚡ Hit List"),
+                            TalkAction.AskQuery("/tasks all", "⏳ All Tasks (${pendingTasks.size})"),
+                            TalkAction.NavigateAppScreen("dashboard", "Open Dashboard", "📋")
                         )
-                        val matchedStandardCatWord = standardCatMapping.keys.find { target.contains(it, ignoreCase = true) }
-                        val matchedStandardCat = matchedStandardCatWord?.let { standardCatMapping[it] }
-                        
-                        if (isUnblock) {
-                            if ((cleanQuery.contains("all") || target.isEmpty()) && !cleanQuery.contains("filter")) {
-                                dao.deleteAllRestrictions()
-                                return TalkResponse("🔓 **Lock Protocol Lifted**\n_All applications have been unlocked._")
+                        return TalkResponse(sb.toString().trimEnd(), actions, "summary", serializeActionsJson("summary", actions))
+                    }
+
+                    val isExplicitTasksQuery = cleanQuery in listOf(
+                        "tasks", "my tasks", "pending tasks", "list tasks", "show tasks", "todo list", "overdue", "overdue tasks", "priority tasks", "next task", "what's next"
+                    )
+                    if (isExplicitTasksQuery) {
+                        lastQueriedTopicId = "tasks"
+                        val tasks = app.taskRepository.allTasks.firstOrNull() ?: emptyList()
+                        val pending = tasks.filter { !it.isCompleted }
+                        val actions = listOf(
+                            TalkAction.AskQuery("/summary", "📊 Daily Summary"),
+                            TalkAction.AskQuery("/tasks all", "⏳ All Tasks"),
+                            TalkAction.NavigateAppScreen("dashboard", "Open Dashboard", "📋")
+                        )
+                        val text = if (pending.isEmpty()) {
+                            "🎉 You have **no pending tasks** right now! All clear."
+                        } else {
+                            val overdueCount = pending.count { it.dueDate != null && it.dueDate < System.currentTimeMillis() }
+                            val overdueNotice = if (overdueCount > 0) " *(⚠️ $overdueCount overdue)*" else ""
+                            "⚡ You have **${pending.size} pending task(s)**$overdueNotice:\n\n" +
+                            pending.take(6).mapIndexed { idx, t ->
+                                val priority = if (t.isPriority) "🔥 " else ""
+                                val due = if (t.dueDate != null) " _(${SmartDateParser.formatDueDate(t.dueDate)})_" else ""
+                                "${idx + 1}. $priority*${t.title}*$due"
+                            }.joinToString("\n") +
+                            (if (pending.size > 6) "\n_...and ${pending.size - 6} more._" else "")
+                        }
+                        return TalkResponse(text, actions, "tasks", serializeActionsJson("tasks", actions))
+                    }
+
+                    val isStreakOrVacationQuery = cleanQuery in listOf(
+                        "streak", "my streak", "current streak", "frozen", "is my streak frozen", "is my streak frozen?",
+                        "vacation mode", "freeze streak", "unfreeze streak", "my points", "xp", "level", "aptitude",
+                        "stats", "profile", "how is my streak", "streak status", "what is my streak"
+                    ) || (cleanQuery.contains("streak") && !isQuestionQuery) || (cleanQuery.contains("vacation") && !isQuestionQuery)
+                    if (isStreakOrVacationQuery) {
+                        lastQueriedTopicId = "vacation_mode"
+                        val isVacation = AptitudeManager.isVacationMode(context)
+                        val profile = AptitudeManager.profileFlow.value
+                        val streakText = if (isVacation) {
+                            "❄️ **Vacation Mode is ACTIVE**\n• Current Streak: **${profile.currentStreak} days (Frozen 🛡️)**\n• Practice Alerts: **Paused**\n• Level: **${profile.level}** (${profile.xp} XP)"
+                        } else {
+                            "⚡ **Current Streak: ${profile.currentStreak} days**\n• Status: **Active (Daily tests required)**\n• Level: **${profile.level}** (${profile.xp} XP)\n• Accuracy: **${profile.accuracy.toInt()}%**"
+                        }
+                        val actions = mutableListOf<TalkAction>()
+                        if (isVacation) {
+                            actions.add(TalkAction.DirectPrefUpdate("vacation_mode", "boolean", "false", "⚡ Unfreeze", "Unfreeze Streak (Resume)", "⚡"))
+                        } else {
+                            actions.add(TalkAction.DirectPrefUpdate("vacation_mode", "boolean", "true", "❄️ Freeze", "Freeze Streak (Vacation)", "🏖️"))
+                        }
+                        actions.add(TalkAction.AskQuery("/profile", "🏆 View Profile"))
+                        actions.add(TalkAction.AskQuery("/drill", "🧮 Math Drill"))
+                        return TalkResponse(streakText, actions, "vacation_mode", serializeActionsJson("vacation_mode", actions))
+                    }
+
+                    val isBlockedAppsQuery = cleanQuery in listOf(
+                        "what is blocked", "what apps are blocked", "blocked apps", "locked apps",
+                        "active restrictions", "current restrictions", "is anything blocked", "restricted apps",
+                        "how many apps blocked", "which apps are locked"
+                    )
+                    if (isBlockedAppsQuery) {
+                        lastQueriedTopicId = "lock_protocol"
+                        val restrictions = app.database.appRestrictionDao().getAllRestrictions().firstOrNull() ?: emptyList()
+                        val active = restrictions.filter { it.isRestricted }
+                        val text = if (active.isEmpty()) {
+                            "🔓 **No applications are currently restricted.** All apps are free to access."
+                        } else {
+                            "🔒 **Currently Restricted Apps (${active.size}):**\n\n" +
+                            active.take(8).joinToString("\n") {
+                                "• **${it.appName.ifBlank { it.packageName }}** _[${it.mode} Mode]_"
+                            } + (if (active.size > 8) "\n_...and ${active.size - 8} more._" else "")
+                        }
+                        val actions = mutableListOf<TalkAction>()
+                        if (active.isNotEmpty()) {
+                            actions.add(TalkAction.AskQuery("unblock all", "🔓 Unlock All"))
+                        }
+                        actions.add(TalkAction.NavigateAppScreen("dashboard", "Manage Blocks", "🛡️"))
+                        return TalkResponse(text, actions, "lock_protocol", serializeActionsJson("lock_protocol", actions))
+                    }
+
+                    // Check if performing imperative task operations (ONLY IF NOT A QUESTION)
+                    if (!isQuestionQuery) {
+                        val nluResult = OfflineNluEngine.parse(cleanQuery, app.taskRepository.allTasks.firstOrNull()?.filter { !it.isCompleted } ?: emptyList())
+                        if (nluResult.intent != NluIntent.UNKNOWN) {
+                            val tasks = app.taskRepository.allTasks.firstOrNull() ?: emptyList()
+                            val pending = tasks.filter { !it.isCompleted }
+
+                            if (nluResult.intent == NluIntent.RESCHEDULE || nluResult.intent == NluIntent.COMPLETE || nluResult.intent == NluIntent.DELETE) {
+                                if (nluResult.isAllTasks) {
+                                    if (nluResult.intent == NluIntent.RESCHEDULE) {
+                                        val newDate = nluResult.targetDateMs ?: (System.currentTimeMillis() + 86400000L)
+                                        pending.forEach { app.taskRepository.updateTask(it.copy(dueDate = newDate)) }
+                                        return TalkResponse("✅ Rescheduled all ${pending.size} tasks.")
+                                    } else if (nluResult.intent == NluIntent.COMPLETE) {
+                                        pending.forEach { app.taskRepository.updateTask(it.copy(isCompleted = true)) }
+                                        return TalkResponse("✅ Completed all ${pending.size} tasks.")
+                                    } else if (nluResult.intent == NluIntent.DELETE) {
+                                        pending.forEach { app.taskRepository.deleteTask(it) }
+                                        return TalkResponse("✅ Deleted all ${pending.size} tasks.")
+                                    }
+                                } else if (nluResult.targetTask != null) {
+                                    val targetTask = nluResult.targetTask
+                                    if (nluResult.intent == NluIntent.COMPLETE) {
+                                        app.taskRepository.updateTask(targetTask.copy(isCompleted = true))
+                                        return TalkResponse("✅ Marked '${targetTask.title}' as complete.")
+                                    } else if (nluResult.intent == NluIntent.DELETE) {
+                                        app.taskRepository.deleteTask(targetTask)
+                                        return TalkResponse("✅ Deleted '${targetTask.title}'.")
+                                    } else if (nluResult.intent == NluIntent.RESCHEDULE) {
+                                        val newDate = nluResult.targetDateMs ?: (System.currentTimeMillis() + 86400000L)
+                                        app.taskRepository.updateTask(targetTask.copy(dueDate = newDate))
+                                        return TalkResponse("✅ Rescheduled '${targetTask.title}'.")
+                                    }
+                                }
                             }
                             
-                            if (matchedStandardCat != null) {
-                                val targetApps = installedApps.filter { it.category == matchedStandardCat }
-                                dao.deleteRestrictions(targetApps.map { it.packageName })
-                                return TalkResponse("🔓 **Lock Protocol Lifted**\n_Unlocked all ${matchedStandardCat.title} apps._")
-                            } else if (matchedCustomCat != null) {
-                                val targetApps = installedApps.filter { matchedCustomCat.packages.contains(it.packageName) }
-                                dao.deleteRestrictions(targetApps.map { it.packageName })
-                                return TalkResponse("🔓 **Lock Protocol Lifted**\n_Unlocked all apps in '${matchedCustomCat.name}' filter._")
-                            } else if (matchedApp != null) {
-                                dao.deleteRestriction(matchedApp.packageName)
-                                return TalkResponse("🔓 **Lock Protocol Lifted**\n_Unlocked ${matchedApp.name}._")
-                            } else {
-                                return TalkResponse("⚠️ _Could not identify filter or app '$target' to unlock._")
+                            if (nluResult.intent == NluIntent.LIST_ROUTINES) {
+                                val scheds = app.repository.allSchedules.firstOrNull() ?: emptyList()
+                                val enabledScheds = scheds.filter { it.isEnabled }
+                                val today = java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_WEEK)
+                                val todayScheds = enabledScheds.filter { it.daysOfWeek.split(",").contains(today.toString()) }
+                                                    
+                                val text = if (todayScheds.isEmpty()) {
+                                    "🗓️ You have **no active routines scheduled for today**."
+                                } else {
+                                    "🗓️ You have **${todayScheds.size} routine(s) scheduled today**:\n\n" +
+                                    todayScheds.joinToString("\n\n") {
+                                        val startStr = String.format("%02d:%02d", it.startHour, it.startMinute)
+                                        val endStr = String.format("%02d:%02d", it.endHour, it.endMinute)
+                                        val appsStr = if (it.appsToBlock.isNotBlank()) "Apps: ${it.appsToBlock.split(",").size} restricted" else "No apps restricted"
+                                        "• **${it.name}** ($startStr - $endStr)\n  └ $appsStr" 
+                                    }
+                                }
+                                val actions = listOf(TalkAction.NavigateAppScreen("schedules", "View Schedules", "📅"))
+                                return TalkResponse(text, actions, "schedules", serializeActionsJson("schedules", actions))
                             }
-                        } else {
-                            if ((cleanQuery.contains("all") || target.isEmpty()) && !cleanQuery.contains("filter")) {
-                                val targetApps = pm.getInstalledApplications(android.content.pm.PackageManager.GET_META_DATA).filter {
-                                    (it.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) == 0 && it.packageName != context.packageName
-                                }.map {
+                            
+                            if (nluResult.intent == NluIntent.BLOCK_APP || nluResult.intent == NluIntent.BLOCK_FILTER || nluResult.intent == NluIntent.UNBLOCK) {
+                                val isUnblock = (nluResult.intent == NluIntent.UNBLOCK)
+                                val target = nluResult.targetFilterOrAppName ?: ""
+                                val mode = nluResult.blockMode ?: "HARD"
+                                val dao = app.database.appRestrictionDao()
+                                
+                                val pm = context.packageManager
+                                val installedApps = pm.getInstalledApplications(android.content.pm.PackageManager.GET_META_DATA).mapNotNull {
                                     val name = pm.getApplicationLabel(it).toString()
-                                    com.focusbyrj.app.data.AppRestriction(it.packageName, name, isRestricted = true, mode = mode, restrictionMode = "SIMPLE")
+                                    if (name.isNotBlank() && it.packageName != context.packageName) {
+                                        val category = com.focusbyrj.app.ui.screens.getCategoryForApp(it, it.packageName)
+                                        com.focusbyrj.app.ui.screens.AppInfo(name, it.packageName, category)
+                                    } else null
                                 }
-                                dao.insertRestrictions(targetApps)
-                                return TalkResponse("🔒 **Lock Protocol Active**\n_Locked all non-system apps [$mode]._")
-                            } else if (matchedStandardCat != null) {
-                                val targetApps = installedApps.filter { it.category == matchedStandardCat }
-                                val restrictions = targetApps.map {
-                                    com.focusbyrj.app.data.AppRestriction(it.packageName, it.name, isRestricted = true, mode = mode, restrictionMode = "SIMPLE")
-                                }
-                                dao.insertRestrictions(restrictions)
-                                return TalkResponse("🔒 **Lock Protocol Active**\n_Locked all ${matchedStandardCat.title} apps [$mode]._")
-                            } else if (matchedCustomCat != null) {
-                                val targetApps = installedApps.filter { matchedCustomCat.packages.contains(it.packageName) }
-                                val restrictions = targetApps.map {
-                                    com.focusbyrj.app.data.AppRestriction(it.packageName, it.name, isRestricted = true, mode = mode, restrictionMode = "SIMPLE")
-                                }
-                                dao.insertRestrictions(restrictions)
-                                return TalkResponse("🔒 **Lock Protocol Active**\n_Locked all apps in '${matchedCustomCat.name}' filter [$mode]._")
-                            } else if (matchedApp != null) {
-                                dao.insertRestriction(
-                                    com.focusbyrj.app.data.AppRestriction(matchedApp.packageName, matchedApp.name, isRestricted = true, mode = mode, restrictionMode = "SIMPLE")
+                                
+                                val matchedApp = installedApps.filter { target.contains(it.name, ignoreCase = true) || OfflineNluEngine.levenshtein(target.lowercase(), it.name.lowercase()) <= 1 }.maxByOrNull { it.name.length }
+                                val customCats = CustomCategoryManager.getCategories(context)
+                                val matchedCustomCat = customCats.find { target.contains(it.name, ignoreCase = true) || OfflineNluEngine.levenshtein(target.lowercase(), it.name.lowercase()) <= 1 }
+                                
+                                val standardCatMapping = mapOf(
+                                    "social" to com.focusbyrj.app.ui.screens.AppCategory.SOCIAL,
+                                    "finance" to com.focusbyrj.app.ui.screens.AppCategory.PAYMENT,
+                                    "fianance" to com.focusbyrj.app.ui.screens.AppCategory.PAYMENT,
+                                    "payment" to com.focusbyrj.app.ui.screens.AppCategory.PAYMENT,
+                                    "shopping" to com.focusbyrj.app.ui.screens.AppCategory.SHOPPING,
+                                    "game" to com.focusbyrj.app.ui.screens.AppCategory.GAMES,
+                                    "games" to com.focusbyrj.app.ui.screens.AppCategory.GAMES,
+                                    "utility" to com.focusbyrj.app.ui.screens.AppCategory.UTILITY,
+                                    "utilities" to com.focusbyrj.app.ui.screens.AppCategory.UTILITY,
+                                    "other" to com.focusbyrj.app.ui.screens.AppCategory.OTHERS,
+                                    "others" to com.focusbyrj.app.ui.screens.AppCategory.OTHERS
                                 )
-                                return TalkResponse("🔒 **Lock Protocol Active**\n_Locked ${matchedApp.name} [$mode]._")
-                            } else {
-                                return TalkResponse("⚠️ _System could not find filter or app '$target'._")
+                                val matchedStandardCatWord = standardCatMapping.keys.find { target.contains(it, ignoreCase = true) }
+                                val matchedStandardCat = matchedStandardCatWord?.let { standardCatMapping[it] }
+                                
+                                if (isUnblock) {
+                                    if ((cleanQuery.contains("all") || target.isEmpty()) && !cleanQuery.contains("filter")) {
+                                        dao.deleteAllRestrictions()
+                                        return TalkResponse("🔓 **Lock Protocol Lifted**\n_All applications have been unlocked._")
+                                    }
+                                    
+                                    if (matchedStandardCat != null) {
+                                        val targetApps = installedApps.filter { it.category == matchedStandardCat }
+                                        dao.deleteRestrictions(targetApps.map { it.packageName })
+                                        return TalkResponse("🔓 **Lock Protocol Lifted**\n_Unlocked all ${matchedStandardCat.title} apps._")
+                                    } else if (matchedCustomCat != null) {
+                                        val targetApps = installedApps.filter { matchedCustomCat.packages.contains(it.packageName) }
+                                        dao.deleteRestrictions(targetApps.map { it.packageName })
+                                        return TalkResponse("🔓 **Lock Protocol Lifted**\n_Unlocked all apps in '${matchedCustomCat.name}' filter._")
+                                    } else if (matchedApp != null) {
+                                        dao.deleteRestriction(matchedApp.packageName)
+                                        return TalkResponse("🔓 **Lock Protocol Lifted**\n_Unlocked ${matchedApp.name}._")
+                                    }
+                                } else {
+                                    if ((cleanQuery.contains("all") || target.isEmpty()) && !cleanQuery.contains("filter")) {
+                                        val targetApps = pm.getInstalledApplications(android.content.pm.PackageManager.GET_META_DATA).filter {
+                                            (it.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) == 0 && it.packageName != context.packageName
+                                        }.map {
+                                            val name = pm.getApplicationLabel(it).toString()
+                                            com.focusbyrj.app.data.AppRestriction(it.packageName, name, isRestricted = true, mode = mode, restrictionMode = "SIMPLE")
+                                        }
+                                        dao.insertRestrictions(targetApps)
+                                        return TalkResponse("🔒 **Lock Protocol Active**\n_Locked all non-system apps [$mode]._")
+                                    } else if (matchedStandardCat != null) {
+                                        val targetApps = installedApps.filter { it.category == matchedStandardCat }
+                                        val restrictions = targetApps.map {
+                                            com.focusbyrj.app.data.AppRestriction(it.packageName, it.name, isRestricted = true, mode = mode, restrictionMode = "SIMPLE")
+                                        }
+                                        dao.insertRestrictions(restrictions)
+                                        return TalkResponse("🔒 **Lock Protocol Active**\n_Locked all ${matchedStandardCat.title} apps [$mode]._")
+                                    } else if (matchedCustomCat != null) {
+                                        val targetApps = installedApps.filter { matchedCustomCat.packages.contains(it.packageName) }
+                                        val restrictions = targetApps.map {
+                                            com.focusbyrj.app.data.AppRestriction(it.packageName, it.name, isRestricted = true, mode = mode, restrictionMode = "SIMPLE")
+                                        }
+                                        dao.insertRestrictions(restrictions)
+                                        return TalkResponse("🔒 **Lock Protocol Active**\n_Locked all apps in '${matchedCustomCat.name}' filter [$mode]._")
+                                    } else if (matchedApp != null) {
+                                        dao.insertRestriction(
+                                            com.focusbyrj.app.data.AppRestriction(matchedApp.packageName, matchedApp.name, isRestricted = true, mode = mode, restrictionMode = "SIMPLE")
+                                        )
+                                        return TalkResponse("🔒 **Lock Protocol Active**\n_Locked ${matchedApp.name} [$mode]._")
+                                    }
+                                }
                             }
                         }
                     }
                 }
-            }
+            } catch (_: Exception) {}
         }
 
         // --- 1. Follow-up & Pronoun Resolution ('it', 'how to change it', 'where is it', 'why') ---
@@ -614,9 +833,16 @@ object AyvaTalkEngine {
             return TalkResponse(idMatch.formatResponse(context), actions, idMatch.id, json)
         }
 
-        // --- 3. Semantic & Fuzzy Scoring ---
+        // --- 3. Stop-Word Filtered Semantic & Fuzzy Scoring ---
+        val stopWords = setOf(
+            "the", "a", "an", "is", "are", "was", "were", "in", "on", "at", "to", "for", "of", "with",
+            "how", "why", "what", "where", "who", "which", "do", "does", "did", "can", "could", "should",
+            "would", "i", "you", "my", "your", "me", "it", "its", "app", "mode", "screen", "setting", "settings"
+        )
+
         val scoredTopics = mutableListOf<Pair<SpecificTopic, Int>>()
         val queryWords = expandTokens(cleanQuery)
+        val meaningfulQueryWords = queryWords.filter { !stopWords.contains(it) && it.length >= 3 }
 
         for (topic in getTopicsDatabase(context)) {
             var score = 0
@@ -624,29 +850,34 @@ object AyvaTalkEngine {
             val idLower = topic.id.lowercase()
 
             if (cleanQuery.contains(titleLower) || titleLower.contains(cleanQuery)) {
-                score += 80
+                score += 90
             }
 
             for (kw in topic.keywords) {
-                if (cleanQuery.contains(kw)) {
-                    score += 45
-                } else if (kw.contains(cleanQuery) && cleanQuery.length >= 4) {
-                    score += 30
+                val kwLower = kw.lowercase()
+                if (cleanQuery == kwLower || cleanQuery.contains(kwLower)) {
+                    score += 60
+                } else if (kwLower.contains(cleanQuery) && cleanQuery.length >= 4) {
+                    score += 40
                 } else {
-                    for (qWord in queryWords) {
-                        for (kwWord in kw.split(" ")) {
-                            if (isFuzzyMatchWord(qWord, kwWord)) {
-                                score += 20
+                    for (qWord in meaningfulQueryWords) {
+                        for (kwWord in kwLower.split(" ")) {
+                            if (!stopWords.contains(kwWord)) {
+                                if (qWord == kwWord) {
+                                    score += 25
+                                } else if (isFuzzyMatchWord(qWord, kwWord)) {
+                                    score += 15
+                                }
                             }
                         }
                     }
                 }
             }
 
-            for (word in queryWords) {
-                if (titleLower.contains(word)) score += 15
-                if (idLower.contains(word)) score += 10
-                if (isFuzzyMatchWord(word, idLower)) score += 8
+            for (word in meaningfulQueryWords) {
+                if (titleLower.contains(word)) score += 20
+                if (idLower.contains(word)) score += 15
+                if (isFuzzyMatchWord(word, idLower)) score += 10
             }
 
             if (score > 0) {
@@ -658,16 +889,18 @@ object AyvaTalkEngine {
         var bestTopic = scoredTopics.firstOrNull()?.first
         var highestScore = scoredTopics.firstOrNull()?.second ?: 0
         
-        // --- 3.5 Disambiguation ---
-        // If the score is weak or there are multiple close candidates
-        if (bestTopic != null && highestScore < 50 && scoredTopics.size > 1) {
+        // --- 3.5 Disambiguation (Only if candidate scores are close and significant) ---
+        if (bestTopic != null && highestScore in 25..55 && scoredTopics.size > 1) {
             val secondScore = scoredTopics[1].second
-            if (highestScore - secondScore < 20) {
+            if (highestScore - secondScore < 10) {
                 val suggestions = scoredTopics.take(3).map { it.first }
                 val actions = suggestions.map { TalkAction.AskQuery(it.title, it.title) }
+                val json = serializeActionsJson("disambiguation", actions)
                 return TalkResponse(
-                    formattedText = "🤔 I found a few settings that sound similar. Which one did you mean?",
-                    actions = actions
+                    formattedText = "🤔 I found a few topics that might match your question. Which one would you like to explore?",
+                    actions = actions,
+                    topicId = "disambiguation",
+                    jsonPayload = json
                 )
             }
         }
@@ -683,14 +916,13 @@ object AyvaTalkEngine {
             cleanQuery.contains("freeze") || cleanQuery.contains("unfreeze") ||
             cleanQuery.contains("vacation")
 
-        if (bestTopic != null && hasIntentPrefix && context != null) {
+        if (bestTopic != null && hasIntentPrefix && context != null && !isQuestionQuery) {
             val isBooleanTurnOn = cleanQuery.contains(" on") || cleanQuery.contains("enable") || cleanQuery.contains("true") || cleanQuery.contains("activate") || cleanQuery.contains("freeze") || cleanQuery.startsWith("freeze")
             val isBooleanTurnOff = cleanQuery.contains(" off") || cleanQuery.contains("disable") || cleanQuery.contains("false") || cleanQuery.contains("deactivate") || cleanQuery.contains("unfreeze") || cleanQuery.startsWith("unfreeze")
             
             var num = cleanQuery.replace(Regex("[^0-9]"), "").toIntOrNull()
             var stringVal: String? = null
             
-            // Extract potential string values based on typical settings
             if (bestTopic.prefType == "string") {
                 val timeRegex = Regex("([0-9]{1,2})[:.]([0-9]{2})\\s*(am|pm)?", RegexOption.IGNORE_CASE)
                 val timeMatch = timeRegex.find(cleanQuery)
@@ -774,12 +1006,21 @@ object AyvaTalkEngine {
             return TalkResponse(bestTopic.formatResponse(context), actions, bestTopic.id, json)
         }
 
-        // Fallback
+        // --- 5. SMART CONVERSATIONAL FALLBACK (ALWAYS ANSWERS) ---
+        val fallbackActions = listOf(
+            TalkAction.AskQuery("vacation mode", "🏖️ Vacation Mode"),
+            TalkAction.AskQuery("persistent reminders", "⏰ Reminders"),
+            TalkAction.AskQuery("bubble auto hide", "🫧 Auto-Hide"),
+            TalkAction.AskQuery("soft mode wait timer", "⏱️ Soft Delay"),
+            TalkAction.AskQuery("why apps not blocking", "🛡️ Troubleshoot"),
+            TalkAction.NavigateAppScreen("settings", "Settings ⚙️", "⚙️")
+        )
+        val json = serializeActionsJson("fallback", fallbackActions)
         return TalkResponse(
-            formattedText = "🤔 I couldn't find a specific setting for *\"$trimmed\"*.\n\nYou can ask about any specific toggle or feature, like:\n• *Persistent Reminders*\n• *Soft Mode Wait Timer*\n• *Relief Duration*\n• *Uninstall Protection*\n• *App Theme*\n• *Routines or Subtasks*\n• *Why are apps not blocking?*",
-            actions = listOf(
-                TalkAction.NavigateAppScreen("settings", "Open Settings", "⚙️")
-            )
+            formattedText = "💬 **Ayva**: I'm here to help with FocusByRj!\n\nI didn't find a direct match for *\"$trimmed\"*, but you can ask me about:\n\n• **Vacation Mode** — Freeze your daily streak & pause alerts\n• **Persistent Reminders** — Configure recurring task alarms\n• **Soft Mode Wait Timer** — Set mindful bypass delays\n• **Bubble Auto-Hide** — Auto-hide during video calls and landscape games\n• **Troubleshooting** — Verify permissions or blocked apps",
+            actions = fallbackActions,
+            topicId = "fallback",
+            jsonPayload = json
         )
     }
 

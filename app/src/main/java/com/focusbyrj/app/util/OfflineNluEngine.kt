@@ -248,17 +248,18 @@ object OfflineNluEngine {
             }
         }
         
-        // Fallback for generic intents
+        // Fallback for strict single-word or direct command phrases only
         if (intent == NluIntent.UNKNOWN) {
-            if (query.lowercase().contains("task") || query.lowercase().contains("todo")) {
+            val trimmed = query.lowercase().trim()
+            if (trimmed == "tasks" || trimmed == "todos" || trimmed == "my tasks" || trimmed == "pending tasks" || trimmed == "task list") {
                 intent = NluIntent.LIST_TASKS
-            } else if (query.lowercase().contains("profile") || query.lowercase().contains("stats")) {
+            } else if (trimmed == "profile" || trimmed == "my profile" || trimmed == "stats" || trimmed == "my stats" || trimmed == "xp") {
                 intent = NluIntent.SHOW_PROFILE
-            } else if (query.lowercase().contains("summary")) {
+            } else if (trimmed == "summary" || trimmed == "my summary" || trimmed == "daily summary" || trimmed == "briefing") {
                 intent = NluIntent.SHOW_SUMMARY
-            } else if (query.lowercase().contains("math") || query.lowercase().contains("drill")) {
+            } else if (trimmed == "math" || trimmed == "drill" || trimmed == "math drill" || trimmed == "quiz") {
                 intent = NluIntent.START_DRILL
-            } else if (query.lowercase().contains("clear chat")) {
+            } else if (trimmed == "clear chat" || trimmed == "wipe chat" || trimmed == "clean chat") {
                 intent = NluIntent.CLEAR_CHAT
             }
         }

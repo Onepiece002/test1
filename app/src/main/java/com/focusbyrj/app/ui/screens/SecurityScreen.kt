@@ -16,6 +16,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.BatteryFull
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Layers
+import androidx.compose.material.icons.filled.QueryStats
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -30,6 +35,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.focusbyrj.app.service.FocusDeviceAdminReceiver
 import com.focusbyrj.app.ui.theme.*
+import com.focusbyrj.app.util.PermissionUtils
 
 @Composable
 fun SecurityScreen(navController: NavController) {
@@ -40,6 +46,12 @@ fun SecurityScreen(navController: NavController) {
     val adminComponent = ComponentName(context, FocusDeviceAdminReceiver::class.java)
     var isUninstallProtectionEnabled by remember { mutableStateOf(dpm.isAdminActive(adminComponent)) }
     
+    var hasUsageStats by remember { mutableStateOf(PermissionUtils.hasUsageStatsPermission(context)) }
+    var hasOverlay by remember { mutableStateOf(PermissionUtils.hasOverlayPermission(context)) }
+    var isBatteryUnrestricted by remember { mutableStateOf(PermissionUtils.isIgnoringBatteryOptimizations(context)) }
+    var hasNotifications by remember { mutableStateOf(PermissionUtils.hasNotificationPermission(context)) }
+    var showBatteryInfoDialog by remember { mutableStateOf(false) }
+
     val adminLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         isUninstallProtectionEnabled = dpm.isAdminActive(adminComponent)
     }
@@ -47,12 +59,26 @@ fun SecurityScreen(navController: NavController) {
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
-            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME || event == androidx.lifecycle.Lifecycle.Event.ON_START) {
                 isUninstallProtectionEnabled = dpm.isAdminActive(adminComponent)
+                hasUsageStats = PermissionUtils.hasUsageStatsPermission(context)
+                hasOverlay = PermissionUtils.hasOverlayPermission(context)
+                isBatteryUnrestricted = PermissionUtils.isIgnoringBatteryOptimizations(context)
+                hasNotifications = PermissionUtils.hasNotificationPermission(context)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    
+    LaunchedEffect(Unit) {
+        while (true) {
+            hasUsageStats = PermissionUtils.hasUsageStatsPermission(context)
+            hasOverlay = PermissionUtils.hasOverlayPermission(context)
+            isBatteryUnrestricted = PermissionUtils.isIgnoringBatteryOptimizations(context)
+            hasNotifications = PermissionUtils.hasNotificationPermission(context)
+            kotlinx.coroutines.delay(1000)
+        }
     }
 
     Column(
@@ -85,6 +111,67 @@ fun SecurityScreen(navController: NavController) {
         ) {
             Spacer(modifier = Modifier.height(8.dp))
             
+            SecuritySectionHeader("SYSTEM PERMISSIONS")
+            
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+            ) {
+                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    SecurityActionRow(
+                        icon = Icons.Filled.QueryStats,
+                        iconTint = MaterialTheme.colorScheme.primary,
+                        title = "Usage Access",
+                        subtitle = "Detect foreground apps to block.",
+                        action = {
+                            if (hasUsageStats) {
+                                GrantedBadge()
+                            } else {
+                                GrantButton { PermissionUtils.requestUsageStatsPermission(context) }
+                            }
+                        }
+                    )
+                    
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+                    
+                    SecurityActionRow(
+                        icon = Icons.Filled.Layers,
+                        iconTint = MaterialTheme.colorScheme.secondary,
+                        title = "Display Over Apps",
+                        subtitle = "Show mindful pause & lock screens.",
+                        action = {
+                            if (hasOverlay) {
+                                GrantedBadge()
+                            } else {
+                                GrantButton { PermissionUtils.requestOverlayPermission(context) }
+                            }
+                        }
+                    )
+                    
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+                    
+                    SecurityActionRow(
+                        icon = Icons.Filled.BatteryFull,
+                        iconTint = MaterialTheme.colorScheme.error,
+                        title = "Battery Restrictions",
+                        subtitle = "Prevent Android from killing the blocker.",
+                        action = {
+                            if (isBatteryUnrestricted) {
+                                GrantedBadge("Unrestricted ✓", MaterialTheme.colorScheme.tertiary)
+                            } else {
+                                GrantButton(text = "Enable", containerColor = MaterialTheme.colorScheme.error, contentColor = MaterialTheme.colorScheme.onError) { 
+                                    showBatteryInfoDialog = true 
+                                }
+                            }
+                        }
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
             SecuritySectionHeader("APP INTEGRITY & TAMPER DEFENSE")
 
             Card(
@@ -144,6 +231,90 @@ fun SecurityScreen(navController: NavController) {
 
             Spacer(modifier = Modifier.height(64.dp))
         }
+    }
+    
+    if (showBatteryInfoDialog) {
+        AlertDialog(
+            onDismissRequest = { showBatteryInfoDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Why 'No Restrictions' on Battery?")
+                }
+            },
+            text = {
+                Column {
+                    Text(
+                        "Modern Android enforces aggressive background limits on apps when battery optimization is enabled (Optimized or Restricted).",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        "Without 'No Restrictions' / 'Unrestricted', Android will freeze or kill the blocker background service, causing locks to stop working.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        "Setting this to Unrestricted allows Focus by Rj to guard your boundaries 24/7 without consuming significant battery.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showBatteryInfoDialog = false
+                        PermissionUtils.requestIgnoreBatteryOptimizations(context)
+                    }
+                ) {
+                    Text("Set Unrestricted", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showBatteryInfoDialog = false }) {
+                    Text("Close", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            },
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(24.dp)
+        )
+    }
+}
+
+@Composable
+fun GrantedBadge(text: String = "Granted ✓", color: Color = MaterialTheme.colorScheme.tertiary) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(color.copy(alpha = 0.15f))
+            .padding(horizontal = 10.dp, vertical = 6.dp)
+    ) {
+        Text(text, color = color, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+fun GrantButton(
+    text: String = "Grant",
+    containerColor: Color = MaterialTheme.colorScheme.primary,
+    contentColor: Color = MaterialTheme.colorScheme.onPrimary,
+    onClick: () -> Unit
+) {
+    Button(
+        onClick = onClick,
+        shape = RoundedCornerShape(12.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = containerColor,
+            contentColor = contentColor
+        ),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+        modifier = Modifier.height(34.dp)
+    ) {
+        Text(text, fontSize = 12.sp, fontWeight = FontWeight.Bold)
     }
 }
 

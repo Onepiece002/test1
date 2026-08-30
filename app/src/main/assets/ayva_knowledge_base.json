@@ -432,7 +432,7 @@
     "title": "Troubleshooting: Why are apps NOT being blocked?",
     "emoji": "🔍",
     "directExplanation": "Apps opening without the blocker screen is usually caused by a missing permission or battery sleep.",
-    "whereToGo": "Settings -> Permissions",
+    "whereToGo": "Security -> SYSTEM PERMISSIONS",
     "whatToClick": [
       "1. Check Usage Access: Ensures app foreground launches are detected.",
       "2. Check Display Over Other Apps: Ensures direct overlay can be drawn.",
@@ -448,7 +448,7 @@
       "apps still open",
       "not blocking"
     ],
-    "route": "permissions",
+    "route": "security",
     "isPackageSettingUri": false,
     "diagnosticKey": "troubleshoot_why_not_blocking"
   },
