@@ -498,6 +498,8 @@ fun ChatInterface() {
                             com.focusbyrj.app.util.NluIntent.BLOCK_APP,
                             com.focusbyrj.app.util.NluIntent.BLOCK_FILTER,
                             com.focusbyrj.app.util.NluIntent.UNBLOCK,
+                            com.focusbyrj.app.util.NluIntent.START_ROUTINE,
+                            com.focusbyrj.app.util.NluIntent.STOP_ROUTINE,
                             com.focusbyrj.app.util.NluIntent.LIST_ROUTINES -> {
                                 sentText = "/talk $sentText"
                             }

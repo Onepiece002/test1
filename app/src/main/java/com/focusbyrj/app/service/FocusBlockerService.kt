@@ -179,6 +179,13 @@ class FocusBlockerService : Service() {
     
     private fun startRoutineMonitorLoop() {
         scope.launch {
+            db.scheduleDao().getAllSchedules().collect {
+                kotlin.runCatching {
+                    checkRoutinesAndNotify()
+                }
+            }
+        }
+        scope.launch {
             delay(2000L)
             while (isActive) {
                 kotlin.runCatching {

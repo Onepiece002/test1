@@ -4,7 +4,7 @@ import com.focusbyrj.app.data.Task
 import java.util.Calendar
 
 enum class NluIntent {
-    RESCHEDULE, COMPLETE, DELETE, LIST_TASKS, BLOCK_APP, BLOCK_FILTER, UNBLOCK, LIST_ROUTINES, START_DRILL, SHOW_PROFILE, SHOW_SUMMARY, CLEAR_CHAT, UNKNOWN
+    RESCHEDULE, COMPLETE, DELETE, LIST_TASKS, BLOCK_APP, BLOCK_FILTER, UNBLOCK, LIST_ROUTINES, START_ROUTINE, STOP_ROUTINE, START_DRILL, SHOW_PROFILE, SHOW_SUMMARY, CLEAR_CHAT, UNKNOWN
 }
 
 data class NluParsedResult(
@@ -13,7 +13,8 @@ data class NluParsedResult(
     val isAllTasks: Boolean = false,
     val targetDateMs: Long? = null,
     val blockMode: String? = null,
-    val targetFilterOrAppName: String? = null
+    val targetFilterOrAppName: String? = null,
+    val targetRoutineName: String? = null
 )
 
 object OfflineNluEngine {
@@ -67,7 +68,10 @@ object OfflineNluEngine {
         val isBlock = matchesAnyFuzzy(tokens, listOf("block", "lock", "restrict"))
         val isUnblock = matchesAnyFuzzy(tokens, listOf("unblock", "unlock", "allow"))
         
-        val isListRoutines = matchesAnyFuzzy(tokens, listOf("list", "show", "what", "display")) && matchesAnyFuzzy(tokens, listOf("routine", "routines", "schedule", "schedules", "timings"))
+        val isRoutineKeyword = matchesAnyFuzzy(tokens, listOf("routine", "routines", "schedule", "schedules"))
+        val isStartRoutine = (matchesAnyFuzzy(tokens, listOf("start", "enable", "activate", "resume", "begin", "launch")) || (lower.contains("turn") && lower.contains("on"))) && isRoutineKeyword
+        val isStopRoutine = (matchesAnyFuzzy(tokens, listOf("stop", "disable", "deactivate", "pause", "halt", "end", "quit")) || (lower.contains("turn") && lower.contains("off"))) && isRoutineKeyword
+        val isListRoutines = matchesAnyFuzzy(tokens, listOf("list", "show", "what", "display", "check", "status")) && matchesAnyFuzzy(tokens, listOf("routine", "routines", "schedule", "schedules", "timings")) || lower == "routines" || lower == "schedules" || lower == "my routines"
 
         val isStartDrill = matchesAnyFuzzy(tokens, listOf("drill", "math", "arithmetic", "calculate", "test", "quiz"))
         val isShowProfile = matchesAnyFuzzy(tokens, listOf("profile", "level", "aptitude", "streak", "stats", "statistics", "points", "xp"))
@@ -79,6 +83,8 @@ object OfflineNluEngine {
             isStartDrill -> NluIntent.START_DRILL
             isShowProfile -> NluIntent.SHOW_PROFILE
             isShowSummary -> NluIntent.SHOW_SUMMARY
+            isStartRoutine -> NluIntent.START_ROUTINE
+            isStopRoutine -> NluIntent.STOP_ROUTINE
             isListRoutines -> NluIntent.LIST_ROUTINES
             isBlock -> if (lower.contains("filter") || lower.contains("category")) NluIntent.BLOCK_FILTER else NluIntent.BLOCK_APP
             isUnblock -> NluIntent.UNBLOCK
@@ -230,6 +236,19 @@ object OfflineNluEngine {
         return Pair(targetName, mode)
     }
     
+    // Extractor for Routine Intent
+    fun extractRoutineTarget(query: String): Pair<String?, Boolean> {
+        val lower = query.lowercase().trim()
+        val isAll = lower.contains("all")
+        
+        val match = Regex("\\b(start|begin|launch|enable|activate|resume|stop|disable|deactivate|pause|halt|end|turn\\s+on|turn\\s+off)\\b\\s+(.*)").find(lower)
+        var targetName = match?.groupValues?.get(2) ?: lower
+        targetName = targetName.replace(Regex("\\b(routine|routines|schedule|schedules|the|my|a|an|all)\\b"), " ")
+        targetName = targetName.replace(Regex("\\s+"), " ").trim()
+        
+        return Pair(targetName.ifEmpty { null }, isAll)
+    }
+
     // Master Parser
     fun parse(query: String, pendingTasks: List<Task>): NluParsedResult {
         var intent = classifyIntent(query)
@@ -238,6 +257,8 @@ object OfflineNluEngine {
         
         var targetFilterOrAppName: String? = null
         var blockMode: String? = null
+        var targetRoutineName: String? = null
+        var isAllRoutines = false
         
         if (intent == NluIntent.BLOCK_APP || intent == NluIntent.BLOCK_FILTER || intent == NluIntent.UNBLOCK) {
             val (name, mode) = extractBlockTarget(query)
@@ -246,6 +267,10 @@ object OfflineNluEngine {
             if (name.isNullOrEmpty() && !query.lowercase().contains("all")) {
                 intent = NluIntent.UNKNOWN
             }
+        } else if (intent == NluIntent.START_ROUTINE || intent == NluIntent.STOP_ROUTINE) {
+            val (routineName, allRoutines) = extractRoutineTarget(query)
+            targetRoutineName = routineName
+            isAllRoutines = allRoutines
         }
         
         // Fallback for strict single-word or direct command phrases only
@@ -261,9 +286,11 @@ object OfflineNluEngine {
                 intent = NluIntent.START_DRILL
             } else if (trimmed == "clear chat" || trimmed == "wipe chat" || trimmed == "clean chat") {
                 intent = NluIntent.CLEAR_CHAT
+            } else if (trimmed == "routines" || trimmed == "schedules" || trimmed == "my routines") {
+                intent = NluIntent.LIST_ROUTINES
             }
         }
         
-        return NluParsedResult(intent, targetTask, isAll, dateMs, blockMode, targetFilterOrAppName)
+        return NluParsedResult(intent, targetTask, if (isAllRoutines) true else isAll, dateMs, blockMode, targetFilterOrAppName, targetRoutineName)
     }
 }

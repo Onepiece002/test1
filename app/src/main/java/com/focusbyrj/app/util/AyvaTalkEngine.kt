@@ -711,25 +711,196 @@ object AyvaTalkEngine {
                                 }
                             }
                             
-                            if (nluResult.intent == NluIntent.LIST_ROUTINES) {
-                                val scheds = app.repository.allSchedules.firstOrNull() ?: emptyList()
-                                val enabledScheds = scheds.filter { it.isEnabled }
-                                val today = java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_WEEK)
-                                val todayScheds = enabledScheds.filter { it.daysOfWeek.split(",").contains(today.toString()) }
-                                                    
-                                val text = if (todayScheds.isEmpty()) {
-                                    "🗓️ You have **no active routines scheduled for today**."
-                                } else {
-                                    "🗓️ You have **${todayScheds.size} routine(s) scheduled today**:\n\n" +
-                                    todayScheds.joinToString("\n\n") {
-                                        val startStr = String.format("%02d:%02d", it.startHour, it.startMinute)
-                                        val endStr = String.format("%02d:%02d", it.endHour, it.endMinute)
-                                        val appsStr = if (it.appsToBlock.isNotBlank()) "Apps: ${it.appsToBlock.split(",").size} restricted" else "No apps restricted"
-                                        "• **${it.name}** ($startStr - $endStr)\n  └ $appsStr" 
+                            if (nluResult.intent == NluIntent.START_ROUTINE || nluResult.intent == NluIntent.STOP_ROUTINE || nluResult.intent == NluIntent.LIST_ROUTINES) {
+                                val isStart = (nluResult.intent == NluIntent.START_ROUTINE)
+                                val isStop = (nluResult.intent == NluIntent.STOP_ROUTINE)
+                                val isList = (nluResult.intent == NluIntent.LIST_ROUTINES)
+                                val allSchedules = app.database.scheduleDao().getAllSchedulesSync()
+                                
+                                if (allSchedules.isEmpty()) {
+                                    val actions = listOf(TalkAction.NavigateAppScreen("schedules", "Create Routine", "📅"))
+                                    return TalkResponse(
+                                        formattedText = "🗓️ **No Routines Found**\n\nYou haven't created any focus routines yet. Set up scheduled routines to automatically block distracting apps during specific hours.",
+                                        actions = actions,
+                                        topicId = "schedules",
+                                        jsonPayload = serializeActionsJson("schedules", actions)
+                                    )
+                                }
+
+                                if (isStart) {
+                                    val target = nluResult.targetRoutineName?.trim()
+                                    val isAll = nluResult.isAllTasks || target == "all" || cleanQuery.contains("all routines") || cleanQuery.contains("all schedules")
+                                    
+                                    if (isAll) {
+                                        allSchedules.forEach {
+                                            app.database.scheduleDao().insertSchedule(it.copy(isEnabled = true))
+                                        }
+                                        val actions = listOf(
+                                            TalkAction.AskQuery("/talk stop all routines", "⏹️ Stop All"),
+                                            TalkAction.NavigateAppScreen("schedules", "View Routines", "📅")
+                                        )
+                                        val routineListText = allSchedules.mapIndexed { idx, it ->
+                                            val startStr = String.format("%02d:%02d", it.startHour, it.startMinute)
+                                            val endStr = String.format("%02d:%02d", it.endHour, it.endMinute)
+                                            "${idx + 1}. **${it.name}** ($startStr - $endStr) • *Enabled*"
+                                        }.joinToString("\n")
+                                        return TalkResponse(
+                                            formattedText = "▶️ **All Routines Started (${allSchedules.size})**\n\nAll focus routines are now active and enabled:\n$routineListText",
+                                            actions = actions,
+                                            topicId = "schedules",
+                                            jsonPayload = serializeActionsJson("schedules", actions)
+                                        )
+                                    } else if (!target.isNullOrBlank()) {
+                                        val matched = allSchedules.find { it.name.equals(target, ignoreCase = true) }
+                                            ?: allSchedules.find { it.name.contains(target, ignoreCase = true) || target.contains(it.name, ignoreCase = true) }
+                                            ?: allSchedules.minByOrNull { OfflineNluEngine.levenshtein(target.lowercase(), it.name.lowercase()) }
+                                                ?.takeIf { OfflineNluEngine.levenshtein(target.lowercase(), it.name.lowercase()) <= 2 }
+
+                                        if (matched != null) {
+                                            app.database.scheduleDao().insertSchedule(matched.copy(isEnabled = true))
+                                            val startStr = String.format("%02d:%02d", matched.startHour, matched.startMinute)
+                                            val endStr = String.format("%02d:%02d", matched.endHour, matched.endMinute)
+                                            val appCount = if (matched.appsToBlock.isNotBlank()) matched.appsToBlock.split(",").filter { s -> s.isNotBlank() }.size else 0
+                                            val appSummary = if (appCount > 0) "$appCount apps restricted" else "No apps restricted"
+                                            
+                                            val actions = listOf(
+                                                TalkAction.AskQuery("/talk stop routine ${matched.name}", "⏹️ Stop Routine"),
+                                                TalkAction.NavigateAppScreen("schedules", "View Routines", "📅")
+                                            )
+                                            return TalkResponse(
+                                                formattedText = "▶️ **Routine Started: ${matched.name}**\n\n• **Schedule**: $startStr - $endStr\n• **Restrictions**: $appSummary\n• **Mode**: ${matched.mode} Mode\n• **Status**: **Enabled & Active** ⚡",
+                                                actions = actions,
+                                                topicId = "schedules",
+                                                jsonPayload = serializeActionsJson("schedules", actions)
+                                            )
+                                        } else {
+                                            val actions = allSchedules.map {
+                                                TalkAction.AskQuery("/talk start routine ${it.name}", "▶️ Start ${it.name}")
+                                            } + listOf(TalkAction.NavigateAppScreen("schedules", "Open Routines", "📅"))
+                                            return TalkResponse(
+                                                formattedText = "🤔 Couldn't find routine *\"$target\"*. Which routine would you like to start?",
+                                                actions = actions,
+                                                topicId = "schedules",
+                                                jsonPayload = serializeActionsJson("schedules", actions)
+                                            )
+                                        }
+                                    } else {
+                                        val actions = allSchedules.map {
+                                            TalkAction.AskQuery("/talk start routine ${it.name}", "▶️ Start ${it.name}")
+                                        } + listOf(
+                                            TalkAction.AskQuery("/talk start all routines", "▶️ Start All"),
+                                            TalkAction.NavigateAppScreen("schedules", "Open Routines", "📅")
+                                        )
+                                        val routineListText = allSchedules.mapIndexed { idx, it ->
+                                            val startStr = String.format("%02d:%02d", it.startHour, it.startMinute)
+                                            val endStr = String.format("%02d:%02d", it.endHour, it.endMinute)
+                                            val statusStr = if (it.isEnabled) "⚡ Active" else "⏸️ Paused"
+                                            "${idx + 1}. **${it.name}** ($startStr - $endStr) — $statusStr"
+                                        }.joinToString("\n")
+                                        return TalkResponse(
+                                            formattedText = "🗓️ **Select a Routine to Start:**\n\n$routineListText\n\n_Tap a button below or type `/talk start routine [name]`._",
+                                            actions = actions,
+                                            topicId = "schedules",
+                                            jsonPayload = serializeActionsJson("schedules", actions)
+                                        )
                                     }
                                 }
-                                val actions = listOf(TalkAction.NavigateAppScreen("schedules", "View Schedules", "📅"))
-                                return TalkResponse(text, actions, "schedules", serializeActionsJson("schedules", actions))
+
+                                if (isStop) {
+                                    val target = nluResult.targetRoutineName?.trim()
+                                    val isAll = nluResult.isAllTasks || target == "all" || cleanQuery.contains("all routines") || cleanQuery.contains("all schedules")
+                                    
+                                    if (isAll) {
+                                        allSchedules.forEach {
+                                            app.database.scheduleDao().insertSchedule(it.copy(isEnabled = false))
+                                        }
+                                        val actions = listOf(
+                                            TalkAction.AskQuery("/talk start all routines", "▶️ Start All"),
+                                            TalkAction.NavigateAppScreen("schedules", "View Routines", "📅")
+                                        )
+                                        return TalkResponse(
+                                            formattedText = "⏹️ **All Routines Stopped (${allSchedules.size})**\n\nAll focus schedules have been disabled and their app restrictions are paused.",
+                                            actions = actions,
+                                            topicId = "schedules",
+                                            jsonPayload = serializeActionsJson("schedules", actions)
+                                        )
+                                    } else if (!target.isNullOrBlank()) {
+                                        val matched = allSchedules.find { it.name.equals(target, ignoreCase = true) }
+                                            ?: allSchedules.find { it.name.contains(target, ignoreCase = true) || target.contains(it.name, ignoreCase = true) }
+                                            ?: allSchedules.minByOrNull { OfflineNluEngine.levenshtein(target.lowercase(), it.name.lowercase()) }
+                                                ?.takeIf { OfflineNluEngine.levenshtein(target.lowercase(), it.name.lowercase()) <= 2 }
+
+                                        if (matched != null) {
+                                            app.database.scheduleDao().insertSchedule(matched.copy(isEnabled = false))
+                                            val actions = listOf(
+                                                TalkAction.AskQuery("/talk start routine ${matched.name}", "▶️ Start Routine"),
+                                                TalkAction.NavigateAppScreen("schedules", "View Routines", "📅")
+                                            )
+                                            return TalkResponse(
+                                                formattedText = "⏹️ **Routine Stopped: ${matched.name}**\n\n_The routine has been disabled and its scheduled app blocks are now paused._",
+                                                actions = actions,
+                                                topicId = "schedules",
+                                                jsonPayload = serializeActionsJson("schedules", actions)
+                                            )
+                                        } else {
+                                            val actions = allSchedules.filter { it.isEnabled }.map {
+                                                TalkAction.AskQuery("/talk stop routine ${it.name}", "⏹️ Stop ${it.name}")
+                                            } + listOf(TalkAction.NavigateAppScreen("schedules", "Open Routines", "📅"))
+                                            return TalkResponse(
+                                                formattedText = "🤔 Couldn't find routine *\"$target\"*. Which routine would you like to stop?",
+                                                actions = actions,
+                                                topicId = "schedules",
+                                                jsonPayload = serializeActionsJson("schedules", actions)
+                                            )
+                                        }
+                                    } else {
+                                        val enabledSchedules = allSchedules.filter { it.isEnabled }
+                                        val actions = (if (enabledSchedules.isNotEmpty()) enabledSchedules else allSchedules).map {
+                                            TalkAction.AskQuery("/talk stop routine ${it.name}", "⏹️ Stop ${it.name}")
+                                        } + listOf(
+                                            TalkAction.AskQuery("/talk stop all routines", "⏹️ Stop All"),
+                                            TalkAction.NavigateAppScreen("schedules", "Open Routines", "📅")
+                                        )
+                                        val routineListText = allSchedules.mapIndexed { idx, it ->
+                                            val startStr = String.format("%02d:%02d", it.startHour, it.startMinute)
+                                            val endStr = String.format("%02d:%02d", it.endHour, it.endMinute)
+                                            val statusStr = if (it.isEnabled) "⚡ Active" else "⏸️ Paused"
+                                            "${idx + 1}. **${it.name}** ($startStr - $endStr) — $statusStr"
+                                        }.joinToString("\n")
+                                        return TalkResponse(
+                                            formattedText = "🗓️ **Select a Routine to Stop:**\n\n$routineListText\n\n_Tap a button below or type `/talk stop routine [name]`._",
+                                            actions = actions,
+                                            topicId = "schedules",
+                                            jsonPayload = serializeActionsJson("schedules", actions)
+                                        )
+                                    }
+                                }
+
+                                if (isList) {
+                                    val today = java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_WEEK)
+                                    val actions = mutableListOf<TalkAction>()
+                                    allSchedules.forEach {
+                                        if (it.isEnabled) {
+                                            actions.add(TalkAction.AskQuery("/talk stop routine ${it.name}", "⏹️ Stop ${it.name}"))
+                                        } else {
+                                            actions.add(TalkAction.AskQuery("/talk start routine ${it.name}", "▶️ Start ${it.name}"))
+                                        }
+                                    }
+                                    actions.add(TalkAction.NavigateAppScreen("schedules", "Manage Routines", "📅"))
+                                    
+                                    val sb = StringBuilder()
+                                    sb.append("🗓️ **Your Focus Routines (${allSchedules.size})**:\n\n")
+                                    allSchedules.forEachIndexed { idx, it ->
+                                        val startStr = String.format("%02d:%02d", it.startHour, it.startMinute)
+                                        val endStr = String.format("%02d:%02d", it.endHour, it.endMinute)
+                                        val statusStr = if (it.isEnabled) "⚡ **Enabled**" else "⏸️ *Paused*"
+                                        val appCount = if (it.appsToBlock.isNotBlank()) it.appsToBlock.split(",").filter { s -> s.isNotBlank() }.size else 0
+                                        val appStr = if (appCount > 0) "$appCount apps restricted" else "No apps restricted"
+                                        sb.append("${idx + 1}. **${it.name}** ($startStr - $endStr) — $statusStr\n   └ $appStr [${it.mode} Mode]\n")
+                                    }
+                                    sb.append("\n_Use `/talk start routine [name]` or `/talk stop routine [name]` to control them._")
+                                    return TalkResponse(sb.toString().trimEnd(), actions, "schedules", serializeActionsJson("schedules", actions))
+                                }
                             }
                             
                             if (nluResult.intent == NluIntent.BLOCK_APP || nluResult.intent == NluIntent.BLOCK_FILTER || nluResult.intent == NluIntent.UNBLOCK) {
@@ -1086,6 +1257,12 @@ object AyvaTalkEngine {
                         actObj.put("prefType", act.prefType)
                         actObj.put("targetValue", act.targetValue)
                         actObj.put("displayValue", act.displayValue)
+                    }
+                    is TalkAction.RoutineToggle -> {
+                        actObj.put("type", "routine_toggle")
+                        actObj.put("scheduleId", act.scheduleId)
+                        actObj.put("isEnabled", act.isEnabled)
+                        actObj.put("routineName", act.routineName)
                     }
                 }
                 arr.put(actObj)

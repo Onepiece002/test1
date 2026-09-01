@@ -5,6 +5,9 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
 import com.focusbyrj.app.MainActivity
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 /**
  * Direct navigation action target from Ayva talk / guidance responses.
@@ -42,6 +45,14 @@ sealed class TalkAction(
         val iconEmoji: String = "⚡"
     ) : TalkAction(buttonLabel, iconEmoji)
 
+    data class RoutineToggle(
+        val scheduleId: Int,
+        val isEnabled: Boolean,
+        val routineName: String,
+        val buttonLabel: String,
+        val iconEmoji: String = "📅"
+    ) : TalkAction(buttonLabel, iconEmoji)
+
     fun execute(context: Context): Boolean {
         return try {
             when (this) {
@@ -70,6 +81,20 @@ sealed class TalkAction(
                     }
                     context.startActivity(intent)
                     true
+                }
+                is RoutineToggle -> {
+                    val app = context.applicationContext as? com.focusbyrj.app.FocusApplication
+                    if (app != null) {
+                        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                            val sched = app.database.scheduleDao().getScheduleById(scheduleId)
+                            if (sched != null) {
+                                app.database.scheduleDao().insertSchedule(sched.copy(isEnabled = isEnabled))
+                            }
+                        }
+                        true
+                    } else {
+                        false
+                    }
                 }
                 is DirectPrefUpdate -> {
                     val prefs = context.getSharedPreferences("focus_prefs", Context.MODE_PRIVATE)

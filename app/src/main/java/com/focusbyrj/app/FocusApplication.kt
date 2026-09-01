@@ -33,6 +33,7 @@ class FocusApplication : Application() {
         com.focusbyrj.app.util.AptitudeManager.init(this)
         com.focusbyrj.app.util.CustomCategoryManager.init(this)
         com.focusbyrj.app.util.BubbleChatManager.init(this)
+        com.focusbyrj.app.util.AppIconManager.init(this)
     }
 
     val database by lazy { 

@@ -63,6 +63,12 @@ fun TalkActionChips(
                         val dispVal = obj.optString("displayValue")
                         list.add(TalkAction.DirectPrefUpdate(key, prefType, targetVal, dispVal, label, emoji))
                     }
+                    "routine_toggle" -> {
+                        val scheduleId = obj.optInt("scheduleId")
+                        val isEnabled = obj.optBoolean("isEnabled", true)
+                        val routineName = obj.optString("routineName", label)
+                        list.add(TalkAction.RoutineToggle(scheduleId, isEnabled, routineName, label, emoji))
+                    }
                 }
             }
         } catch (_: Exception) {}
@@ -80,6 +86,7 @@ fun TalkActionChips(
             parsedActions.forEach { action ->
                 val isSelected = when (action) {
                     is TalkAction.DirectPrefUpdate -> appliedActionKey == "${action.prefKey}_${action.targetValue}"
+                    is TalkAction.RoutineToggle -> appliedActionKey == "routine_${action.scheduleId}_${action.isEnabled}"
                     else -> false
                 }
 
@@ -94,6 +101,11 @@ fun TalkActionChips(
                                     appliedActionKey = "${action.prefKey}_${action.targetValue}"
                                     Toast.makeText(context, "Updated: ${action.label} ✅", Toast.LENGTH_SHORT).show()
                                     onActionApplied?.invoke("Updated: ${action.label}")
+                                } else if (action is TalkAction.RoutineToggle) {
+                                    appliedActionKey = "routine_${action.scheduleId}_${action.isEnabled}"
+                                    val statusWord = if (action.isEnabled) "Started" else "Stopped"
+                                    Toast.makeText(context, "${action.routineName}: $statusWord ✅", Toast.LENGTH_SHORT).show()
+                                    onActionApplied?.invoke("${action.routineName}: $statusWord")
                                 } else {
                                     Toast.makeText(context, "Opening ${action.label}...", Toast.LENGTH_SHORT).show()
                                 }

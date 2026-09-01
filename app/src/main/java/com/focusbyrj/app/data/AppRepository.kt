@@ -46,7 +46,15 @@ class AppRepository(
         appRestrictionDao.deleteRestriction(app.packageName)
     }
 
+    suspend fun getScheduleById(id: Int): FocusSchedule? {
+        return scheduleDao.getScheduleById(id)
+    }
+
     suspend fun insertSchedule(schedule: FocusSchedule) {
+        scheduleDao.insertSchedule(schedule)
+    }
+
+    suspend fun updateSchedule(schedule: FocusSchedule) {
         scheduleDao.insertSchedule(schedule)
     }
 

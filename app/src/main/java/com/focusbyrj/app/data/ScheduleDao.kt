@@ -28,6 +28,9 @@ interface ScheduleDao {
     @Query("SELECT * FROM focus_schedules")
     suspend fun getAllSchedulesSync(): List<FocusSchedule>
 
+    @Query("SELECT * FROM focus_schedules WHERE id = :id")
+    suspend fun getScheduleById(id: Int): FocusSchedule?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSchedule(schedule: FocusSchedule)
 
