@@ -449,9 +449,9 @@ fun MainAppScreen(
                                         Text(
                                             text = "Focus by Rj",
                                             style = MaterialTheme.typography.titleLarge.copy(
-                                                fontWeight = FontWeight.Normal,
-                                                letterSpacing = 2.5.sp,
-                                                fontSize = 21.sp
+                                                fontWeight = FontWeight.SemiBold,
+                                                letterSpacing = 1.2.sp,
+                                                fontSize = 20.sp
                                             ),
                                             color = MaterialTheme.colorScheme.onBackground
                                         )
@@ -459,28 +459,40 @@ fun MainAppScreen(
                                     Screen.Todos.route -> {
                                         Text(
                                             text = "Todos",
-                                            style = MaterialTheme.typography.displayLarge,
+                                            style = MaterialTheme.typography.titleLarge.copy(
+                                                fontWeight = FontWeight.SemiBold,
+                                                fontSize = 20.sp
+                                            ),
                                             color = MaterialTheme.colorScheme.onBackground
                                         )
                                     }
                                     Screen.Schedules.route -> {
                                         Text(
                                             text = "Routines",
-                                            style = MaterialTheme.typography.displayLarge,
+                                            style = MaterialTheme.typography.titleLarge.copy(
+                                                fontWeight = FontWeight.SemiBold,
+                                                fontSize = 20.sp
+                                            ),
                                             color = MaterialTheme.colorScheme.onBackground
                                         )
                                     }
                                     Screen.Time.route -> {
                                         Text(
                                             text = "Screen Time",
-                                            style = MaterialTheme.typography.displayLarge,
+                                            style = MaterialTheme.typography.titleLarge.copy(
+                                                fontWeight = FontWeight.SemiBold,
+                                                fontSize = 20.sp
+                                            ),
                                             color = MaterialTheme.colorScheme.onBackground
                                         )
                                     }
                                     Screen.Account.route -> {
                                         Text(
                                             text = "Profile & Stats",
-                                            style = MaterialTheme.typography.displayLarge,
+                                            style = MaterialTheme.typography.titleLarge.copy(
+                                                fontWeight = FontWeight.SemiBold,
+                                                fontSize = 20.sp
+                                            ),
                                             color = MaterialTheme.colorScheme.onBackground
                                         )
                                     }
@@ -488,9 +500,9 @@ fun MainAppScreen(
                                         Text(
                                             text = "Focus by Rj",
                                             style = MaterialTheme.typography.titleLarge.copy(
-                                                fontWeight = FontWeight.Normal,
-                                                letterSpacing = 2.5.sp,
-                                                fontSize = 21.sp
+                                                fontWeight = FontWeight.SemiBold,
+                                                letterSpacing = 1.2.sp,
+                                                fontSize = 20.sp
                                             ),
                                             color = MaterialTheme.colorScheme.onBackground
                                         )
@@ -547,20 +559,10 @@ fun MainAppScreen(
                 NavHost(
                     navController = navController,
                     startDestination = startDest,
-                    enterTransition = {
-                        fadeIn(animationSpec = tween(220, easing = FastOutSlowInEasing)) +
-                        scaleIn(initialScale = 0.98f, animationSpec = tween(220, easing = FastOutSlowInEasing))
-                    },
-                    exitTransition = {
-                        fadeOut(animationSpec = tween(160, easing = FastOutLinearInEasing))
-                    },
-                    popEnterTransition = {
-                        fadeIn(animationSpec = tween(220, easing = FastOutSlowInEasing)) +
-                        scaleIn(initialScale = 0.98f, animationSpec = tween(220, easing = FastOutSlowInEasing))
-                    },
-                    popExitTransition = {
-                        fadeOut(animationSpec = tween(160, easing = FastOutLinearInEasing))
-                    }
+                    enterTransition = { androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(0)) },
+                    exitTransition = { androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(0)) },
+                    popEnterTransition = { androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(0)) },
+                    popExitTransition = { androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(0)) }
                 ) {
                 composable(Screen.Dashboard.route) {
                     val restrictions by viewModel.combinedRestrictions.collectAsStateWithLifecycle()
