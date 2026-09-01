@@ -96,26 +96,11 @@ object BubbleChatManager {
     }
 
     fun isInactiveTimeout(context: Context): Boolean {
-        if (getUnreadCount(context) > 0) return false
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val lastActive = prefs.getLong(KEY_LAST_ACTIVITY, 0L)
-        if (lastActive == 0L) return false
-        return (System.currentTimeMillis() - lastActive) > INACTIVITY_TIMEOUT_MS
+        return false
     }
 
     fun getMessages(context: Context): List<PersistedChatMessage> {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        
-        // Check 10 mins inactivity timeout only if there are no unread notifications
-        val unread = prefs.getInt(KEY_UNREAD_COUNT, 0)
-        val lastActive = prefs.getLong(KEY_LAST_ACTIVITY, 0L)
-        val now = System.currentTimeMillis()
-        if (unread == 0 && lastActive > 0L && (now - lastActive) > INACTIVITY_TIMEOUT_MS) {
-            clearMessages(context)
-            prefs.edit().putLong(KEY_LAST_ACTIVITY, now).apply()
-            return emptyList()
-        }
-
         val jsonStr = prefs.getString(KEY_MESSAGES, null) ?: return emptyList()
         val list = mutableListOf<PersistedChatMessage>()
         try {

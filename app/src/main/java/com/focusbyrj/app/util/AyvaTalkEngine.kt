@@ -437,22 +437,31 @@ object AyvaTalkEngine {
             )
         }
 
+        if (query.trim().startsWith("/") || isGeneralHelp || isQuestionQuery || isGreeting) {
+            activeSession = null
+        }
+
         // --- 0. ACTIVE SESSION (SLOT-FILLING) INTERCEPT ---
         val currentSession = activeSession
         if (currentSession != null) {
-            val isCancel = cleanQuery.contains("cancel") || cleanQuery.contains("stop") || cleanQuery.contains("nevermind")
+            val isCancel = cleanQuery.contains("cancel") || cleanQuery.contains("stop") || cleanQuery.contains("nevermind") || cleanQuery.startsWith("/")
             if (isCancel) {
                 activeSession = null
-                return TalkResponse("✅ Cancelled updating ${currentSession.topicTitle}.")
-            }
-            
-            if (currentSession.expectedPrefType == "int") {
+                if (cleanQuery.startsWith("/")) {
+                    // Let the command proceed normally
+                } else {
+                    return TalkResponse("✅ Cancelled updating ${currentSession.topicTitle}.")
+                }
+            } else if (currentSession.expectedPrefType == "int") {
                 val inputNum = cleanQuery.replace(Regex("[^0-9]"), "").toIntOrNull()
                 if (inputNum != null && context != null) {
                     context.getSharedPreferences("focus_prefs", Context.MODE_PRIVATE)
                         .edit().putInt(currentSession.expectedPrefKey, inputNum).apply()
                     activeSession = null
                     return TalkResponse("✅ Updated ${currentSession.topicTitle} to $inputNum.")
+                } else {
+                    // If not a number, clear activeSession so user isn't stuck
+                    activeSession = null
                 }
             } else if (currentSession.expectedPrefType == "boolean") {
                 val isTrue = cleanQuery.contains("yes") || cleanQuery.contains("on") || cleanQuery.contains("true")
@@ -463,10 +472,12 @@ object AyvaTalkEngine {
                         ?.edit()?.putBoolean(currentSession.expectedPrefKey, finalVal)?.apply()
                     activeSession = null
                     return TalkResponse("✅ ${currentSession.topicTitle} turned ${if (finalVal) "ON" else "OFF"}.")
+                } else {
+                    activeSession = null
                 }
+            } else {
+                activeSession = null
             }
-            
-            return TalkResponse("I'm waiting for a valid value to update ${currentSession.topicTitle}. (Type 'cancel' to stop).")
         }
 
         // --- 0.2 PERMISSIONS CHECK INTERCEPT ---

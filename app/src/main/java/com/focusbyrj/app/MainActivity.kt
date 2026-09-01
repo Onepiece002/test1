@@ -108,11 +108,17 @@ import com.focusbyrj.app.util.PermissionUtils
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.delay
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
@@ -430,31 +436,65 @@ fun MainAppScreen(
                 if (!isSessionActive) {
                     TopAppBar(
                         title = {
-                            when (currentDestination?.route) {
-                                Screen.Dashboard.route -> {
-                                    Text(
-                                        text = "Focus by Rj",
-                                        style = MaterialTheme.typography.titleLarge.copy(
-                                            fontWeight = FontWeight.Normal,
-                                            letterSpacing = 2.5.sp,
-                                            fontSize = 21.sp
-                                        ),
-                                        color = MaterialTheme.colorScheme.onBackground
-                                    )
-                                }
-                                Screen.Todos.route -> {
-                                    Text(
-                                        text = "Todos",
-                                        style = MaterialTheme.typography.displayLarge,
-                                        color = MaterialTheme.colorScheme.onBackground
-                                    )
-                                }
-                                Screen.Schedules.route -> {
-                                    Text(
-                                        text = "Routines",
-                                        style = MaterialTheme.typography.displayLarge,
-                                        color = MaterialTheme.colorScheme.onBackground
-                                    )
+                            AnimatedContent(
+                                targetState = currentDestination?.route,
+                                transitionSpec = {
+                                    fadeIn(animationSpec = tween(220, easing = FastOutSlowInEasing)) togetherWith 
+                                    fadeOut(animationSpec = tween(160, easing = FastOutLinearInEasing))
+                                },
+                                label = "TopBarTitleTransition"
+                            ) { route ->
+                                when (route) {
+                                    Screen.Dashboard.route -> {
+                                        Text(
+                                            text = "Focus by Rj",
+                                            style = MaterialTheme.typography.titleLarge.copy(
+                                                fontWeight = FontWeight.Normal,
+                                                letterSpacing = 2.5.sp,
+                                                fontSize = 21.sp
+                                            ),
+                                            color = MaterialTheme.colorScheme.onBackground
+                                        )
+                                    }
+                                    Screen.Todos.route -> {
+                                        Text(
+                                            text = "Todos",
+                                            style = MaterialTheme.typography.displayLarge,
+                                            color = MaterialTheme.colorScheme.onBackground
+                                        )
+                                    }
+                                    Screen.Schedules.route -> {
+                                        Text(
+                                            text = "Routines",
+                                            style = MaterialTheme.typography.displayLarge,
+                                            color = MaterialTheme.colorScheme.onBackground
+                                        )
+                                    }
+                                    Screen.Time.route -> {
+                                        Text(
+                                            text = "Screen Time",
+                                            style = MaterialTheme.typography.displayLarge,
+                                            color = MaterialTheme.colorScheme.onBackground
+                                        )
+                                    }
+                                    Screen.Account.route -> {
+                                        Text(
+                                            text = "Profile & Stats",
+                                            style = MaterialTheme.typography.displayLarge,
+                                            color = MaterialTheme.colorScheme.onBackground
+                                        )
+                                    }
+                                    else -> {
+                                        Text(
+                                            text = "Focus by Rj",
+                                            style = MaterialTheme.typography.titleLarge.copy(
+                                                fontWeight = FontWeight.Normal,
+                                                letterSpacing = 2.5.sp,
+                                                fontSize = 21.sp
+                                            ),
+                                            color = MaterialTheme.colorScheme.onBackground
+                                        )
+                                    }
                                 }
                             }
                         },
@@ -471,7 +511,9 @@ fun MainAppScreen(
                 val hideBottomBarRoutes = listOf(
                     Screen.AddRestriction.route,
                     Screen.Security.route,
-                    Screen.Settings.route
+                    Screen.Settings.route,
+                    Screen.BubbleSettings.route,
+                    Screen.Subscription.route
                 )
                 if (currentDestination?.route !in hideBottomBarRoutes && !isSessionActive) {
                     FocusBottomBar(
@@ -504,7 +546,21 @@ fun MainAppScreen(
 
                 NavHost(
                     navController = navController,
-                    startDestination = startDest
+                    startDestination = startDest,
+                    enterTransition = {
+                        fadeIn(animationSpec = tween(220, easing = FastOutSlowInEasing)) +
+                        scaleIn(initialScale = 0.98f, animationSpec = tween(220, easing = FastOutSlowInEasing))
+                    },
+                    exitTransition = {
+                        fadeOut(animationSpec = tween(160, easing = FastOutLinearInEasing))
+                    },
+                    popEnterTransition = {
+                        fadeIn(animationSpec = tween(220, easing = FastOutSlowInEasing)) +
+                        scaleIn(initialScale = 0.98f, animationSpec = tween(220, easing = FastOutSlowInEasing))
+                    },
+                    popExitTransition = {
+                        fadeOut(animationSpec = tween(160, easing = FastOutLinearInEasing))
+                    }
                 ) {
                 composable(Screen.Dashboard.route) {
                     val restrictions by viewModel.combinedRestrictions.collectAsStateWithLifecycle()

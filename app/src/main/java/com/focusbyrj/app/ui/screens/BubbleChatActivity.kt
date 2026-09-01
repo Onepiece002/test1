@@ -296,11 +296,13 @@ fun ChatInterface() {
     // Dynamically sync messages whenever background alerts (streak prompts, summaries) are received
     LaunchedEffect(persistedFlowMessages) {
         if (persistedFlowMessages.isNotEmpty()) {
-            val mapped = persistedFlowMessages.map {
-                ChatMessage(it.id, it.text, it.isUser, it.timestamp, it.isArithmetic, it.arithmeticJson, it.isDrillSummary, it.drillSummaryJson, it.isAptitudeProfile, it.isStreakPrompt, it.streakPromptJson, it.isTaskSummary, it.taskSummaryJson, it.isTalkAction, it.talkActionJson, it.pendingActionJson)
-            }
-            if (mapped.map { it.id } != messages.map { it.id }) {
-                messages = mapped
+            val existingIds = messages.map { it.id }.toSet()
+            val newIncoming = persistedFlowMessages.filter { it.id !in existingIds }
+            if (newIncoming.isNotEmpty()) {
+                val mapped = newIncoming.map {
+                    ChatMessage(it.id, it.text, it.isUser, it.timestamp, it.isArithmetic, it.arithmeticJson, it.isDrillSummary, it.drillSummaryJson, it.isAptitudeProfile, it.isStreakPrompt, it.streakPromptJson, it.isTaskSummary, it.taskSummaryJson, it.isTalkAction, it.talkActionJson, it.pendingActionJson)
+                }
+                messages = messages + mapped
             }
         }
     }
@@ -312,11 +314,13 @@ fun ChatInterface() {
                 BubbleChatManager.clearUnread(context)
                 val stored = BubbleChatManager.getMessages(context)
                 if (stored.isNotEmpty()) {
-                    val mapped = stored.map {
-                        ChatMessage(it.id, it.text, it.isUser, it.timestamp, it.isArithmetic, it.arithmeticJson, it.isDrillSummary, it.drillSummaryJson, it.isAptitudeProfile, it.isStreakPrompt, it.streakPromptJson, it.isTaskSummary, it.taskSummaryJson, it.isTalkAction, it.talkActionJson, it.pendingActionJson)
-                    }
-                    if (mapped.map { it.id } != messages.map { it.id }) {
-                        messages = mapped
+                    val existingIds = messages.map { it.id }.toSet()
+                    val newIncoming = stored.filter { it.id !in existingIds }
+                    if (newIncoming.isNotEmpty()) {
+                        val mapped = newIncoming.map {
+                            ChatMessage(it.id, it.text, it.isUser, it.timestamp, it.isArithmetic, it.arithmeticJson, it.isDrillSummary, it.drillSummaryJson, it.isAptitudeProfile, it.isStreakPrompt, it.streakPromptJson, it.isTaskSummary, it.taskSummaryJson, it.isTalkAction, it.talkActionJson, it.pendingActionJson)
+                        }
+                        messages = messages + mapped
                     }
                 }
             }
@@ -356,24 +360,6 @@ fun ChatInterface() {
     
     LaunchedEffect(Unit) {
         BubbleChatManager.clearUnread(context)
-        
-        // Active inactivity check loop while chat window is open
-        while (true) {
-            delay(15_000) // check every 15 seconds
-            if (BubbleChatManager.isInactiveTimeout(context) && messages.size > 1) {
-                BubbleChatManager.clearMessages(context)
-                val welcome = PersistedChatMessage(
-                    id = "welcome_${System.currentTimeMillis()}",
-                    text = com.focusbyrj.app.util.AyvaDialogueEngine.getHelloWelcomeMessage(context),
-                    isUser = false,
-                    timestamp = System.currentTimeMillis()
-                )
-                BubbleChatManager.saveMessages(context, listOf(welcome))
-                messages = listOf(
-                    ChatMessage(welcome.id, welcome.text, welcome.isUser, welcome.timestamp)
-                )
-            }
-        }
     }
 
     LaunchedEffect(Unit) {
@@ -506,33 +492,50 @@ fun ChatInterface() {
                             com.focusbyrj.app.util.NluIntent.SHOW_SUMMARY -> sentText = "/summary"
                             com.focusbyrj.app.util.NluIntent.START_DRILL -> sentText = "/drill"
                             com.focusbyrj.app.util.NluIntent.CLEAR_CHAT -> sentText = "/clear"
+                            com.focusbyrj.app.util.NluIntent.RESCHEDULE,
+                            com.focusbyrj.app.util.NluIntent.COMPLETE,
+                            com.focusbyrj.app.util.NluIntent.DELETE,
+                            com.focusbyrj.app.util.NluIntent.BLOCK_APP,
+                            com.focusbyrj.app.util.NluIntent.BLOCK_FILTER,
+                            com.focusbyrj.app.util.NluIntent.UNBLOCK,
+                            com.focusbyrj.app.util.NluIntent.LIST_ROUTINES -> {
+                                sentText = "/talk $sentText"
+                            }
                             com.focusbyrj.app.util.NluIntent.UNKNOWN -> {
                                 val lower = sentText.lowercase().trim()
                                 val isQuestionOrSetting = lower.startsWith("how") || lower.startsWith("why") || 
                                     lower.startsWith("what") || lower.startsWith("where") || 
-                                    lower.startsWith("who") || lower.startsWith("can") || 
+                                    lower.startsWith("who") || lower.startsWith("when") ||
+                                    lower.startsWith("can") || lower.startsWith("could") ||
+                                    lower.startsWith("should") || lower.startsWith("would") ||
                                     lower.startsWith("is ") || lower.startsWith("are ") || 
                                     lower.startsWith("explain") || lower.startsWith("tell me") || 
-                                    lower.startsWith("which") || lower.startsWith("should") || 
-                                    lower.startsWith("does") || lower.startsWith("do ") || 
-                                    lower.endsWith("?") || lower.startsWith("set ") || 
+                                    lower.startsWith("which") || lower.startsWith("does") || 
+                                    lower.startsWith("do ") || lower.contains("?") ||
+                                    lower.startsWith("set ") || lower.startsWith("change ") ||
                                     lower.startsWith("turn ") || lower.startsWith("freeze") || 
                                     lower.startsWith("unfreeze") || lower.startsWith("enable") || 
-                                    lower.startsWith("disable") || lower.contains("vacation") || 
-                                    lower.contains("settings") || lower.contains("permission") || 
-                                    lower.contains("timer") || lower.contains("bubble") || 
-                                    lower.contains("theme") || lower.contains("routine") ||
-                                    lower.contains("streak") || lower.contains("troubleshoot") ||
-                                    lower.contains("widget") || lower.contains("relief") ||
-                                    lower.contains("strict") || lower.contains("uninstall") ||
-                                    lower.contains("video call") || lower.contains("drill") ||
-                                    lower == "hi" || lower == "hello" || lower == "hey" || lower == "help" ||
-                                    lower == "thanks" || lower == "thank you"
+                                    lower.startsWith("disable") || lower.startsWith("toggle") ||
+                                    lower.startsWith("activate") || lower.startsWith("deactivate") ||
+                                    lower.contains("vacation") || lower.contains("settings") ||
+                                    lower.contains("permission") || lower.contains("timer") ||
+                                    lower.contains("bubble") || lower.contains("theme") ||
+                                    lower.contains("routine") || lower.contains("streak") ||
+                                    lower.contains("troubleshoot") || lower.contains("widget") ||
+                                    lower.contains("relief") || lower.contains("strict") ||
+                                    lower.contains("uninstall") || lower.contains("video call") ||
+                                    lower.contains("drill") || lower.contains("advice") ||
+                                    lower.contains("tips") || lower.contains("focus") ||
+                                    lower.contains("ayva") || lower.contains("about") ||
+                                    lower == "hi" || lower == "hello" || lower == "hey" ||
+                                    lower == "hey ayva" || lower == "hello ayva" ||
+                                    lower == "help" || lower == "guide" || lower == "info" ||
+                                    lower == "menu" || lower == "commands" ||
+                                    lower == "thanks" || lower == "thank you" || lower == "thx"
                                 if (isQuestionOrSetting) {
                                     sentText = "/talk $sentText"
                                 }
                             }
-                            else -> sentText = "/talk $sentText"
                         }
                     }
 
@@ -542,7 +545,7 @@ fun ChatInterface() {
                         var replyMsg = "Command not recognized."
                         
                         when (cmd) {
-                            "/profile" -> {
+                            "/profile", "/stats", "/xp", "/level" -> {
                                 val profMsg = ChatMessage(
                                     id = java.util.UUID.randomUUID().toString(),
                                     text = "Aptitude Profile",
@@ -554,7 +557,7 @@ fun ChatInterface() {
                                 }
                                 return@launch
                             }
-                            "/drill" -> {
+                            "/drill", "/math", "/quiz" -> {
                                 val difficultyStr = parts.getOrNull(1)?.lowercase() ?: "easy"
                                 val limitStr = parts.getOrNull(2)?.lowercase() ?: "unlimited"
                                 val targetQ = when(limitStr) {
@@ -591,8 +594,24 @@ fun ChatInterface() {
                                 }
                                 return@launch
                             }
-                            "/talk", "/guide", "/ask", "/how", "/help", "/faq" -> {
-                                val query = if (parts.size > 1) parts.drop(1).joinToString(" ") else ""
+                            "/clear", "/clean", "/wipe" -> {
+                                withContext(Dispatchers.Main) {
+                                    val welcome = ChatMessage(
+                                        id = "welcome_${java.util.UUID.randomUUID()}",
+                                        text = com.focusbyrj.app.util.AyvaDialogueEngine.getHelloWelcomeMessage(context),
+                                        isUser = false,
+                                        timestamp = System.currentTimeMillis()
+                                    )
+                                    messages = listOf(welcome)
+                                    BubbleChatManager.saveMessages(context, listOf(
+                                        PersistedChatMessage(welcome.id, welcome.text, welcome.isUser, welcome.timestamp)
+                                    ))
+                                    BubbleChatManager.clearUnread(context)
+                                }
+                                return@launch
+                            }
+                            "/talk", "/guide", "/ask", "/how", "/help", "/faq", "/info", "/menu", "/settings", "/vacation", "/streak", "/routines", "/unblock", "/block", "/apps", "/diagnose" -> {
+                                val query = if (parts.size > 1) parts.drop(1).joinToString(" ") else sentText.removePrefix("/").trim()
                                 val talkResp = try {
                                     com.focusbyrj.app.util.AyvaTalkEngine.answerTalkQueryWithActions(query, context)
                                 } catch (e: Exception) {
@@ -609,7 +628,7 @@ fun ChatInterface() {
                                 val hasActions = talkResp.actions.isNotEmpty()
 
                                 val talkMsg = ChatMessage(
-                                    id = "talk_${System.currentTimeMillis()}",
+                                    id = "talk_${java.util.UUID.randomUUID()}",
                                     text = talkResp.formattedText.ifBlank { "Here is what I found:" },
                                     isUser = false,
                                     isTalkAction = hasActions || isExecutableAction,
@@ -621,28 +640,16 @@ fun ChatInterface() {
                                 }
                                 return@launch
                             }
-                            "/clear" -> {
-                                withContext(Dispatchers.Main) {
-                                    val welcome = ChatMessage(
-                                        id = "welcome_${System.currentTimeMillis()}",
-                                        text = com.focusbyrj.app.util.AyvaDialogueEngine.getHelloWelcomeMessage(context),
-                                        isUser = false,
-                                        timestamp = System.currentTimeMillis()
-                                    )
-                                    messages = listOf(welcome)
-                                    BubbleChatManager.saveMessages(context, listOf(
-                                        PersistedChatMessage(welcome.id, welcome.text, welcome.isUser, welcome.timestamp)
-                                    ))
-                                    BubbleChatManager.clearUnread(context)
-                                }
-                                return@launch
-                            }
-                            "/task" -> {
-                                // If user provided task text after /task, treat as adding a task!
-                                if (parts.size > 1) {
-                                    val taskContent = sentText.removePrefix("/task").trim()
-                                    val parsed = SmartDateParser.parse(taskContent)
-                                    val taskTitle = parsed.cleanText.ifBlank { taskContent }
+                            "/task", "/tasks", "/summary" -> {
+                                val isSummaryCommand = cmd == "/summary"
+                                val subArg = parts.getOrNull(1)?.lowercase()?.trim() ?: ""
+                                val isListTasks = isSummaryCommand || subArg.isEmpty() || subArg in listOf("all", "today", "list", "pending", "everything")
+                                
+                                if (!isListTasks && cmd == "/task") {
+                                    // User is adding a task via /task <title>
+                                    val rawTaskContent = sentText.removePrefix("/task").trim().removePrefix("add ").trim()
+                                    val parsed = SmartDateParser.parse(rawTaskContent)
+                                    val taskTitle = parsed.cleanText.ifBlank { rawTaskContent }
                                     val tDueDate = parsed.timestamp
                                     val tTask = Task(
                                         title = taskTitle,
@@ -665,18 +672,14 @@ fun ChatInterface() {
                                             attrStr = null
                                         )
                                         messages = messages + ChatMessage(
-                                            System.currentTimeMillis().toString() + "bot",
-                                            confirmationText,
-                                            false
+                                            id = "bot_${java.util.UUID.randomUUID()}",
+                                            text = confirmationText,
+                                            isUser = false
                                         )
                                     }
                                     return@launch
                                 }
-                                // If plain /task, fall through to show today's tasks
-                            }
-                            "/summary", "/tasks" -> {
-                                val isSummaryCommand = cmd == "/summary"
-                                val subArg = parts.getOrNull(1)?.lowercase()?.trim() ?: ""
+
                                 val isAll = subArg == "all" || subArg == "everything" || subArg == "pending"
                                 
                                 val now = System.currentTimeMillis()
@@ -781,7 +784,7 @@ fun ChatInterface() {
                                 }
                                 
                                 val summaryResponse = ChatMessage(
-                                    id = "summary_${System.currentTimeMillis()}",
+                                    id = "summary_${java.util.UUID.randomUUID()}",
                                     text = builder.toString().trimEnd(),
                                     isUser = false,
                                     isTaskSummary = !isSummaryCommand,
@@ -794,89 +797,128 @@ fun ChatInterface() {
                                 }
                                 return@launch
                             }
-                        "/reschedule" -> {
-                            val numStr = parts.getOrNull(1)
-                            val timeStr = parts.drop(2).joinToString(" ")
-                            
-                            val allPending = repo.allTasks.first().filter { !it.isCompleted }
-                                .sortedWith(compareByDescending<com.focusbyrj.app.data.Task> { it.isPriority }.thenBy { it.dueDate ?: Long.MAX_VALUE })
-                            val targetList = if (lastSummaryTasks.isNotEmpty()) lastSummaryTasks else allPending
+                            "/reschedule" -> {
+                                val numStr = parts.getOrNull(1)
+                                val timeStr = parts.drop(2).joinToString(" ")
+                                
+                                val allPending = repo.allTasks.first().filter { !it.isCompleted }
+                                    .sortedWith(compareByDescending<com.focusbyrj.app.data.Task> { it.isPriority }.thenBy { it.dueDate ?: Long.MAX_VALUE })
+                                val targetList = if (lastSummaryTasks.isNotEmpty()) lastSummaryTasks else allPending
 
-                            if (numStr == null || timeStr.isEmpty()) {
-                                if (targetList.isEmpty()) {
-                                    replyMsg = "No active tasks found to reschedule! 🎯"
-                                } else {
-                                    val builder = StringBuilder()
-                                    builder.append("📋 *__Pending Tasks for Rescheduling__*:\n")
-                                    targetList.forEachIndexed { index, task ->
-                                        val prefix = if (task.isPriority) "🔥 " else ""
-                                        val dueStr = if (task.dueDate != null) " _(Due: ${SmartDateParser.formatDueDate(task.dueDate)})_" else ""
-                                        builder.append("${index + 1}. $prefix${task.title}$dueStr\n")
+                                if (numStr == null || timeStr.isEmpty()) {
+                                    if (targetList.isEmpty()) {
+                                        replyMsg = "No active tasks found to reschedule! 🎯"
+                                    } else {
+                                        val builder = StringBuilder()
+                                        builder.append("📋 *__Pending Tasks for Rescheduling__*:\n")
+                                        targetList.forEachIndexed { index, task ->
+                                            val prefix = if (task.isPriority) "🔥 " else ""
+                                            val dueStr = if (task.dueDate != null) " _(Due: ${SmartDateParser.formatDueDate(task.dueDate)})_" else ""
+                                            builder.append("${index + 1}. $prefix${task.title}$dueStr\n")
+                                        }
+                                        builder.append("\n_Type `/reschedule <number> <time>` (e.g. `/reschedule 1 tomorrow at 4pm`)_")
+                                        replyMsg = builder.toString().trimEnd()
                                     }
-                                    builder.append("\n_Type `/reschedule <number> <time>` (e.g. `/reschedule 1 tomorrow at 4pm`)_")
-                                    replyMsg = builder.toString().trimEnd()
-                                }
-                            } else {
-                                val num = numStr.toIntOrNull()
-                                if (num == null || num < 1 || num > targetList.size) {
-                                    replyMsg = "Hmm, couldn't match task #$numStr. There are ${targetList.size} pending tasks."
                                 } else {
-                                    val task = targetList[num - 1]
-                                    val parsed = SmartDateParser.parse("reschedule to $timeStr")
-                                    if (parsed.timestamp != null) {
-                                        val updatedTask = task.copy(dueDate = parsed.timestamp)
+                                    val num = numStr.toIntOrNull()
+                                    if (num == null || num < 1 || num > targetList.size) {
+                                        replyMsg = "Hmm, couldn't match task #$numStr. There are ${targetList.size} pending tasks."
+                                    } else {
+                                        val task = targetList[num - 1]
+                                        val parsed = SmartDateParser.parse("reschedule to $timeStr")
+                                        if (parsed.timestamp != null) {
+                                            val updatedTask = task.copy(dueDate = parsed.timestamp)
+                                            repo.updateTask(updatedTask)
+                                            TaskReminderHelper.scheduleReminder(context, updatedTask)
+                                            TodoWidgetProvider.updateAllWidgets(context)
+                                            replyMsg = com.focusbyrj.app.util.AyvaDialogueEngine.getRescheduleSuccessResponse(context, task.title, SmartDateParser.formatDueDate(parsed.timestamp))
+                                        } else {
+                                            replyMsg = "Couldn't decipher '$timeStr'. Try something like 'tomorrow at 3pm' or '5pm'."
+                                        }
+                                    }
+                                }
+                            }
+                            "/priority" -> {
+                                val tasks = repo.allTasks.first()
+                                val priority = tasks.filter { it.isPriority && !it.isCompleted }
+                                replyMsg = if (priority.isEmpty()) com.focusbyrj.app.util.AyvaDialogueEngine.getPriorityEmptyResponse(context)
+                                    else "🔥 *__Ayva's Priority Radar__*:\n" + priority.joinToString("\n") { "• ${it.title}" }
+                            }
+                            "/postpone" -> {
+                                val tasks = repo.allTasks.first().filter { !it.isCompleted }
+                                if (tasks.isEmpty()) {
+                                    replyMsg = "No pending tasks to postpone! 🎯"
+                                } else {
+                                    tasks.forEach { 
+                                        val updatedTask = it.copy(dueDate = System.currentTimeMillis() + 86400000L)
                                         repo.updateTask(updatedTask)
                                         TaskReminderHelper.scheduleReminder(context, updatedTask)
-                                        TodoWidgetProvider.updateAllWidgets(context)
-                                        replyMsg = com.focusbyrj.app.util.AyvaDialogueEngine.getRescheduleSuccessResponse(context, task.title, SmartDateParser.formatDueDate(parsed.timestamp))
-                                    } else {
-                                        replyMsg = "Couldn't decipher '$timeStr'. Try something like 'tomorrow at 3pm' or '5pm'."
                                     }
+                                    TodoWidgetProvider.updateAllWidgets(context)
+                                    replyMsg = com.focusbyrj.app.util.AyvaDialogueEngine.getPostponeAllResponse(context, tasks.size)
                                 }
                             }
-                        }
-                        "/priority" -> {
-                            val tasks = repo.allTasks.first()
-                            val priority = tasks.filter { it.isPriority && !it.isCompleted }
-                            replyMsg = if (priority.isEmpty()) com.focusbyrj.app.util.AyvaDialogueEngine.getPriorityEmptyResponse(context)
-                                else "🔥 *__Ayva's Priority Radar__*:\n" + priority.joinToString("\n") { "• ${it.title}" }
-                        }
-                        "/postpone" -> {
-                            if (parts.getOrNull(1)?.lowercase() == "all") {
-                                val tasks = repo.allTasks.first().filter { !it.isCompleted }
-                                tasks.forEach { 
-                                    val updatedTask = it.copy(dueDate = System.currentTimeMillis() + 86400000L)
-                                    repo.updateTask(updatedTask)
-                                    TaskReminderHelper.scheduleReminder(context, updatedTask)
+                            else -> {
+                                val query = sentText.removePrefix("/").trim()
+                                val talkResp = try {
+                                    com.focusbyrj.app.util.AyvaTalkEngine.answerTalkQueryWithActions(query, context)
+                                } catch (e: Exception) {
+                                    com.focusbyrj.app.util.AyvaTalkEngine.TalkResponse(
+                                        formattedText = "💬 How can I help you? Ask me anything about FocusByRj settings, routines, vacation mode, or troubleshooting.",
+                                        actions = listOf(
+                                            com.focusbyrj.app.util.TalkAction.NavigateAppScreen("settings", "Open Settings", "⚙️")
+                                        )
+                                    )
                                 }
-                                TodoWidgetProvider.updateAllWidgets(context)
-                                replyMsg = com.focusbyrj.app.util.AyvaDialogueEngine.getPostponeAllResponse(context, tasks.size)
+                                
+                                val isPending = talkResp.jsonPayload?.contains("\"status\":\"pending\"") == true
+                                val isExecutableAction = talkResp.jsonPayload?.contains("\"status\":\"pending\"") == false && talkResp.jsonPayload != null
+                                val hasActions = talkResp.actions.isNotEmpty()
+
+                                val talkMsg = ChatMessage(
+                                    id = "talk_${java.util.UUID.randomUUID()}",
+                                    text = talkResp.formattedText.ifBlank { "Here is what I found:" },
+                                    isUser = false,
+                                    isTalkAction = hasActions || isExecutableAction,
+                                    talkActionJson = if (!isPending) talkResp.jsonPayload else null,
+                                    pendingActionJson = if (isPending) talkResp.jsonPayload else null
+                                )
+                                withContext(Dispatchers.Main) {
+                                    messages = messages + talkMsg
+                                }
+                                return@launch
                             }
                         }
+                        val isSummaryCmd = parts.firstOrNull()?.equals("/summary", ignoreCase = true) == true
+                        withContext(Dispatchers.Main) {
+                            messages = messages + ChatMessage(
+                                id = "bot_${java.util.UUID.randomUUID()}",
+                                text = replyMsg,
+                                isUser = false,
+                                isTaskSummary = isSummaryCmd && lastSummaryTasks.isNotEmpty()
+                            )
+                        }
+                        return@launch
                     }
-                    val isSummaryCmd = parts.firstOrNull()?.equals("/summary", ignoreCase = true) == true
-                    withContext(Dispatchers.Main) {
-                        messages = messages + ChatMessage(
-                            System.currentTimeMillis().toString() + "bot",
-                            replyMsg,
-                            false,
-                            isTaskSummary = isSummaryCmd && lastSummaryTasks.isNotEmpty()
-                        )
-                    }
-                    return@launch
-                }
                 
                 // INTELLIGENCE UPGRADE: Natural language intent interception
                 val lowerSent = sentText.lowercase()
                 val isLikelyTalkIntent = lowerSent.startsWith("set ") || lowerSent.startsWith("change ") ||
                                          lowerSent.startsWith("why ") || lowerSent.startsWith("how ") || 
-                                         lowerSent.startsWith("what is ") || lowerSent.startsWith("disable ") ||
-                                         lowerSent.startsWith("enable ") || lowerSent.startsWith("turn on ") || lowerSent.startsWith("turn off ")
+                                         lowerSent.startsWith("what is ") || lowerSent.startsWith("what ") ||
+                                         lowerSent.startsWith("disable ") || lowerSent.startsWith("enable ") || 
+                                         lowerSent.startsWith("turn on ") || lowerSent.startsWith("turn off ") ||
+                                         lowerSent.startsWith("freeze") || lowerSent.startsWith("unfreeze") ||
+                                         lowerSent.contains("vacation") || lowerSent.contains("streak") ||
+                                         lowerSent.contains("routine") || lowerSent.contains("troubleshoot") ||
+                                         lowerSent.contains("settings") || lowerSent.contains("permission") ||
+                                         lowerSent.contains("bubble") || lowerSent.contains("advice") ||
+                                         lowerSent.contains("tips") || lowerSent.contains("?")
                 
                 if (isLikelyTalkIntent) {
                     val talkResp = com.focusbyrj.app.util.AyvaTalkEngine.answerTalkQueryWithActions(sentText, context)
                     val talkMsg = ChatMessage(
-                        id = "talk_${System.currentTimeMillis()}",
+                        id = "talk_${java.util.UUID.randomUUID()}",
                         text = talkResp.formattedText,
                         isUser = false,
                         isTalkAction = talkResp.actions.isNotEmpty() || (talkResp.jsonPayload?.contains("\"status\":\"pending\"") == false && talkResp.jsonPayload != null),
@@ -2311,7 +2353,18 @@ fun parseRichFormattedText(rawText: String): AnnotatedString {
     val n = rawText.length
 
     while (i < n) {
-        if (i + 2 < n && rawText[i] == '*' && rawText[i + 1] == '_' && rawText[i + 2] == '_') {
+        if (i + 1 < n && rawText[i] == '*' && rawText[i + 1] == '*') {
+            // Bold: **text**
+            val closeIdx = rawText.indexOf("**", i + 2)
+            if (closeIdx != -1 && closeIdx > i + 1) {
+                val content = rawText.substring(i + 2, closeIdx)
+                builder.withStyle(SpanStyle(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)) {
+                    append(content)
+                }
+                i = closeIdx + 2
+                continue
+            }
+        } else if (i + 2 < n && rawText[i] == '*' && rawText[i + 1] == '_' && rawText[i + 2] == '_') {
             // Bold + Underline: *__text__*
             val closeIdx = rawText.indexOf("__*", i + 3)
             if (closeIdx != -1) {
