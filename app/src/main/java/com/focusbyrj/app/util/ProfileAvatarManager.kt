@@ -141,26 +141,6 @@ object ProfileAvatarManager {
             description = "Awarded for exceptional milestones and perseverance."
         ),
         ProfileAvatar(
-            id = "store_cyber_ninja",
-            title = "Cyber Ninja",
-            subtitle = "Stealth Focus",
-            imageRes = R.drawable.avatar_cyber_ninja,
-            borderColor = Color(0xFF00E5FF),
-            category = AvatarCategory.STORE,
-            cost = 15000,
-            description = "Silently cutting through digital noise."
-        ),
-        ProfileAvatar(
-            id = "store_zen_master",
-            title = "Zen Master",
-            subtitle = "Pure Serenity",
-            imageRes = R.drawable.avatar_zen_master,
-            borderColor = Color(0xFF2DD4BF),
-            category = AvatarCategory.STORE,
-            cost = 18000,
-            description = "Harmonious flow state in complete tranquility."
-        ),
-        ProfileAvatar(
             id = "store_crown",
             title = "Crown",
             subtitle = "Imperial Gem",
