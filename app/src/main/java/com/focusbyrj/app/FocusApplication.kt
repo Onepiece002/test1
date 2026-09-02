@@ -22,6 +22,9 @@ import androidx.room.Room
 import com.focusbyrj.app.data.AppRepository
 import com.focusbyrj.app.data.FocusDatabase
 import com.focusbyrj.app.data.TaskRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class FocusApplication : Application() {
     
@@ -34,6 +37,11 @@ class FocusApplication : Application() {
         com.focusbyrj.app.util.CustomCategoryManager.init(this)
         com.focusbyrj.app.util.BubbleChatManager.init(this)
         com.focusbyrj.app.util.AppIconManager.init(this)
+
+        // Warm up Ayva knowledge base in background IO thread for instant 0ms responses
+        CoroutineScope(Dispatchers.IO).launch {
+            com.focusbyrj.app.util.AyvaTalkEngine.warmUp(this@FocusApplication)
+        }
     }
 
     val database by lazy { 

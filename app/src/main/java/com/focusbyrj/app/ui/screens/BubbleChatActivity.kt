@@ -1087,6 +1087,7 @@ fun ChatInterface() {
                 )
             }
         } else {
+            val reversedMessages = remember(messages) { messages.asReversed() }
             LazyColumn(
                 state = listState,
                 modifier = Modifier
@@ -1095,10 +1096,10 @@ fun ChatInterface() {
                     .padding(horizontal = 16.dp),
                 reverseLayout = true
             ) {
-                val reversedMessages = messages.reversed()
                 items(
                     count = reversedMessages.size,
-                    key = { index -> reversedMessages[index].id }
+                    key = { index -> reversedMessages[index].id },
+                    contentType = { index -> if (reversedMessages[index].isUser) "user_msg" else "ayva_msg" }
                 ) { index ->
                     val msg = reversedMessages[index]
                     val isLatest = index == 0

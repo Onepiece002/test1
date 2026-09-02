@@ -269,7 +269,7 @@ class FocusBlockerService : Service() {
                 .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
                 .setAutoCancel(true)
                 .build()
-            notificationManager.notify((System.currentTimeMillis() % 100000).toInt(), notification)
+            notificationManager.notify(ROUTINE_ALERT_NOTIFICATION_ID, notification)
         }
     }
 
@@ -357,26 +357,33 @@ class FocusBlockerService : Service() {
         }.getOrNull()
     }
 
+    private var lastBubbleCheckTime = 0L
+
     private suspend fun checkAndBlockApp(packageName: String) {
-        // Ensure Ayva Floating Bubble remains alive if enabled
-        try {
-            val bubblePrefs = getSharedPreferences("bubble_prefs", Context.MODE_PRIVATE)
-            val isBubbleEnabled = bubblePrefs.getBoolean("bubble_enabled", false)
-            if (isBubbleEnabled && android.provider.Settings.canDrawOverlays(this)) {
-                val manager = getSystemService(Context.ACTIVITY_SERVICE) as? android.app.ActivityManager
-                val isServiceRunning = manager?.getRunningServices(Int.MAX_VALUE)?.any {
-                    it.service.className == BubbleService::class.java.name
-                } ?: false
-                if (!isServiceRunning) {
-                    val bubbleIntent = Intent(this, BubbleService::class.java)
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        startForegroundService(bubbleIntent)
-                    } else {
-                        startService(bubbleIntent)
+        // Ensure Ayva Floating Bubble remains alive if enabled (throttled check)
+        val now = System.currentTimeMillis()
+        if (now - lastBubbleCheckTime > 5000L) {
+            lastBubbleCheckTime = now
+            try {
+                val bubblePrefs = getSharedPreferences("bubble_prefs", Context.MODE_PRIVATE)
+                val isBubbleEnabled = bubblePrefs.getBoolean("bubble_enabled", false)
+                if (isBubbleEnabled && android.provider.Settings.canDrawOverlays(this)) {
+                    val manager = getSystemService(Context.ACTIVITY_SERVICE) as? android.app.ActivityManager
+                    @Suppress("DEPRECATION")
+                    val isServiceRunning = manager?.getRunningServices(30)?.any {
+                        it.service.className == BubbleService::class.java.name
+                    } ?: false
+                    if (!isServiceRunning) {
+                        val bubbleIntent = Intent(this, BubbleService::class.java)
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            startForegroundService(bubbleIntent)
+                        } else {
+                            startService(bubbleIntent)
+                        }
                     }
                 }
-            }
-        } catch (_: Exception) {}
+            } catch (_: Exception) {}
+        }
 
         if (isIgnoredPackage(packageName)) {
             android.os.Handler(android.os.Looper.getMainLooper()).post {
@@ -549,6 +556,7 @@ class FocusBlockerService : Service() {
 
     companion object {
         private const val NOTIFICATION_ID = 1001
+        private const val ROUTINE_ALERT_NOTIFICATION_ID = 4001
         const val ACTION_UPDATE_NOTIFICATION = "com.focusbyrj.app.ACTION_UPDATE_NOTIFICATION"
 
         fun startService(context: Context) {

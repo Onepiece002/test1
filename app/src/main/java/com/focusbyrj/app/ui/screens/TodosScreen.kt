@@ -182,7 +182,11 @@ fun TodosScreen(viewModel: TaskViewModel, initialOpenAdd: Boolean = false) {
                             verticalArrangement = Arrangement.spacedBy(2.dp),
                             contentPadding = PaddingValues(top = 4.dp, bottom = 4.dp)
                         ) {
-                            itemsIndexed(filteredTasks, key = { _, it -> it.id }) { index, task ->
+                            itemsIndexed(
+                                filteredTasks, 
+                                key = { _, it -> it.id },
+                                contentType = { _, _ -> "TaskItem" }
+                            ) { index, task ->
                                 val isFirst = index == 0
                                 val isLast = index == filteredTasks.lastIndex
                                 

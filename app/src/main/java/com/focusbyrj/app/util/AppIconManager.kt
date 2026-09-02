@@ -147,22 +147,27 @@ object AppIconManager {
         val packageName = context.packageName
 
         try {
-            // Enable the target component first
+            // Enable the target component if not already enabled
             val targetComponent = ComponentName(packageName, targetOption.aliasName)
-            pm.setComponentEnabledSetting(
-                targetComponent,
-                PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
-                PackageManager.DONT_KILL_APP
-            )
-
-            // Disable all other components
-            iconOptions.filter { it.id != iconId }.forEach { option ->
-                val comp = ComponentName(packageName, option.aliasName)
+            if (pm.getComponentEnabledSetting(targetComponent) != PackageManager.COMPONENT_ENABLED_STATE_ENABLED) {
                 pm.setComponentEnabledSetting(
-                    comp,
-                    PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                    targetComponent,
+                    PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
                     PackageManager.DONT_KILL_APP
                 )
+            }
+
+            // Disable all other components if they are not already disabled
+            iconOptions.filter { it.id != iconId }.forEach { option ->
+                val comp = ComponentName(packageName, option.aliasName)
+                val currentState = pm.getComponentEnabledSetting(comp)
+                if (currentState != PackageManager.COMPONENT_ENABLED_STATE_DISABLED) {
+                    pm.setComponentEnabledSetting(
+                        comp,
+                        PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                        PackageManager.DONT_KILL_APP
+                    )
+                }
             }
 
             // Save preference

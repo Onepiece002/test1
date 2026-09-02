@@ -10,7 +10,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 
 object ImageUtils {
-    private val iconCache = LruCache<String, ImageBitmap>(100)
+    private val iconCache = LruCache<String, ImageBitmap>(250)
 
     fun getAppIcon(pm: PackageManager, packageName: String): ImageBitmap? {
         if (packageName.isBlank()) return null

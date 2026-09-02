@@ -141,7 +141,11 @@ fun TimeScreen() {
         }
         
         val colors = listOf(Color(0xFF60A5FA), Color(0xFF34D399), Color(0xFFFBBF24), Color(0xFFF87171), Color(0xFFA78BFA), Color(0xFF2DD4BF), Color(0xFFFB923C))
-        items(usageStats.size) { index ->
+        items(
+            count = usageStats.size,
+            key = { index -> usageStats[index].packageName },
+            contentType = { "AppUsageItem" }
+        ) { index ->
             val stat = usageStats[index]
             val percentage = if (totalTimeMs > 0) stat.timeInForegroundMs.toFloat() / totalTimeMs else 0f
             val h = stat.timeInForegroundMs / (1000 * 60 * 60)

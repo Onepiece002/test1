@@ -28,7 +28,13 @@ data class UserProfile(
     val lifetimeFocusMins: Int = 0,
     val lifetimeResists: Int = 0,
     val lifetimeTasksCompleted: Int = 0
-)
+) {
+    fun xpCurrentLevelBase(): Int = FocusEconomyManager.requiredXpForLevel(level)
+    fun xpNextLevelThreshold(): Int = FocusEconomyManager.requiredXpForLevel(level + 1)
+    fun xpGainedInCurrentLevel(): Int = max(0, xp - xpCurrentLevelBase())
+    fun xpNeededForNextLevel(): Int = max(1, xpNextLevelThreshold() - xpCurrentLevelBase())
+    fun levelProgressFraction(): Float = (xpGainedInCurrentLevel().toFloat() / xpNeededForNextLevel().toFloat()).coerceIn(0f, 1f)
+}
 
 
 sealed class EconomyEvent {

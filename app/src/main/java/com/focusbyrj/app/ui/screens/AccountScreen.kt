@@ -670,51 +670,51 @@ data class Achievement(val title: String, val description: String, val isUnlocke
 
 fun getAchievements(profile: UserProfile, stats: com.focusbyrj.app.util.FocusStats, isPro: Boolean = false): List<Achievement> {
     return listOf(
-        Achievement("First Steps", "Reach Level 2", isPro || profile.level >= 2, BadgeType.LEVEL, Color(0xFF00E5FF), com.focusbyrj.app.R.drawable.ic_achievement_first_steps),
-        Achievement("Apprentice", "Reach Level 5", isPro || profile.level >= 5, BadgeType.LEVEL, Color(0xFF00E5FF), com.focusbyrj.app.R.drawable.ic_achievement_apprentice),
-        Achievement("Adept", "Reach Level 10", isPro || profile.level >= 10, BadgeType.LEVEL, Color(0xFF00B0FF), com.focusbyrj.app.R.drawable.ic_achievement_adept),
-        Achievement("Master", "Reach Level 25", isPro || profile.level >= 25, BadgeType.LEVEL, Color(0xFF651FFF), com.focusbyrj.app.R.drawable.ic_achievement_master),
-        Achievement("Grandmaster", "Reach Level 50", isPro || profile.level >= 50, BadgeType.LEVEL, Color(0xFFD500F9), com.focusbyrj.app.R.drawable.ic_achievement_grandmaster),
-        Achievement("Hero", "Reach Level 75", isPro || profile.level >= 75, BadgeType.LEVEL, Color(0xFFD500F9), com.focusbyrj.app.R.drawable.ic_achievement_hero),
-        Achievement("Legend", "Reach Level 100", isPro || profile.level >= 100, BadgeType.LEVEL, Color(0xFFFF1744), com.focusbyrj.app.R.drawable.ic_achievement_legend),
-        Achievement("Mythic", "Reach Level 200", isPro || profile.level >= 200, BadgeType.LEVEL, Color(0xFFFF1744), com.focusbyrj.app.R.drawable.ic_achievement_mythic),
+        Achievement("First Steps", "Reach Level 2", profile.level >= 2, BadgeType.LEVEL, Color(0xFF00E5FF), com.focusbyrj.app.R.drawable.ic_achievement_first_steps),
+        Achievement("Apprentice", "Reach Level 5", profile.level >= 5, BadgeType.LEVEL, Color(0xFF00E5FF), com.focusbyrj.app.R.drawable.ic_achievement_apprentice),
+        Achievement("Adept", "Reach Level 10", profile.level >= 10, BadgeType.LEVEL, Color(0xFF00B0FF), com.focusbyrj.app.R.drawable.ic_achievement_adept),
+        Achievement("Master", "Reach Level 25", profile.level >= 25, BadgeType.LEVEL, Color(0xFF651FFF), com.focusbyrj.app.R.drawable.ic_achievement_master),
+        Achievement("Grandmaster", "Reach Level 50", profile.level >= 50, BadgeType.LEVEL, Color(0xFFD500F9), com.focusbyrj.app.R.drawable.ic_achievement_grandmaster),
+        Achievement("Hero", "Reach Level 75", profile.level >= 75, BadgeType.LEVEL, Color(0xFFD500F9), com.focusbyrj.app.R.drawable.ic_achievement_hero),
+        Achievement("Legend", "Reach Level 100", profile.level >= 100, BadgeType.LEVEL, Color(0xFFFF1744), com.focusbyrj.app.R.drawable.ic_achievement_legend),
+        Achievement("Mythic", "Reach Level 200", profile.level >= 200, BadgeType.LEVEL, Color(0xFFFF1744), com.focusbyrj.app.R.drawable.ic_achievement_mythic),
 
-        Achievement("Task Starter", "Complete 1 Task", isPro || profile.lifetimeTasksCompleted >= 1, BadgeType.TASKS, Color(0xFF00E5FF), com.focusbyrj.app.R.drawable.ic_achievement_fortnight_focus),
-        Achievement("Productive Flow", "Complete 10 Tasks", isPro || profile.lifetimeTasksCompleted >= 10, BadgeType.TASKS, Color(0xFF00B0FF), com.focusbyrj.app.R.drawable.ic_achievement_dragons_hoard),
-        Achievement("Task Master", "Complete 50 Tasks", isPro || profile.lifetimeTasksCompleted >= 50, BadgeType.TASKS, Color(0xFF651FFF), com.focusbyrj.app.R.drawable.ic_achievement_deep_work_sentinel),
-        Achievement("Unstoppable Finisher", "Complete 100 Tasks", isPro || profile.lifetimeTasksCompleted >= 100, BadgeType.TASKS, Color(0xFFFFD700), com.focusbyrj.app.R.drawable.ic_achievement_unshatterable),
+        Achievement("Task Starter", "Complete 1 Task", profile.lifetimeTasksCompleted >= 1, BadgeType.TASKS, Color(0xFF00E5FF), com.focusbyrj.app.R.drawable.ic_achievement_fortnight_focus),
+        Achievement("Productive Flow", "Complete 10 Tasks", profile.lifetimeTasksCompleted >= 10, BadgeType.TASKS, Color(0xFF00B0FF), com.focusbyrj.app.R.drawable.ic_achievement_dragons_hoard),
+        Achievement("Task Master", "Complete 50 Tasks", profile.lifetimeTasksCompleted >= 50, BadgeType.TASKS, Color(0xFF651FFF), com.focusbyrj.app.R.drawable.ic_achievement_deep_work_sentinel),
+        Achievement("Unstoppable Finisher", "Complete 100 Tasks", profile.lifetimeTasksCompleted >= 100, BadgeType.TASKS, Color(0xFFFFD700), com.focusbyrj.app.R.drawable.ic_achievement_unshatterable),
         
-        Achievement("Consistency", "3-Day Streak", isPro || profile.longestStreak >= 3, BadgeType.STREAK, Color(0xFFFF9800), com.focusbyrj.app.R.drawable.ic_achievement_consistency),
-        Achievement("Dedication", "7-Day Streak", isPro || profile.longestStreak >= 7, BadgeType.STREAK, Color(0xFFFF5722), com.focusbyrj.app.R.drawable.ic_achievement_dedication),
-        Achievement("Unbreakable", "30-Day Streak", isPro || profile.longestStreak >= 30, BadgeType.STREAK, Color(0xFFF44336), com.focusbyrj.app.R.drawable.ic_achievement_unbreakable),
-        Achievement("Habit Builder", "60-Day Streak", isPro || profile.longestStreak >= 60, BadgeType.STREAK, Color(0xFFF44336), com.focusbyrj.app.R.drawable.ic_achievement_habit_builder),
-        Achievement("Century Club", "100-Day Streak", isPro || profile.longestStreak >= 100, BadgeType.STREAK, Color(0xFFF44336), com.focusbyrj.app.R.drawable.ic_achievement_century_club),
-        Achievement("Year of Focus", "365-Day Streak", isPro || profile.longestStreak >= 365, BadgeType.STREAK, Color(0xFFF44336), com.focusbyrj.app.R.drawable.ic_achievement_year_of_focus),
+        Achievement("Consistency", "3-Day Streak", profile.longestStreak >= 3, BadgeType.STREAK, Color(0xFFFF9800), com.focusbyrj.app.R.drawable.ic_achievement_consistency),
+        Achievement("Dedication", "7-Day Streak", profile.longestStreak >= 7, BadgeType.STREAK, Color(0xFFFF5722), com.focusbyrj.app.R.drawable.ic_achievement_dedication),
+        Achievement("Unbreakable", "30-Day Streak", profile.longestStreak >= 30, BadgeType.STREAK, Color(0xFFF44336), com.focusbyrj.app.R.drawable.ic_achievement_unbreakable),
+        Achievement("Habit Builder", "60-Day Streak", profile.longestStreak >= 60, BadgeType.STREAK, Color(0xFFF44336), com.focusbyrj.app.R.drawable.ic_achievement_habit_builder),
+        Achievement("Century Club", "100-Day Streak", profile.longestStreak >= 100, BadgeType.STREAK, Color(0xFFF44336), com.focusbyrj.app.R.drawable.ic_achievement_century_club),
+        Achievement("Year of Focus", "365-Day Streak", profile.longestStreak >= 365, BadgeType.STREAK, Color(0xFFF44336), com.focusbyrj.app.R.drawable.ic_achievement_year_of_focus),
         
-        Achievement("Piggy Bank", "100 Gold", isPro || profile.gold >= 100, BadgeType.GOLD, Color(0xFFFFC107), com.focusbyrj.app.R.drawable.ic_achievement_piggy_bank),
-        Achievement("Savings", "1,000 Gold", isPro || profile.gold >= 1000, BadgeType.GOLD, Color(0xFFFFC107), com.focusbyrj.app.R.drawable.ic_achievement_savings),
-        Achievement("Wealthy", "5,000 Gold", isPro || profile.gold >= 5000, BadgeType.GOLD, Color(0xFFFFB300), com.focusbyrj.app.R.drawable.ic_achievement_wealthy),
-        Achievement("Hoarder", "10,000 Gold", isPro || profile.gold >= 10000, BadgeType.GOLD, Color(0xFFFFA000), com.focusbyrj.app.R.drawable.ic_achievement_hoarder),
-        Achievement("Midas Touch", "50,000 Gold", isPro || profile.gold >= 50000, BadgeType.GOLD, Color(0xFFFFA000), com.focusbyrj.app.R.drawable.ic_achievement_midas_touch),
-        Achievement("Treasury", "100,000 Gold", isPro || profile.gold >= 100000, BadgeType.GOLD, Color(0xFFFFA000), com.focusbyrj.app.R.drawable.ic_achievement_treasury),
+        Achievement("Piggy Bank", "100 Gold", profile.gold >= 100, BadgeType.GOLD, Color(0xFFFFC107), com.focusbyrj.app.R.drawable.ic_achievement_piggy_bank),
+        Achievement("Savings", "1,000 Gold", profile.gold >= 1000, BadgeType.GOLD, Color(0xFFFFC107), com.focusbyrj.app.R.drawable.ic_achievement_savings),
+        Achievement("Wealthy", "5,000 Gold", profile.gold >= 5000, BadgeType.GOLD, Color(0xFFFFB300), com.focusbyrj.app.R.drawable.ic_achievement_wealthy),
+        Achievement("Hoarder", "10,000 Gold", profile.gold >= 10000, BadgeType.GOLD, Color(0xFFFFA000), com.focusbyrj.app.R.drawable.ic_achievement_hoarder),
+        Achievement("Midas Touch", "50,000 Gold", profile.gold >= 50000, BadgeType.GOLD, Color(0xFFFFA000), com.focusbyrj.app.R.drawable.ic_achievement_midas_touch),
+        Achievement("Treasury", "100,000 Gold", profile.gold >= 100000, BadgeType.GOLD, Color(0xFFFFA000), com.focusbyrj.app.R.drawable.ic_achievement_treasury),
         
-        Achievement("Getting Started", "1 Hour Focused", isPro || profile.lifetimeFocusMins >= 60, BadgeType.FOCUS, Color(0xFF00B0FF), com.focusbyrj.app.R.drawable.ic_achievement_getting_started),
-        Achievement("Flow State", "10 Hours Focused", isPro || profile.lifetimeFocusMins >= 600, BadgeType.FOCUS, Color(0xFF00B0FF), com.focusbyrj.app.R.drawable.ic_achievement_flow_state),
-        Achievement("Zone In", "50 Hours Focused", isPro || profile.lifetimeFocusMins >= 3000, BadgeType.FOCUS, Color(0xFF651FFF), com.focusbyrj.app.R.drawable.ic_achievement_zone_in),
-        Achievement("Monk Mode", "500 Hours Focused", isPro || profile.lifetimeFocusMins >= 30000, BadgeType.FOCUS, Color(0xFFD500F9), com.focusbyrj.app.R.drawable.ic_achievement_monk_mode),
-        Achievement("Time Lord", "1000 Hours Focused", isPro || profile.lifetimeFocusMins >= 60000, BadgeType.FOCUS, Color(0xFFFF1744), com.focusbyrj.app.R.drawable.ic_achievement_time_lord),
-        Achievement("Master of Time", "2,000 Hours Focused", isPro || profile.lifetimeFocusMins >= 120000, BadgeType.FOCUS, Color(0xFFFF1744), com.focusbyrj.app.R.drawable.ic_achievement_master_of_time),
+        Achievement("Getting Started", "1 Hour Focused", profile.lifetimeFocusMins >= 60, BadgeType.FOCUS, Color(0xFF00B0FF), com.focusbyrj.app.R.drawable.ic_achievement_getting_started),
+        Achievement("Flow State", "10 Hours Focused", profile.lifetimeFocusMins >= 600, BadgeType.FOCUS, Color(0xFF00B0FF), com.focusbyrj.app.R.drawable.ic_achievement_flow_state),
+        Achievement("Zone In", "50 Hours Focused", profile.lifetimeFocusMins >= 3000, BadgeType.FOCUS, Color(0xFF651FFF), com.focusbyrj.app.R.drawable.ic_achievement_zone_in),
+        Achievement("Monk Mode", "500 Hours Focused", profile.lifetimeFocusMins >= 30000, BadgeType.FOCUS, Color(0xFFD500F9), com.focusbyrj.app.R.drawable.ic_achievement_monk_mode),
+        Achievement("Time Lord", "1000 Hours Focused", profile.lifetimeFocusMins >= 60000, BadgeType.FOCUS, Color(0xFFFF1744), com.focusbyrj.app.R.drawable.ic_achievement_time_lord),
+        Achievement("Master of Time", "2,000 Hours Focused", profile.lifetimeFocusMins >= 120000, BadgeType.FOCUS, Color(0xFFFF1744), com.focusbyrj.app.R.drawable.ic_achievement_master_of_time),
 
-        Achievement("First Temptation", "Resist 1 App", isPro || profile.lifetimeResists >= 1, BadgeType.RESIST, Color(0xFF4CAF50), com.focusbyrj.app.R.drawable.ic_achievement_first_temptation),
-        Achievement("Iron Will", "Resist 10 Apps", isPro || profile.lifetimeResists >= 10, BadgeType.RESIST, Color(0xFF4CAF50), com.focusbyrj.app.R.drawable.ic_achievement_iron_will),
-        Achievement("Willpower", "Resist 50 Apps", isPro || profile.lifetimeResists >= 50, BadgeType.RESIST, Color(0xFF009688), com.focusbyrj.app.R.drawable.ic_achievement_willpower),
-        Achievement("Dopamine Detox", "Resist 100 Apps", isPro || profile.lifetimeResists >= 100, BadgeType.RESIST, Color(0xFF009688), com.focusbyrj.app.R.drawable.ic_achievement_dopamine_detox),
-        Achievement("Zen Mind", "Resist 1,000 Apps", isPro || profile.lifetimeResists >= 1000, BadgeType.RESIST, Color(0xFF00BCD4), com.focusbyrj.app.R.drawable.ic_achievement_zen_mind),
+        Achievement("First Temptation", "Resist 1 App", profile.lifetimeResists >= 1, BadgeType.RESIST, Color(0xFF4CAF50), com.focusbyrj.app.R.drawable.ic_achievement_first_temptation),
+        Achievement("Iron Will", "Resist 10 Apps", profile.lifetimeResists >= 10, BadgeType.RESIST, Color(0xFF4CAF50), com.focusbyrj.app.R.drawable.ic_achievement_iron_will),
+        Achievement("Willpower", "Resist 50 Apps", profile.lifetimeResists >= 50, BadgeType.RESIST, Color(0xFF009688), com.focusbyrj.app.R.drawable.ic_achievement_willpower),
+        Achievement("Dopamine Detox", "Resist 100 Apps", profile.lifetimeResists >= 100, BadgeType.RESIST, Color(0xFF009688), com.focusbyrj.app.R.drawable.ic_achievement_dopamine_detox),
+        Achievement("Zen Mind", "Resist 1,000 Apps", profile.lifetimeResists >= 1000, BadgeType.RESIST, Color(0xFF00BCD4), com.focusbyrj.app.R.drawable.ic_achievement_zen_mind),
         
-        Achievement("Scholar", "Unlock Scholar", isPro || profile.avatarTier >= 1, BadgeType.TIER, Color(0xFF4CAF50), com.focusbyrj.app.R.drawable.ic_achievement_scholar),
-        Achievement("Knight", "Unlock Knight", isPro || profile.avatarTier >= 2, BadgeType.TIER, Color(0xFF9C27B0), com.focusbyrj.app.R.drawable.ic_achievement_knight),
-        Achievement("Noble", "Unlock Noble", isPro || profile.avatarTier >= 3, BadgeType.TIER, Color(0xFF2196F3), com.focusbyrj.app.R.drawable.ic_achievement_noble),
-        Achievement("Emperor", "Unlock Emperor", isPro || profile.avatarTier >= 4, BadgeType.TIER, Color(0xFFFFD700), com.focusbyrj.app.R.drawable.ic_achievement_emperor)
+        Achievement("Scholar", "Unlock Scholar", profile.avatarTier >= 1, BadgeType.TIER, Color(0xFF4CAF50), com.focusbyrj.app.R.drawable.ic_achievement_scholar),
+        Achievement("Knight", "Unlock Knight", profile.avatarTier >= 2, BadgeType.TIER, Color(0xFF9C27B0), com.focusbyrj.app.R.drawable.ic_achievement_knight),
+        Achievement("Noble", "Unlock Noble", profile.avatarTier >= 3, BadgeType.TIER, Color(0xFF2196F3), com.focusbyrj.app.R.drawable.ic_achievement_noble),
+        Achievement("Emperor", "Unlock Emperor", profile.avatarTier >= 4, BadgeType.TIER, Color(0xFFFFD700), com.focusbyrj.app.R.drawable.ic_achievement_emperor)
     )
 }
 
@@ -837,7 +837,11 @@ fun AchievementsTab(profile: UserProfile, stats: com.focusbyrj.app.util.FocusSta
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
-        items(achievements) { achievement ->
+        items(
+            achievements,
+            key = { it.title },
+            contentType = { "Achievement" }
+        ) { achievement ->
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -904,7 +908,11 @@ fun AvatarSelectionSheet(profile: UserProfile) {
             verticalArrangement = Arrangement.spacedBy(14.dp),
             modifier = Modifier.heightIn(max = 280.dp)
         ) {
-            items(tierAvatars) { avatar ->
+            items(
+                tierAvatars,
+                key = { it.id },
+                contentType = { "TierAvatar" }
+            ) { avatar ->
                 val isUnlocked = avatar.tier <= profile.avatarTier || profile.avatarTier == 5
                 val isCurrent = profile.selectedAvatar == avatar.id || (profile.selectedAvatar == "tier_1" && avatar.id == "tier_1")
                 
@@ -983,7 +991,11 @@ fun AvatarSelectionSheet(profile: UserProfile) {
             verticalArrangement = Arrangement.spacedBy(14.dp),
             modifier = Modifier.heightIn(max = 420.dp)
         ) {
-            items(storeAvatars) { storeAvatar ->
+            items(
+                storeAvatars,
+                key = { it.id },
+                contentType = { "StoreAvatar" }
+            ) { storeAvatar ->
                 val isPurchased = profile.purchasedAvatars.contains(storeAvatar.id)
                 val isCurrent = profile.selectedAvatar == storeAvatar.id
                 val canAfford = profile.gold >= storeAvatar.cost

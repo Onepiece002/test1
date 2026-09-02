@@ -127,7 +127,11 @@ fun SchedulesScreen(viewModel: FocusViewModel) {
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                         contentPadding = PaddingValues(bottom = 100.dp)
                     ) {
-                        items(schedules) { schedule ->
+                        items(
+                            schedules,
+                            key = { it.id },
+                            contentType = { "RoutineCard" }
+                        ) { schedule ->
                             RoutineCard(
                                 schedule = schedule, 
                                 onToggle = { isChecked -> viewModel.updateSchedule(schedule.copy(isEnabled = isChecked)) },

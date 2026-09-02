@@ -270,7 +270,14 @@ object AyvaTalkEngine {
     }
 
     // --- ATOMIC KNOWLEDGE BASE (JSON ASSET-DRIVEN) ---
+    @Volatile
     private var _topicsDatabase: List<SpecificTopic>? = null
+
+    fun warmUp(context: Context) {
+        if (_topicsDatabase == null) {
+            getTopicsDatabase(context)
+        }
+    }
 
     private fun getTopicsDatabase(context: Context?): List<SpecificTopic> {
         if (_topicsDatabase != null) return _topicsDatabase!!
