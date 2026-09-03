@@ -52,11 +52,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BatteryFull
+import androidx.compose.material.icons.filled.AutoMode
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeviceThermostat
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
+import androidx.compose.material.icons.filled.Repeat
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -90,6 +95,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun DashboardScreen(
     restrictions: List<AppRestriction> = emptyList(),
+    schedules: List<com.focusbyrj.app.data.FocusSchedule> = emptyList(),
     onToggle: (AppRestriction) -> Unit = {},
     onDelete: (AppRestriction) -> Unit = {},
     onUpdate: (AppRestriction) -> Unit = {},
@@ -97,19 +103,22 @@ fun DashboardScreen(
     timeRemaining: Long = 25 * 60L,
     initialTime: Long = 25 * 60L,
     onToggleSession: () -> Unit = {},
-    onSetTime: (Int) -> Unit = {}
+    onSetTime: (Int) -> Unit = {},
+    onOpenRoutines: () -> Unit = {}
 ) {
     if (isSessionActive) {
         ActiveSessionScreen(timeRemaining = timeRemaining, initialTime = initialTime, onToggleSession = onToggleSession)
     } else {
         NormalDashboard(
             restrictions = restrictions,
+            schedules = schedules,
             onToggle = onToggle,
             onDelete = onDelete,
             onUpdate = onUpdate,
             timeRemaining = timeRemaining,
             onToggleSession = onToggleSession,
-            onSetTime = onSetTime
+            onSetTime = onSetTime,
+            onOpenRoutines = onOpenRoutines
         )
     }
 }
@@ -117,12 +126,14 @@ fun DashboardScreen(
 @Composable
 fun NormalDashboard(
     restrictions: List<AppRestriction>,
+    schedules: List<com.focusbyrj.app.data.FocusSchedule> = emptyList(),
     onToggle: (AppRestriction) -> Unit,
     onDelete: (AppRestriction) -> Unit = {},
     onUpdate: (AppRestriction) -> Unit = {},
     timeRemaining: Long,
     onToggleSession: () -> Unit,
-    onSetTime: (Int) -> Unit
+    onSetTime: (Int) -> Unit,
+    onOpenRoutines: () -> Unit = {}
 ) {
     var editingApp by remember { mutableStateOf<AppRestriction?>(null) }
 
@@ -218,8 +229,11 @@ fun NormalDashboard(
 
             DeepWorkCard(timeRemaining = timeRemaining, onToggleSession = onToggleSession, onSetTime = onSetTime)
             Spacer(modifier = Modifier.height(12.dp))
-            StreakAndShieldedSection(restrictions = restrictions)
-            Spacer(modifier = Modifier.height(12.dp))
+            RoutinesAndShieldedSection(
+                restrictions = restrictions,
+                schedules = schedules,
+                onOpenRoutines = onOpenRoutines
+            )
             Spacer(modifier = Modifier.height(24.dp))
 
             Row(
@@ -684,29 +698,21 @@ fun EmptyStateView() {
 
 
 @Composable
-fun StreakAndShieldedSection(restrictions: List<AppRestriction>) {
+fun RoutinesAndShieldedSection(
+    restrictions: List<AppRestriction>,
+    schedules: List<com.focusbyrj.app.data.FocusSchedule> = emptyList(),
+    onOpenRoutines: () -> Unit = {}
+) {
     val context = LocalContext.current
-    val stats by com.focusbyrj.app.util.FocusStatsManager.statsFlow.collectAsState()
-    val heatmapTheme by com.focusbyrj.app.util.FocusStatsManager.themeFlow.collectAsState()
-    
-    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner) {
-        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
-            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
-                com.focusbyrj.app.util.FocusStatsManager.refreshStats(context)
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
-
-    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+    val activeCount = schedules.count { it.isEnabled }
+    val totalCount = schedules.size
 
     Row(
         modifier = Modifier.fillMaxWidth().height(124.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Streak Card
+        // Routines Card (Replaces Streaks Card)
         Box(
             modifier = Modifier
                 .weight(1f)
@@ -718,6 +724,10 @@ fun StreakAndShieldedSection(restrictions: List<AppRestriction>) {
                     MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
                     RoundedCornerShape(22.dp)
                 )
+                .clickable {
+                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
+                    onOpenRoutines()
+                }
                 .padding(14.dp)
         ) {
             Column(
@@ -725,51 +735,95 @@ fun StreakAndShieldedSection(restrictions: List<AppRestriction>) {
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(
+                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(24.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant),
-                        contentAlignment = Alignment.Center
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Text("🔥", fontSize = 12.sp)
+                        Box(
+                            modifier = Modifier
+                                .size(24.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.AutoMode,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                        Text(
+                            "ROUTINES",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                letterSpacing = 1.2.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 10.sp
+                            ),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
-                    Text(
-                        "STREAK",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            letterSpacing = 1.2.sp,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 10.sp
-                        ),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    Icon(
+                        Icons.Filled.ChevronRight,
+                        contentDescription = "Open Routines",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        modifier = Modifier.size(16.dp)
                     )
                 }
 
                 Row(verticalAlignment = Alignment.Bottom) {
                     Text(
-                        "${stats.currentStreak}",
+                        "$activeCount",
                         style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        "days",
+                        if (totalCount > 0) "active ($totalCount)" else "active",
                         style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(bottom = 3.dp)
                     )
                 }
 
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    heatmapTheme.colors.forEach { color ->
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (schedules.isEmpty()) {
                         Box(
                             modifier = Modifier
                                 .size(7.dp)
                                 .clip(RoundedCornerShape(2.dp))
-                                .background(color.copy(alpha = 0.85f))
+                                .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.35f))
+                        )
+                        Spacer(modifier = Modifier.width(2.dp))
+                        Text(
+                            "Tap to set",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f)
+                        )
+                    } else {
+                        schedules.take(5).forEach { schedule ->
+                            Box(
+                                modifier = Modifier
+                                    .size(7.dp)
+                                    .clip(RoundedCornerShape(2.dp))
+                                    .background(
+                                        if (schedule.isEnabled) MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
+                                    )
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(2.dp))
+                        Text(
+                            if (activeCount > 0) "$activeCount on" else "Paused",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Medium),
+                            color = if (activeCount > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                         )
                     }
                 }
@@ -805,7 +859,12 @@ fun StreakAndShieldedSection(restrictions: List<AppRestriction>) {
                             .background(MaterialTheme.colorScheme.surfaceVariant),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("🛡️", fontSize = 12.sp)
+                        Icon(
+                            imageVector = Icons.Filled.Security,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(13.dp)
+                        )
                     }
                     Text(
                         "SHIELDED",
@@ -878,6 +937,7 @@ fun StreakAndShieldedSection(restrictions: List<AppRestriction>) {
         }
     }
 }
+
 @Composable
 fun SwipeableAppRestrictionCard(
     app: AppRestriction,

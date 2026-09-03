@@ -91,7 +91,6 @@ data class LaunchTabOption(
 val launchTabOptions = listOf(
     LaunchTabOption("dashboard", "Focus (Apps)", Icons.Filled.Home, "App blocker & active focus timer"),
     LaunchTabOption("todos", "To-Do (Tasks)", Icons.Filled.CheckCircle, "Tasks, checklists & occasions"),
-    LaunchTabOption("schedules", "Routines", Icons.Filled.Schedule, "Automated scheduled focus windows"),
     LaunchTabOption("time", "Time (Stats)", Icons.Filled.DateRange, "Screen time insights & heatmaps"),
     LaunchTabOption("account", "Account", Icons.Filled.Person, "Profile, rank & trophy achievements")
 )
@@ -171,370 +170,367 @@ fun SettingsScreen(navController: NavController) {
             ) {
             Spacer(modifier = Modifier.height(8.dp))
 
-            // --- APPEARANCE SECTION ---
+            // --- APPEARANCE SECTION (2026 Calm Minimal) ---
             SettingsSectionHeader(title = "APPEARANCE")
 
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(22.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
+            Column(
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    SettingsStringDropdownRow(
-                        icon = Icons.Filled.DarkMode,
-                        title = "App Background Theme",
-                        subtitle = "Select overall app appearance",
-                        selectedText = currentThemeMode.displayName,
-                        isExpanded = showAppThemeModeDropdown,
-                        onExpandChange = { showAppThemeModeDropdown = it },
-                        options = ThemeMode.entries.map { it.displayName },
-                        onOptionSelected = { option ->
-                            val mode = ThemeMode.entries.find { it.displayName == option } ?: ThemeMode.SYSTEM
-                            AppThemeManager.setThemeMode(context, mode)
-                            showAppThemeModeDropdown = false
-                        }
-                    )
-                    HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 12.dp),
-                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
-                    )
-                    SettingsStringDropdownRow(
-                        icon = Icons.Filled.ScreenLockPortrait,
-                        title = "Locked Screen Overlay",
-                        subtitle = "Appearance of the blocking screen",
-                        selectedText = currentOverlayThemeMode.displayName,
-                        isExpanded = showOverlayThemeModeDropdown,
-                        onExpandChange = { showOverlayThemeModeDropdown = it },
-                        options = ThemeMode.entries.map { it.displayName },
-                        onOptionSelected = { option ->
-                            val mode = ThemeMode.entries.find { it.displayName == option } ?: ThemeMode.SYSTEM
-                            AppThemeManager.setOverlayThemeMode(context, mode)
-                            showOverlayThemeModeDropdown = false
-                        }
-                    )
-                    HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 12.dp),
-                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
-                    )
-
-                    // Accent Color Row
-                    SettingsNavigationRow(
-                        icon = Icons.Filled.Palette,
-                        iconTint = currentAppTheme.primary,
-                        title = "Accent Theme",
-                        subtitle = currentAppTheme.displayName,
-                        onClick = { showAppThemeSheet = true },
-                        trailing = {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                currentAppTheme.swatch.forEach { color ->
-                                    Box(
-                                        modifier = Modifier
-                                            .size(12.dp)
-                                            .clip(CircleShape)
-                                            .background(color)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Icon(
-                                    imageVector = Icons.Filled.ChevronRight,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                        }
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // Heatmap Palette Row
-                    SettingsNavigationRow(
-                        icon = Icons.Filled.Whatshot,
-                        iconTint = currentHeatmapTheme.colors.last(),
-                        title = "Heatmap Palette",
-                        subtitle = currentHeatmapTheme.displayName,
-                        onClick = { showHeatmapThemeSheet = true },
-                        trailing = {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(3.dp)
-                            ) {
-                                currentHeatmapTheme.colors.forEachIndexed { idx, color ->
-                                    val bg = if (idx == 0) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f) else color
-                                    Box(
-                                        modifier = Modifier
-                                            .size(12.dp)
-                                            .clip(RoundedCornerShape(2.5.dp))
-                                            .background(bg)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Icon(
-                                    imageVector = Icons.Filled.ChevronRight,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                        }
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // App Launcher Icon Row
-                    val currentIconOption = remember(currentAppIconId) {
-                        AppIconManager.getCurrentIcon(context)
+                SettingsStringDropdownRow(
+                    icon = Icons.Filled.DarkMode,
+                    title = "App Background Theme",
+                    subtitle = "Select overall app appearance",
+                    selectedText = currentThemeMode.displayName,
+                    isExpanded = showAppThemeModeDropdown,
+                    onExpandChange = { showAppThemeModeDropdown = it },
+                    options = ThemeMode.entries.map { it.displayName },
+                    onOptionSelected = { option ->
+                        val mode = ThemeMode.entries.find { it.displayName == option } ?: ThemeMode.SYSTEM
+                        AppThemeManager.setThemeMode(context, mode)
+                        showAppThemeModeDropdown = false
                     }
+                )
+                HorizontalDivider(
+                    modifier = Modifier.padding(start = 54.dp, end = 6.dp),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+                )
+                SettingsStringDropdownRow(
+                    icon = Icons.Filled.ScreenLockPortrait,
+                    title = "Locked Screen Overlay",
+                    subtitle = "Appearance of the blocking screen",
+                    selectedText = currentOverlayThemeMode.displayName,
+                    isExpanded = showOverlayThemeModeDropdown,
+                    onExpandChange = { showOverlayThemeModeDropdown = it },
+                    options = ThemeMode.entries.map { it.displayName },
+                    onOptionSelected = { option ->
+                        val mode = ThemeMode.entries.find { it.displayName == option } ?: ThemeMode.SYSTEM
+                        AppThemeManager.setOverlayThemeMode(context, mode)
+                        showOverlayThemeModeDropdown = false
+                    }
+                )
+                HorizontalDivider(
+                    modifier = Modifier.padding(start = 54.dp, end = 6.dp),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+                )
 
-                    SettingsNavigationRow(
-                        icon = Icons.Filled.Stars,
-                        iconTint = MaterialTheme.colorScheme.primary,
-                        title = "App Launcher Icon",
-                        subtitle = currentIconOption.title,
-                        onClick = { showAppIconSheet = true },
-                        trailing = {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
+                // Accent Color Row
+                SettingsNavigationRow(
+                    icon = Icons.Filled.Palette,
+                    iconTint = currentAppTheme.primary,
+                    title = "Accent Theme",
+                    subtitle = currentAppTheme.displayName,
+                    onClick = { showAppThemeSheet = true },
+                    trailing = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            currentAppTheme.swatch.forEach { color ->
                                 Box(
                                     modifier = Modifier
-                                        .size(28.dp)
-                                        .clip(RoundedCornerShape(7.dp))
-                                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f), RoundedCornerShape(7.dp)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Image(
-                                        painter = painterResource(id = currentIconOption.previewRes),
-                                        contentDescription = null,
-                                        modifier = Modifier
-                                            .size(24.dp)
-                                            .clip(RoundedCornerShape(6.dp))
-                                    )
-                                }
-                                Icon(
-                                    imageVector = Icons.Filled.ChevronRight,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(18.dp)
+                                        .size(11.dp)
+                                        .clip(CircleShape)
+                                        .background(color)
                                 )
                             }
-                        }
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // Home Screen Widget Customization Row
-                    SettingsNavigationRow(
-                        icon = Icons.Filled.Palette,
-                        iconTint = MaterialTheme.colorScheme.primary,
-                        title = "Home Screen Widget",
-                        subtitle = "Themes, accent colors & opacity",
-                        onClick = {
-                            val intent = android.content.Intent(context, com.focusbyrj.app.widget.TodoWidgetConfigureActivity::class.java).apply {
-                                val appWidgetManager = android.appwidget.AppWidgetManager.getInstance(context)
-                                val ids = appWidgetManager.getAppWidgetIds(android.content.ComponentName(context, com.focusbyrj.app.widget.TodoWidgetProvider::class.java))
-                                val id = if (ids.isNotEmpty()) ids[0] else 0
-                                putExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_ID, id)
-                            }
-                            context.startActivity(intent)
-                        },
-                        trailing = {
+                            Spacer(modifier = Modifier.width(4.dp))
                             Icon(
                                 imageVector = Icons.Filled.ChevronRight,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(18.dp)
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
+                                modifier = Modifier.size(16.dp)
                             )
                         }
-                    )
+                    }
+                )
+
+                HorizontalDivider(
+                    modifier = Modifier.padding(start = 54.dp, end = 6.dp),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+                )
+
+                // Heatmap Palette Row
+                SettingsNavigationRow(
+                    icon = Icons.Filled.Whatshot,
+                    iconTint = currentHeatmapTheme.colors.last(),
+                    title = "Heatmap Palette",
+                    subtitle = currentHeatmapTheme.displayName,
+                    onClick = { showHeatmapThemeSheet = true },
+                    trailing = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(3.dp)
+                        ) {
+                            currentHeatmapTheme.colors.forEachIndexed { idx, color ->
+                                val bg = if (idx == 0) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f) else color
+                                Box(
+                                    modifier = Modifier
+                                        .size(11.dp)
+                                        .clip(RoundedCornerShape(2.5.dp))
+                                        .background(bg)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Icon(
+                                imageVector = Icons.Filled.ChevronRight,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                )
+
+                HorizontalDivider(
+                    modifier = Modifier.padding(start = 54.dp, end = 6.dp),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+                )
+
+                // App Launcher Icon Row
+                val currentIconOption = remember(currentAppIconId) {
+                    AppIconManager.getCurrentIcon(context)
                 }
+
+                SettingsNavigationRow(
+                    icon = Icons.Filled.Stars,
+                    iconTint = MaterialTheme.colorScheme.primary,
+                    title = "App Launcher Icon",
+                    subtitle = currentIconOption.title,
+                    onClick = { showAppIconSheet = true },
+                    trailing = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Image(
+                                    painter = painterResource(id = currentIconOption.previewRes),
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .size(20.dp)
+                                        .clip(RoundedCornerShape(5.dp))
+                                )
+                            }
+                            Icon(
+                                imageVector = Icons.Filled.ChevronRight,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                )
+
+                HorizontalDivider(
+                    modifier = Modifier.padding(start = 54.dp, end = 6.dp),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+                )
+
+                // Home Screen Widget Customization Row
+                SettingsNavigationRow(
+                    icon = Icons.Filled.Palette,
+                    iconTint = MaterialTheme.colorScheme.primary,
+                    title = "Home Screen Widget",
+                    subtitle = "Themes, accent colors & opacity",
+                    onClick = {
+                        val intent = android.content.Intent(context, com.focusbyrj.app.widget.TodoWidgetConfigureActivity::class.java).apply {
+                            val appWidgetManager = android.appwidget.AppWidgetManager.getInstance(context)
+                            val ids = appWidgetManager.getAppWidgetIds(android.content.ComponentName(context, com.focusbyrj.app.widget.TodoWidgetProvider::class.java))
+                            val id = if (ids.isNotEmpty()) ids[0] else 0
+                            putExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_ID, id)
+                        }
+                        context.startActivity(intent)
+                    },
+                    trailing = {
+                        Icon(
+                            imageVector = Icons.Filled.ChevronRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                )
             }
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // --- BLOCKING & CONTROLS SECTION ---
+            // --- BLOCKING & CONTROLS SECTION (2026 Calm Minimal) ---
             SettingsSectionHeader(title = "BLOCKING & PREFERENCES")
 
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(22.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
+            Column(
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    // Soft Lock Wait Timer Stepper
-                    SettingsStepperRow(
-                        icon = Icons.Filled.HourglassTop,
-                        title = "Soft Mode Wait Timer",
-                        subtitle = "Delay before unlock button activates",
-                        valueText = "${softLockDuration}s",
-                        onDecrement = {
-                            if (softLockDuration > 5) {
-                                softLockDuration -= 5
-                                prefs.edit().putInt("soft_lock_duration", softLockDuration).apply()
-                            }
-                        },
-                        onIncrement = {
-                            if (softLockDuration < 60) {
-                                softLockDuration += 5
-                                prefs.edit().putInt("soft_lock_duration", softLockDuration).apply()
-                            }
+                // Soft Lock Wait Timer Stepper
+                SettingsStepperRow(
+                    icon = Icons.Filled.HourglassTop,
+                    title = "Soft Mode Wait Timer",
+                    subtitle = "Delay before unlock button activates",
+                    valueText = "${softLockDuration}s",
+                    onDecrement = {
+                        if (softLockDuration > 5) {
+                            softLockDuration -= 5
+                            prefs.edit().putInt("soft_lock_duration", softLockDuration).apply()
                         }
-                    )
-
-                    HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 12.dp),
-                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
-                    )
-
-                    // Soft Unlock Relief Duration Stepper
-                    SettingsStepperRow(
-                        icon = Icons.Filled.LockOpen,
-                        title = "Soft Mode Relief Duration",
-                        subtitle = "Temporary unlock access window",
-                        valueText = "${softUnlockDuration}m",
-                        onDecrement = {
-                            if (softUnlockDuration > 1) {
-                                softUnlockDuration -= if (softUnlockDuration > 5) 5 else 1
-                                prefs.edit().putInt("soft_unlock_duration", softUnlockDuration).apply()
-                            }
-                        },
-                        onIncrement = {
-                            if (softUnlockDuration < 60) {
-                                softUnlockDuration += if (softUnlockDuration >= 5) 5 else 1
-                                prefs.edit().putInt("soft_unlock_duration", softUnlockDuration).apply()
-                            }
+                    },
+                    onIncrement = {
+                        if (softLockDuration < 60) {
+                            softLockDuration += 5
+                            prefs.edit().putInt("soft_lock_duration", softLockDuration).apply()
                         }
-                    )
-
-                    HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 12.dp),
-                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
-                    )
-
-                    // Persistent Reminder Interval Stepper
-                    SettingsStepperRow(
-                        icon = Icons.Filled.NotificationsActive,
-                        title = "Persistent Reminder Interval",
-                        subtitle = "Alert interval for pending tasks",
-                        valueText = if (persistentReminderInterval >= 60) {
-                            val h = persistentReminderInterval / 60
-                            val m = persistentReminderInterval % 60
-                            if (m > 0) "${h}h ${m}m" else "${h}h"
-                        } else {
-                            "${persistentReminderInterval}m"
-                        },
-                        onDecrement = {
-                            val newInterval = when (persistentReminderInterval) {
-                                360 -> 300 // 6h -> 5h
-                                300 -> 240 // 5h -> 4h
-                                240 -> 180 // 4h -> 3h
-                                180 -> 120 // 3h -> 2h
-                                120 -> 60  // 2h -> 1h
-                                60 -> 30
-                                30 -> 15
-                                15 -> 10
-                                10 -> 5
-                                else -> persistentReminderInterval
-                            }
-                            if (newInterval != persistentReminderInterval) {
-                                persistentReminderInterval = newInterval
-                                prefs.edit().putInt("persistent_reminder_interval", newInterval).apply()
-                            }
-                        },
-                        onIncrement = {
-                            val newInterval = when (persistentReminderInterval) {
-                                5 -> 10
-                                10 -> 15
-                                15 -> 30
-                                30 -> 60
-                                60 -> 120
-                                120 -> 180
-                                180 -> 240
-                                240 -> 300
-                                300 -> 360
-                                else -> persistentReminderInterval
-                            }
-                            if (newInterval != persistentReminderInterval) {
-                                persistentReminderInterval = newInterval
-                                prefs.edit().putInt("persistent_reminder_interval", newInterval).apply()
-                            }
-                        }
-                    )
-
-                    HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 12.dp),
-                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
-                    )
-
-                    // Routine Notifications Toggle
-                    SettingsSwitchRow(
-                        icon = Icons.Filled.Notifications,
-                        title = "Routine Notifications",
-                        subtitle = "Alerts when routines start and end",
-                        checked = routineNotifications,
-                        onCheckedChange = { isEnabled ->
-                            routineNotifications = isEnabled
-                            prefs.edit().putBoolean("routine_notifications", isEnabled).apply()
-                            com.focusbyrj.app.service.FocusBlockerService.updateNotificationState(context)
-                        }
-                    )
-
-                    HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 12.dp),
-                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
-                    )
-
-                    SettingsStringDropdownRow(
-                        icon = Icons.Filled.NotificationsActive,
-                        title = "Task Notification Style",
-                        subtitle = "Alert style for due tasks",
-                        selectedText = taskNotificationStyle,
-                        isExpanded = showNotificationDropdown,
-                        onExpandChange = { showNotificationDropdown = it },
-                        options = listOf("Notification Only", "Floating Bar", "Both"),
-                        onOptionSelected = { option ->
-                            taskNotificationStyle = option
-                            prefs.edit().putString("task_notification_style", option).apply()
-                            showNotificationDropdown = false
-                        }
-                    )
-
-                    HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 12.dp),
-                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
-                    )
-
-                    // Default Launch Tab Dropdown Row
-                    val currentTabOption = remember(defaultStartTab) {
-                        launchTabOptions.find { it.route == defaultStartTab } ?: launchTabOptions[0]
                     }
+                )
 
-                    SettingsDropdownRow(
-                        icon = currentTabOption.icon,
-                        title = "Default Launch Tab",
-                        subtitle = "Screen shown when opening app",
-                        selectedText = currentTabOption.title,
-                        isExpanded = showTabDropdown,
-                        onExpandChange = { showTabDropdown = it },
-                        options = launchTabOptions,
-                        selectedOptionRoute = defaultStartTab,
-                        onOptionSelected = { option ->
-                            defaultStartTab = option.route
-                            prefs.edit().putString("default_start_tab", option.route).apply()
-                            context.getSharedPreferences("focus_app_prefs", Context.MODE_PRIVATE)
-                                .edit().putString("default_start_tab", option.route).apply()
-                            showTabDropdown = false
+                HorizontalDivider(
+                    modifier = Modifier.padding(start = 54.dp, end = 6.dp),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+                )
+
+                // Soft Unlock Relief Duration Stepper
+                SettingsStepperRow(
+                    icon = Icons.Filled.LockOpen,
+                    title = "Soft Mode Relief Duration",
+                    subtitle = "Temporary unlock access window",
+                    valueText = "${softUnlockDuration}m",
+                    onDecrement = {
+                        if (softUnlockDuration > 1) {
+                            softUnlockDuration -= if (softUnlockDuration > 5) 5 else 1
+                            prefs.edit().putInt("soft_unlock_duration", softUnlockDuration).apply()
                         }
-                    )
+                    },
+                    onIncrement = {
+                        if (softUnlockDuration < 60) {
+                            softUnlockDuration += if (softUnlockDuration >= 5) 5 else 1
+                            prefs.edit().putInt("soft_unlock_duration", softUnlockDuration).apply()
+                        }
+                    }
+                )
+
+                HorizontalDivider(
+                    modifier = Modifier.padding(start = 54.dp, end = 6.dp),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+                )
+
+                // Persistent Reminder Interval Stepper
+                SettingsStepperRow(
+                    icon = Icons.Filled.NotificationsActive,
+                    title = "Persistent Reminder Interval",
+                    subtitle = "Alert interval for pending tasks",
+                    valueText = if (persistentReminderInterval >= 60) {
+                        val h = persistentReminderInterval / 60
+                        val m = persistentReminderInterval % 60
+                        if (m > 0) "${h}h ${m}m" else "${h}h"
+                    } else {
+                        "${persistentReminderInterval}m"
+                    },
+                    onDecrement = {
+                        val newInterval = when (persistentReminderInterval) {
+                            360 -> 300 // 6h -> 5h
+                            300 -> 240 // 5h -> 4h
+                            240 -> 180 // 4h -> 3h
+                            180 -> 120 // 3h -> 2h
+                            120 -> 60  // 2h -> 1h
+                            60 -> 30
+                            30 -> 15
+                            15 -> 10
+                            10 -> 5
+                            else -> persistentReminderInterval
+                        }
+                        if (newInterval != persistentReminderInterval) {
+                            persistentReminderInterval = newInterval
+                            prefs.edit().putInt("persistent_reminder_interval", newInterval).apply()
+                        }
+                    },
+                    onIncrement = {
+                        val newInterval = when (persistentReminderInterval) {
+                            5 -> 10
+                            10 -> 15
+                            15 -> 30
+                            30 -> 60
+                            60 -> 120
+                            120 -> 180
+                            180 -> 240
+                            240 -> 300
+                            300 -> 360
+                            else -> persistentReminderInterval
+                        }
+                        if (newInterval != persistentReminderInterval) {
+                            persistentReminderInterval = newInterval
+                            prefs.edit().putInt("persistent_reminder_interval", newInterval).apply()
+                        }
+                    }
+                )
+
+                HorizontalDivider(
+                    modifier = Modifier.padding(start = 54.dp, end = 6.dp),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+                )
+
+                // Routine Notifications Toggle
+                SettingsSwitchRow(
+                    icon = Icons.Filled.Notifications,
+                    title = "Routine Notifications",
+                    subtitle = "Alerts when routines start and end",
+                    checked = routineNotifications,
+                    onCheckedChange = { isEnabled ->
+                        routineNotifications = isEnabled
+                        prefs.edit().putBoolean("routine_notifications", isEnabled).apply()
+                        com.focusbyrj.app.service.FocusBlockerService.updateNotificationState(context)
+                    }
+                )
+
+                HorizontalDivider(
+                    modifier = Modifier.padding(start = 54.dp, end = 6.dp),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+                )
+
+                SettingsStringDropdownRow(
+                    icon = Icons.Filled.NotificationsActive,
+                    title = "Task Notification Style",
+                    subtitle = "Alert style for due tasks",
+                    selectedText = taskNotificationStyle,
+                    isExpanded = showNotificationDropdown,
+                    onExpandChange = { showNotificationDropdown = it },
+                    options = listOf("Notification Only", "Floating Bar", "Both"),
+                    onOptionSelected = { option ->
+                        taskNotificationStyle = option
+                        prefs.edit().putString("task_notification_style", option).apply()
+                        showNotificationDropdown = false
+                    }
+                )
+
+                HorizontalDivider(
+                    modifier = Modifier.padding(start = 54.dp, end = 6.dp),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+                )
+
+                // Default Launch Tab Dropdown Row
+                val currentTabOption = remember(defaultStartTab) {
+                    launchTabOptions.find { it.route == defaultStartTab } ?: launchTabOptions[0]
                 }
+
+                SettingsDropdownRow(
+                    icon = currentTabOption.icon,
+                    title = "Default Launch Tab",
+                    subtitle = "Screen shown when opening app",
+                    selectedText = currentTabOption.title,
+                    isExpanded = showTabDropdown,
+                    onExpandChange = { showTabDropdown = it },
+                    options = launchTabOptions,
+                    selectedOptionRoute = defaultStartTab,
+                    onOptionSelected = { option ->
+                        defaultStartTab = option.route
+                        prefs.edit().putString("default_start_tab", option.route).apply()
+                        context.getSharedPreferences("focus_app_prefs", Context.MODE_PRIVATE)
+                            .edit().putString("default_start_tab", option.route).apply()
+                        showTabDropdown = false
+                    }
+                )
             }
 
             Spacer(modifier = Modifier.height(32.dp))
@@ -924,22 +920,21 @@ fun SettingsScreen(navController: NavController) {
     }
 }
 
-// --- REUSABLE SETTINGS SUB-COMPONENTS ---
+// --- REUSABLE SETTINGS SUB-COMPONENTS (2026 Calm Minimal) ---
 
 @Composable
 private fun SettingsSectionHeader(title: String) {
     Text(
         text = title,
         style = MaterialTheme.typography.labelSmall.copy(
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 1.2.sp
+            fontWeight = FontWeight.SemiBold,
+            letterSpacing = 1.4.sp,
+            fontSize = 11.sp
         ),
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
+        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
+        modifier = Modifier.padding(start = 6.dp, top = 20.dp, bottom = 6.dp)
     )
 }
-
-
 
 @Composable
 private fun SettingsNavigationRow(
@@ -955,7 +950,7 @@ private fun SettingsNavigationRow(
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .clickable { onClick() }
-            .padding(vertical = 4.dp),
+            .padding(horizontal = 6.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
@@ -965,30 +960,34 @@ private fun SettingsNavigationRow(
         ) {
             Box(
                 modifier = Modifier
-                    .size(38.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(iconTint.copy(alpha = 0.14f))
-                    .border(1.dp, iconTint.copy(alpha = 0.25f), RoundedCornerShape(10.dp)),
+                    .size(34.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
                     tint = iconTint,
-                    modifier = Modifier.size(19.dp)
+                    modifier = Modifier.size(17.dp)
                 )
             }
             Spacer(modifier = Modifier.width(14.dp))
             Column {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 14.sp
+                    ),
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = subtitle,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 11.5.sp
+                    ),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                 )
             }
         }
@@ -1007,7 +1006,9 @@ private fun SettingsStepperRow(
     onIncrement: () -> Unit
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 6.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
@@ -1017,30 +1018,34 @@ private fun SettingsStepperRow(
         ) {
             Box(
                 modifier = Modifier
-                    .size(38.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f))
-                    .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f), RoundedCornerShape(10.dp)),
+                    .size(34.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(19.dp)
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+                    modifier = Modifier.size(17.dp)
                 )
             }
             Spacer(modifier = Modifier.width(14.dp))
             Column {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 14.sp
+                    ),
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = subtitle,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 11.5.sp
+                    ),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                 )
             }
         }
@@ -1049,43 +1054,39 @@ private fun SettingsStepperRow(
 
         Row(
             modifier = Modifier
-                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(10.dp))
-                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(10.dp))
-                .padding(2.dp),
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
+                .padding(horizontal = 3.dp, vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(
                 onClick = onDecrement,
-                modifier = Modifier
-                    .size(28.dp)
-                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(8.dp))
+                modifier = Modifier.size(26.dp)
             ) {
                 Icon(
                     imageVector = Icons.Filled.Remove,
                     contentDescription = "Decrease",
-                    tint = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.size(14.dp)
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                    modifier = Modifier.size(13.dp)
                 )
             }
 
             Text(
                 text = valueText,
-                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 12.sp),
                 color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(horizontal = 10.dp)
+                modifier = Modifier.padding(horizontal = 6.dp)
             )
 
             IconButton(
                 onClick = onIncrement,
-                modifier = Modifier
-                    .size(28.dp)
-                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(8.dp))
+                modifier = Modifier.size(26.dp)
             ) {
                 Icon(
                     imageVector = Icons.Filled.Add,
                     contentDescription = "Increase",
-                    tint = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.size(14.dp)
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                    modifier = Modifier.size(13.dp)
                 )
             }
         }
@@ -1101,7 +1102,9 @@ private fun SettingsSwitchRow(
     onCheckedChange: (Boolean) -> Unit
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 6.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
@@ -1111,30 +1114,34 @@ private fun SettingsSwitchRow(
         ) {
             Box(
                 modifier = Modifier
-                    .size(38.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f))
-                    .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f), RoundedCornerShape(10.dp)),
+                    .size(34.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(19.dp)
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+                    modifier = Modifier.size(17.dp)
                 )
             }
             Spacer(modifier = Modifier.width(14.dp))
             Column {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 14.sp
+                    ),
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = subtitle,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 11.5.sp
+                    ),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                 )
             }
         }
@@ -1147,8 +1154,8 @@ private fun SettingsSwitchRow(
             colors = SwitchDefaults.colors(
                 checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
                 checkedTrackColor = MaterialTheme.colorScheme.primary,
-                uncheckedThumbColor = MaterialTheme.colorScheme.outline,
-                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                uncheckedThumbColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f),
+                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
             )
         )
     }
@@ -1169,7 +1176,7 @@ private fun SettingsDropdownRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
+            .padding(horizontal = 6.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
@@ -1179,30 +1186,34 @@ private fun SettingsDropdownRow(
         ) {
             Box(
                 modifier = Modifier
-                    .size(38.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f))
-                    .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f), RoundedCornerShape(10.dp)),
+                    .size(34.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(19.dp)
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+                    modifier = Modifier.size(17.dp)
                 )
             }
             Spacer(modifier = Modifier.width(14.dp))
             Column {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 14.sp
+                    ),
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = subtitle,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontSize = 11.5.sp
+                    ),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                 )
             }
         }
@@ -1212,24 +1223,23 @@ private fun SettingsDropdownRow(
         Box {
             Row(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
                     .clickable { onExpandChange(!isExpanded) }
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                    .padding(horizontal = 10.dp, vertical = 5.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Text(
                     text = selectedText,
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                    color = MaterialTheme.colorScheme.primary
+                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium, fontSize = 12.sp),
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Icon(
                     imageVector = if (isExpanded) Icons.Filled.ArrowDropUp else Icons.Filled.ArrowDropDown,
                     contentDescription = "Select default tab",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp)
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    modifier = Modifier.size(16.dp)
                 )
             }
 
@@ -1238,7 +1248,7 @@ private fun SettingsDropdownRow(
                 onDismissRequest = { onExpandChange(false) },
                 modifier = Modifier
                     .background(MaterialTheme.colorScheme.surface)
-                    .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+                    .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f), RoundedCornerShape(14.dp))
             ) {
                 options.forEach { option ->
                     val isSelected = option.route == selectedOptionRoute
@@ -1255,7 +1265,7 @@ private fun SettingsDropdownRow(
                                 Text(
                                     text = option.description,
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f)
                                 )
                             }
                         },
@@ -1263,8 +1273,8 @@ private fun SettingsDropdownRow(
                             Icon(
                                 imageVector = option.icon,
                                 contentDescription = null,
-                                tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(20.dp)
+                                tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                modifier = Modifier.size(18.dp)
                             )
                         },
                         trailingIcon = if (isSelected) {
@@ -1273,7 +1283,7 @@ private fun SettingsDropdownRow(
                                     imageVector = Icons.Filled.Check,
                                     contentDescription = "Selected",
                                     tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(18.dp)
+                                    modifier = Modifier.size(16.dp)
                                 )
                             }
                         } else null,
@@ -1299,7 +1309,7 @@ private fun SettingsStringDropdownRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
+            .padding(horizontal = 6.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
@@ -1309,30 +1319,34 @@ private fun SettingsStringDropdownRow(
         ) {
             Box(
                 modifier = Modifier
-                    .size(38.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f))
-                    .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f), RoundedCornerShape(10.dp)),
+                    .size(34.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(19.dp)
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+                    modifier = Modifier.size(17.dp)
                 )
             }
             Spacer(modifier = Modifier.width(14.dp))
             Column {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 14.sp
+                    ),
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = subtitle,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontSize = 11.5.sp
+                    ),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                 )
             }
         }
@@ -1342,24 +1356,23 @@ private fun SettingsStringDropdownRow(
         Box {
             Row(
                 modifier = Modifier
-                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(10.dp))
-                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(10.dp))
-                    .clip(RoundedCornerShape(10.dp))
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
                     .clickable { onExpandChange(true) }
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(horizontal = 10.dp, vertical = 5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Text(
                     text = selectedText,
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium, fontSize = 12.sp),
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                Spacer(modifier = Modifier.width(4.dp))
                 Icon(
                     imageVector = if (isExpanded) Icons.Filled.ArrowDropUp else Icons.Filled.ArrowDropDown,
                     contentDescription = "Select option",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(20.dp)
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    modifier = Modifier.size(16.dp)
                 )
             }
 
@@ -1368,7 +1381,7 @@ private fun SettingsStringDropdownRow(
                 onDismissRequest = { onExpandChange(false) },
                 modifier = Modifier
                     .background(MaterialTheme.colorScheme.surface)
-                    .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+                    .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f), RoundedCornerShape(14.dp))
             ) {
                 options.forEach { option ->
                     val isSelected = option == selectedText
@@ -1388,7 +1401,7 @@ private fun SettingsStringDropdownRow(
                                     imageVector = Icons.Filled.Check,
                                     contentDescription = "Selected",
                                     tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(18.dp)
+                                    modifier = Modifier.size(16.dp)
                                 )
                             }
                         } else null,

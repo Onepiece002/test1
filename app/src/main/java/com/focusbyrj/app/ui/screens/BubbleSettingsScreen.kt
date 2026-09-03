@@ -133,13 +133,11 @@ fun BubbleSettingsScreen(navController: NavController) {
                 
                 // --- GENERAL / APPEARANCE ---
                 SettingsSectionHeader(title = "GENERAL & APPEARANCE")
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(22.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp)
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
                         SettingsSwitchRow(
                             icon = Icons.Filled.Chat,
                             title = "Enable Chat Bubble",
@@ -158,8 +156,8 @@ fun BubbleSettingsScreen(navController: NavController) {
                             }
                         )
                         HorizontalDivider(
-                            modifier = Modifier.padding(vertical = 12.dp),
-                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
+                            modifier = Modifier.padding(start = 54.dp, end = 6.dp)
                         )
                         SettingsStepperRow(
                             icon = Icons.Filled.VisibilityOff,
@@ -194,8 +192,8 @@ fun BubbleSettingsScreen(navController: NavController) {
                             }
                         )
                         HorizontalDivider(
-                            modifier = Modifier.padding(vertical = 12.dp),
-                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
+                            modifier = Modifier.padding(start = 54.dp, end = 6.dp)
                         )
                         SettingsSwitchRow(
                             icon = Icons.Filled.AutoFixHigh,
@@ -208,8 +206,8 @@ fun BubbleSettingsScreen(navController: NavController) {
                             }
                         )
                         HorizontalDivider(
-                            modifier = Modifier.padding(vertical = 12.dp),
-                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
+                            modifier = Modifier.padding(start = 54.dp, end = 6.dp)
                         )
                         SettingsSwitchRow(
                             icon = Icons.Filled.ScreenRotation,
@@ -222,7 +220,6 @@ fun BubbleSettingsScreen(navController: NavController) {
                             }
                         )
                     }
-                }
 
                 Spacer(modifier = Modifier.height(20.dp))
 
@@ -243,91 +240,81 @@ fun BubbleSettingsScreen(navController: NavController) {
                     label = "chevron_rot"
                 )
 
-                Card(
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(22.dp))
-                        .clickable { isDockingSettingsExpanded = !isDockingSettingsExpanded },
-                    shape = RoundedCornerShape(22.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface
-                    ),
-                    border = androidx.compose.foundation.BorderStroke(
-                        width = if (isDockingSettingsExpanded) 1.5.dp else 1.dp,
-                        color = if (isDockingSettingsExpanded) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
-                    )
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable { isDockingSettingsExpanded = !isDockingSettingsExpanded }
+                        .padding(horizontal = 8.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        modifier = Modifier.weight(1f)
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.weight(1f)
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(42.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.Tune,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(22.dp)
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(14.dp))
-                            Column {
-                                Text(
-                                    text = "Hidden Bubble Docking & Glow",
-                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(8.dp)
-                                            .clip(CircleShape)
-                                            .background(currentParsedColor)
-                                    )
-                                    Text(
-                                        text = "${currentColor.name} • $hiddenAmount% Tuck • $hiddenOpacity% Opacity",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
+                            Icon(
+                                imageVector = Icons.Filled.Tune,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
+                                modifier = Modifier.size(18.dp)
+                            )
                         }
-
-                        Surface(
-                            shape = CircleShape,
-                            color = if (isDockingSettingsExpanded) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant,
-                            modifier = Modifier.size(34.dp)
-                        ) {
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier.fillMaxSize()
+                        Spacer(modifier = Modifier.width(14.dp))
+                        Column {
+                            Text(
+                                text = "Hidden Bubble Docking & Glow",
+                                style = MaterialTheme.typography.bodyLarge.copy(
+                                    fontWeight = FontWeight.Medium,
+                                    fontSize = 14.sp
+                                ),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
-                                Icon(
-                                    imageVector = Icons.Filled.KeyboardArrowDown,
-                                    contentDescription = if (isDockingSettingsExpanded) "Collapse" else "Expand",
-                                    tint = if (isDockingSettingsExpanded) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                Box(
                                     modifier = Modifier
-                                        .size(20.dp)
-                                        .rotate(chevronRotation)
+                                        .size(7.dp)
+                                        .clip(CircleShape)
+                                        .background(currentParsedColor)
+                                )
+                                Text(
+                                    text = "${currentColor.name} • $hiddenAmount% Tuck • $hiddenOpacity% Opacity",
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        fontSize = 11.5.sp,
+                                        lineHeight = 15.sp
+                                    ),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
                                 )
                             }
                         }
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .size(30.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.KeyboardArrowDown,
+                            contentDescription = if (isDockingSettingsExpanded) "Collapse" else "Expand",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            modifier = Modifier
+                                .size(18.dp)
+                                .rotate(chevronRotation)
+                        )
                     }
                 }
 
@@ -349,82 +336,79 @@ fun BubbleSettingsScreen(navController: NavController) {
 
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(22.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 4.dp)
                         ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                AccentColorDropdownRow(
-                                    selectedHex = accentColorHex,
-                                    onColorSelected = { newHex ->
-                                        accentColorHex = newHex
-                                        prefs.edit().putString("bubble_accent_color", newHex).apply()
-                                        notifyService()
-                                    }
-                                )
+                            AccentColorDropdownRow(
+                                selectedHex = accentColorHex,
+                                onColorSelected = { newHex ->
+                                    accentColorHex = newHex
+                                    prefs.edit().putString("bubble_accent_color", newHex).apply()
+                                    notifyService()
+                                }
+                            )
 
-                                HorizontalDivider(
-                                    modifier = Modifier.padding(vertical = 14.dp),
-                                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
-                                )
+                            HorizontalDivider(
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
+                                modifier = Modifier.padding(start = 54.dp, end = 6.dp)
+                            )
 
-                                // Hidden Opacity Slider Row
-                                SettingsSliderRow(
-                                    icon = Icons.Filled.Opacity,
-                                    title = "Hidden Opacity",
-                                    subtitle = "Transparency of the bubble when docked",
-                                    value = hiddenOpacity,
-                                    valueRange = 20..100,
-                                    unit = "%",
-                                    onValueChange = { newVal ->
-                                        hiddenOpacity = newVal
-                                        prefs.edit().putInt("bubble_hidden_opacity", newVal).apply()
-                                        notifyService()
-                                    }
-                                )
+                            // Hidden Opacity Slider Row
+                            SettingsSliderRow(
+                                icon = Icons.Filled.Opacity,
+                                title = "Hidden Opacity",
+                                subtitle = "Transparency of the bubble when docked",
+                                value = hiddenOpacity,
+                                valueRange = 20..100,
+                                unit = "%",
+                                onValueChange = { newVal ->
+                                    hiddenOpacity = newVal
+                                    prefs.edit().putInt("bubble_hidden_opacity", newVal).apply()
+                                    notifyService()
+                                }
+                            )
 
-                                HorizontalDivider(
-                                    modifier = Modifier.padding(vertical = 14.dp),
-                                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
-                                )
+                            HorizontalDivider(
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
+                                modifier = Modifier.padding(start = 54.dp, end = 6.dp)
+                            )
 
-                                // Amount Hidden (Tuck Depth) Slider Row
-                                SettingsSliderRow(
-                                    icon = Icons.Filled.KeyboardDoubleArrowRight,
-                                    title = "Amount Hidden (Tuck Depth)",
-                                    subtitle = "Percentage of the bubble tucked into the bezel",
-                                    value = hiddenAmount,
-                                    valueRange = 25..85,
-                                    unit = "%",
-                                    onValueChange = { newVal ->
-                                        hiddenAmount = newVal
-                                        prefs.edit().putInt("bubble_hidden_amount", newVal).apply()
-                                        notifyService()
-                                    }
-                                )
+                            // Amount Hidden (Tuck Depth) Slider Row
+                            SettingsSliderRow(
+                                icon = Icons.Filled.KeyboardDoubleArrowRight,
+                                title = "Amount Hidden (Tuck Depth)",
+                                subtitle = "Percentage of the bubble tucked into the bezel",
+                                value = hiddenAmount,
+                                valueRange = 25..85,
+                                unit = "%",
+                                onValueChange = { newVal ->
+                                    hiddenAmount = newVal
+                                    prefs.edit().putInt("bubble_hidden_amount", newVal).apply()
+                                    notifyService()
+                                }
+                            )
 
-                                HorizontalDivider(
-                                    modifier = Modifier.padding(vertical = 14.dp),
-                                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
-                                )
+                            HorizontalDivider(
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
+                                modifier = Modifier.padding(start = 54.dp, end = 6.dp)
+                            )
 
-                                // Glow Ring Intensity Slider Row
-                                SettingsSliderRow(
-                                    icon = Icons.Filled.Highlight,
-                                    title = "Glow Ring Intensity",
-                                    subtitle = "Brightness & stroke visibility of accent border",
-                                    value = glowIntensity,
-                                    valueRange = 0..100,
-                                    unit = "%",
-                                    onValueChange = { newVal ->
-                                        glowIntensity = newVal
-                                        prefs.edit().putInt("bubble_glow_intensity", newVal).apply()
-                                        notifyService()
-                                    }
-                                )
-                            }
+                            // Glow Ring Intensity Slider Row
+                            SettingsSliderRow(
+                                icon = Icons.Filled.Highlight,
+                                title = "Glow Ring Intensity",
+                                subtitle = "Brightness & stroke visibility of accent border",
+                                value = glowIntensity,
+                                valueRange = 0..100,
+                                unit = "%",
+                                onValueChange = { newVal ->
+                                    glowIntensity = newVal
+                                    prefs.edit().putInt("bubble_glow_intensity", newVal).apply()
+                                    notifyService()
+                                }
+                            )
                         }
                     }
                 }
@@ -433,123 +417,119 @@ fun BubbleSettingsScreen(navController: NavController) {
 
                 // --- DAILY SUMMARIES & PRACTICE ---
                 SettingsSectionHeader(title = "DAILY SUMMARIES & PRACTICE")
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(22.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp)
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        SettingsTimePickerRow(
-                            icon = Icons.Filled.WbSunny,
-                            title = "Morning Briefing",
-                            subtitle = "When to send daily task summary",
-                            timeText = morningBriefTime,
-                            onClick = {
-                                showTimePicker(context, morningBriefTime) { newTime ->
-                                    morningBriefTime = newTime
-                                    prefs.edit().putString("morning_brief_time", newTime).apply()
-                                    com.focusbyrj.app.service.DailySummaryReceiver.scheduleDailySummaries(context)
-                                }
+                    SettingsTimePickerRow(
+                        icon = Icons.Filled.WbSunny,
+                        title = "Morning Briefing",
+                        subtitle = "When to send daily task summary",
+                        timeText = morningBriefTime,
+                        onClick = {
+                            showTimePicker(context, morningBriefTime) { newTime ->
+                                morningBriefTime = newTime
+                                prefs.edit().putString("morning_brief_time", newTime).apply()
+                                com.focusbyrj.app.service.DailySummaryReceiver.scheduleDailySummaries(context)
                             }
-                        )
-                        HorizontalDivider(
-                            modifier = Modifier.padding(vertical = 12.dp),
-                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
-                        )
-                        SettingsTimePickerRow(
-                            icon = Icons.Filled.NightsStay,
-                            title = "Evening Wrap-up",
-                            subtitle = "When to send daily reflection",
-                            timeText = eveningBriefTime,
-                            onClick = {
-                                showTimePicker(context, eveningBriefTime) { newTime ->
-                                    eveningBriefTime = newTime
-                                    prefs.edit().putString("evening_brief_time", newTime).apply()
-                                    com.focusbyrj.app.service.DailySummaryReceiver.scheduleDailySummaries(context)
-                                }
+                        }
+                    )
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
+                        modifier = Modifier.padding(start = 54.dp, end = 6.dp)
+                    )
+                    SettingsTimePickerRow(
+                        icon = Icons.Filled.NightsStay,
+                        title = "Evening Wrap-up",
+                        subtitle = "When to send daily reflection",
+                        timeText = eveningBriefTime,
+                        onClick = {
+                            showTimePicker(context, eveningBriefTime) { newTime ->
+                                eveningBriefTime = newTime
+                                prefs.edit().putString("evening_brief_time", newTime).apply()
+                                com.focusbyrj.app.service.DailySummaryReceiver.scheduleDailySummaries(context)
                             }
-                        )
-                        HorizontalDivider(
-                            modifier = Modifier.padding(vertical = 12.dp),
-                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
-                        )
-                        SettingsSwitchRow(
-                            icon = Icons.Filled.BeachAccess,
-                            title = "Vacation Mode",
-                            subtitle = "Freezes daily test streak & turns off practice alerts during trips",
-                            checked = vacationMode,
-                            onCheckedChange = { enabled ->
-                                vacationMode = enabled
-                                com.focusbyrj.app.util.AptitudeManager.setVacationMode(context, enabled)
-                            }
-                        )
-                        AnimatedVisibility(visible = vacationMode) {
-                            Surface(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 8.dp, bottom = 4.dp),
-                                shape = RoundedCornerShape(12.dp),
-                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
+                        }
+                    )
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
+                        modifier = Modifier.padding(start = 54.dp, end = 6.dp)
+                    )
+                    SettingsSwitchRow(
+                        icon = Icons.Filled.BeachAccess,
+                        title = "Vacation Mode",
+                        subtitle = "Freezes daily test streak & turns off practice alerts during trips",
+                        checked = vacationMode,
+                        onCheckedChange = { enabled ->
+                            vacationMode = enabled
+                            com.focusbyrj.app.util.AptitudeManager.setVacationMode(context, enabled)
+                        }
+                    )
+                    AnimatedVisibility(visible = vacationMode) {
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 54.dp, end = 6.dp, top = 4.dp, bottom = 4.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.06f)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(10.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Row(
-                                    modifier = Modifier.padding(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        Icons.Filled.AcUnit,
-                                        contentDescription = "Frozen",
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = "Vacation Mode Active: Daily test streak is safely frozen and practice alerts are silenced.",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                }
+                                Icon(
+                                    Icons.Filled.AcUnit,
+                                    contentDescription = "Frozen",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Vacation Mode Active: Streak frozen and practice alerts silenced.",
+                                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp),
+                                    color = MaterialTheme.colorScheme.primary
+                                )
                             }
                         }
+                    }
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
+                        modifier = Modifier.padding(start = 54.dp, end = 6.dp)
+                    )
+                    SettingsSwitchRow(
+                        icon = Icons.Filled.Psychology,
+                        title = "Streak & Practice Alerts",
+                        subtitle = "Daily alerts to practice drills & build your streak",
+                        checked = streakNotificationEnabled,
+                        onCheckedChange = { enabled ->
+                            streakNotificationEnabled = enabled
+                            prefs.edit()
+                                .putBoolean("streak_notification_enabled", enabled)
+                                .putBoolean("random_drills_notification_enabled", enabled)
+                                .apply()
+                            if (enabled) {
+                                com.focusbyrj.app.service.AptitudeReminderReceiver.scheduleDrillReminders(context)
+                            } else {
+                                com.focusbyrj.app.service.AptitudeReminderReceiver.cancelAllReminders(context)
+                            }
+                        }
+                    )
+                    if (streakNotificationEnabled) {
                         HorizontalDivider(
-                            modifier = Modifier.padding(vertical = 12.dp),
-                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
+                            modifier = Modifier.padding(start = 54.dp, end = 6.dp)
                         )
-                        SettingsSwitchRow(
-                            icon = Icons.Filled.Psychology,
-                            title = "Streak & Practice Alerts",
-                            subtitle = "Daily alerts to practice drills & build your streak",
-                            checked = streakNotificationEnabled,
-                            onCheckedChange = { enabled ->
-                                streakNotificationEnabled = enabled
-                                prefs.edit()
-                                    .putBoolean("streak_notification_enabled", enabled)
-                                    .putBoolean("random_drills_notification_enabled", enabled)
-                                    .apply()
-                                if (enabled) {
-                                    com.focusbyrj.app.service.AptitudeReminderReceiver.scheduleDrillReminders(context)
-                                } else {
-                                    com.focusbyrj.app.service.AptitudeReminderReceiver.cancelAllReminders(context)
-                                }
+                        val isRandom = streakNotificationTime.isBlank() || streakNotificationTime.equals("Random", ignoreCase = true)
+                        SettingsTimePickerRow(
+                            icon = Icons.Filled.AccessTime,
+                            title = "Practice Alert Time",
+                            subtitle = if (isRandom) "Randomized 2x daily (9:00 AM – 8:00 PM)" else "Daily at exact time",
+                            timeText = if (isRandom) "Random (9am-8pm)" else streakNotificationTime,
+                            onClick = {
+                                showStreakTimeDialog = true
                             }
                         )
-                        if (streakNotificationEnabled) {
-                            HorizontalDivider(
-                                modifier = Modifier.padding(vertical = 12.dp),
-                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
-                            )
-                            val isRandom = streakNotificationTime.isBlank() || streakNotificationTime.equals("Random", ignoreCase = true)
-                            SettingsTimePickerRow(
-                                icon = Icons.Filled.AccessTime,
-                                title = "Practice Alert Time",
-                                subtitle = if (isRandom) "Randomized 2x daily (9:00 AM – 8:00 PM)" else "Daily at exact time",
-                                timeText = if (isRandom) "Random (9am-8pm)" else streakNotificationTime,
-                                onClick = {
-                                    showStreakTimeDialog = true
-                                }
-                            )
-                        }
                     }
                 }
 
@@ -764,7 +744,11 @@ private fun SettingsSliderRow(
     unit: String,
     onValueChange: (Int) -> Unit
 ) {
-    Column(modifier = Modifier.fillMaxWidth()) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 6.dp, vertical = 8.dp)
+    ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
@@ -776,29 +760,34 @@ private fun SettingsSliderRow(
             ) {
                 Box(
                     modifier = Modifier
-                        .size(36.dp)
+                        .size(34.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = icon,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(18.dp)
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+                        modifier = Modifier.size(17.dp)
                     )
                 }
                 Spacer(modifier = Modifier.width(14.dp))
                 Column {
                     Text(
                         text = title,
-                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 14.sp
+                        ),
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = subtitle,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontSize = 11.5.sp
+                        ),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                     )
                 }
             }
@@ -806,20 +795,19 @@ private fun SettingsSliderRow(
             Spacer(modifier = Modifier.width(12.dp))
 
             Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)
             ) {
                 Text(
                     text = "$value$unit",
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 12.sp),
+                    color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
         ProfessionalSlider(
             value = value.toFloat(),
@@ -867,11 +855,12 @@ private fun SettingsSectionHeader(title: String) {
     Text(
         text = title,
         style = MaterialTheme.typography.labelSmall.copy(
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 1.2.sp
+            fontWeight = FontWeight.SemiBold,
+            letterSpacing = 1.4.sp,
+            fontSize = 11.sp
         ),
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
+        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
+        modifier = Modifier.padding(start = 6.dp, top = 20.dp, bottom = 6.dp)
     )
 }
 
@@ -884,7 +873,9 @@ private fun SettingsSwitchRow(
     onCheckedChange: (Boolean) -> Unit
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 6.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
@@ -894,30 +885,34 @@ private fun SettingsSwitchRow(
         ) {
             Box(
                 modifier = Modifier
-                    .size(38.dp)
-                    .clip(RoundedCornerShape(11.dp))
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
-                    .border(0.8.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f), RoundedCornerShape(11.dp)),
+                    .size(34.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(18.dp)
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+                    modifier = Modifier.size(17.dp)
                 )
             }
             Spacer(modifier = Modifier.width(14.dp))
             Column {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 14.sp
+                    ),
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = subtitle,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 11.5.sp
+                    ),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                 )
             }
         }
@@ -930,8 +925,8 @@ private fun SettingsSwitchRow(
             colors = SwitchDefaults.colors(
                 checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
                 checkedTrackColor = MaterialTheme.colorScheme.primary,
-                uncheckedThumbColor = MaterialTheme.colorScheme.outline,
-                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                uncheckedThumbColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f),
+                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
             )
         )
     }
@@ -948,7 +943,7 @@ private fun SettingsTimePickerRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
+            .padding(horizontal = 6.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
@@ -958,30 +953,34 @@ private fun SettingsTimePickerRow(
         ) {
             Box(
                 modifier = Modifier
-                    .size(38.dp)
-                    .clip(RoundedCornerShape(11.dp))
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
-                    .border(0.8.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f), RoundedCornerShape(11.dp)),
+                    .size(34.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(18.dp)
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+                    modifier = Modifier.size(17.dp)
                 )
             }
             Spacer(modifier = Modifier.width(14.dp))
             Column {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 14.sp
+                    ),
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = subtitle,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 11.5.sp
+                    ),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                 )
             }
         }
@@ -990,15 +989,14 @@ private fun SettingsTimePickerRow(
 
         Box(
             modifier = Modifier
-                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
-                .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
-                .clip(RoundedCornerShape(12.dp))
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
                 .clickable { onClick() }
-                .padding(horizontal = 12.dp, vertical = 8.dp)
+                .padding(horizontal = 12.dp, vertical = 6.dp)
         ) {
             Text(
                 text = timeText,
-                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 12.sp),
                 color = MaterialTheme.colorScheme.onSurface
             )
         }
@@ -1015,7 +1013,9 @@ private fun SettingsStepperRow(
     onIncrement: () -> Unit
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 6.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
@@ -1025,30 +1025,34 @@ private fun SettingsStepperRow(
         ) {
             Box(
                 modifier = Modifier
-                    .size(38.dp)
-                    .clip(RoundedCornerShape(11.dp))
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
-                    .border(0.8.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f), RoundedCornerShape(11.dp)),
+                    .size(34.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(18.dp)
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+                    modifier = Modifier.size(17.dp)
                 )
             }
             Spacer(modifier = Modifier.width(14.dp))
             Column {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 14.sp
+                    ),
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = subtitle,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 11.5.sp
+                    ),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                 )
             }
         }
@@ -1057,43 +1061,39 @@ private fun SettingsStepperRow(
 
         Row(
             modifier = Modifier
-                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
-                .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
-                .padding(2.dp),
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
+                .padding(horizontal = 3.dp, vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(
                 onClick = onDecrement,
-                modifier = Modifier
-                    .size(28.dp)
-                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(8.dp))
+                modifier = Modifier.size(26.dp)
             ) {
                 Icon(
                     imageVector = Icons.Filled.Remove,
                     contentDescription = "Decrease",
-                    tint = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.size(14.dp)
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                    modifier = Modifier.size(13.dp)
                 )
             }
 
             Text(
                 text = valueText,
-                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 12.sp),
                 color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(horizontal = 10.dp)
+                modifier = Modifier.padding(horizontal = 6.dp)
             )
 
             IconButton(
                 onClick = onIncrement,
-                modifier = Modifier
-                    .size(28.dp)
-                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(8.dp))
+                modifier = Modifier.size(26.dp)
             ) {
                 Icon(
                     imageVector = Icons.Filled.Add,
                     contentDescription = "Increase",
-                    tint = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.size(14.dp)
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                    modifier = Modifier.size(13.dp)
                 )
             }
         }
@@ -1119,7 +1119,9 @@ private fun AccentColorDropdownRow(
     }
 
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 6.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
@@ -1129,65 +1131,65 @@ private fun AccentColorDropdownRow(
         ) {
             Box(
                 modifier = Modifier
-                    .size(36.dp)
+                    .size(34.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Filled.Palette,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(18.dp)
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+                    modifier = Modifier.size(17.dp)
                 )
             }
             Spacer(modifier = Modifier.width(14.dp))
             Column {
                 Text(
                     text = "Edge Accent Glow Color",
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 14.sp
+                    ),
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = "Color of the edge rim when docked",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 11.5.sp
+                    ),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                 )
             }
         }
 
         Box {
-            Surface(
-                onClick = { expanded = true },
-                shape = RoundedCornerShape(12.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)),
-                modifier = Modifier.padding(start = 8.dp)
+            Row(
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
+                    .clickable { expanded = true }
+                    .padding(horizontal = 10.dp, vertical = 5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(16.dp)
-                            .clip(CircleShape)
-                            .background(currentParsedColor)
-                            .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f), CircleShape)
-                    )
-                    Text(
-                        text = currentColor.name,
-                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Icon(
-                        imageVector = Icons.Filled.ArrowDropDown,
-                        contentDescription = "Select Color",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
+                Box(
+                    modifier = Modifier
+                        .size(12.dp)
+                        .clip(CircleShape)
+                        .background(currentParsedColor)
+                )
+                Text(
+                    text = currentColor.name,
+                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium, fontSize = 12.sp),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Icon(
+                    imageVector = Icons.Filled.ArrowDropDown,
+                    contentDescription = "Select Color",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    modifier = Modifier.size(16.dp)
+                )
             }
 
             DropdownMenu(
@@ -1195,6 +1197,7 @@ private fun AccentColorDropdownRow(
                 onDismissRequest = { expanded = false },
                 modifier = Modifier
                     .background(MaterialTheme.colorScheme.surface)
+                    .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f), RoundedCornerShape(14.dp))
                     .widthIn(min = 190.dp)
             ) {
                 BUBBLE_ACCENT_COLORS.forEach { colorItem ->
@@ -1213,15 +1216,15 @@ private fun AccentColorDropdownRow(
                             ) {
                                 Box(
                                     modifier = Modifier
-                                        .size(18.dp)
+                                        .size(14.dp)
                                         .clip(CircleShape)
                                         .background(parsedColor)
-                                        .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f), CircleShape)
                                 )
                                 Text(
                                     text = colorItem.name,
                                     style = MaterialTheme.typography.bodyMedium.copy(
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                        fontSize = 13.5.sp
                                     ),
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
@@ -1233,7 +1236,7 @@ private fun AccentColorDropdownRow(
                                     imageVector = Icons.Filled.Check,
                                     contentDescription = "Selected",
                                     tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(18.dp)
+                                    modifier = Modifier.size(16.dp)
                                 )
                             }
                         },

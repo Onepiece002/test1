@@ -187,12 +187,24 @@ fun FocusBottomBar(
                             verticalArrangement = Arrangement.Center,
                             modifier = Modifier.scale(scale)
                         ) {
-                            Icon(
-                                imageVector = screen.icon,
-                                contentDescription = screen.title,
-                                tint = iconTint,
-                                modifier = Modifier.size(20.dp)
-                            )
+                            if (screen.route == "empty") {
+                                Box(
+                                    modifier = Modifier
+                                        .size(16.dp)
+                                        .border(
+                                            width = 1.5.dp,
+                                            color = iconTint.copy(alpha = if (selected) 0.85f else 0.40f),
+                                            shape = RoundedCornerShape(5.dp)
+                                        )
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = screen.icon,
+                                    contentDescription = screen.title,
+                                    tint = iconTint,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                             if (selected) {
                                 Box(
                                     modifier = Modifier

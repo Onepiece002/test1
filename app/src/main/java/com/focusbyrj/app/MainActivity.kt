@@ -44,6 +44,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.CheckCircle
@@ -224,7 +225,7 @@ fun MainAppScreen(
     val items = listOf(
         Screen.Dashboard,
         Screen.Todos,
-        Screen.Schedules,
+        Screen.Empty,
         Screen.Time,
         Screen.Account
     )
@@ -428,154 +429,166 @@ fun MainAppScreen(
 
                     Spacer(modifier = Modifier.height(20.dp))
 
-                    // Section: PREFERENCES
+                    // Section: PREFERENCES (2026 Calm Minimal)
                     Text(
                         text = "PREFERENCES",
                         style = MaterialTheme.typography.labelSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.3.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            letterSpacing = 1.4.sp,
                             fontSize = 11.sp
                         ),
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(start = 6.dp, bottom = 8.dp)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
+                        modifier = Modifier.padding(start = 10.dp, bottom = 4.dp)
                     )
 
-                    // Preferences Card Container
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(20.dp),
-                        color = MaterialTheme.colorScheme.surface,
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+                    // Preferences List (Borderless, calm flow)
+                    Column(
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Column {
-                            // Security & Permissions
-                            DrawerMenuItem(
-                                icon = Icons.Filled.Security,
-                                title = "Security & Permissions",
-                                subtitle = "Device shield & lock access",
-                                trailingBadge = {
-                                    if (allConfigured) {
-                                        Surface(
-                                            shape = RoundedCornerShape(8.dp),
-                                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-                                        ) {
-                                            Row(
-                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(3.dp)
-                                            ) {
-                                                Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(11.dp))
-                                                Text("Active", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary)
-                                            }
-                                        }
-                                    } else {
-                                        Surface(
-                                            shape = RoundedCornerShape(8.dp),
-                                            color = MaterialTheme.colorScheme.error.copy(alpha = 0.12f)
-                                        ) {
-                                            Row(
-                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(3.dp)
-                                            ) {
-                                                Icon(Icons.Filled.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(11.dp))
-                                                Text("Setup", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.error)
-                                            }
-                                        }
-                                    }
-                                },
-                                onClick = {
-                                    scope.launch { drawerState.close() }
-                                    kotlin.runCatching {
-                                        navController.navigate(Screen.Security.route) {
-                                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                            launchSingleTop = true
-                                            restoreState = true
-                                        }
-                                    }
-                                }
-                            )
-
-                            HorizontalDivider(
-                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.08f),
-                                modifier = Modifier.padding(horizontal = 16.dp)
-                            )
-
-                            // App Settings
-                            DrawerMenuItem(
-                                icon = Icons.Filled.Palette,
-                                title = "App Settings",
-                                subtitle = "Theme, sounds & preferences",
-                                onClick = {
-                                    scope.launch { drawerState.close() }
-                                    kotlin.runCatching {
-                                        navController.navigate(Screen.Settings.route) {
-                                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                            launchSingleTop = true
-                                            restoreState = true
-                                        }
-                                    }
-                                }
-                            )
-
-                            HorizontalDivider(
-                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.08f),
-                                modifier = Modifier.padding(horizontal = 16.dp)
-                            )
-
-                            // Bubble Settings
-                            DrawerMenuItem(
-                                icon = Icons.Filled.Chat,
-                                title = "Bubble Settings",
-                                subtitle = "Floating timer & quick dock",
-                                onClick = {
-                                    scope.launch { drawerState.close() }
-                                    kotlin.runCatching {
-                                        navController.navigate(Screen.BubbleSettings.route) {
-                                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                            launchSingleTop = true
-                                            restoreState = true
-                                        }
-                                    }
-                                }
-                            )
-
-                            HorizontalDivider(
-                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.08f),
-                                modifier = Modifier.padding(horizontal = 16.dp)
-                            )
-
-                            // Subscription
-                            DrawerMenuItem(
-                                icon = Icons.Filled.Star,
-                                title = "Subscription",
-                                subtitle = "Unlock Pro & cloud sync",
-                                trailingBadge = {
+                        // Security & Permissions
+                        DrawerMenuItem(
+                            icon = Icons.Filled.Security,
+                            title = "Security & Permissions",
+                            subtitle = "Device shield & lock access",
+                            trailingBadge = {
+                                if (allConfigured) {
                                     Surface(
-                                        shape = RoundedCornerShape(8.dp),
-                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                                        border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f))
+                                        shape = CircleShape,
+                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
                                     ) {
-                                        Text(
-                                            text = "PRO",
-                                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, fontWeight = FontWeight.ExtraBold),
-                                            color = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                        )
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(5.dp)
+                                                    .clip(CircleShape)
+                                                    .background(MaterialTheme.colorScheme.primary)
+                                            )
+                                            Text(
+                                                "Active",
+                                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Medium),
+                                                color = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
                                     }
-                                },
-                                onClick = {
-                                    scope.launch { drawerState.close() }
-                                    kotlin.runCatching {
-                                        navController.navigate(Screen.Subscription.route) {
-                                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                            launchSingleTop = true
-                                            restoreState = true
+                                } else {
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = MaterialTheme.colorScheme.error.copy(alpha = 0.12f)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(5.dp)
+                                                    .clip(CircleShape)
+                                                    .background(MaterialTheme.colorScheme.error)
+                                            )
+                                            Text(
+                                                "Setup",
+                                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Medium),
+                                                color = MaterialTheme.colorScheme.error
+                                            )
                                         }
                                     }
                                 }
-                            )
-                        }
+                            },
+                            onClick = {
+                                scope.launch { drawerState.close() }
+                                kotlin.runCatching {
+                                    navController.navigate(Screen.Security.route) {
+                                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
+                                }
+                            }
+                        )
+
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
+                            modifier = Modifier.padding(start = 54.dp, end = 8.dp)
+                        )
+
+                        // App Settings
+                        DrawerMenuItem(
+                            icon = Icons.Filled.Palette,
+                            title = "App Settings",
+                            subtitle = "Theme, sounds & preferences",
+                            onClick = {
+                                scope.launch { drawerState.close() }
+                                kotlin.runCatching {
+                                    navController.navigate(Screen.Settings.route) {
+                                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
+                                }
+                            }
+                        )
+
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
+                            modifier = Modifier.padding(start = 54.dp, end = 8.dp)
+                        )
+
+                        // Bubble Settings
+                        DrawerMenuItem(
+                            icon = Icons.Filled.Chat,
+                            title = "Bubble Settings",
+                            subtitle = "Floating timer & quick dock",
+                            onClick = {
+                                scope.launch { drawerState.close() }
+                                kotlin.runCatching {
+                                    navController.navigate(Screen.BubbleSettings.route) {
+                                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
+                                }
+                            }
+                        )
+
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
+                            modifier = Modifier.padding(start = 54.dp, end = 8.dp)
+                        )
+
+                        // Subscription
+                        DrawerMenuItem(
+                            icon = Icons.Filled.Star,
+                            title = "Subscription",
+                            subtitle = "Unlock Pro & cloud sync",
+                            trailingBadge = {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                                ) {
+                                    Text(
+                                        text = "PRO",
+                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, fontWeight = FontWeight.Bold),
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
+                                    )
+                                }
+                            },
+                            onClick = {
+                                scope.launch { drawerState.close() }
+                                kotlin.runCatching {
+                                    navController.navigate(Screen.Subscription.route) {
+                                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
+                                }
+                            }
+                        )
                     }
 
                     Spacer(modifier = Modifier.height(18.dp))
@@ -584,20 +597,17 @@ fun MainAppScreen(
                     Text(
                         text = "ASSISTANCE",
                         style = MaterialTheme.typography.labelSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.3.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            letterSpacing = 1.4.sp,
                             fontSize = 11.sp
                         ),
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(start = 6.dp, bottom = 8.dp)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
+                        modifier = Modifier.padding(start = 10.dp, bottom = 4.dp)
                     )
 
-                    // Assistance Card Container
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(20.dp),
-                        color = MaterialTheme.colorScheme.surface,
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+                    // Assistance List (Borderless, calm flow)
+                    Column(
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         // Setup Guide
                         DrawerMenuItem(
@@ -718,22 +728,42 @@ fun MainAppScreen(
                             }
                         },
                         navigationIcon = {
-                            Box(
-                                modifier = Modifier
-                                    .padding(start = 12.dp, end = 4.dp)
-                                    .size(38.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
-                                    .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
-                                    .clickable { scope.launch { drawerState.open() } },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    Icons.Filled.Menu,
-                                    contentDescription = "Menu",
-                                    tint = MaterialTheme.colorScheme.onBackground,
-                                    modifier = Modifier.size(20.dp)
-                                )
+                            if (currentDestination?.route == Screen.Schedules.route) {
+                                Box(
+                                    modifier = Modifier
+                                        .padding(start = 12.dp, end = 4.dp)
+                                        .size(38.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
+                                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
+                                        .clickable { navController.popBackStack() },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        Icons.AutoMirrored.Filled.ArrowBack,
+                                        contentDescription = "Back",
+                                        tint = MaterialTheme.colorScheme.onBackground,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            } else {
+                                Box(
+                                    modifier = Modifier
+                                        .padding(start = 12.dp, end = 4.dp)
+                                        .size(38.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
+                                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
+                                        .clickable { scope.launch { drawerState.open() } },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        Icons.Filled.Menu,
+                                        contentDescription = "Menu",
+                                        tint = MaterialTheme.colorScheme.onBackground,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
                             }
                         },
                         actions = {
@@ -802,6 +832,7 @@ fun MainAppScreen(
             },
             bottomBar = {
                 val hideBottomBarRoutes = listOf(
+                    Screen.Schedules.route,
                     Screen.AddRestriction.route,
                     Screen.Security.route,
                     Screen.Settings.route,
@@ -852,11 +883,13 @@ fun MainAppScreen(
                 ) {
                 composable(Screen.Dashboard.route) {
                     val restrictions by viewModel.combinedRestrictions.collectAsStateWithLifecycle()
+                    val schedules by viewModel.schedules.collectAsStateWithLifecycle()
                     val timeRemaining by viewModel.timeRemaining.collectAsStateWithLifecycle()
                     val initialTime by viewModel.initialTime.collectAsStateWithLifecycle()
 
                     DashboardScreen(
                         restrictions = restrictions,
+                        schedules = schedules,
                         onToggle = { app -> viewModel.toggleRestriction(app) },
                         onDelete = { app -> viewModel.deleteRestriction(app) },
                         onUpdate = { app -> viewModel.updateRestriction(app) },
@@ -864,7 +897,19 @@ fun MainAppScreen(
                         timeRemaining = timeRemaining,
                         initialTime = initialTime,
                         onToggleSession = { viewModel.toggleFocusSession() },
-                        onSetTime = { time -> viewModel.setTimeRemaining(time) }
+                        onSetTime = { time -> viewModel.setTimeRemaining(time) },
+                        onOpenRoutines = {
+                            navController.navigate(Screen.Schedules.route) {
+                                launchSingleTop = true
+                            }
+                        }
+                    )
+                }
+                composable(Screen.Empty.route) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(MaterialTheme.colorScheme.background)
                     )
                 }
                 composable(Screen.Schedules.route) {
@@ -972,8 +1017,9 @@ private fun DrawerMenuItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
             .clickable { onClick() }
-            .padding(horizontal = 16.dp, vertical = 13.dp),
+            .padding(horizontal = 10.dp, vertical = 11.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
@@ -984,29 +1030,28 @@ private fun DrawerMenuItem(
         ) {
             Box(
                 modifier = Modifier
-                    .size(38.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f), RoundedCornerShape(12.dp)),
+                    .size(34.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp)
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+                    modifier = Modifier.size(17.dp)
                 )
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 14.sp),
+                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium, fontSize = 14.sp),
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                     maxLines = 1
                 )
             }
@@ -1014,7 +1059,7 @@ private fun DrawerMenuItem(
         
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             if (trailingBadge != null) {
                 trailingBadge()
@@ -1022,8 +1067,8 @@ private fun DrawerMenuItem(
             Icon(
                 imageVector = Icons.Filled.ChevronRight,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
-                modifier = Modifier.size(18.dp)
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
+                modifier = Modifier.size(16.dp)
             )
         }
     }

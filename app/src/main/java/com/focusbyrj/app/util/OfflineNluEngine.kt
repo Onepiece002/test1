@@ -45,7 +45,7 @@ object OfflineNluEngine {
     private fun matchesAnyFuzzy(tokens: List<String>, targets: List<String>, maxDist: Int = 1): Boolean {
         for (token in tokens) {
             for (target in targets) {
-                if (token.length > 3 && target.length > 3) {
+                if (token.length > 4 && target.length > 4) {
                     if (levenshtein(token, target) <= maxDist) return true
                 } else {
                     if (token == target) return true
