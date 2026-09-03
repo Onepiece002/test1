@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.first
 import com.focusbyrj.app.data.Task
 import com.focusbyrj.app.data.FocusSchedule
+import com.focusbyrj.app.widget.TodoWidgetProvider
 
 /**
  * AyvaTalkEngine: Atomic, context-aware, state-diagnostic, deep-link capable knowledge & action engine.
@@ -24,6 +25,19 @@ object AyvaTalkEngine {
     // In-memory conversation context for pronouns / follow-ups
     @Volatile
     var lastQueriedTopicId: String? = null
+
+    // Sliding window conversational memory (stores last 6 queries & responses for follow-up support)
+    data class ChatHistoryItem(val query: String, val topicId: String?, val timestamp: Long = System.currentTimeMillis())
+    private val conversationHistory = java.util.concurrent.ConcurrentLinkedDeque<ChatHistoryItem>()
+
+    fun recordTurn(query: String, topicId: String?) {
+        conversationHistory.addLast(ChatHistoryItem(query, topicId))
+        while (conversationHistory.size > 6) {
+            conversationHistory.pollFirst()
+        }
+    }
+
+    fun getRecentHistory(): List<ChatHistoryItem> = conversationHistory.toList()
 
     // --- CONVERSATION SESSION STATE (SLOT-FILLING) ---
     data class ConversationSession(
@@ -614,6 +628,7 @@ object AyvaTalkEngine {
                         val actions = listOf(
                             TalkAction.AskQuery("/summary", "📊 Daily Summary"),
                             TalkAction.AskQuery("/tasks all", "⏳ All Tasks"),
+                            TalkAction.AskQuery("/advice", "💡 Focus Advice"),
                             TalkAction.NavigateAppScreen("dashboard", "Open Dashboard", "📋")
                         )
                         val text = if (pending.isEmpty()) {
@@ -629,7 +644,214 @@ object AyvaTalkEngine {
                             }.joinToString("\n") +
                             (if (pending.size > 6) "\n_...and ${pending.size - 6} more._" else "")
                         }
+                        recordTurn(cleanQuery, "tasks")
                         return TalkResponse(text, actions, "tasks", serializeActionsJson("tasks", actions))
+                    }
+
+                    // --- CONTEXT-AWARE FOCUS COACHING & SCREEN TIME ANALYSIS ---
+                    val isAdviceQuery = cleanQuery in listOf(
+                        "advice", "/advice", "focus advice", "how to focus", "help me focus", "coach", "coaching",
+                        "give me advice", "i can't focus", "distracted", "i am distracted", "procrastinating", "tips",
+                        "productivity tip", "focus tip", "focus tips"
+                    ) || cleanQuery.contains("help me focus") || cleanQuery.contains("can't focus")
+                    if (isAdviceQuery) {
+                        lastQueriedTopicId = "advice"
+                        val tasks = app.taskRepository.allTasks.firstOrNull() ?: emptyList()
+                        val pending = tasks.filter { !it.isCompleted }
+                        val now = System.currentTimeMillis()
+                        val overdueCount = pending.count { it.dueDate != null && it.dueDate < now }
+                        
+                        val totalScreenTimeMins = if (UsageStatsHelper.hasUsageStatsPermission(context)) {
+                            val usage = UsageStatsHelper.getTodayUsageStats(context)
+                            (usage.sumOf { it.timeInForegroundMs } / 60000L).toInt()
+                        } else {
+                            0
+                        }
+
+                        val adviceText = AyvaDialogueEngine.getContextualFocusAdvice(
+                            context = context,
+                            totalScreenTimeMins = totalScreenTimeMins,
+                            pendingTasksCount = pending.size,
+                            overdueCount = overdueCount
+                        )
+
+                        val actions = mutableListOf<TalkAction>()
+                        if (overdueCount > 0) {
+                            actions.add(TalkAction.AskQuery("/tasks", "⚡ View Overdue"))
+                        }
+                        actions.add(TalkAction.AskQuery("/breathe", "🫁 Guided Breathing"))
+                        actions.add(TalkAction.AskQuery("/drill", "🧮 Mind Warm-Up"))
+                        actions.add(TalkAction.AskQuery("/screentime", "📱 Screen Time"))
+
+                        recordTurn(cleanQuery, "advice")
+                        return TalkResponse(
+                            formattedText = "💡 **Ayva Focus Coach**\n\n$adviceText",
+                            actions = actions,
+                            topicId = "advice",
+                            jsonPayload = serializeActionsJson("advice", actions)
+                        )
+                    }
+
+                    // --- SCREEN TIME & APP USAGE TELEMETRY QUERY ---
+                    val isScreenTimeQuery = cleanQuery in listOf(
+                        "screentime", "/screentime", "screen time", "my screen time", "usage", "app usage",
+                        "how much screen time", "today usage", "screen usage", "phone usage", "stats today"
+                    ) || cleanQuery.contains("screen time") || cleanQuery.contains("app usage")
+                    if (isScreenTimeQuery) {
+                        lastQueriedTopicId = "screentime"
+                        if (!UsageStatsHelper.hasUsageStatsPermission(context)) {
+                            val actions = listOf(
+                                TalkAction.DirectPrefUpdate("usage_permission", "special", "usage", "Grant Usage Access", "Allow usage access in Settings", "⚙️")
+                            )
+                            return TalkResponse(
+                                formattedText = "📊 **Usage Telemetry Locked**\n\nTo view your app usage stats and mindful screen time analysis, please grant **Usage Access** permission.",
+                                actions = actions,
+                                topicId = "screentime",
+                                jsonPayload = serializeActionsJson("screentime", actions)
+                            )
+                        }
+
+                        val stats = UsageStatsHelper.getTodayUsageStats(context)
+                        val totalMs = stats.sumOf { it.timeInForegroundMs }
+                        val totalHrs = totalMs / 3600000L
+                        val totalMins = (totalMs % 3600000L) / 60000L
+
+                        val topApps = stats.take(4).joinToString("\n") {
+                            val mins = it.timeInForegroundMs / 60000L
+                            val hrs = mins / 60
+                            val remMins = mins % 60
+                            val timeStr = if (hrs > 0) "${hrs}h ${remMins}m" else "${remMins}m"
+                            "• **${it.appName}**: $timeStr"
+                        }
+
+                        val formatted = "📱 **Today's Screen Time Summary**\n\n" +
+                                "⏱️ **Total Foreground Time**: **${totalHrs}h ${totalMins}m**\n\n" +
+                                "🔝 **Top Apps Used Today**:\n$topApps"
+
+                        val actions = listOf(
+                            TalkAction.AskQuery("/advice", "💡 Focus Advice"),
+                            TalkAction.AskQuery("/breathe", "🫁 1-Min Recharge"),
+                            TalkAction.NavigateAppScreen("dashboard", "Dashboard", "📋")
+                        )
+
+                        recordTurn(cleanQuery, "screentime")
+                        return TalkResponse(
+                            formattedText = formatted,
+                            actions = actions,
+                            topicId = "screentime",
+                            jsonPayload = serializeActionsJson("screentime", actions)
+                        )
+                    }
+
+                    // --- GUIDED BREATHING & RAPID RESET ---
+                    val isBreathingQuery = cleanQuery in listOf(
+                        "breathe", "/breathe", "breathing", "calm down", "reset", "stress", "stressed", "anxiety",
+                        "take a breath", "deep breath", "relax", "mindful break"
+                    ) || cleanQuery.contains("breathe") || cleanQuery.contains("relax")
+                    if (isBreathingQuery) {
+                        lastQueriedTopicId = "breathe"
+                        val guide = AyvaDialogueEngine.getBreathingGuidance(context)
+                        val actions = listOf(
+                            TalkAction.AskQuery("/advice", "💡 Focus Advice"),
+                            TalkAction.AskQuery("/tasks", "📋 My Tasks"),
+                            TalkAction.AskQuery("/drill", "🧮 Math Drill")
+                        )
+                        recordTurn(cleanQuery, "breathe")
+                        return TalkResponse(
+                            formattedText = guide,
+                            actions = actions,
+                            topicId = "breathe",
+                            jsonPayload = serializeActionsJson("breathe", actions)
+                        )
+                    }
+
+                    // --- COMPREHENSIVE FOCUS POSTURE BRIEFING ---
+                    val isFocusStatusQuery = cleanQuery in listOf(
+                        "status", "/status", "focus status", "how am i doing", "check in", "checkin", "briefing",
+                        "posture", "report", "my status", "overview", "focus posture", "daily report"
+                    ) || cleanQuery.contains("focus status") || cleanQuery.contains("how am i doing")
+                    if (isFocusStatusQuery) {
+                        lastQueriedTopicId = "status"
+                        val tasks = app.taskRepository.allTasks.firstOrNull() ?: emptyList()
+                        val pending = tasks.filter { !it.isCompleted }
+                        val now = System.currentTimeMillis()
+                        val overdueCount = pending.count { it.dueDate != null && it.dueDate < now }
+                        
+                        // Completed today
+                        val cal = java.util.Calendar.getInstance()
+                        cal.set(java.util.Calendar.HOUR_OF_DAY, 0)
+                        cal.set(java.util.Calendar.MINUTE, 0)
+                        cal.set(java.util.Calendar.SECOND, 0)
+                        cal.set(java.util.Calendar.MILLISECOND, 0)
+                        val startOfDay = cal.timeInMillis
+                        val completedTodayCount = tasks.count { it.isCompleted && (it.completedAt ?: 0L) >= startOfDay }
+
+                        // Telemetry
+                        var totalScreenTimeMins = 0
+                        var topAppName: String? = null
+                        var topAppMins = 0
+                        if (UsageStatsHelper.hasUsageStatsPermission(context)) {
+                            val stats = UsageStatsHelper.getTodayUsageStats(context)
+                            totalScreenTimeMins = (stats.sumOf { it.timeInForegroundMs } / 60000L).toInt()
+                            val top = stats.firstOrNull()
+                            if (top != null) {
+                                topAppName = top.appName
+                                topAppMins = (top.timeInForegroundMs / 60000L).toInt()
+                            }
+                        }
+
+                        // Routines
+                        val allSchedules = app.database.scheduleDao().getAllSchedulesSync()
+                        val currentCal = java.util.Calendar.getInstance()
+                        val curHour = currentCal.get(java.util.Calendar.HOUR_OF_DAY)
+                        val curMin = currentCal.get(java.util.Calendar.MINUTE)
+                        val curTimeMins = curHour * 60 + curMin
+                        val activeSchedule = allSchedules.find {
+                            if (!it.isEnabled) return@find false
+                            val startMins = it.startHour * 60 + it.startMinute
+                            val endMins = it.endHour * 60 + it.endMinute
+                            if (startMins <= endMins) {
+                                curTimeMins in startMins until endMins
+                            } else {
+                                curTimeMins >= startMins || curTimeMins < endMins
+                            }
+                        }
+                        val routineEndsAt = activeSchedule?.let { String.format("%02d:%02d", it.endHour, it.endMinute) }
+
+                        // Restrictions
+                        val restrictions = app.database.appRestrictionDao().getAllRestrictions().firstOrNull() ?: emptyList()
+                        val restrictedCount = restrictions.count { it.isRestricted }
+                        val isStrictMode = context.getSharedPreferences("focus_prefs", Context.MODE_PRIVATE).getString("block_mode", "HARD") == "HARD"
+
+                        // Aptitude / Streak
+                        val isVacation = AptitudeManager.isVacationMode(context)
+                        val profile = AptitudeManager.profileFlow.value
+
+                        val briefing = AyvaDialogueEngine.getFocusStatusBriefing(
+                            context = context,
+                            totalScreenTimeMins = totalScreenTimeMins,
+                            topAppName = topAppName,
+                            topAppMins = topAppMins,
+                            activeRoutineName = activeSchedule?.name,
+                            routineEndsAt = routineEndsAt,
+                            restrictedAppsCount = restrictedCount,
+                            isStrictMode = isStrictMode,
+                            streak = profile.currentStreak,
+                            isVacation = isVacation,
+                            pendingCount = pending.size,
+                            completedTodayCount = completedTodayCount,
+                            overdueCount = overdueCount
+                        )
+
+                        val actions = listOf(
+                            TalkAction.AskQuery("/advice", "💡 Focus Advice"),
+                            TalkAction.AskQuery("/tasks", "📋 My Tasks"),
+                            TalkAction.AskQuery("/breathe", "🫁 1-Min Breathe"),
+                            TalkAction.AskQuery("/drill", "🧮 Mind Drill")
+                        )
+
+                        recordTurn(cleanQuery, "status")
+                        return TalkResponse(briefing, actions, "status", serializeActionsJson("status", actions))
                     }
 
                     val isStreakOrVacationQuery = cleanQuery in listOf(
@@ -661,7 +883,7 @@ object AyvaTalkEngine {
                         "what is blocked", "what apps are blocked", "blocked apps", "locked apps",
                         "active restrictions", "current restrictions", "is anything blocked", "restricted apps",
                         "how many apps blocked", "which apps are locked"
-                    )
+                    ) || cleanQuery.contains("blocked apps") || cleanQuery.contains("locked apps")
                     if (isBlockedAppsQuery) {
                         lastQueriedTopicId = "lock_protocol"
                         val restrictions = app.database.appRestrictionDao().getAllRestrictions().firstOrNull() ?: emptyList()
@@ -693,27 +915,90 @@ object AyvaTalkEngine {
                                 if (nluResult.isAllTasks) {
                                     if (nluResult.intent == NluIntent.RESCHEDULE) {
                                         val newDate = nluResult.targetDateMs ?: (System.currentTimeMillis() + 86400000L)
-                                        pending.forEach { app.taskRepository.updateTask(it.copy(dueDate = newDate)) }
-                                        return TalkResponse("✅ Rescheduled all ${pending.size} tasks.")
+                                        pending.forEach { 
+                                            val updated = it.copy(dueDate = newDate)
+                                            app.taskRepository.updateTask(updated)
+                                            TaskReminderHelper.scheduleReminder(context, updated)
+                                        }
+                                        TodoWidgetProvider.updateAllWidgets(context)
+                                        val dateStr = SmartDateParser.formatDueDate(newDate)
+                                        return TalkResponse("⏰ **Rescheduled all ${pending.size} tasks** to $dateStr.")
                                     } else if (nluResult.intent == NluIntent.COMPLETE) {
-                                        pending.forEach { app.taskRepository.updateTask(it.copy(isCompleted = true)) }
-                                        return TalkResponse("✅ Completed all ${pending.size} tasks.")
+                                        pending.forEach { 
+                                            app.taskRepository.updateTask(it.copy(isCompleted = true, completedAt = System.currentTimeMillis()))
+                                            TaskReminderHelper.cancelReminder(context, it)
+                                        }
+                                        TodoWidgetProvider.updateAllWidgets(context)
+                                        val actions = listOf(TalkAction.AskQuery("/summary", "📊 Daily Summary"), TalkAction.AskQuery("/advice", "💡 Focus Advice"))
+                                        return TalkResponse("🎉 **All ${pending.size} tasks marked complete!** Entire radar is clear. Outstanding work!", actions, "tasks", serializeActionsJson("tasks", actions))
                                     } else if (nluResult.intent == NluIntent.DELETE) {
-                                        pending.forEach { app.taskRepository.deleteTask(it) }
-                                        return TalkResponse("✅ Deleted all ${pending.size} tasks.")
+                                        pending.forEach { 
+                                            app.taskRepository.deleteTask(it)
+                                            TaskReminderHelper.cancelReminder(context, it)
+                                        }
+                                        TodoWidgetProvider.updateAllWidgets(context)
+                                        return TalkResponse("🗑️ **Deleted all ${pending.size} pending tasks.**")
                                     }
                                 } else if (nluResult.targetTask != null) {
                                     val targetTask = nluResult.targetTask
                                     if (nluResult.intent == NluIntent.COMPLETE) {
-                                        app.taskRepository.updateTask(targetTask.copy(isCompleted = true))
-                                        return TalkResponse("✅ Marked '${targetTask.title}' as complete.")
+                                        val completed = targetTask.copy(isCompleted = true, completedAt = System.currentTimeMillis())
+                                        app.taskRepository.updateTask(completed)
+                                        TaskReminderHelper.cancelReminder(context, targetTask)
+                                        TodoWidgetProvider.updateAllWidgets(context)
+                                        val remaining = pending.size - 1
+                                        val praise = AyvaDialogueEngine.getTaskCompletedPraise(context, targetTask.title, remaining)
+                                        val actions = listOf(
+                                            TalkAction.AskQuery("/tasks", "📋 Tasks ($remaining)"),
+                                            TalkAction.AskQuery("/advice", "💡 Focus Advice")
+                                        )
+                                        return TalkResponse(praise, actions, "tasks", serializeActionsJson("tasks", actions))
                                     } else if (nluResult.intent == NluIntent.DELETE) {
                                         app.taskRepository.deleteTask(targetTask)
-                                        return TalkResponse("✅ Deleted '${targetTask.title}'.")
+                                        TaskReminderHelper.cancelReminder(context, targetTask)
+                                        TodoWidgetProvider.updateAllWidgets(context)
+                                        val remaining = pending.size - 1
+                                        val actions = listOf(
+                                            TalkAction.AskQuery("/tasks", "📋 View Tasks ($remaining)")
+                                        )
+                                        return TalkResponse("🗑️ **Deleted '${targetTask.title}'**\nTask removed from your radar.", actions, "tasks", serializeActionsJson("tasks", actions))
                                     } else if (nluResult.intent == NluIntent.RESCHEDULE) {
                                         val newDate = nluResult.targetDateMs ?: (System.currentTimeMillis() + 86400000L)
-                                        app.taskRepository.updateTask(targetTask.copy(dueDate = newDate))
-                                        return TalkResponse("✅ Rescheduled '${targetTask.title}'.")
+                                        val updated = targetTask.copy(dueDate = newDate)
+                                        app.taskRepository.updateTask(updated)
+                                        TaskReminderHelper.scheduleReminder(context, updated)
+                                        TodoWidgetProvider.updateAllWidgets(context)
+                                        val dateStr = SmartDateParser.formatDueDate(newDate)
+                                        val actions = listOf(
+                                            TalkAction.AskQuery("/tasks", "📋 View Tasks"),
+                                            TalkAction.AskQuery("/talk complete ${targetTask.title}", "✅ Mark Complete")
+                                        )
+                                        return TalkResponse("⏰ **Rescheduled '${targetTask.title}'**\nNew due date: **$dateStr**", actions, "tasks", serializeActionsJson("tasks", actions))
+                                    }
+                                } else {
+                                    if (pending.isEmpty()) {
+                                        return TalkResponse("🎯 **No Pending Tasks!**\nYou don't have any active tasks on your radar right now.", listOf(TalkAction.AskQuery("/tasks", "📋 Task History")), "tasks", null)
+                                    } else {
+                                        val verb = if (nluResult.intent == NluIntent.COMPLETE) "complete" else if (nluResult.intent == NluIntent.DELETE) "delete" else "reschedule"
+                                        val actions = when (nluResult.intent) {
+                                            NluIntent.COMPLETE -> pending.take(3).mapIndexed { idx, t ->
+                                                TalkAction.AskQuery("/talk complete ${idx + 1}", "✅ ${idx + 1}. ${t.title.take(15)}")
+                                            } + listOf(TalkAction.AskQuery("/talk complete all", "✅ Complete All"))
+                                            NluIntent.RESCHEDULE -> pending.take(3).mapIndexed { idx, t ->
+                                                TalkAction.AskQuery("/talk reschedule ${idx + 1} tomorrow", "⏰ ${idx + 1}. Tomorrow")
+                                            } + listOf(TalkAction.AskQuery("/talk reschedule all tomorrow", "⏰ All Tomorrow"))
+                                            NluIntent.DELETE -> pending.take(3).mapIndexed { idx, t ->
+                                                TalkAction.AskQuery("/talk delete ${idx + 1}", "🗑️ ${idx + 1}. ${t.title.take(15)}")
+                                            }
+                                            else -> emptyList()
+                                        }
+                                        val listText = pending.take(5).mapIndexed { idx, t -> "${idx + 1}. **${t.title}**" }.joinToString("\n")
+                                        return TalkResponse(
+                                            formattedText = "🤔 **Which task would you like to $verb?**\n\n$listText\n\n_Tap an option below or specify: `/talk $verb [number]`._",
+                                            actions = actions,
+                                            topicId = "tasks",
+                                            jsonPayload = serializeActionsJson("tasks", actions)
+                                        )
                                     }
                                 }
                             }
@@ -962,6 +1247,22 @@ object AyvaTalkEngine {
                                     } else if (matchedApp != null) {
                                         dao.deleteRestriction(matchedApp.packageName)
                                         return TalkResponse("🔓 **Lock Protocol Lifted**\n_Unlocked ${matchedApp.name}._")
+                                    } else {
+                                        val activeRestrictions = dao.getAllRestrictions().firstOrNull()?.filter { it.isRestricted } ?: emptyList()
+                                        if (activeRestrictions.isEmpty()) {
+                                            return TalkResponse("🔓 **No apps are currently restricted.** Everything is already unlocked.")
+                                        } else {
+                                            val actions = activeRestrictions.take(4).map {
+                                                TalkAction.AskQuery("/talk unblock ${it.appName}", "🔓 Unlock ${it.appName}")
+                                            } + listOf(TalkAction.AskQuery("/talk unblock all", "🔓 Unlock All"))
+                                            val listText = activeRestrictions.take(6).joinToString("\n") { "• **${it.appName}**" }
+                                            return TalkResponse(
+                                                formattedText = "🤔 Couldn't find a locked app matching *\"$target\"*.\n\nCurrently locked apps:\n$listText\n\n_Tap below or type `/talk unblock [app name]`._",
+                                                actions = actions,
+                                                topicId = "lock_protocol",
+                                                jsonPayload = serializeActionsJson("lock_protocol", actions)
+                                            )
+                                        }
                                     }
                                 } else {
                                     if ((cleanQuery.contains("all") || target.isEmpty()) && !cleanQuery.contains("filter")) {
@@ -992,6 +1293,18 @@ object AyvaTalkEngine {
                                             com.focusbyrj.app.data.AppRestriction(matchedApp.packageName, matchedApp.name, isRestricted = true, mode = mode, restrictionMode = "SIMPLE")
                                         )
                                         return TalkResponse("🔒 **Lock Protocol Active**\n_Locked ${matchedApp.name} [$mode]._")
+                                    } else {
+                                        val suggestedApps = installedApps.take(4)
+                                        val actions = suggestedApps.map {
+                                            TalkAction.AskQuery("/talk block ${it.name}", "🔒 Block ${it.name}")
+                                        } + listOf(TalkAction.NavigateAppScreen("dashboard", "Manage Blocks", "🛡️"))
+                                        val promptStr = if (target.isNotBlank()) "Couldn't find an installed app matching *\"$target\"*." else "Which app would you like to restrict?"
+                                        return TalkResponse(
+                                            formattedText = "📱 $promptStr\n\nHere are some apps installed on your device that you can lock:\n" + suggestedApps.joinToString("\n") { "• ${it.name}" } + "\n\n_Tap a button below or type `/talk block [app name]`._",
+                                            actions = actions,
+                                            topicId = "lock_protocol",
+                                            jsonPayload = serializeActionsJson("lock_protocol", actions)
+                                        )
                                     }
                                 }
                             }
@@ -1002,10 +1315,11 @@ object AyvaTalkEngine {
         }
 
         // --- 1. Follow-up & Pronoun Resolution ('it', 'how to change it', 'where is it', 'why') ---
-        val resolvedQuery = if (lastQueriedTopicId != null && isFollowUpQuery(cleanQuery)) {
-            val lastTopic = getTopicsDatabase(context).find { it.id == lastQueriedTopicId }
-            if (lastTopic != null) {
-                lastTopic.id
+        val resolvedQuery = if (isFollowUpQuery(cleanQuery)) {
+            val prevTopicId = conversationHistory.lastOrNull { it.topicId != null }?.topicId ?: lastQueriedTopicId
+            if (prevTopicId != null) {
+                val lastTopic = getTopicsDatabase(context).find { it.id == prevTopicId }
+                lastTopic?.id ?: cleanQuery
             } else {
                 cleanQuery
             }
@@ -1017,6 +1331,7 @@ object AyvaTalkEngine {
         val idMatch = getTopicsDatabase(context).find { it.id.equals(resolvedQuery, ignoreCase = true) }
         if (idMatch != null) {
             lastQueriedTopicId = idMatch.id
+            recordTurn(cleanQuery, idMatch.id)
             val actions = idMatch.getActions(context)
             val json = serializeActionsJson(idMatch.id, actions)
             return TalkResponse(idMatch.formatResponse(context), actions, idMatch.id, json)
@@ -1190,12 +1505,14 @@ object AyvaTalkEngine {
 
         if (bestTopic != null && highestScore >= 12) {
             lastQueriedTopicId = bestTopic.id
+            recordTurn(cleanQuery, bestTopic.id)
             val actions = bestTopic.getActions(context)
             val json = serializeActionsJson(bestTopic.id, actions)
             return TalkResponse(bestTopic.formatResponse(context), actions, bestTopic.id, json)
         }
 
         // --- 5. SMART CONVERSATIONAL FALLBACK (ALWAYS ANSWERS) ---
+        recordTurn(cleanQuery, "fallback")
         val fallbackActions = listOf(
             TalkAction.AskQuery("vacation mode", "🏖️ Vacation Mode"),
             TalkAction.AskQuery("persistent reminders", "⏰ Reminders"),

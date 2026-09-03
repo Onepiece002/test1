@@ -283,32 +283,9 @@ class TodoWidgetProvider : AppWidgetProvider() {
                 }
 
                 if (taskId != -1L) {
-                    CoroutineScope(Dispatchers.IO).launch {
-                        try {
-                            val app = context.applicationContext as FocusApplication
-                            val taskDao = app.database.taskDao()
-                            val task = taskDao.getTaskById(taskId)
-                            if (task != null) {
-                                val newStatus = !task.isCompleted
-                                val updated = task.copy(isCompleted = newStatus, completedAt = if(newStatus) System.currentTimeMillis() else null)
-                                taskDao.updateTask(updated)
-
-                                if (updated.isCompleted) {
-                                    com.focusbyrj.app.util.FocusEconomyManager.completeTaskReward(task.title, task.isPriority, task.type)
-                                    TaskReminderHelper.cancelReminder(context, updated)
-                                    if (updated.recurrence != RecurrencePattern.NONE) {
-                                        val nextTask = TaskReminderHelper.generateNextRecurringTask(updated)
-                                        val newId = taskDao.insertTask(nextTask)
-                                        TaskReminderHelper.scheduleReminder(context, nextTask.copy(id = newId))
-                                    }
-                                } else {
-                                    TaskReminderHelper.scheduleReminder(context, updated)
-                                }
-                            }
-                        } catch (e: Exception) {
-                            e.printStackTrace()
-                        }
-                        updateAllWidgets(context)
+                    val pendingResult = goAsync()
+                    TaskReminderHelper.toggleTaskById(context, taskId) {
+                        pendingResult.finish()
                     }
                 }
             }

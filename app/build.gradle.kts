@@ -15,8 +15,8 @@ android {
     multiDexEnabled = true
     minSdk = 24
     targetSdk = 35
-    versionCode = 36
-    versionName = "1.3.6"
+    versionCode = 37
+    versionName = "1.3.7"
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
@@ -84,6 +84,7 @@ kotlin {
 dependencies {
   // Core Android
   implementation(libs.androidx.core.ktx)
+  implementation(libs.androidx.dynamicanimation)
   implementation(libs.androidx.lifecycle.runtime.ktx)
   implementation("androidx.fragment:fragment-ktx:1.6.2")
 

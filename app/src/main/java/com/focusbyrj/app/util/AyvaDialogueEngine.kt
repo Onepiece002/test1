@@ -419,4 +419,144 @@ object AyvaDialogueEngine {
             }
         }
     }
+
+    // =========================================================================
+    // 6. CONTEXTUAL FOCUS ADVICE & MINDFUL COACHING
+    // =========================================================================
+    fun getContextualFocusAdvice(context: Context, totalScreenTimeMins: Int, pendingTasksCount: Int, overdueCount: Int): String {
+        return when {
+            overdueCount > 0 -> {
+                val overduePool = listOf(
+                    "⚠️ *Triage Mode*: You have $overdueCount overdue task(s). Procrastination creates phantom mental weight. Pick just *one* and knock it out in the next 15 minutes! ⚡",
+                    "🎯 *Laser Focus Strategy*: Don't look at all your overdue items at once. Focus solely on the single highest priority task right now. Single-tasking is your superpower.",
+                    "⚡ *Momentum Builder*: High friction right now? Do the easiest 2-minute part of an overdue task. Action precedes motivation, always."
+                )
+                getNextFromDeck(context, "advice_overdue", overduePool)
+            }
+            totalScreenTimeMins > 180 -> {
+                val screenPool = listOf(
+                    "🌿 *Eye & Brain Break*: You've logged over ${totalScreenTimeMins / 60}h of screen time today. Look away at an object 20 feet away for 20 seconds, roll your shoulders, and drink a glass of water. 💧",
+                    "🧠 *Neural Recharge*: Prolonged screen exposure causes cognitive fatigue. Take a 5-minute offline stroll or try the 4-7-8 breathing exercise in the chat before resuming work.",
+                    "⚡ *Focus Hygiene*: Digital exhaustion is real. If you're switching apps compulsively, step away from the device for 10 minutes to reset your dopamine baseline."
+                )
+                getNextFromDeck(context, "advice_screentime", screenPool)
+            }
+            pendingTasksCount == 0 -> {
+                val clearPool = listOf(
+                    "🎉 *Zen State*: All clear! You've achieved task nirvana for now. Take a well-deserved breather or do a quick mental arithmetic drill to keep your mind sharp.",
+                    "✨ *Recharge Time*: Clean radar! Use this open space to reflect, hydrate, or plan tomorrow with zero stress.",
+                    "🚀 *Victory Lap*: No fires, no pending tasks. Enjoy your flow state or relax guilt-free!"
+                )
+                getNextFromDeck(context, "advice_clear", clearPool)
+            }
+            else -> {
+                val focusPool = listOf(
+                    "⚡ *The 5-Minute Rule*: Tell yourself you'll only work on your task for five minutes. 80% of the time, once inertia is broken, you'll naturally keep going! 🎯",
+                    "🧘 *Single-Tab Focus*: Close background distractions. Multitasking drops cognitive output by 40%. One objective at a time.",
+                    "🌊 *Find Your Flow*: Pick your top task, silence alerts, and work uninterrupted. Deep work always beats long hours.",
+                    "💡 *Energy Management*: Prioritize your hardest creative task during your peak energy hours. Guard your attention like gold."
+                )
+                getNextFromDeck(context, "advice_general", focusPool)
+            }
+        }
+    }
+
+    fun getBreathingGuidance(context: Context): String {
+        val breathingPool = listOf(
+            "🫁 *4-7-8 Box Breathing Protocol*:\n\n1. Inhale deeply through your nose for **4 seconds** 🌬️\n2. Hold your breath gently for **7 seconds** ⏸️\n3. Exhale slowly through your mouth for **8 seconds** 💨\n\n_Repeat 3 times to downregulate your nervous system and instantly regain mental clarity._",
+            "🌿 *Resonance Breathing (6 Breaths/Min)*:\n\n• Inhale smoothly for **5 seconds** 🍃\n• Exhale smoothly for **5 seconds** 🍃\n\n_Doing this for just 60 seconds lowers cortisol and centers your focus immediately._",
+            "⚡ *Physiological Sigh (Rapid Reset)*:\n\n1. Take two quick sniffs in through your nose (one deep, followed immediately by a sharp top-off sniff)\n2. Long, slow sigh out through your mouth\n\n_This expands deflated alveoli in your lungs and drops heart rate within seconds._"
+        )
+        return getNextFromDeck(context, "breathing_pool", breathingPool)
+    }
+
+    // =========================================================================
+    // 7. COMPREHENSIVE FOCUS STATUS BRIEFING
+    // =========================================================================
+    fun getFocusStatusBriefing(
+        context: Context,
+        totalScreenTimeMins: Int,
+        topAppName: String?,
+        topAppMins: Int,
+        activeRoutineName: String?,
+        routineEndsAt: String?,
+        restrictedAppsCount: Int,
+        isStrictMode: Boolean,
+        streak: Int,
+        isVacation: Boolean,
+        pendingCount: Int,
+        completedTodayCount: Int,
+        overdueCount: Int
+    ): String {
+        val sb = StringBuilder()
+        sb.append("⚡ *__Ayva's Focus Posture Report__*\n\n")
+
+        // 1. Routine status
+        if (activeRoutineName != null) {
+            val endStr = if (routineEndsAt != null) " (Active until $routineEndsAt)" else ""
+            sb.append("🛡️ **Active Routine**: **$activeRoutineName**$endStr\n")
+        } else {
+            sb.append("🛡️ **Routine**: No active schedule right now\n")
+        }
+
+        // 2. App Armor
+        val modeStr = if (isStrictMode) "Strict Mode" else "Soft Mode"
+        if (restrictedAppsCount > 0) {
+            sb.append("🔒 **App Armor**: $restrictedAppsCount apps restricted [$modeStr]\n")
+        } else {
+            sb.append("🔓 **App Armor**: Unrestricted (No apps locked)\n")
+        }
+
+        // 3. Streak & Vacation
+        if (isVacation) {
+            sb.append("🏖️ **Streak**: $streak days (Frozen in Vacation Mode ❄️)\n")
+        } else if (streak > 0) {
+            sb.append("🔥 **Streak**: $streak days active momentum\n")
+        } else {
+            sb.append("🌱 **Streak**: Ready to build fresh momentum today\n")
+        }
+
+        // 4. Tasks
+        val overdueWarning = if (overdueCount > 0) " (⚠️ $overdueCount overdue!)" else ""
+        sb.append("📋 **Tasks**: $completedTodayCount completed today, $pendingCount pending$overdueWarning\n")
+
+        // 5. Screen Time
+        val hrs = totalScreenTimeMins / 60
+        val mins = totalScreenTimeMins % 60
+        val timeStr = if (hrs > 0) "${hrs}h ${mins}m" else "${mins}m"
+        val topAppStr = if (topAppName != null && topAppMins > 0) {
+            val tHrs = topAppMins / 60
+            val tMins = topAppMins % 60
+            val tStr = if (tHrs > 0) "${tHrs}h ${tMins}m" else "${tMins}m"
+            " • Top: $topAppName ($tStr)"
+        } else ""
+        sb.append("📱 **Screen Time**: $timeStr$topAppStr\n\n")
+
+        // 6. Ayva Verdict
+        val verdict = when {
+            overdueCount > 0 -> "💡 _Verdict: Knock out your overdue item first to eliminate subconscious cognitive drag._"
+            activeRoutineName != null -> "💡 _Verdict: You're in protected focus time. Keep digital distractions at zero!_"
+            restrictedAppsCount == 0 && totalScreenTimeMins > 120 -> "💡 _Verdict: High screen time with no app blocks. Consider locking your top distractor!_"
+            pendingCount == 0 -> "💡 _Verdict: Pristine task radar. Great momentum today!_"
+            else -> "💡 _Verdict: Pick your single highest-priority task and execute a 20-minute focus sprint._"
+        }
+        sb.append(verdict)
+        return sb.toString()
+    }
+
+    fun getTaskCompletedPraise(context: Context, taskTitle: String, remainingCount: Int): String {
+        val remainingStr = if (remainingCount == 0) {
+            "Radar completely clear! 🎉"
+        } else {
+            "$remainingCount task${if (remainingCount > 1) "s" else ""} remaining."
+        }
+        val pool = listOf(
+            "✅ *Crushed it!* \"$taskTitle\" is done. $remainingStr ⚡",
+            "🎯 *Boom!* Marked \"$taskTitle\" as complete. $remainingStr Keep that momentum rollin'!",
+            "🔥 *Task Conquered!* \"$taskTitle\" checked off. $remainingStr",
+            "⚡ *Zero Friction!* Completed \"$taskTitle\". $remainingStr One step closer to total victory."
+        )
+        return getNextFromDeck(context, "task_complete_praise", pool)
+    }
 }
+

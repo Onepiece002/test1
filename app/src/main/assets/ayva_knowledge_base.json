@@ -805,5 +805,121 @@
     "prefKey": "vacation_mode",
     "prefType": "boolean",
     "diagnosticKey": "vacation_mode"
+  },
+  {
+    "id": "focus_briefing",
+    "title": "Focus Status & Telemetry Briefing",
+    "emoji": "📊",
+    "directExplanation": "Provides a comprehensive overview of your active focus posture, including screen time, active routines, locked apps, streak status, and pending tasks.",
+    "whereToGo": "Ask Ayva 'status' or '/status' in the chat bubble.",
+    "whatToClick": [
+      "Open Ayva Chat Bubble",
+      "Type 'status' or tap 'Focus Status'"
+    ],
+    "keywords": [
+      "status",
+      "focus status",
+      "briefing",
+      "posture",
+      "how am i doing",
+      "check in",
+      "overview",
+      "daily report"
+    ],
+    "route": "dashboard",
+    "isPackageSettingUri": false
+  },
+  {
+    "id": "screentime_tracking",
+    "title": "Screen Time & App Usage Telemetry",
+    "emoji": "📱",
+    "directExplanation": "Tracks how many minutes you've spent on your device and inside individual apps today, highlighting top time-sink apps.",
+    "whereToGo": "Ask Ayva 'screentime' or 'usage' in the chat bubble, or open Dashboard.",
+    "whatToClick": [
+      "Open Ayva Chat Bubble",
+      "Type 'screentime' or 'usage'"
+    ],
+    "keywords": [
+      "screentime",
+      "screen time",
+      "app usage",
+      "phone usage",
+      "time spent",
+      "daily screen time",
+      "usage stats"
+    ],
+    "route": "dashboard",
+    "isPackageSettingUri": false
+  },
+  {
+    "id": "box_breathing",
+    "title": "1-Minute Box Breathing Session",
+    "emoji": "🫁",
+    "directExplanation": "An interactive 4-4-4-4 physiological reset exercise (Inhale, Hold, Exhale, Hold) designed to eliminate anxiety and cognitive clutter.",
+    "whereToGo": "Ask Ayva 'breathe' or '/breathe' in the chat bubble.",
+    "whatToClick": [
+      "Open Ayva Chat Bubble",
+      "Type 'breathe' or tap the breathe button"
+    ],
+    "keywords": [
+      "breathe",
+      "breathing",
+      "box breathing",
+      "relax",
+      "calm down",
+      "stress relief",
+      "deep breath",
+      "anxiety"
+    ],
+    "route": "dashboard",
+    "isPackageSettingUri": false
+  },
+  {
+    "id": "mind_drills",
+    "title": "Cognitive Aptitude & Math Drills",
+    "emoji": "🧮",
+    "directExplanation": "Interactive mental arithmetic and word aptitude challenges that build your daily streak, unlock XP, and keep your mind sharp.",
+    "whereToGo": "Ask Ayva 'drill' or '/drill' in the chat bubble, or tap the Math icon.",
+    "whatToClick": [
+      "Open Ayva Chat Bubble",
+      "Type 'drill' or tap 'Mind Drill'"
+    ],
+    "keywords": [
+      "drill",
+      "drills",
+      "math drill",
+      "math practice",
+      "mental math",
+      "aptitude",
+      "test",
+      "quiz",
+      "practice"
+    ],
+    "route": "dashboard",
+    "isPackageSettingUri": false
+  },
+  {
+    "id": "battery_optimization",
+    "title": "Battery Optimization & Background Reliability",
+    "emoji": "🔋",
+    "directExplanation": "To prevent Android from killing Ayva's blocker service and chat bubble in the background, exclude the app from battery optimization.",
+    "whereToGo": "Android Settings -> Apps -> Special App Access -> Battery Optimization -> Focus -> Don't Optimize",
+    "whatToClick": [
+      "Open Android Settings",
+      "Find Battery Optimization",
+      "Set Focus to Unrestricted or Not Optimized"
+    ],
+    "keywords": [
+      "battery",
+      "battery optimization",
+      "background killed",
+      "service stopped",
+      "autostart",
+      "keep alive",
+      "background restriction"
+    ],
+    "route": "settings",
+    "isPackageSettingUri": true,
+    "packageUri": "android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS"
   }
 ]

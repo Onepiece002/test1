@@ -290,12 +290,12 @@ fun AddRestrictionScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 16.dp, vertical = 8.dp),
-                            shape = RoundedCornerShape(24.dp),
+                            shape = RoundedCornerShape(18.dp),
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedContainerColor = MaterialTheme.colorScheme.surface,
                                 unfocusedContainerColor = MaterialTheme.colorScheme.surface,
                                 focusedBorderColor = MaterialTheme.colorScheme.secondary,
-                                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
                                 focusedTextColor = MaterialTheme.colorScheme.onSurface,
                                 unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                             ),
@@ -313,9 +313,9 @@ fun AddRestrictionScreen(
                                 val isSelected = selectedCategory == category
                                 Box(
                                     modifier = Modifier
-                                        .clip(RoundedCornerShape(20.dp))
+                                        .clip(RoundedCornerShape(14.dp))
                                         .background(if (isSelected) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.surface)
-                                        .border(1.dp, if (isSelected) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.outline, RoundedCornerShape(20.dp))
+                                        .border(1.dp, if (isSelected) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f), RoundedCornerShape(14.dp))
                                         .clickable { selectedCategory = category }
                                         .padding(horizontal = 16.dp, vertical = 8.dp)
                                 ) {
@@ -331,9 +331,9 @@ fun AddRestrictionScreen(
                                 val isSelected = selectedCategory == cat
                                 Box(
                                     modifier = Modifier
-                                        .clip(RoundedCornerShape(20.dp))
+                                        .clip(RoundedCornerShape(14.dp))
                                         .background(if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface)
-                                        .border(1.dp, if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, RoundedCornerShape(20.dp))
+                                        .border(1.dp, if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f), RoundedCornerShape(14.dp))
                                         .clickable { selectedCategory = cat }
                                         .padding(horizontal = 16.dp, vertical = 8.dp)
                                 ) {
@@ -451,12 +451,12 @@ fun AddRestrictionScreen(
                                     Box(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .clip(RoundedCornerShape(16.dp))
+                                            .clip(RoundedCornerShape(20.dp))
                                             .background(if (isSelected) MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surface)
                                             .border(
                                                 1.dp,
-                                                if (isSelected) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.outline,
-                                                RoundedCornerShape(16.dp)
+                                                if (isSelected) MaterialTheme.colorScheme.secondary.copy(alpha = 0.6f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
+                                                RoundedCornerShape(20.dp)
                                             )
                                             .clickable {
                                                 selectedApps = if (isSelected) {
@@ -477,7 +477,7 @@ fun AddRestrictionScreen(
                                                     contentDescription = null,
                                                     modifier = Modifier
                                                         .size(48.dp)
-                                                        .clip(RoundedCornerShape(12.dp))
+                                                        .clip(RoundedCornerShape(14.dp))
                                                 )
                                                 Spacer(modifier = Modifier.width(16.dp))
                                             }
@@ -497,17 +497,26 @@ fun AddRestrictionScreen(
                                             }
 
                                             if (isSelected) {
-                                                Icon(
-                                                    Icons.Filled.CheckCircle,
-                                                    contentDescription = "Selected",
-                                                    tint = MaterialTheme.colorScheme.primary,
-                                                    modifier = Modifier.size(24.dp)
-                                                )
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(24.dp)
+                                                        .clip(RoundedCornerShape(8.dp))
+                                                        .background(MaterialTheme.colorScheme.primary),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Icon(
+                                                        Icons.Filled.Check,
+                                                        contentDescription = "Selected",
+                                                        tint = MaterialTheme.colorScheme.onPrimary,
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                }
                                             } else {
                                                 Box(
                                                     modifier = Modifier
                                                         .size(24.dp)
-                                                        .border(2.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                                                        .clip(RoundedCornerShape(8.dp))
+                                                        .border(1.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
                                                 )
                                             }
                                         }
@@ -624,15 +633,15 @@ fun ModeSelector(
 ) {
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(16.dp))
             .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surface)
             .border(
                 1.dp,
-                if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-                RoundedCornerShape(12.dp)
+                if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.6f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
+                RoundedCornerShape(16.dp)
             )
             .clickable(onClick = onClick)
-            .padding(12.dp)
+            .padding(14.dp)
     ) {
         Column {
             Text(

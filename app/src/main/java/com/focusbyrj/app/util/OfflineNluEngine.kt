@@ -60,10 +60,15 @@ object OfflineNluEngine {
         val lower = query.lowercase().trim()
         val tokens = lower.split(Regex("\\s+"))
 
-        val isReschedule = matchesAnyFuzzy(tokens, listOf("reschedule", "postpone", "delay", "move", "bump")) || (lower.contains("change") && lower.contains("date"))
-        val isComplete = matchesAnyFuzzy(tokens, listOf("complete", "finish", "done", "check"))
+        val isReschedule = matchesAnyFuzzy(tokens, listOf("reschedule", "postpone", "delay", "move", "bump")) || 
+                           (lower.contains("change") && (lower.contains("date") || lower.contains("time") || lower.contains("due")))
+        val isComplete = matchesAnyFuzzy(tokens, listOf("complete", "finish", "done", "check")) || 
+                         (lower.contains("mark") && (lower.contains("done") || lower.contains("complete"))) ||
+                         lower.startsWith("done with") || lower.startsWith("completed")
         val isDelete = matchesAnyFuzzy(tokens, listOf("delete", "remove", "trash", "cancel"))
-        val isListTasks = matchesAnyFuzzy(tokens, listOf("list", "show", "what", "pending", "overdue", "today")) && (lower.contains("task") || lower.contains("to do") || lower.contains("todo"))
+        val isListTasks = ((matchesAnyFuzzy(tokens, listOf("list", "show", "what", "pending", "overdue", "today")) || lower.startsWith("what are")) && 
+                           (lower.contains("task") || lower.contains("to do") || lower.contains("todo") || lower.contains("agenda"))) || 
+                           lower == "tasks" || lower == "my tasks" || lower == "todo list" || lower == "todo" || lower == "todos"
         
         val isBlock = matchesAnyFuzzy(tokens, listOf("block", "lock", "restrict"))
         val isUnblock = matchesAnyFuzzy(tokens, listOf("unblock", "unlock", "allow"))
@@ -71,11 +76,11 @@ object OfflineNluEngine {
         val isRoutineKeyword = matchesAnyFuzzy(tokens, listOf("routine", "routines", "schedule", "schedules"))
         val isStartRoutine = (matchesAnyFuzzy(tokens, listOf("start", "enable", "activate", "resume", "begin", "launch")) || (lower.contains("turn") && lower.contains("on"))) && isRoutineKeyword
         val isStopRoutine = (matchesAnyFuzzy(tokens, listOf("stop", "disable", "deactivate", "pause", "halt", "end", "quit")) || (lower.contains("turn") && lower.contains("off"))) && isRoutineKeyword
-        val isListRoutines = matchesAnyFuzzy(tokens, listOf("list", "show", "what", "display", "check", "status")) && matchesAnyFuzzy(tokens, listOf("routine", "routines", "schedule", "schedules", "timings")) || lower == "routines" || lower == "schedules" || lower == "my routines"
+        val isListRoutines = (matchesAnyFuzzy(tokens, listOf("list", "show", "what", "display", "check", "status")) && matchesAnyFuzzy(tokens, listOf("routine", "routines", "schedule", "schedules", "timings"))) || lower == "routines" || lower == "schedules" || lower == "my routines"
 
-        val isStartDrill = matchesAnyFuzzy(tokens, listOf("drill", "math", "arithmetic", "calculate", "test", "quiz"))
+        val isStartDrill = matchesAnyFuzzy(tokens, listOf("drill", "math", "arithmetic", "calculate", "quiz")) || lower.contains("practice math")
         val isShowProfile = matchesAnyFuzzy(tokens, listOf("profile", "level", "aptitude", "streak", "stats", "statistics", "points", "xp"))
-        val isShowSummary = matchesAnyFuzzy(tokens, listOf("summary", "briefing", "report", "overview", "recap", "dashboard"))
+        val isShowSummary = matchesAnyFuzzy(tokens, listOf("summary", "briefing", "report", "overview", "recap", "dashboard")) || lower.contains("my day") || lower == "today"
         val isClearChat = matchesAnyFuzzy(tokens, listOf("clear", "clean", "reset", "wipe")) && matchesAnyFuzzy(tokens, listOf("chat", "messages", "screen", "history", "all"))
 
         return when {
@@ -98,9 +103,14 @@ object OfflineNluEngine {
 
     // 4. Time Entity Extraction (NER)
     fun extractTimeEntity(query: String): Long? {
+        // First try high-precision SmartDateParser
+        val parsed = SmartDateParser.parse(query)
+        if (parsed.timestamp != null) {
+            return parsed.timestamp
+        }
+
         val lower = query.lowercase()
         val now = System.currentTimeMillis()
-        val cal = Calendar.getInstance().apply { timeInMillis = now }
         
         val startOfDay = Calendar.getInstance().apply {
             timeInMillis = now
@@ -109,7 +119,6 @@ object OfflineNluEngine {
             set(Calendar.SECOND, 0)
             set(Calendar.MILLISECOND, 0)
         }.timeInMillis
-        val noon = startOfDay + (12 * 3600000L)
         
         // Time parsing like "9pm"
         var customTimeMs: Long? = null
@@ -127,7 +136,7 @@ object OfflineNluEngine {
         val baseDay = when {
             lower.contains("tomorrow") -> startOfDay + 86400000L
             lower.contains("next week") -> startOfDay + (7 * 86400000L)
-            lower.contains("tonight") -> startOfDay // Time handled separately or defaults to 8pm
+            lower.contains("tonight") -> startOfDay
             lower.contains("monday") -> getNextDayOfWeek(Calendar.MONDAY, startOfDay)
             lower.contains("tuesday") -> getNextDayOfWeek(Calendar.TUESDAY, startOfDay)
             lower.contains("wednesday") -> getNextDayOfWeek(Calendar.WEDNESDAY, startOfDay)
@@ -159,7 +168,7 @@ object OfflineNluEngine {
 
     // 5. Target Entity Extraction (Which task?)
     fun extractTargetTask(query: String, pendingTasks: List<Task>): Pair<Task?, Boolean> {
-        val lower = query.lowercase()
+        val lower = query.lowercase().trim()
         val isAll = lower.contains("all") || lower.contains("everything")
         if (isAll) return Pair(null, true)
 
@@ -167,27 +176,53 @@ object OfflineNluEngine {
         if (pendingTasks.size == 1 && (lower.contains("it") || lower.contains("that") || lower.contains("the task"))) {
             return Pair(pendingTasks.first(), false)
         }
+
+        // Semantic relative task descriptions
+        val now = System.currentTimeMillis()
+        if (lower.contains("overdue")) {
+            val overdue = pendingTasks.find { it.dueDate != null && it.dueDate < now }
+            if (overdue != null) return Pair(overdue, false)
+        }
+        if (lower.contains("priority") || lower.contains("important") || lower.contains("urgent") || lower.contains("top task")) {
+            val priorityTask = pendingTasks.find { it.isPriority }
+            if (priorityTask != null) return Pair(priorityTask, false)
+        }
+        if (lower.contains("last one") || lower.contains("last task")) {
+            return Pair(pendingTasks.lastOrNull(), false)
+        }
+        if (lower == "it" || lower == "that" || lower.endsWith(" it") || lower.endsWith(" that")) {
+            return Pair(pendingTasks.firstOrNull(), false)
+        }
         
-        // Ordinal Check (1st, 2nd, 3rd... or "task 1", "task 2")
-        val ordinalRegex = Regex("(?:(\\d+)(?:st|nd|rd|th)?\\s+task|task\\s+(\\d+)|(first|second|third|fourth|fifth)\\s+task)")
-        val match = ordinalRegex.find(lower)
-        if (match != null) {
-            val numStr1 = match.groupValues[1]
-            val numStr2 = match.groupValues[2]
-            val wordStr = match.groupValues[3]
-            
-            var index = -1
-            if (numStr1.isNotEmpty()) index = numStr1.toInt() - 1
-            else if (numStr2.isNotEmpty()) index = numStr2.toInt() - 1
-            else if (wordStr.isNotEmpty()) {
-                index = when(wordStr) {
-                    "first" -> 0
-                    "second" -> 1
-                    "third" -> 2
-                    "fourth" -> 3
-                    "fifth" -> 4
-                    else -> -1
+        // Ordinal & Digit Check (e.g. "task 1", "task #1", "#1", "1st task", "complete 1", "delete 2", "reschedule 1")
+        val numRegex = Regex("(?:task\\s*#?\\s*(\\d+)|#\\s*(\\d+)|\\b(?:complete|finish|done|delete|remove|reschedule|postpone|move|bump|check)\\s+(?:task\\s+|#)?(\\d+)\\b|\\b(\\d+)(?:st|nd|rd|th)?\\s+(?:task|one)\\b)")
+        val numMatch = numRegex.find(lower)
+        if (numMatch != null) {
+            val numStr = (numMatch.groupValues[1].ifEmpty { null }
+                ?: numMatch.groupValues[2].ifEmpty { null }
+                ?: numMatch.groupValues[3].ifEmpty { null }
+                ?: numMatch.groupValues[4].ifEmpty { null })
+            val num = numStr?.toIntOrNull()
+            if (num != null) {
+                val index = num - 1
+                if (index in pendingTasks.indices) {
+                    return Pair(pendingTasks[index], false)
                 }
+            }
+        }
+
+        // Word ordinals
+        val wordRegex = Regex("\\b(first|second|third|fourth|fifth|1st|2nd|3rd|4th|5th)\\b(?:\\s+(?:task|one))?")
+        val wordMatch = wordRegex.find(lower)
+        if (wordMatch != null) {
+            val wordStr = wordMatch.groupValues[1]
+            val index = when (wordStr) {
+                "first", "1st" -> 0
+                "second", "2nd" -> 1
+                "third", "3rd" -> 2
+                "fourth", "4th" -> 3
+                "fifth", "5th" -> 4
+                else -> -1
             }
             if (index in pendingTasks.indices) {
                 return Pair(pendingTasks[index], false)
@@ -233,7 +268,7 @@ object OfflineNluEngine {
         targetName = targetName.replace(Regex("\\b(soft|hard|in|mode|filter|category|apps|app|the|a|an)\\b"), " ")
         targetName = targetName.replace(Regex("\\s+"), " ").trim()
         
-        return Pair(targetName, mode)
+        return Pair(targetName.ifBlank { null }, mode)
     }
     
     // Extractor for Routine Intent

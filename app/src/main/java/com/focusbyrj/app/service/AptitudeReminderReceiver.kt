@@ -155,9 +155,12 @@ class AptitudeReminderReceiver : BroadcastReceiver() {
             val showPendingIntent = PendingIntent.getActivity(context, REQUEST_CODE_EXACT + 100, showIntent, flags)
 
             try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    val alarmClockInfo = AlarmManager.AlarmClockInfo(target.timeInMillis, showPendingIntent)
-                    alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    if (alarmManager.canScheduleExactAlarms()) {
+                        alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, target.timeInMillis, pendingIntent)
+                    } else {
+                        alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, target.timeInMillis, pendingIntent)
+                    }
                 } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                     alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, target.timeInMillis, pendingIntent)
                 } else {
@@ -211,9 +214,12 @@ class AptitudeReminderReceiver : BroadcastReceiver() {
             val showPendingIntent = PendingIntent.getActivity(context, requestCode + 100, showIntent, flags)
 
             try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    val alarmClockInfo = AlarmManager.AlarmClockInfo(target.timeInMillis, showPendingIntent)
-                    alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    if (alarmManager.canScheduleExactAlarms()) {
+                        alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, target.timeInMillis, pendingIntent)
+                    } else {
+                        alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, target.timeInMillis, pendingIntent)
+                    }
                 } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                     alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, target.timeInMillis, pendingIntent)
                 } else {

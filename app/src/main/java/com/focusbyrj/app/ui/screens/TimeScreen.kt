@@ -23,7 +23,9 @@ import androidx.compose.foundation.Image
 
 import com.focusbyrj.app.ui.theme.AccentViolet
 import com.focusbyrj.app.ui.theme.BorderGlass
-import com.focusbyrj.app.ui.theme.MidnightBlack
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.luminance
 import com.focusbyrj.app.ui.theme.SurfaceDark
 import com.focusbyrj.app.ui.theme.SurfaceVariantDark
 import com.focusbyrj.app.util.AppUsageData
@@ -95,32 +97,51 @@ fun TimeScreen() {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(28.dp))
+                    .clip(RoundedCornerShape(26.dp))
                     .background(MaterialTheme.colorScheme.surface)
-                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(28.dp))
-                    .padding(32.dp)
+                    .border(
+                        1.dp,
+                        MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
+                        RoundedCornerShape(26.dp)
+                    )
+                    .padding(24.dp)
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                    Text("TOTAL TIME", style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 1.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                        border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f))
+                    ) {
+                        Text(
+                            text = "TOTAL ACTIVE SCREEN TIME",
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.2.sp,
+                                fontSize = 10.sp
+                            ),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(14.dp))
                     Row(verticalAlignment = Alignment.Bottom) {
-                        Text(hours.toString(), style = MaterialTheme.typography.displayLarge.copy(fontSize = 56.sp), color = MaterialTheme.colorScheme.onSurface)
-                        Text("h", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(bottom = 10.dp, start = 4.dp, end = 8.dp))
-                        Text(minutes.toString(), style = MaterialTheme.typography.displayLarge.copy(fontSize = 56.sp), color = MaterialTheme.colorScheme.onSurface)
-                        Text("m", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(bottom = 10.dp, start = 4.dp))
+                        Text(hours.toString(), style = MaterialTheme.typography.displayLarge.copy(fontSize = 52.sp, fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface)
+                        Text("h", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(bottom = 8.dp, start = 4.dp, end = 8.dp))
+                        Text(minutes.toString(), style = MaterialTheme.typography.displayLarge.copy(fontSize = 52.sp, fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface)
+                        Text("m", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(bottom = 8.dp, start = 4.dp))
                     }
                     
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(20.dp))
                     
                     if (usageStats.isNotEmpty()) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(12.dp)
+                                .height(10.dp)
                                 .clip(RoundedCornerShape(6.dp))
                         ) {
                             val colors = listOf(Color(0xFF60A5FA), Color(0xFF34D399), Color(0xFFFBBF24), Color(0xFFF87171), Color(0xFFA78BFA), Color(0xFF2DD4BF), Color(0xFFFB923C))
-                            usageStats.take(4).forEachIndexed { index, stat ->
+                            usageStats.take(6).forEachIndexed { index, stat ->
                                 val weight = (stat.timeInForegroundMs.toFloat() / totalTimeMs.toFloat()).coerceAtLeast(0.01f)
                                 Box(modifier = Modifier.weight(weight).fillMaxHeight().background(colors[index % colors.size]))
                             }
@@ -129,15 +150,26 @@ fun TimeScreen() {
                 }
             }
             
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(28.dp))
             
-            Text(
-                text = "App Breakdown",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "App Breakdown",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "${usageStats.size} apps recorded",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
             
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
         }
         
         val colors = listOf(Color(0xFF60A5FA), Color(0xFF34D399), Color(0xFFFBBF24), Color(0xFFF87171), Color(0xFFA78BFA), Color(0xFF2DD4BF), Color(0xFFFB923C))
@@ -162,7 +194,7 @@ fun TimeScreen() {
                 percentage = percentage, 
                 color = colors[index % colors.size]
             )
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
         }
     }
 }
@@ -170,39 +202,80 @@ fun TimeScreen() {
 @Composable
 fun AppUsageItem(appName: String, icon: androidx.compose.ui.graphics.ImageBitmap?, time: String, percentage: Float, color: Color) {
     val context = androidx.compose.ui.platform.LocalContext.current
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(20.dp))
             .background(MaterialTheme.colorScheme.surface)
-            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(20.dp))
-            .padding(20.dp)
+            .border(
+                1.dp,
+                MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
+                RoundedCornerShape(20.dp)
+            )
+            .padding(16.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier
-                    .size(48.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(color.copy(alpha = 0.2f))
-                    .border(1.dp, color.copy(alpha = 0.5f), RoundedCornerShape(14.dp)),
+                    .size(46.dp)
+                    .clip(RoundedCornerShape(13.dp))
+                    .background(color.copy(alpha = 0.15f))
+                    .border(1.dp, color.copy(alpha = 0.35f), RoundedCornerShape(13.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 if (icon != null) {
-                    androidx.compose.foundation.Image(bitmap = icon, contentDescription = null, modifier = Modifier.fillMaxSize().padding(8.dp))
+                    androidx.compose.foundation.Image(
+                        bitmap = icon,
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize().padding(7.dp)
+                    )
                 } else {
-                    Text(appName.take(1).uppercase(), color = color, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                    Text(appName.take(1).uppercase(), color = color, fontWeight = FontWeight.Bold, fontSize = 18.sp)
                 }
             }
             
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(14.dp))
             
             Column(modifier = Modifier.weight(1f)) {
-                Text(appName, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                Text(
+                    appName,
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold, fontSize = 15.sp),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                // Mini indicator bar
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.85f)
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(percentage.coerceIn(0.02f, 1f))
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(color)
+                    )
+                }
             }
             
             Column(horizontalAlignment = Alignment.End) {
-                Text(time, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface)
-                Text("${(percentage * 100).toInt()}%", style = MaterialTheme.typography.bodySmall, color = color)
+                Text(
+                    time,
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    "${(percentage * 100).toInt()}%",
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                    color = color
+                )
             }
         }
     }

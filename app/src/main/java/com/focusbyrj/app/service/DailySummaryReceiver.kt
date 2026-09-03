@@ -125,6 +125,8 @@ class DailySummaryReceiver : BroadcastReceiver() {
         val action = intent?.action ?: return
         val app = context.applicationContext as? FocusApplication ?: return
         
+        val pendingResult = goAsync()
+
         // Acquire WakeLock to prevent CPU from sleeping while generating summary
         val powerManager = context.getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager
         val wakeLock = powerManager?.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "FocusByRJ:SummaryWakeLock")
@@ -152,6 +154,7 @@ class DailySummaryReceiver : BroadcastReceiver() {
                         wakeLock.release()
                     }
                 } catch (_: Exception) {}
+                pendingResult.finish()
             }
         }
     }

@@ -118,7 +118,7 @@ class BubbleChatActivity : ComponentActivity() {
     private val closeReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == "com.focusbyrj.app.CLOSE_CHAT") {
-                sendBroadcast(Intent("com.focusbyrj.app.TRIGGER_CLOSE_ANIM"))
+                sendBroadcast(Intent("com.focusbyrj.app.TRIGGER_CLOSE_ANIM").setPackage(packageName))
             }
         }
     }
@@ -129,7 +129,7 @@ class BubbleChatActivity : ComponentActivity() {
         
         val filter = IntentFilter("com.focusbyrj.app.CLOSE_CHAT")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(closeReceiver, filter, Context.RECEIVER_EXPORTED)
+            registerReceiver(closeReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
         } else {
             registerReceiver(closeReceiver, filter)
         }
@@ -150,7 +150,7 @@ class BubbleChatActivity : ComponentActivity() {
                     }
                     val f = IntentFilter("com.focusbyrj.app.TRIGGER_CLOSE_ANIM")
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        context.registerReceiver(animReceiver, f, Context.RECEIVER_EXPORTED)
+                        context.registerReceiver(animReceiver, f, Context.RECEIVER_NOT_EXPORTED)
                     } else {
                         context.registerReceiver(animReceiver, f)
                     }
@@ -266,6 +266,9 @@ fun ChatInterface() {
     val quickActionCommands = remember {
         listOf(
             QuickActionCommand("/talk", "/talk "),
+            QuickActionCommand("/advice", "/advice "),
+            QuickActionCommand("/breathe", "/breathe "),
+            QuickActionCommand("/screentime", "/screentime "),
             QuickActionCommand("/tasks", "/tasks "),
             QuickActionCommand("/tasks all", "/tasks all "),
             QuickActionCommand("/summary", "/summary "),
@@ -411,7 +414,7 @@ fun ChatInterface() {
         
         when {
             parts.size == 1 -> {
-                val available = listOf("/talk", "/tasks", "/tasks all", "/summary", "/summary all", "/drill", "/profile", "/priority", "/postpone all", "/reschedule", "/clear", "/help")
+                val available = listOf("/talk", "/advice", "/breathe", "/screentime", "/tasks", "/tasks all", "/summary", "/summary all", "/drill", "/profile", "/priority", "/postpone all", "/reschedule", "/clear", "/help")
                 available.filter { it.startsWith(cmd) }.map { Suggestion(it, "$it ") }
             }
             (cmd == "/summary" || cmd == "/tasks" || cmd == "/task") && parts.size == 2 -> {
@@ -466,7 +469,7 @@ fun ChatInterface() {
             messages = messages + userMsg
             var sentText = textToSend
             val finalTitle = parsedResult?.cleanText?.takeIf { it.isNotBlank() && overrideText == null } ?: sentText
-            val dueDate = parsedResult?.timestamp ?: System.currentTimeMillis()
+            val dueDate = parsedResult?.timestamp
             
             val wasPriority = isHighPriority
             val wasPersistent = isPersistent
@@ -505,7 +508,8 @@ fun ChatInterface() {
                             }
                             com.focusbyrj.app.util.NluIntent.UNKNOWN -> {
                                 val lower = sentText.lowercase().trim()
-                                val isQuestionOrSetting = lower.startsWith("how") || lower.startsWith("why") || 
+                                val isQuestionOrSetting = com.focusbyrj.app.util.AyvaTalkEngine.activeSession != null ||
+                                    lower.startsWith("how") || lower.startsWith("why") || 
                                     lower.startsWith("what") || lower.startsWith("where") || 
                                     lower.startsWith("who") || lower.startsWith("when") ||
                                     lower.startsWith("can") || lower.startsWith("could") ||
@@ -519,21 +523,30 @@ fun ChatInterface() {
                                     lower.startsWith("unfreeze") || lower.startsWith("enable") || 
                                     lower.startsWith("disable") || lower.startsWith("toggle") ||
                                     lower.startsWith("activate") || lower.startsWith("deactivate") ||
-                                    lower.contains("vacation") || lower.contains("settings") ||
-                                    lower.contains("permission") || lower.contains("timer") ||
-                                    lower.contains("bubble") || lower.contains("theme") ||
-                                    lower.contains("routine") || lower.contains("streak") ||
-                                    lower.contains("troubleshoot") || lower.contains("widget") ||
-                                    lower.contains("relief") || lower.contains("strict") ||
-                                    lower.contains("uninstall") || lower.contains("video call") ||
-                                    lower.contains("drill") || lower.contains("advice") ||
-                                    lower.contains("tips") || lower.contains("focus") ||
-                                    lower.contains("ayva") || lower.contains("about") ||
-                                    lower == "hi" || lower == "hello" || lower == "hey" ||
-                                    lower == "hey ayva" || lower == "hello ayva" ||
-                                    lower == "help" || lower == "guide" || lower == "info" ||
-                                    lower == "menu" || lower == "commands" ||
-                                    lower == "thanks" || lower == "thank you" || lower == "thx"
+                                    lower.contains("screentime") || lower.contains("screen time") ||
+                                    lower.contains("usage") || lower.contains("breathe") ||
+                                    lower.contains("breathing") || lower.contains("relax") ||
+                                    lower.contains("calm down") || lower.contains("vacation") || 
+                                    lower.contains("settings") || lower.contains("permission") || 
+                                    lower.contains("timer") || lower.contains("bubble") || 
+                                    lower.contains("theme") || lower.contains("routine") || 
+                                    lower.contains("streak") || lower.contains("troubleshoot") || 
+                                    lower.contains("widget") || lower.contains("relief") || 
+                                    lower.contains("strict") || lower.contains("uninstall") || 
+                                    lower.contains("video call") || lower.contains("drill") || 
+                                    lower.contains("advice") || lower.contains("tips") || 
+                                    lower.contains("focus") || lower.contains("ayva") || 
+                                    lower.contains("about") || lower.contains("status") ||
+                                    lower.contains("briefing") || lower.contains("overview") ||
+                                    lower.contains("report") || lower.contains("posture") ||
+                                    lower.contains("blocked") || lower.contains("locked") ||
+                                    lower.contains("procrastinat") || lower.contains("distract") ||
+                                    lower in listOf(
+                                        "hi", "hello", "hey", "hey ayva", "hello ayva", "hi ayva", 
+                                        "good morning", "good afternoon", "good evening", "goodnight", 
+                                        "howdy", "sup", "help", "guide", "info", "menu", "commands", 
+                                        "features", "options", "thanks", "thank you", "thx", "bye"
+                                    )
                                 if (isQuestionOrSetting) {
                                     sentText = "/talk $sentText"
                                 }
@@ -612,8 +625,14 @@ fun ChatInterface() {
                                 }
                                 return@launch
                             }
-                            "/talk", "/guide", "/ask", "/how", "/help", "/faq", "/info", "/menu", "/settings", "/vacation", "/streak", "/routines", "/unblock", "/block", "/apps", "/diagnose" -> {
-                                val query = if (parts.size > 1) parts.drop(1).joinToString(" ") else sentText.removePrefix("/").trim()
+                            "/talk", "/advice", "/breathe", "/screentime", "/tips", "/coach", "/guide", "/ask", "/how", "/help", "/faq", "/info", "/menu", "/settings", "/vacation", "/streak", "/routines", "/unblock", "/block", "/apps", "/diagnose" -> {
+                                val query = if (cmd != "/talk" && parts.size == 1) {
+                                    cmd.removePrefix("/")
+                                } else if (parts.size > 1) {
+                                    parts.drop(1).joinToString(" ")
+                                } else {
+                                    sentText.removePrefix("/").trim()
+                                }
                                 val talkResp = try {
                                     com.focusbyrj.app.util.AyvaTalkEngine.answerTalkQueryWithActions(query, context)
                                 } catch (e: Exception) {

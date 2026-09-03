@@ -51,24 +51,7 @@ class TaskViewModel(
     }
 
     fun toggleTaskCompletion(task: Task) {
-        viewModelScope.launch {
-            val newStatus = !task.isCompleted
-            val updatedTask = task.copy(isCompleted = newStatus, completedAt = if(newStatus) System.currentTimeMillis() else null)
-            repository.updateTask(updatedTask)
-            
-            if (updatedTask.isCompleted) {
-                com.focusbyrj.app.util.FocusEconomyManager.completeTaskReward(task.title, task.isPriority, task.type)
-                TaskReminderHelper.cancelReminder(getApplication(), updatedTask)
-                if (updatedTask.recurrence != com.focusbyrj.app.data.RecurrencePattern.NONE) {
-                    val nextTask = TaskReminderHelper.generateNextRecurringTask(updatedTask)
-                    val newId = repository.insertTask(nextTask)
-                    TaskReminderHelper.scheduleReminder(getApplication(), nextTask.copy(id = newId))
-                }
-            } else {
-                TaskReminderHelper.scheduleReminder(getApplication(), updatedTask)
-            }
-            TodoWidgetProvider.updateAllWidgets(getApplication())
-        }
+        TaskReminderHelper.toggleTaskById(getApplication(), task.id)
     }
 }
 

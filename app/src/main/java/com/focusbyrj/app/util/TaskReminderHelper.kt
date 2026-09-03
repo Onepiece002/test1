@@ -193,6 +193,44 @@ object TaskReminderHelper {
         }
     }
 
+    fun toggleTaskById(context: Context, taskId: Long, onDone: (() -> Unit)? = null) {
+        val app = context.applicationContext as? FocusApplication ?: return
+        CoroutineScope(Dispatchers.IO).launch {
+            kotlin.runCatching {
+                val taskDao = app.database.taskDao()
+                val existing = taskDao.getTaskById(taskId)
+                if (existing != null) {
+                    val newStatus = !existing.isCompleted
+                    val updated = existing.copy(
+                        isCompleted = newStatus,
+                        completedAt = if (newStatus) System.currentTimeMillis() else null
+                    )
+                    taskDao.updateTask(updated)
+
+                    if (updated.isCompleted) {
+                        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+                        notificationManager?.cancel(taskId.toInt())
+                        cancelReminderById(context, taskId)
+                        FocusEconomyManager.completeTaskReward(existing.title, existing.isPriority, existing.type)
+                        if (updated.recurrence != RecurrencePattern.NONE) {
+                            val nextTask = generateNextRecurringTask(updated)
+                            val newId = taskDao.insertTask(nextTask)
+                            scheduleReminder(context, nextTask.copy(id = newId))
+                        }
+                    } else {
+                        scheduleReminder(context, updated)
+                    }
+                    TodoWidgetProvider.updateAllWidgets(context)
+                }
+            }
+            if (onDone != null) {
+                withContext(Dispatchers.Main) {
+                    kotlin.runCatching { onDone.invoke() }
+                }
+            }
+        }
+    }
+
     fun ignoreTask(context: Context, taskId: Long) {
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
         notificationManager?.cancel(taskId.toInt())

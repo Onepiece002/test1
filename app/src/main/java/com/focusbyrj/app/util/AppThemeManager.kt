@@ -35,123 +35,123 @@ enum class AppThemeColor(
 ) {
     EMERALD(
         id = "emerald",
-        displayName = "Emerald Aurora",
-        primary = Color(0xFF10B981),
-        secondary = Color(0xFF34D399),
-        tertiary = Color(0xFF059669),
-        glowColor = Color(0x3310B981),
-        description = "Vibrant mint & emerald radiance",
-        swatch = listOf(Color(0xFF059669), Color(0xFF10B981), Color(0xFF34D399))
+        displayName = "Calm Sage",
+        primary = Color(0xFF6E9987),
+        secondary = Color(0xFF8EAF9F),
+        tertiary = Color(0xFF557C6C),
+        glowColor = Color(0x1F6E9987),
+        description = "Subtle eucalyptus & serene botanical calm",
+        swatch = listOf(Color(0xFF557C6C), Color(0xFF6E9987), Color(0xFF8EAF9F))
     ),
     CYAN(
         id = "cyan",
-        displayName = "Cyber Cyan",
-        primary = Color(0xFF06B6D4),
-        secondary = Color(0xFF22D3EE),
-        tertiary = Color(0xFF0891B2),
-        glowColor = Color(0x3306B6D4),
-        description = "Electric cyan & aqua crystal",
-        swatch = listOf(Color(0xFF0891B2), Color(0xFF06B6D4), Color(0xFF22D3EE))
+        displayName = "Arctic Slate",
+        primary = Color(0xFF6B8EA8),
+        secondary = Color(0xFF8BA9C0),
+        tertiary = Color(0xFF53748C),
+        glowColor = Color(0x1F6B8EA8),
+        description = "Soft misty fjord & calming slate blue",
+        swatch = listOf(Color(0xFF53748C), Color(0xFF6B8EA8), Color(0xFF8BA9C0))
     ),
     VIOLET(
         id = "violet",
-        displayName = "Electric Violet",
-        primary = Color(0xFF8B5CF6),
-        secondary = Color(0xFFA78BFA),
-        tertiary = Color(0xFF7C3AED),
-        glowColor = Color(0x338B5CF6),
-        description = "Ultraviolet & neon purple glow",
-        swatch = listOf(Color(0xFF7C3AED), Color(0xFF8B5CF6), Color(0xFFA78BFA))
+        displayName = "Dusk Heather",
+        primary = Color(0xFF8A82A5),
+        secondary = Color(0xFFA59EBE),
+        tertiary = Color(0xFF6F678A),
+        glowColor = Color(0x1F8A82A5),
+        description = "Muted lavender twilight & twilight dusk",
+        swatch = listOf(Color(0xFF6F678A), Color(0xFF8A82A5), Color(0xFFA59EBE))
     ),
     ROSE(
         id = "rose",
-        displayName = "Sunset Rose",
-        primary = Color(0xFFF43F5E),
-        secondary = Color(0xFFFB7185),
-        tertiary = Color(0xFFE11D48),
-        glowColor = Color(0x33F43F5E),
-        description = "Vivid crimson & dusk rose",
-        swatch = listOf(Color(0xFFE11D48), Color(0xFFF43F5E), Color(0xFFFB7185))
+        displayName = "Dusty Rose",
+        primary = Color(0xFFB57E82),
+        secondary = Color(0xFFCF9AA0),
+        tertiary = Color(0xFF986266),
+        glowColor = Color(0x1FB57E82),
+        description = "Muted dried petal & warm clay rose",
+        swatch = listOf(Color(0xFF986266), Color(0xFFB57E82), Color(0xFFCF9AA0))
     ),
     AMBER(
         id = "amber",
-        displayName = "Solar Amber",
-        primary = Color(0xFFF59E0B),
-        secondary = Color(0xFFFBBF24),
-        tertiary = Color(0xFFD97706),
-        glowColor = Color(0x33F59E0B),
-        description = "Golden ray & sunburst flare",
-        swatch = listOf(Color(0xFFD97706), Color(0xFFF59E0B), Color(0xFFFBBF24))
+        displayName = "Warm Sand",
+        primary = Color(0xFFBA976B),
+        secondary = Color(0xFFD6B58A),
+        tertiary = Color(0xFF9C7A4E),
+        glowColor = Color(0x1FBA976B),
+        description = "Subtle desert ochre & calming amber",
+        swatch = listOf(Color(0xFF9C7A4E), Color(0xFFBA976B), Color(0xFFD6B58A))
     ),
     COBALT(
         id = "cobalt",
-        displayName = "Cobalt Blue",
-        primary = Color(0xFF3B82F6),
-        secondary = Color(0xFF60A5FA),
-        tertiary = Color(0xFF2563EB),
-        glowColor = Color(0x333B82F6),
-        description = "Deep oceanic royal sapphire",
-        swatch = listOf(Color(0xFF2563EB), Color(0xFF3B82F6), Color(0xFF60A5FA))
+        displayName = "Coastal Slate",
+        primary = Color(0xFF627D98),
+        secondary = Color(0xFF829AB1),
+        tertiary = Color(0xFF486581),
+        glowColor = Color(0x1F627D98),
+        description = "Deep coastal ocean & calm navy haze",
+        swatch = listOf(Color(0xFF486581), Color(0xFF627D98), Color(0xFF829AB1))
     ),
     LIME(
         id = "lime",
-        displayName = "Neon Lime",
-        primary = Color(0xFF84CC16),
-        secondary = Color(0xFFA3E635),
-        tertiary = Color(0xFF65A30D),
-        glowColor = Color(0x3384CC16),
-        description = "Acid lime & cyber energy",
-        swatch = listOf(Color(0xFF65A30D), Color(0xFF84CC16), Color(0xFFA3E635))
+        displayName = "Muted Matcha",
+        primary = Color(0xFF829465),
+        secondary = Color(0xFFA1B384),
+        tertiary = Color(0xFF66784A),
+        glowColor = Color(0x1F829465),
+        description = "Calm organic tea leaf & soft matcha",
+        swatch = listOf(Color(0xFF66784A), Color(0xFF829465), Color(0xFFA1B384))
     ),
     RUBY(
         id = "ruby",
-        displayName = "Crimson Ruby",
-        primary = Color(0xFFEF4444),
-        secondary = Color(0xFFF87171),
-        tertiary = Color(0xFFDC2626),
-        glowColor = Color(0x33EF4444),
-        description = "Bold scarlet & intense ruby",
-        swatch = listOf(Color(0xFFDC2626), Color(0xFFEF4444), Color(0xFFF87171))
+        displayName = "Desert Clay",
+        primary = Color(0xFFA86862),
+        secondary = Color(0xFFC48680),
+        tertiary = Color(0xFF8C4C46),
+        glowColor = Color(0x1FA86862),
+        description = "Subdued earthenware & warm terra",
+        swatch = listOf(Color(0xFF8C4C46), Color(0xFFA86862), Color(0xFFC48680))
     ),
     CORAL(
         id = "coral",
-        displayName = "Warm Coral",
-        primary = Color(0xFFFB923C),
-        secondary = Color(0xFFFDBA74),
-        tertiary = Color(0xFFEA580C),
-        glowColor = Color(0x33FB923C),
-        description = "Tropical coral & tangerine warmth",
-        swatch = listOf(Color(0xFFEA580C), Color(0xFFFB923C), Color(0xFFFDBA74))
+        displayName = "Muted Terracotta",
+        primary = Color(0xFFBA846F),
+        secondary = Color(0xFFD49F8B),
+        tertiary = Color(0xFF9E6853),
+        glowColor = Color(0x1FBA846F),
+        description = "Soft Mediterranean brick & warm linen",
+        swatch = listOf(Color(0xFF9E6853), Color(0xFFBA846F), Color(0xFFD49F8B))
     ),
     LAVENDER(
         id = "lavender",
-        displayName = "Amethyst Orchid",
-        primary = Color(0xFFA855F7),
-        secondary = Color(0xFFC084FC),
-        tertiary = Color(0xFF9333EA),
-        glowColor = Color(0x33A855F7),
-        description = "Mystic amethyst & royal orchid",
-        swatch = listOf(Color(0xFF9333EA), Color(0xFFA855F7), Color(0xFFC084FC))
+        displayName = "Lilac Ash",
+        primary = Color(0xFF9688A6),
+        secondary = Color(0xFFB3A6C2),
+        tertiary = Color(0xFF7A6B8B),
+        glowColor = Color(0x1F9688A6),
+        description = "Quiet pastel mist & gentle lilac",
+        swatch = listOf(Color(0xFF7A6B8B), Color(0xFF9688A6), Color(0xFFB3A6C2))
     ),
     TEAL(
         id = "teal",
-        displayName = "Matrix Teal",
-        primary = Color(0xFF14B8A6),
-        secondary = Color(0xFF2DD4BF),
-        tertiary = Color(0xFF0D9488),
-        glowColor = Color(0x3314B8A6),
-        description = "Deep cybernetic sea turquoise",
-        swatch = listOf(Color(0xFF0D9488), Color(0xFF14B8A6), Color(0xFF2DD4BF))
+        displayName = "Mineral Teal",
+        primary = Color(0xFF659691),
+        secondary = Color(0xFF84B5B0),
+        tertiary = Color(0xFF4B7B76),
+        glowColor = Color(0x1F659691),
+        description = "Subdued mineral spring & calm jade",
+        swatch = listOf(Color(0xFF4B7B76), Color(0xFF659691), Color(0xFF84B5B0))
     ),
     PLATINUM(
         id = "platinum",
-        displayName = "Titanium Silver",
-        primary = Color(0xFFE2E8F0),
-        secondary = Color(0xFFF8FAFC),
-        tertiary = Color(0xFF94A3B8),
-        glowColor = Color(0x33E2E8F0),
-        description = "Sleek metallic monochrome",
-        swatch = listOf(Color(0xFF94A3B8), Color(0xFFE2E8F0), Color(0xFFF8FAFC))
+        displayName = "Pure Minimal",
+        primary = Color(0xFF94A3B8),
+        secondary = Color(0xFFCBD5E1),
+        tertiary = Color(0xFF64748B),
+        glowColor = Color(0x1F94A3B8),
+        description = "Understated monochromatic titanium",
+        swatch = listOf(Color(0xFF64748B), Color(0xFF94A3B8), Color(0xFFCBD5E1))
     );
 
     companion object {

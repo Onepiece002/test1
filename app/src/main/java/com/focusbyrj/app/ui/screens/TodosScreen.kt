@@ -48,12 +48,22 @@ import kotlin.math.abs
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TodosScreen(viewModel: TaskViewModel, initialOpenAdd: Boolean = false) {
+fun TodosScreen(
+    viewModel: TaskViewModel, 
+    initialOpenAdd: Boolean = false,
+    onOpenAddHandled: (() -> Unit)? = null
+) {
     val tasks by viewModel.allTasks.collectAsStateWithLifecycle()
     var selectedTab by remember { mutableIntStateOf(0) }
     val tabs = listOf("Today", "Upcoming", "All", "Occasions")
     
     var showAddDialog by remember { mutableStateOf(initialOpenAdd) }
+    LaunchedEffect(initialOpenAdd) {
+        if (initialOpenAdd) {
+            showAddDialog = true
+            onOpenAddHandled?.invoke()
+        }
+    }
     var editingTask by remember { mutableStateOf<Task?>(null) }
     val coroutineScope = rememberCoroutineScope()
     
@@ -85,9 +95,9 @@ fun TodosScreen(viewModel: TaskViewModel, initialOpenAdd: Boolean = false) {
 
         val baseList = when (selectedTab) {
             0 -> tasks.filter { 
-                (it.dueDate != null && it.dueDate in todayStart..todayEnd) || 
+                (it.dueDate != null && it.dueDate <= todayEnd) || 
                 (it.dueDate == null && it.type == TaskType.TASK) 
-            } // Today
+            } // Today & Overdue
             1 -> tasks.filter { 
                 it.type == TaskType.TASK && it.dueDate != null && it.dueDate > todayEnd 
             } // Upcoming
@@ -144,9 +154,10 @@ fun TodosScreen(viewModel: TaskViewModel, initialOpenAdd: Boolean = false) {
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(64.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                                    .size(68.dp)
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                                    .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f), RoundedCornerShape(20.dp)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
@@ -318,10 +329,10 @@ fun TodoSegmentedPill(tabs: List<String>, selectedIndex: Int, onSelect: (Int) ->
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(14.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
-            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.12f), RoundedCornerShape(10.dp))
-            .padding(3.dp),
+            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f), RoundedCornerShape(14.dp))
+            .padding(4.dp),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         tabs.forEachIndexed { index, title ->
@@ -340,10 +351,10 @@ fun TodoSegmentedPill(tabs: List<String>, selectedIndex: Int, onSelect: (Int) ->
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(10.dp))
                     .background(bgColor)
                     .clickable { onSelect(index) }
-                    .padding(vertical = 8.dp),
+                    .padding(vertical = 9.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -484,14 +495,14 @@ fun TaskItem(
                 Box(
                     modifier = Modifier
                         .size(24.dp)
-                        .clip(CircleShape)
+                        .clip(RoundedCornerShape(8.dp))
                         .background(if (isCompleted) MaterialTheme.colorScheme.primary else Color.Transparent)
                         .border(
                             width = 2.dp,
                             color = if (isCompleted) MaterialTheme.colorScheme.primary 
                                     else if (task.isPriority) Color(0xFFFF7043)
                                     else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                            shape = CircleShape
+                            shape = RoundedCornerShape(8.dp)
                         )
                         .clickable {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -550,20 +561,25 @@ fun TaskItem(
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             if (task.dueDate != null) {
+                                val isOverdue = !isCompleted && task.dueDate < System.currentTimeMillis()
+                                val dateColor = if (isOverdue) Color(0xFFE53935) else metadataColor
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Outlined.Event,
+                                        imageVector = if (isOverdue) Icons.Outlined.Warning else Icons.Outlined.Event,
                                         contentDescription = null,
-                                        tint = metadataColor,
+                                        tint = dateColor,
                                         modifier = Modifier.size(14.dp)
                                     )
                                     Text(
-                                        text = SmartDateParser.formatDueDate(task.dueDate),
-                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 13.sp, fontWeight = FontWeight.Normal),
-                                        color = metadataColor
+                                        text = if (isOverdue) "Overdue • ${SmartDateParser.formatDueDate(task.dueDate)}" else SmartDateParser.formatDueDate(task.dueDate),
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontSize = 13.sp, 
+                                            fontWeight = if (isOverdue) FontWeight.SemiBold else FontWeight.Normal
+                                        ),
+                                        color = dateColor
                                     )
                                 }
                             }

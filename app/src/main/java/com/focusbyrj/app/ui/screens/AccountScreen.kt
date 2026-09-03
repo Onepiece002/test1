@@ -49,8 +49,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -297,6 +299,7 @@ fun ProfileCard(
     onNameChange: (String) -> Unit,
     onInfoClick: () -> Unit
 ) {
+    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     var isEditingName by remember { mutableStateOf(false) }
     var tempName by remember { mutableStateOf(profile.name) }
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -315,8 +318,12 @@ fun ProfileCard(
             .fillMaxWidth()
             .clip(RoundedCornerShape(24.dp))
             .background(MaterialTheme.colorScheme.surface)
-            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(24.dp))
-            .padding(24.dp)
+            .border(
+                1.dp, 
+                MaterialTheme.colorScheme.outline.copy(alpha = 0.15f), 
+                RoundedCornerShape(24.dp)
+            )
+            .padding(22.dp)
     ) {
         
         Row(
@@ -441,7 +448,7 @@ fun ProfileCard(
             trackColor = MaterialTheme.colorScheme.surfaceVariant
         )
         
-        Spacer(modifier = Modifier.height(28.dp))
+        Spacer(modifier = Modifier.height(24.dp))
         
         
         val unlockedCount = getAchievements(profile, com.focusbyrj.app.util.FocusStats(0,0, emptyMap())).count { it.isUnlocked }
@@ -449,9 +456,9 @@ fun ProfileCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
-                .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
+                .clip(RoundedCornerShape(18.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f), RoundedCornerShape(18.dp))
                 .padding(vertical = 16.dp, horizontal = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
@@ -460,33 +467,33 @@ fun ProfileCard(
                 icon = androidx.compose.material.icons.Icons.Filled.MonetizationOn, 
                 value = "${profile.gold}", 
                 label = "Coins", 
-                color = Color(0xFFFFD700),
+                color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.weight(1f)
             )
-            Box(modifier = Modifier.width(1.dp).height(24.dp).background(MaterialTheme.colorScheme.outline))
+            Box(modifier = Modifier.width(1.dp).height(24.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)))
             ProfileStatItem(
                 icon = androidx.compose.material.icons.Icons.Filled.LocalFireDepartment, 
                 value = "${FocusEconomyManager.getGoldMultiplier(profile.level)}x", 
                 label = "Multiplier", 
-                color = Color(0xFF00E5FF),
+                color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.weight(1f)
             )
-            Box(modifier = Modifier.width(1.dp).height(24.dp).background(MaterialTheme.colorScheme.outline))
+            Box(modifier = Modifier.width(1.dp).height(24.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)))
             ProfileStatItem(
                 icon = androidx.compose.material.icons.Icons.Filled.EmojiEvents, 
                 value = "$unlockedCount", 
                 label = "Awards", 
-                color = Color(0xFFF43F5E),
+                color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.weight(1f)
             )
         }
         
         if (profile.level < profile.maxLevel) {
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(18.dp))
             androidx.compose.material3.Button(
                 onClick = { FocusEconomyManager.recoverXp(500, 500) },
-                colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
-                shape = RoundedCornerShape(12.dp),
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+                shape = RoundedCornerShape(14.dp),
                 modifier = Modifier.fillMaxWidth().height(48.dp)
             ) {
                 Icon(androidx.compose.material.icons.Icons.Filled.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
@@ -553,7 +560,7 @@ fun StatsGrid(profile: UserProfile) {
                 title = "Apps Resisted",
                 value = profile.lifetimeResists.toString(),
                 icon = androidx.compose.material.icons.Icons.Filled.Shield,
-                color = Color(0xFF4CAF50),
+                color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.weight(1f)
             )
         }
@@ -563,14 +570,14 @@ fun StatsGrid(profile: UserProfile) {
                 title = "Tasks Completed",
                 value = profile.lifetimeTasksCompleted.toString(),
                 icon = androidx.compose.material.icons.Icons.Filled.CheckCircle,
-                color = Color(0xFF00E5FF),
+                color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.weight(1f)
             )
             StatCard(
                 title = "Vault Coins",
                 value = profile.gold.toString(),
                 icon = androidx.compose.material.icons.Icons.Filled.MonetizationOn,
-                color = Color(0xFFFFD700),
+                color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.weight(1f)
             )
         }
@@ -583,7 +590,7 @@ fun StatCard(title: String, value: String, icon: ImageVector, color: Color, modi
         modifier = modifier
             .clip(RoundedCornerShape(20.dp))
             .background(MaterialTheme.colorScheme.surface)
-            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(20.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f), RoundedCornerShape(20.dp))
             .padding(16.dp)
     ) {
         Column {
@@ -741,27 +748,15 @@ fun MedievalMedal(iconRes: Int, color: Color, isUnlocked: Boolean, modifier: Mod
                     )
             )
 
-            // Direct dark contrast pod behind dark cutout icons
+            // Direct contrast pod behind cutout icons
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .clip(RoundedCornerShape(14.dp))
-                    .background(
-                        brush = androidx.compose.ui.graphics.Brush.verticalGradient(
-                            colors = listOf(
-                                Color(0xFF1E2235),
-                                Color(0xFF0F111A)
-                            )
-                        )
-                    )
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
                     .border(
                         width = 1.dp,
-                        brush = androidx.compose.ui.graphics.Brush.linearGradient(
-                            colors = listOf(
-                                color.copy(alpha = 0.8f),
-                                color.copy(alpha = 0.25f)
-                            )
-                        ),
+                        color = color.copy(alpha = 0.5f),
                         shape = RoundedCornerShape(14.dp)
                     )
                     .padding(6.dp),
@@ -774,22 +769,15 @@ fun MedievalMedal(iconRes: Int, color: Color, isUnlocked: Boolean, modifier: Mod
                 )
             }
         } else {
-            // Locked badge with dark pod and grayscale lock
+            // Locked badge pod
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .clip(RoundedCornerShape(14.dp))
-                    .background(
-                        brush = androidx.compose.ui.graphics.Brush.verticalGradient(
-                            colors = listOf(
-                                Color(0xFF181A24),
-                                Color(0xFF0D0E15)
-                            )
-                        )
-                    )
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
                     .border(
                         width = 1.dp,
-                        color = Color.White.copy(alpha = 0.08f),
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f),
                         shape = RoundedCornerShape(14.dp)
                     )
                     .padding(6.dp),
@@ -1090,7 +1078,7 @@ fun AvatarSelectionSheet(profile: UserProfile) {
                         modifier = Modifier
                             .size(36.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFF10111A))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
                             .border(2.dp, avatar.borderColor, CircleShape),
                         contentAlignment = Alignment.Center
                     ) {

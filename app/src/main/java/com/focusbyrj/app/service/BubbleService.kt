@@ -24,10 +24,20 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.dynamicanimation.animation.FloatPropertyCompat
+import androidx.dynamicanimation.animation.SpringAnimation
+import androidx.dynamicanimation.animation.SpringForce
+import com.focusbyrj.app.FocusApplication
 import com.focusbyrj.app.R
 import com.focusbyrj.app.ui.screens.BubbleChatActivity
 import com.focusbyrj.app.util.BubbleChatManager
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import kotlin.math.abs
+import kotlin.math.hypot
 
 class BubbleService : Service() {
 
@@ -38,6 +48,14 @@ class BubbleService : Service() {
     private var glowRingView: View? = null
     private var closeView: View? = null
     private var layoutParams: WindowManager.LayoutParams? = null
+
+    // Message Preview Pill (Facebook Messenger style preview next to bubble)
+    private var previewPillView: View? = null
+    private var previewTextView: TextView? = null
+    private var previewLayoutParams: WindowManager.LayoutParams? = null
+    private val previewDismissHandler = Handler(Looper.getMainLooper())
+    private val previewDismissRunnable = Runnable { dismissPreviewPill(animated = true) }
+    private var lastPreviewedMessageId: String? = null
 
     private var lastX = 0
     private var lastY = 300
@@ -50,6 +68,11 @@ class BubbleService : Service() {
     private var isPeeking = false
     private var hideRunnable = Runnable { peekBubble() }
     private var peekAnimator: android.animation.ValueAnimator? = null
+    private var springXAnim: SpringAnimation? = null
+
+    private var taskObserverJob: Job? = null
+    private var latestOverdueCount: Int = 0
+    private val serviceScope = CoroutineScope(Dispatchers.Main + Job())
 
     private val displayListener = object : DisplayManager.DisplayListener {
         override fun onDisplayAdded(displayId: Int) {}
@@ -90,6 +113,7 @@ class BubbleService : Service() {
                 "com.focusbyrj.app.CHAT_OPENED" -> {
                     isChatOpen = true
                     hideHandler.removeCallbacks(hideRunnable)
+                    dismissPreviewPill(animated = false)
                     unpeekBubble(animate = false)
                     lastX = layoutParams?.x ?: 0
                     lastY = layoutParams?.y ?: 0
@@ -144,6 +168,7 @@ class BubbleService : Service() {
         displayManager.registerDisplayListener(displayListener, Handler(Looper.getMainLooper()))
         
         setupBubble()
+        startObservingTasks()
         resetHideTimer()
     }
 
@@ -185,7 +210,7 @@ class BubbleService : Service() {
             hideHandler.removeCallbacks(hideRunnable)
             bubbleView?.visibility = View.GONE
             if (isChatOpen) {
-                sendBroadcast(Intent("com.focusbyrj.app.CLOSE_CHAT"))
+                sendBroadcast(Intent("com.focusbyrj.app.CLOSE_CHAT").setPackage(packageName))
             }
         } else {
             val isEnabled = prefs.getBoolean("bubble_enabled", false)
@@ -337,6 +362,7 @@ class BubbleService : Service() {
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
                     hideHandler.removeCallbacks(hideRunnable)
+                    dismissPreviewPill(animated = false)
                     bubbleView?.animate()?.cancel()
                     peekAnimator?.cancel()
                     if (isPeeking) {
@@ -397,7 +423,7 @@ class BubbleService : Service() {
                     if (!isMoved) {
                         view.performClick()
                         if (isChatOpen) {
-                            sendBroadcast(Intent("com.focusbyrj.app.CLOSE_CHAT"))
+                            sendBroadcast(Intent("com.focusbyrj.app.CLOSE_CHAT").setPackage(packageName))
                         } else {
                             openChatWindow()
                         }
@@ -416,8 +442,8 @@ class BubbleService : Service() {
                         val dist = Math.hypot((bubbleCenterX - closeCenterX).toDouble(), (bubbleCenterY - closeCenterY).toDouble())
                         
                         if (dist < cSize * 2.0) {
-                            // Dragged to dismiss
-                            stopSelf()
+                            // Dragged to dismiss with animated exit
+                            dismissBubbleWithAnimation()
                             return@setOnTouchListener true
                         }
 
@@ -454,13 +480,191 @@ class BubbleService : Service() {
     private fun updateBadgeCount(count: Int = BubbleChatManager.getUnreadCount(this)) {
         val bv = badgeView ?: return
         if (count > 0) {
+            // Unread chat messages takes priority (Red)
+            (bv.background as? GradientDrawable)?.setColor(android.graphics.Color.parseColor("#E53935"))
             bv.text = if (count > 99) "99+" else count.toString()
             bv.visibility = View.VISIBLE
             if (isPeeking) {
                 unpeekBubble(animate = true)
             }
+
+            // Check if there's a new unread message to show in the Messenger-style preview pill
+            val latestMsg = BubbleChatManager.getMessages(this).lastOrNull { !it.isUser }
+            if (latestMsg != null && latestMsg.id != lastPreviewedMessageId && !isChatOpen) {
+                lastPreviewedMessageId = latestMsg.id
+                val previewText = latestMsg.text.trim()
+                if (previewText.isNotEmpty()) {
+                    showNotificationPreviewPill(previewText)
+                }
+            }
+            return
+        }
+
+        // When unread messages are cleared, dismiss any preview pill
+        dismissPreviewPill(animated = true)
+
+        // Secondary priority: Overdue or urgent pending tasks (Amber)
+        if (latestOverdueCount > 0) {
+            (bv.background as? GradientDrawable)?.setColor(android.graphics.Color.parseColor("#F59E0B")) // Warm Amber
+            bv.text = if (latestOverdueCount > 99) "99+" else latestOverdueCount.toString()
+            bv.visibility = View.VISIBLE
         } else {
             bv.visibility = View.GONE
+        }
+    }
+
+    private fun showNotificationPreviewPill(rawText: String) {
+        if (isChatOpen) return
+        val currentBubbleView = bubbleView ?: return
+        val currentLayoutParams = layoutParams ?: return
+
+        // Clean up markdown / bullet markers for a clean single-line notification pill
+        val cleanText = rawText
+            .replace(Regex("\\*\\*(.*?)\\*\\*"), "$1")
+            .replace(Regex("\\*(.*?)\\*"), "$1")
+            .replace(Regex("^#+\\s*", RegexOption.MULTILINE), "")
+            .replace(Regex("^[\\s*\\-•]+\\s*", RegexOption.MULTILINE), "")
+            .replace(Regex("\n+"), " ")
+            .trim()
+
+        val displayText = if (cleanText.length > 55) cleanText.take(52) + "…" else cleanText
+        if (displayText.isEmpty()) return
+
+        val displayMetrics = resources.displayMetrics
+        val density = displayMetrics.density
+        val screenWidth = displayMetrics.widthPixels
+        val screenHeight = displayMetrics.heightPixels
+        val bubbleSize = (60 * density).toInt()
+        val pillMargin = (10 * density).toInt()
+
+        val isLeft = (currentLayoutParams.x + bubbleSize / 2) < screenWidth / 2
+
+        // Create pill view if not created yet
+        if (previewPillView == null) {
+            val pill = TextView(this).apply {
+                textSize = 13.5f
+                setTextColor(android.graphics.Color.WHITE)
+                typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
+                maxLines = 2
+                ellipsize = android.text.TextUtils.TruncateAt.END
+                setPadding((14 * density).toInt(), (8 * density).toInt(), (14 * density).toInt(), (8 * density).toInt())
+                elevation = 12 * density
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.RECTANGLE
+                    cornerRadius = 18 * density
+                    setColor(android.graphics.Color.parseColor("#1E293B")) // Slate 800 dark bubble
+                    setStroke((1 * density).toInt(), android.graphics.Color.parseColor("#38BDF8")) // Modern sky-blue cyan border accent
+                }
+                setOnClickListener {
+                    dismissPreviewPill(animated = false)
+                    openChatWindow()
+                }
+            }
+            previewTextView = pill
+            previewPillView = pill
+        }
+
+        previewTextView?.text = displayText
+
+        // Measure wrap_content size with max width constraint
+        val maxPillWidth = (screenWidth * 0.65f).coerceAtMost(260 * density).toInt()
+        previewPillView?.measure(
+            View.MeasureSpec.makeMeasureSpec(maxPillWidth, View.MeasureSpec.AT_MOST),
+            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+        )
+        val pillWidth = previewPillView?.measuredWidth ?: (200 * density).toInt()
+        val pillHeight = previewPillView?.measuredHeight ?: (36 * density).toInt()
+
+        val pillX = if (isLeft) {
+            currentLayoutParams.x + bubbleSize + pillMargin
+        } else {
+            currentLayoutParams.x - pillWidth - pillMargin
+        }.coerceIn(pillMargin, screenWidth - pillWidth - pillMargin)
+
+        val pillY = (currentLayoutParams.y + (bubbleSize - pillHeight) / 2)
+            .coerceIn((20 * density).toInt(), screenHeight - pillHeight - (20 * density).toInt())
+
+        val overlayType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+        } else {
+            @Suppress("DEPRECATION")
+            WindowManager.LayoutParams.TYPE_PHONE
+        }
+
+        val pillParams = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            overlayType,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            x = pillX
+            y = pillY
+        }
+        previewLayoutParams = pillParams
+
+        val pillView = previewPillView ?: return
+
+        // Add to WindowManager if not already attached
+        if (pillView.windowToken == null) {
+            try {
+                windowManager.addView(pillView, pillParams)
+            } catch (_: Exception) {
+                return
+            }
+        } else {
+            try {
+                windowManager.updateViewLayout(pillView, pillParams)
+            } catch (_: Exception) {}
+        }
+
+        // Messenger-style entrance: pop in with subtle translation and scale
+        pillView.animate().cancel()
+        pillView.alpha = 0f
+        pillView.scaleX = 0.75f
+        pillView.scaleY = 0.75f
+        pillView.translationX = if (isLeft) -25f * density else 25f * density
+        pillView.visibility = View.VISIBLE
+
+        pillView.animate()
+            .alpha(1f)
+            .scaleX(1f)
+            .scaleY(1f)
+            .translationX(0f)
+            .setDuration(260)
+            .setInterpolator(android.view.animation.OvershootInterpolator(1.2f))
+            .start()
+
+        // Auto-dismiss after 6 seconds
+        previewDismissHandler.removeCallbacks(previewDismissRunnable)
+        previewDismissHandler.postDelayed(previewDismissRunnable, 6000L)
+    }
+
+    private fun dismissPreviewPill(animated: Boolean) {
+        previewDismissHandler.removeCallbacks(previewDismissRunnable)
+        val pill = previewPillView ?: return
+        if (pill.windowToken == null || pill.visibility != View.VISIBLE) return
+
+        if (animated) {
+            pill.animate()
+                .alpha(0f)
+                .scaleX(0.8f)
+                .scaleY(0.8f)
+                .setDuration(200)
+                .withEndAction {
+                    pill.visibility = View.GONE
+                    try { windowManager.removeView(pill) } catch (_: Exception) {}
+                    previewPillView = null
+                    previewTextView = null
+                }
+                .start()
+        } else {
+            pill.animate().cancel()
+            pill.visibility = View.GONE
+            try { windowManager.removeView(pill) } catch (_: Exception) {}
+            previewPillView = null
+            previewTextView = null
         }
     }
 
@@ -535,6 +739,8 @@ class BubbleService : Service() {
         val hideOffset = (size * hiddenAmountRatio).toInt()
         val targetX = if (isLeft) -hideOffset else (screenWidth - size + hideOffset)
         
+        dismissPreviewPill(animated = true)
+
         glowRingView?.animate()
             ?.alpha(glowIntensity)
             ?.setDuration(300)
@@ -612,6 +818,20 @@ class BubbleService : Service() {
         }
     }
 
+    private fun startObservingTasks() {
+        taskObserverJob?.cancel()
+        taskObserverJob = serviceScope.launch {
+            try {
+                val app = application as? FocusApplication ?: return@launch
+                app.taskRepository.allTasks.collectLatest { tasks ->
+                    val now = System.currentTimeMillis()
+                    latestOverdueCount = tasks.count { !it.isCompleted && it.dueDate != null && it.dueDate < now }
+                    updateBadgeCount()
+                }
+            } catch (_: Exception) {}
+        }
+    }
+
     private fun snapToEdge() {
         isPeeking = false
         val displayMetrics = resources.displayMetrics
@@ -628,17 +848,51 @@ class BubbleService : Service() {
         bubbleView?.alpha = 1.0f
         
         peekAnimator?.cancel()
-        peekAnimator = ValueAnimator.ofInt(currentX, targetX).apply {
-            duration = 200
-            addUpdateListener { anim ->
-                layoutParams?.x = anim.animatedValue as Int
-                try { windowManager.updateViewLayout(bubbleView, layoutParams) } catch (e: Exception) {}
+        springXAnim?.cancel()
+
+        val dummyView = bubbleView ?: return
+        val floatProp = object : FloatPropertyCompat<View>("bubbleLayoutX") {
+            override fun getValue(v: View): Float = (layoutParams?.x ?: 0).toFloat()
+            override fun setValue(v: View, value: Float) {
+                layoutParams?.x = value.toInt()
+                try {
+                    windowManager.updateViewLayout(bubbleView, layoutParams)
+                } catch (_: Exception) {}
+            }
+        }
+
+        springXAnim = SpringAnimation(dummyView, floatProp, targetX.toFloat()).apply {
+            spring = SpringForce(targetX.toFloat()).apply {
+                dampingRatio = SpringForce.DAMPING_RATIO_MEDIUM_BOUNCY
+                stiffness = SpringForce.STIFFNESS_LOW
             }
             start()
         }
     }
 
+    private fun dismissBubbleWithAnimation() {
+        dismissPreviewPill(animated = true)
+        // Smoothly animate trash bin and bubble scaling down before stopping service
+        closeView?.animate()
+            ?.scaleX(0f)
+            ?.scaleY(0f)
+            ?.alpha(0f)
+            ?.setDuration(180)
+            ?.start()
+
+        bubbleView?.animate()
+            ?.scaleX(0f)
+            ?.scaleY(0f)
+            ?.alpha(0f)
+            ?.setDuration(200)
+            ?.withEndAction {
+                stopSelf()
+            }
+            ?.start()
+    }
+
     private fun openChatWindow() {
+        dismissPreviewPill(animated = false)
         BubbleChatManager.clearUnread(this)
         updateBadgeCount(0)
         val intent = Intent(this, BubbleChatActivity::class.java).apply {
@@ -701,11 +955,17 @@ class BubbleService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        taskObserverJob?.cancel()
+        springXAnim?.cancel()
         hideHandler.removeCallbacks(hideRunnable)
+        previewDismissHandler.removeCallbacks(previewDismissRunnable)
         unregisterReceiver(receiver)
         try {
             displayManager.unregisterDisplayListener(displayListener)
         } catch (_: Exception) {}
+        previewPillView?.let {
+            try { windowManager.removeView(it) } catch (e: Exception) {}
+        }
         bubbleView?.let {
             try { windowManager.removeView(it) } catch (e: Exception) {}
         }

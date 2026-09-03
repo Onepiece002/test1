@@ -51,8 +51,8 @@ object SmartDateParser {
             return text.removeRange(match.range).trim().replace("\\s+".toRegex(), " ")
         }
 
-        // 0. Clean task command prefixes like "task ,", "task:", "task -", "todo:", "remind me to"
-        val prefixRegex = Regex("(?i)^\\s*(?:task|todo|remind\\s+me\\s+to)\\s*[,:\\-]?\\s*")
+        // 0. Clean task command prefixes like "task ,", "task:", "task -", "todo:", "remind me to", "add task", "remember to"
+        val prefixRegex = Regex("(?i)^\\s*(?:(?:add|new|create)\\s+(?:task|todo)|task|todo|please\\s+remind\\s+me\\s+to|remind\\s+me\\s+to|remember\\s+to|need\\s+to|don't\\s+forget\\s+to|have\\s+to)\\s*[,:\\-]?\\s*")
         prefixRegex.find(text)?.let { match ->
             text = removeMatch(match)
         }

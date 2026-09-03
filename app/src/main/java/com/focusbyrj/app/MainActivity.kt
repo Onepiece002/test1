@@ -23,8 +23,13 @@ import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,11 +41,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Menu
@@ -59,6 +66,7 @@ import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -104,7 +112,10 @@ import com.focusbyrj.app.ui.viewmodels.FocusViewModel
 import com.focusbyrj.app.ui.viewmodels.FocusViewModelFactory
 import com.focusbyrj.app.ui.viewmodels.TaskViewModel
 import com.focusbyrj.app.ui.viewmodels.TaskViewModelFactory
+import com.focusbyrj.app.util.FocusEconomyManager
+import com.focusbyrj.app.util.FocusStatsManager
 import com.focusbyrj.app.util.PermissionUtils
+import com.focusbyrj.app.util.ProfileAvatarManager
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.delay
@@ -122,7 +133,6 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
-import com.focusbyrj.app.util.FocusEconomyManager
 import com.focusbyrj.app.util.EconomyEvent
 
 class MainActivity : FragmentActivity() {
@@ -135,17 +145,11 @@ class MainActivity : FragmentActivity() {
         setIntent(intent)
         val navigateTo = intent.getStringExtra("navigate_to")
         val openAddDialog = intent.getBooleanExtra("open_add_dialog", false)
-        if (navigateTo != null || openAddDialog) {
-            setContent {
-                FocusByRjTheme {
-                    MainAppScreen(
-                        viewModel = viewModel, 
-                        taskViewModel = taskViewModel,
-                        initialNavigateTo = navigateTo,
-                        initialOpenAdd = openAddDialog
-                    )
-                }
-            }
+        if (navigateTo != null) {
+            viewModel.triggerNavigation(navigateTo)
+        }
+        if (openAddDialog) {
+            viewModel.triggerOpenAddDialog()
         }
     }
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -197,11 +201,23 @@ fun MainAppScreen(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
 
+    val pendingRoute by viewModel.pendingNavigationRoute.collectAsStateWithLifecycle()
+    val pendingOpenAdd by viewModel.pendingOpenAddDialog.collectAsStateWithLifecycle()
+
     LaunchedEffect(initialNavigateTo) {
         if (initialNavigateTo != null) {
             navController.navigate(initialNavigateTo) {
                 launchSingleTop = true
             }
+        }
+    }
+
+    LaunchedEffect(pendingRoute) {
+        pendingRoute?.let { route ->
+            navController.navigate(route) {
+                launchSingleTop = true
+            }
+            viewModel.clearNavigation()
         }
     }
 
@@ -216,6 +232,8 @@ fun MainAppScreen(
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val isSessionActive by viewModel.isSessionActive.collectAsStateWithLifecycle()
+    val economyProfile by FocusEconomyManager.profileFlow.collectAsStateWithLifecycle()
+    val focusStats by FocusStatsManager.statsFlow.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     val prefs = remember { context.getSharedPreferences("focus_app_prefs", Context.MODE_PRIVATE) }
@@ -286,146 +304,335 @@ fun MainAppScreen(
         drawerState = drawerState,
         drawerContent = {
             ModalDrawerSheet(
-                modifier = Modifier.width(280.dp),
+                modifier = Modifier.width(320.dp),
                 drawerContainerColor = MaterialTheme.colorScheme.background
             ) {
-                Box(
+                Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.background)
-                        .padding(24.dp)
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp, vertical = 20.dp)
                 ) {
-                    Column {
-                        Spacer(modifier = Modifier.height(24.dp))
-                        Box(
-                            modifier = Modifier
-                                .size(56.dp)
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant)
-                                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.ic_app_logo),
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.size(36.dp)
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Executive Profile Card inside Drawer
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(22.dp))
+                            .clickable {
+                                scope.launch { drawerState.close() }
+                                kotlin.runCatching {
+                                    navController.navigate(Screen.Account.route) {
+                                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
+                                }
+                            },
+                        shape = RoundedCornerShape(22.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                val avatarRes = ProfileAvatarManager.getAvatarImageRes(economyProfile.selectedAvatar, economyProfile.avatarTier)
+                                val avatarBorder = ProfileAvatarManager.getAvatarBorderColor(economyProfile.selectedAvatar, economyProfile.avatarTier)
+                                val rankTitle = ProfileAvatarManager.getAvatarTitle(economyProfile.selectedAvatar, economyProfile.avatarTier)
+                                
+                                Box(
+                                    modifier = Modifier
+                                        .size(50.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.surface)
+                                        .border(2.dp, avatarBorder, CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Image(
+                                        painter = painterResource(id = avatarRes),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(40.dp).clip(CircleShape)
+                                    )
+                                }
+
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = economyProfile.name.ifBlank { "Focus Master" },
+                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1
+                                    )
+                                    Text(
+                                        text = "$rankTitle • Lvl ${economyProfile.level}",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                // Streak Pill
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = Color(0xFFEA580C).copy(alpha = 0.12f),
+                                    border = BorderStroke(0.8.dp, Color(0xFFF97316).copy(alpha = 0.35f)),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        Text("🔥", fontSize = 12.sp)
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = "${focusStats.currentStreak}d Streak",
+                                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                            color = Color(0xFFF97316)
+                                        )
+                                    }
+                                }
+
+                                // Gold Pill
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = Color(0xFFF59E0B).copy(alpha = 0.12f),
+                                    border = BorderStroke(0.8.dp, Color(0xFFF59E0B).copy(alpha = 0.35f)),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        Text("💎", fontSize = 12.sp)
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = "${economyProfile.gold}",
+                                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                            color = Color(0xFFF59E0B)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    // Section: PREFERENCES
+                    Text(
+                        text = "PREFERENCES",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.3.sp,
+                            fontSize = 11.sp
+                        ),
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(start = 6.dp, bottom = 8.dp)
+                    )
+
+                    // Preferences Card Container
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(20.dp),
+                        color = MaterialTheme.colorScheme.surface,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+                    ) {
+                        Column {
+                            // Security & Permissions
+                            DrawerMenuItem(
+                                icon = Icons.Filled.Security,
+                                title = "Security & Permissions",
+                                subtitle = "Device shield & lock access",
+                                trailingBadge = {
+                                    if (allConfigured) {
+                                        Surface(
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(3.dp)
+                                            ) {
+                                                Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(11.dp))
+                                                Text("Active", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary)
+                                            }
+                                        }
+                                    } else {
+                                        Surface(
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = MaterialTheme.colorScheme.error.copy(alpha = 0.12f)
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(3.dp)
+                                            ) {
+                                                Icon(Icons.Filled.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(11.dp))
+                                                Text("Setup", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.error)
+                                            }
+                                        }
+                                    }
+                                },
+                                onClick = {
+                                    scope.launch { drawerState.close() }
+                                    kotlin.runCatching {
+                                        navController.navigate(Screen.Security.route) {
+                                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                    }
+                                }
+                            )
+
+                            HorizontalDivider(
+                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.08f),
+                                modifier = Modifier.padding(horizontal = 16.dp)
+                            )
+
+                            // App Settings
+                            DrawerMenuItem(
+                                icon = Icons.Filled.Palette,
+                                title = "App Settings",
+                                subtitle = "Theme, sounds & preferences",
+                                onClick = {
+                                    scope.launch { drawerState.close() }
+                                    kotlin.runCatching {
+                                        navController.navigate(Screen.Settings.route) {
+                                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                    }
+                                }
+                            )
+
+                            HorizontalDivider(
+                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.08f),
+                                modifier = Modifier.padding(horizontal = 16.dp)
+                            )
+
+                            // Bubble Settings
+                            DrawerMenuItem(
+                                icon = Icons.Filled.Chat,
+                                title = "Bubble Settings",
+                                subtitle = "Floating timer & quick dock",
+                                onClick = {
+                                    scope.launch { drawerState.close() }
+                                    kotlin.runCatching {
+                                        navController.navigate(Screen.BubbleSettings.route) {
+                                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                    }
+                                }
+                            )
+
+                            HorizontalDivider(
+                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.08f),
+                                modifier = Modifier.padding(horizontal = 16.dp)
+                            )
+
+                            // Subscription
+                            DrawerMenuItem(
+                                icon = Icons.Filled.Star,
+                                title = "Subscription",
+                                subtitle = "Unlock Pro & cloud sync",
+                                trailingBadge = {
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                                        border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f))
+                                    ) {
+                                        Text(
+                                            text = "PRO",
+                                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, fontWeight = FontWeight.ExtraBold),
+                                            color = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                },
+                                onClick = {
+                                    scope.launch { drawerState.close() }
+                                    kotlin.runCatching {
+                                        navController.navigate(Screen.Subscription.route) {
+                                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                    }
+                                }
                             )
                         }
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = "Focus Options",
-                            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = "Manage your boundaries",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+
+                    Spacer(modifier = Modifier.height(18.dp))
+
+                    // Section: ASSISTANCE
+                    Text(
+                        text = "ASSISTANCE",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.3.sp,
+                            fontSize = 11.sp
+                        ),
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(start = 6.dp, bottom = 8.dp)
+                    )
+
+                    // Assistance Card Container
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(20.dp),
+                        color = MaterialTheme.colorScheme.surface,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+                    ) {
+                        // Setup Guide
+                        DrawerMenuItem(
+                            icon = Icons.Filled.Info,
+                            title = "Setup Guide",
+                            subtitle = "Tour & permissions guide",
+                            onClick = {
+                                scope.launch { drawerState.close() }
+                                showSetupDialog = true
+                            }
                         )
                     }
+
+                    Spacer(modifier = Modifier.height(26.dp))
+
+                    // Footer Branding
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "Focus by Rj • v${BuildConfig.VERSION_NAME}",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "Stay present. Guard your mind.",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                NavigationDrawerItem(
-                    icon = { Icon(Icons.Filled.Security, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-                    label = {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text("Security & Permissions", color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodyLarge)
-                            if (allConfigured) {
-                                Icon(Icons.Filled.CheckCircle, contentDescription = "Configured", tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(16.dp))
-                            } else {
-                                Icon(Icons.Filled.Warning, contentDescription = "Action needed", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
-                            }
-                        }
-                    },
-                    selected = false,
-                    onClick = {
-                        scope.launch { drawerState.close() }
-                        kotlin.runCatching {
-                            navController.navigate(Screen.Security.route) {
-                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        }
-                    },
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                    colors = NavigationDrawerItemDefaults.colors(unselectedContainerColor = Color.Transparent)
-                )
-
-                NavigationDrawerItem(
-                    icon = { Icon(Icons.Filled.Palette, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-                    label = { Text("App Settings", color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodyLarge) },
-                    selected = false,
-                    onClick = {
-                        scope.launch { drawerState.close() }
-                        kotlin.runCatching {
-                            navController.navigate(Screen.Settings.route) {
-                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        }
-                    },
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                    colors = NavigationDrawerItemDefaults.colors(unselectedContainerColor = Color.Transparent)
-                )
-
-                NavigationDrawerItem(
-                    icon = { Icon(Icons.Filled.Chat, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-                    label = { Text("Bubble Settings", color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodyLarge) },
-                    selected = false,
-                    onClick = {
-                        scope.launch { drawerState.close() }
-                        kotlin.runCatching {
-                            navController.navigate(Screen.BubbleSettings.route) {
-                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        }
-                    },
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                    colors = NavigationDrawerItemDefaults.colors(unselectedContainerColor = Color.Transparent)
-                )
-
-                NavigationDrawerItem(
-                    icon = { Icon(Icons.Filled.Star, contentDescription = null, tint = MaterialTheme.colorScheme.secondary) },
-                    label = { Text("Subscription", color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodyLarge) },
-                    selected = false,
-                    onClick = {
-                        scope.launch { drawerState.close() }
-                        kotlin.runCatching {
-                            navController.navigate(Screen.Subscription.route) {
-                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        }
-                    },
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                    colors = NavigationDrawerItemDefaults.colors(unselectedContainerColor = Color.Transparent)
-                )
-
-                HorizontalDivider(color = MaterialTheme.colorScheme.outline, modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp))
-
-                NavigationDrawerItem(
-                    icon = { Icon(Icons.Filled.Info, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-                    label = { Text("Setup Guide", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyLarge) },
-                    selected = false,
-                    onClick = {
-                        scope.launch { drawerState.close() }
-                        showSetupDialog = true
-                    },
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                    colors = NavigationDrawerItemDefaults.colors(unselectedContainerColor = Color.Transparent)
-                )
             }
         }
     ) {
@@ -511,8 +718,82 @@ fun MainAppScreen(
                             }
                         },
                         navigationIcon = {
-                            IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                                Icon(Icons.Filled.Menu, contentDescription = "Menu", tint = MaterialTheme.colorScheme.onBackground)
+                            Box(
+                                modifier = Modifier
+                                    .padding(start = 12.dp, end = 4.dp)
+                                    .size(38.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
+                                    .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
+                                    .clickable { scope.launch { drawerState.open() } },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Filled.Menu,
+                                    contentDescription = "Menu",
+                                    tint = MaterialTheme.colorScheme.onBackground,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        },
+                        actions = {
+                            // Live Streak Flame Pill
+                            Surface(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .clickable {
+                                        navController.navigate(Screen.Account.route) {
+                                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                    },
+                                shape = RoundedCornerShape(16.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("🔥", fontSize = 12.sp)
+                                    Spacer(modifier = Modifier.width(3.dp))
+                                    Text(
+                                        text = "${focusStats.currentStreak}d",
+                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                            }
+
+                            // Interactive Profile Avatar Ring
+                            val avatarRes = ProfileAvatarManager.getAvatarImageRes(economyProfile.selectedAvatar, economyProfile.avatarTier)
+                            val avatarBorder = ProfileAvatarManager.getAvatarBorderColor(economyProfile.selectedAvatar, economyProfile.avatarTier)
+
+                            Box(
+                                modifier = Modifier
+                                    .padding(start = 8.dp, end = 12.dp)
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                                    .border(1.8.dp, avatarBorder, CircleShape)
+                                    .clickable {
+                                        navController.navigate(Screen.Account.route) {
+                                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Image(
+                                    painter = painterResource(id = avatarRes),
+                                    contentDescription = "Profile",
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(2.dp)
+                                        .clip(CircleShape)
+                                )
                             }
                         },
                         colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
@@ -540,7 +821,12 @@ fun MainAppScreen(
                     FloatingActionButton(
                         onClick = { navController.navigate(Screen.AddRestriction.route) },
                         containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                        shape = RoundedCornerShape(18.dp),
+                        elevation = androidx.compose.material3.FloatingActionButtonDefaults.elevation(
+                            defaultElevation = 3.dp,
+                            pressedElevation = 6.dp
+                        )
                     ) {
                         Icon(Icons.Filled.Add, contentDescription = "Add Restriction")
                     }
@@ -606,7 +892,11 @@ fun MainAppScreen(
                     SubscriptionScreen(navController)
                 }
                 composable(Screen.Todos.route) {
-                    com.focusbyrj.app.ui.screens.TodosScreen(taskViewModel, initialOpenAdd = initialOpenAdd)
+                    com.focusbyrj.app.ui.screens.TodosScreen(
+                        taskViewModel, 
+                        initialOpenAdd = initialOpenAdd || pendingOpenAdd,
+                        onOpenAddHandled = { viewModel.clearOpenAddDialog() }
+                    )
                 }
             }
             
@@ -670,3 +960,72 @@ fun MainAppScreen(
         }
     }
 }
+
+@Composable
+private fun DrawerMenuItem(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+    trailingBadge: @Composable (() -> Unit)? = null
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(horizontal = 16.dp, vertical = 13.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.weight(1f),
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f), RoundedCornerShape(12.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 14.sp),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
+                    maxLines = 1
+                )
+            }
+        }
+        
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            if (trailingBadge != null) {
+                trailingBadge()
+            }
+            Icon(
+                imageVector = Icons.Filled.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
+                modifier = Modifier.size(18.dp)
+            )
+        }
+    }
+}
+

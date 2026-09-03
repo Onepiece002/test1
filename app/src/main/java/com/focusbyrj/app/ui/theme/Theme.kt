@@ -28,11 +28,11 @@ fun FocusByRjTheme(
     val effectiveDarkTheme = currentThemeMode.isDarkTheme ?: systemInDark
 
     val bgColor = when(currentThemeMode) {
-        ThemeMode.SYSTEM -> if(systemInDark) Color(0xFF121516) else CanvasLight
-        ThemeMode.DARK -> Color(0xFF121516)
+        ThemeMode.SYSTEM -> if(systemInDark) Color(0xFF0E1116) else CanvasLight
+        ThemeMode.DARK -> Color(0xFF0E1116)
         ThemeMode.OLED -> Color(0xFF000000)
-        ThemeMode.GRAPHITE -> Color(0xFF18181B)
-        ThemeMode.OBSIDIAN -> Color(0xFF0A0A0A)
+        ThemeMode.GRAPHITE -> Color(0xFF13161C)
+        ThemeMode.OBSIDIAN -> Color(0xFF0A0C0F)
         ThemeMode.LIGHT -> Color(0xFFFFFFFF)
         ThemeMode.FROST -> Color(0xFFF1F5F9)
         ThemeMode.PAPER -> Color(0xFFFBFBF9)
@@ -41,11 +41,11 @@ fun FocusByRjTheme(
     }
 
     val surfaceColor = when(currentThemeMode) {
-        ThemeMode.SYSTEM -> if(systemInDark) Color(0xFF1A1D1E) else SurfaceLight
-        ThemeMode.DARK -> Color(0xFF1A1D1E)
-        ThemeMode.OLED -> Color(0xFF090909)
-        ThemeMode.GRAPHITE -> Color(0xFF27272A)
-        ThemeMode.OBSIDIAN -> Color(0xFF141414)
+        ThemeMode.SYSTEM -> if(systemInDark) Color(0xFF151921) else SurfaceLight
+        ThemeMode.DARK -> Color(0xFF151921)
+        ThemeMode.OLED -> Color(0xFF0A0A0A)
+        ThemeMode.GRAPHITE -> Color(0xFF1B1F27)
+        ThemeMode.OBSIDIAN -> Color(0xFF12151B)
         ThemeMode.LIGHT -> Color(0xFFF8F9FA)
         ThemeMode.FROST -> Color(0xFFFFFFFF)
         ThemeMode.PAPER -> Color(0xFFF2F2F0)
@@ -54,11 +54,11 @@ fun FocusByRjTheme(
     }
 
     val surfaceVariantColor = when(currentThemeMode) {
-        ThemeMode.SYSTEM -> if(systemInDark) Color(0xFF232628) else SurfaceVariantLight
-        ThemeMode.DARK -> Color(0xFF232628)
-        ThemeMode.OLED -> Color(0xFF121212)
-        ThemeMode.GRAPHITE -> Color(0xFF3F3F46)
-        ThemeMode.OBSIDIAN -> Color(0xFF1F1F1F)
+        ThemeMode.SYSTEM -> if(systemInDark) Color(0xFF1E232E) else SurfaceVariantLight
+        ThemeMode.DARK -> Color(0xFF1E232E)
+        ThemeMode.OLED -> Color(0xFF141414)
+        ThemeMode.GRAPHITE -> Color(0xFF262C38)
+        ThemeMode.OBSIDIAN -> Color(0xFF1A1E26)
         ThemeMode.LIGHT -> Color(0xFFF1F3F5)
         ThemeMode.FROST -> Color(0xFFE2E8F0)
         ThemeMode.PAPER -> Color(0xFFE8E8E5)
@@ -74,14 +74,14 @@ fun FocusByRjTheme(
             background = bgColor,
             surface = surfaceColor,
             surfaceVariant = surfaceVariantColor,
-            onPrimary = Color(0xFF000000),
+            onPrimary = Color.White,
             onSecondary = Color.White,
             onTertiary = Color.White,
             onBackground = TextPrimary,
             onSurface = TextPrimary,
             onSurfaceVariant = TextSecondary,
             outline = BorderGlass,
-            outlineVariant = Color(0x0DFFFFFF)
+            outlineVariant = Color(0x0AFFFFFF)
         )
     } else {
         lightColorScheme(

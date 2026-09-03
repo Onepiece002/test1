@@ -30,6 +30,7 @@ import kotlinx.coroutines.launch
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED || intent.action == Intent.ACTION_MY_PACKAGE_REPLACED) {
+            val pendingResult = goAsync()
             FocusBlockerService.startService(context)
             com.focusbyrj.app.service.BubbleService.startIfEnabled(context)
             DailySummaryReceiver.scheduleDailySummaries(context)
@@ -39,9 +40,15 @@ class BootReceiver : BroadcastReceiver() {
             val app = context.applicationContext as FocusApplication
             val repository = app.taskRepository
             CoroutineScope(Dispatchers.IO).launch {
-                val tasks = repository.allTasks.firstOrNull() ?: emptyList()
-                tasks.filter { !it.isCompleted && it.dueDate != null }.forEach { task ->
-                    TaskReminderHelper.scheduleReminder(context, task)
+                try {
+                    val tasks = repository.allTasks.firstOrNull() ?: emptyList()
+                    tasks.filter { !it.isCompleted && it.dueDate != null }.forEach { task ->
+                        TaskReminderHelper.scheduleReminder(context, task)
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                } finally {
+                    pendingResult.finish()
                 }
             }
         }

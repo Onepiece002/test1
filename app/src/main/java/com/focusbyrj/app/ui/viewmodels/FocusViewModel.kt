@@ -10,6 +10,7 @@ import com.focusbyrj.app.data.AppRepository
 import com.focusbyrj.app.data.AppRestriction
 import com.focusbyrj.app.data.FocusSchedule
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -26,6 +27,28 @@ class FocusViewModel(private val repository: AppRepository, application: Applica
             prefs.edit().putBoolean("isSessionActive", false).apply()
             com.focusbyrj.app.util.DndHelper.setDndMode(getApplication(), false)
         }
+    }
+
+    private val _pendingNavigationRoute = MutableStateFlow<String?>(null)
+    val pendingNavigationRoute: StateFlow<String?> = _pendingNavigationRoute
+
+    private val _pendingOpenAddDialog = MutableStateFlow(false)
+    val pendingOpenAddDialog: StateFlow<Boolean> = _pendingOpenAddDialog
+
+    fun triggerNavigation(route: String) {
+        _pendingNavigationRoute.value = route
+    }
+
+    fun clearNavigation() {
+        _pendingNavigationRoute.value = null
+    }
+
+    fun triggerOpenAddDialog() {
+        _pendingOpenAddDialog.value = true
+    }
+
+    fun clearOpenAddDialog() {
+        _pendingOpenAddDialog.value = false
     }
 
     

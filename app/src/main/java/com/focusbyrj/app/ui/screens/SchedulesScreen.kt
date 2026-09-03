@@ -23,6 +23,7 @@ import androidx.compose.foundation.Image
 import com.focusbyrj.app.util.ImageUtils
 import android.app.TimePickerDialog
 import android.content.pm.PackageManager
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -43,7 +44,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -153,17 +156,29 @@ fun RoutineCard(
     onEdit: () -> Unit, 
     onDelete: () -> Unit
 ) {
+    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(28.dp))
-            .background(MaterialTheme.colorScheme.surface)
+            .clip(RoundedCornerShape(24.dp))
+            .background(
+                if (schedule.isEnabled) {
+                    MaterialTheme.colorScheme.surface
+                } else {
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                }
+            )
             .border(
                 1.dp, 
-                if (schedule.isEnabled) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f), 
-                RoundedCornerShape(28.dp)
+                if (schedule.isEnabled) {
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+                } else {
+                    MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
+                }, 
+                RoundedCornerShape(24.dp)
             )
-            .padding(24.dp)
+            .padding(20.dp)
     ) {
         Column {
             Row(
@@ -171,51 +186,77 @@ fun RoutineCard(
                 horizontalArrangement = Arrangement.SpaceBetween, 
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier.weight(1f).padding(end = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(
+                                if (schedule.isEnabled) {
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                                } else {
+                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                                }
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
                         Text(
-                            schedule.name, 
-                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold), 
-                            color = if (schedule.isEnabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                            text = if (schedule.isEnabled) "⚡" else "💤",
+                            fontSize = 16.sp
                         )
-                        if (!schedule.isEnabled) {
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
-                            ) {
-                                Text(
-                                    text = "OFF",
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                    }
+
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                schedule.name, 
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 17.sp), 
+                                color = if (schedule.isEnabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                            )
+                            if (!schedule.isEnabled) {
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
+                                ) {
+                                    Text(
+                                        text = "PAUSED",
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 9.sp),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             }
                         }
                     }
                 }
+
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Switch(
                         checked = schedule.isEnabled,
                         onCheckedChange = { onToggle(it) },
-                        modifier = Modifier.padding(end = 4.dp)
+                        modifier = Modifier.padding(end = 2.dp)
                     )
                     IconButton(onClick = onEdit) {
-                        Icon(Icons.Filled.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.onSurface)
+                        Icon(Icons.Filled.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
                     }
                     IconButton(onClick = onDelete) {
-                        Icon(Icons.Filled.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+                        Icon(Icons.Filled.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f), modifier = Modifier.size(20.dp))
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(10.dp))
             val timeString = "${String.format("%02d:%02d", schedule.startHour, schedule.startMinute)} - ${String.format("%02d:%02d", schedule.endHour, schedule.endMinute)}"
             Text(
                 timeString, 
-                style = MaterialTheme.typography.titleMedium, 
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold), 
                 color = if (schedule.isEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
             )
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
             
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 val days = listOf("S", "M", "T", "W", "T", "F", "S")
@@ -223,9 +264,9 @@ fun RoutineCard(
                 days.forEachIndexed { index, day ->
                     val isActive = activeDays.contains((index + 1).toString())
                     val dayBg = if (!schedule.isEnabled) {
-                        if (isActive) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                        if (isActive) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
                     } else {
-                        if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
+                        if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                     }
                     val dayColor = if (!schedule.isEnabled) {
                         if (isActive) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
@@ -234,26 +275,30 @@ fun RoutineCard(
                     }
                     Box(
                         modifier = Modifier
-                            .size(32.dp)
-                            .clip(CircleShape)
+                            .size(30.dp)
+                            .clip(RoundedCornerShape(9.dp))
                             .background(dayBg)
-                            .border(1.dp, if (isActive && schedule.isEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), CircleShape),
+                            .border(
+                                1.dp, 
+                                if (isActive && schedule.isEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f), 
+                                RoundedCornerShape(9.dp)
+                            ),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             day, 
                             color = dayColor, 
-                            fontSize = 12.sp, 
+                            fontSize = 11.sp, 
                             fontWeight = FontWeight.Bold
                         )
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
             val appCount = if (schedule.appsToBlock.isEmpty()) 0 else schedule.appsToBlock.split(",").size
             Text(
-                if (schedule.isEnabled) "$appCount Apps Shielded" else "$appCount Apps Shielded • Paused", 
-                style = MaterialTheme.typography.labelMedium, 
+                if (schedule.isEnabled) "🛡️ $appCount Apps Shielded" else "⏸️ $appCount Apps Shielded • Paused", 
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium), 
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
