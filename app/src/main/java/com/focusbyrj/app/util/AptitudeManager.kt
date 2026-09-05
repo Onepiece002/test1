@@ -174,6 +174,39 @@ object AptitudeManager {
         return false
     }
 
+    fun useStreakFreezeToSkipDay(cost: Int = 1000): Boolean {
+        val p = prefs ?: return false
+        val currentGold = FocusEconomyManager.profileFlow.value.gold
+        if (currentGold < cost) return false
+
+        val success = FocusEconomyManager.spendGold(cost)
+        if (!success) return false
+
+        val today = getTodayDateString()
+        val yesterday = getYesterdayDateString()
+        var savedStreak = p.getInt(KEY_CURRENT_STREAK, 0)
+        var longestStreak = p.getInt(KEY_LONGEST_STREAK, 0)
+        val lastDate = p.getString(KEY_LAST_ACTIVE_DATE, "") ?: ""
+
+        val newStreak = when {
+            lastDate == today -> if (savedStreak <= 0) 1 else savedStreak
+            lastDate == yesterday -> savedStreak + 1
+            savedStreak <= 0 -> 1
+            else -> savedStreak + 1
+        }
+        val newLongest = maxOf(longestStreak, newStreak)
+
+        p.edit()
+            .putString(KEY_LAST_ACTIVE_DATE, today)
+            .putInt(KEY_CURRENT_STREAK, newStreak)
+            .putInt(KEY_LONGEST_STREAK, newLongest)
+            .putString(KEY_LAST_FREEZE_USED_DATE, today)
+            .apply()
+
+        refreshProfile()
+        return true
+    }
+
     fun activateXpBoost(durationMinutes: Int = 15, multiplier: Float = 2.0f) {
         val p = prefs ?: return
         val expiry = System.currentTimeMillis() + (durationMinutes * 60 * 1000L)

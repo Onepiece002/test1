@@ -43,6 +43,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.outlined.AccessTime
 import androidx.compose.material3.*
+import androidx.compose.ui.draw.scale
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
 
@@ -73,6 +74,11 @@ import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.withStyle
 import android.content.pm.PackageManager
+import com.airbnb.lottie.compose.LottieAnimation
+import com.airbnb.lottie.compose.LottieCompositionSpec
+import com.airbnb.lottie.compose.LottieConstants
+import com.airbnb.lottie.compose.animateLottieCompositionAsState
+import com.airbnb.lottie.compose.rememberLottieComposition
 import com.focusbyrj.app.util.SmartDateParser
 import com.focusbyrj.app.util.TaskReminderHelper
 import com.focusbyrj.app.widget.TodoWidgetProvider
@@ -140,8 +146,61 @@ data class ChatMessage(
     val isTalkAction: Boolean = false,
     val talkActionJson: String? = null,
     val pendingActionJson: String? = null,
-    val isDailyQuests: Boolean = false
+    val isDailyQuests: Boolean = false,
+    val isMorningBrief: Boolean = false,
+    val isEveningBrief: Boolean = false,
+    val isStreakFreezeSkipped: Boolean = false
 )
+
+fun PersistedChatMessage.toChatMessage(): ChatMessage {
+    return ChatMessage(
+        id = id,
+        text = text,
+        isUser = isUser,
+        timestamp = timestamp,
+        isArithmetic = isArithmetic,
+        arithmeticJson = arithmeticJson,
+        isDrillSummary = isDrillSummary,
+        drillSummaryJson = drillSummaryJson,
+        isAptitudeProfile = isAptitudeProfile,
+        isStreakPrompt = isStreakPrompt,
+        streakPromptJson = streakPromptJson,
+        isTaskSummary = isTaskSummary,
+        taskSummaryJson = taskSummaryJson,
+        isTalkAction = isTalkAction,
+        talkActionJson = talkActionJson,
+        pendingActionJson = pendingActionJson,
+        isDailyQuests = isDailyQuests,
+        isMorningBrief = isMorningBrief || id.startsWith("morning_"),
+        isEveningBrief = isEveningBrief || id.startsWith("evening_"),
+        isStreakFreezeSkipped = isStreakFreezeSkipped || id.startsWith("angry_freeze_")
+    )
+}
+
+fun ChatMessage.toPersistedChatMessage(): PersistedChatMessage {
+    return PersistedChatMessage(
+        id = id,
+        text = text,
+        isUser = isUser,
+        timestamp = timestamp,
+        isArithmetic = isArithmetic,
+        arithmeticJson = arithmeticJson,
+        isDrillSummary = isDrillSummary,
+        drillSummaryJson = drillSummaryJson,
+        isAptitudeProfile = isAptitudeProfile,
+        isStreakPrompt = isStreakPrompt,
+        streakPromptJson = streakPromptJson,
+        isTaskSummary = isTaskSummary,
+        taskSummaryJson = taskSummaryJson,
+        isTalkAction = isTalkAction,
+        talkActionJson = talkActionJson,
+        pendingActionJson = pendingActionJson,
+        isDailyQuests = isDailyQuests,
+        isMorningBrief = isMorningBrief,
+        isEveningBrief = isEveningBrief,
+        isStreakFreezeSkipped = isStreakFreezeSkipped
+    )
+}
 
 fun createDrillSessionWithQuestions(difficulty: String, targetQuestions: Int): DrillSession {
     if (targetQuestions <= 0) return DrillSession(difficulty = difficulty, targetQuestions = targetQuestions)
@@ -303,9 +362,7 @@ fun ChatInterface() {
             stored
         }
         mutableStateOf<List<ChatMessage>>(
-            initialList.map {
-                ChatMessage(it.id, it.text, it.isUser, it.timestamp, it.isArithmetic, it.arithmeticJson, it.isDrillSummary, it.drillSummaryJson, it.isAptitudeProfile, it.isStreakPrompt, it.streakPromptJson, it.isTaskSummary, it.taskSummaryJson, it.isTalkAction, it.talkActionJson, it.pendingActionJson)
-            }
+            initialList.map { it.toChatMessage() }
         ) 
     }
     var showMenu by remember { mutableStateOf(false) }
@@ -339,6 +396,37 @@ fun ChatInterface() {
     var isHighPriority by remember { mutableStateOf(false) }
     var isPersistent by remember { mutableStateOf(false) }
 
+    var lastInteractionTimestamp by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    var showCatForWelcome by remember { mutableStateOf(true) }
+    var showCatForInactivity by remember { mutableStateOf(false) }
+    var isCatActionPlaying by remember { mutableStateOf(false) }
+    var catActionInvocationCount by remember { mutableIntStateOf(0) }
+    var currentCatActionAsset by remember { mutableStateOf("cat_action.lottie") }
+    var catTapCount by remember { mutableIntStateOf(0) }
+    var lastCatTapTime by remember { mutableLongStateOf(0L) }
+
+    LaunchedEffect(lastInteractionTimestamp, messages.size, inputText) {
+        if (inputText.isNotBlank()) {
+            showCatForWelcome = false
+            showCatForInactivity = false
+            isCatActionPlaying = false
+            catTapCount = 0
+            return@LaunchedEffect
+        }
+        val isWelcomeMsg = messages.size <= 1 && (messages.firstOrNull()?.isUser == false)
+        if (isWelcomeMsg) {
+            showCatForWelcome = true
+        } else {
+            showCatForInactivity = false
+            delay(15_000L) // 15 seconds of inactivity
+            if (inputText.isBlank()) {
+                showCatForInactivity = true
+            }
+        }
+    }
+
+    val isCatVisible = (showCatForWelcome || showCatForInactivity || isCatActionPlaying) && activeDrillSession == null
+
     val quickActionCommands = remember {
         listOf(
             QuickActionCommand("💬 /talk", "/talk "),
@@ -350,6 +438,10 @@ fun ChatInterface() {
     }
 
     val onFillCommand = { commandText: String ->
+        lastInteractionTimestamp = System.currentTimeMillis()
+        showCatForWelcome = false
+        showCatForInactivity = false
+        isCatActionPlaying = false
         inputTextFieldValue = TextFieldValue(
             text = commandText,
             selection = TextRange(commandText.length)
@@ -370,9 +462,7 @@ fun ChatInterface() {
             val existingIds = messages.map { it.id }.toSet()
             val newIncoming = persistedFlowMessages.filter { it.id !in existingIds }
             if (newIncoming.isNotEmpty()) {
-                val mapped = newIncoming.map {
-                    ChatMessage(it.id, it.text, it.isUser, it.timestamp, it.isArithmetic, it.arithmeticJson, it.isDrillSummary, it.drillSummaryJson, it.isAptitudeProfile, it.isStreakPrompt, it.streakPromptJson, it.isTaskSummary, it.taskSummaryJson, it.isTalkAction, it.talkActionJson, it.pendingActionJson)
-                }
+                val mapped = newIncoming.map { it.toChatMessage() }
                 messages = messages + mapped
             }
         }
@@ -389,9 +479,7 @@ fun ChatInterface() {
                     val existingIds = messages.map { it.id }.toSet()
                     val newIncoming = stored.filter { it.id !in existingIds }
                     if (newIncoming.isNotEmpty()) {
-                        val mapped = newIncoming.map {
-                            ChatMessage(it.id, it.text, it.isUser, it.timestamp, it.isArithmetic, it.arithmeticJson, it.isDrillSummary, it.drillSummaryJson, it.isAptitudeProfile, it.isStreakPrompt, it.streakPromptJson, it.isTaskSummary, it.taskSummaryJson, it.isTalkAction, it.talkActionJson, it.pendingActionJson)
-                        }
+                        val mapped = newIncoming.map { it.toChatMessage() }
                         messages = messages + mapped
                     }
                 }
@@ -410,9 +498,7 @@ fun ChatInterface() {
     }
     
     LaunchedEffect(messages) {
-        BubbleChatManager.saveMessages(context, messages.map {
-            PersistedChatMessage(it.id, it.text, it.isUser, it.timestamp, it.isArithmetic, it.arithmeticJson, it.isDrillSummary, it.drillSummaryJson, it.isAptitudeProfile, it.isStreakPrompt, it.streakPromptJson, it.isTaskSummary, it.taskSummaryJson, it.isTalkAction, it.talkActionJson, it.pendingActionJson)
-        })
+        BubbleChatManager.saveMessages(context, messages.map { it.toPersistedChatMessage() })
     }
     
     val focusApp = remember { context.applicationContext as com.focusbyrj.app.FocusApplication }
@@ -523,6 +609,10 @@ fun ChatInterface() {
     }
 
     fun sendMessage(overrideText: String? = null) {
+        lastInteractionTimestamp = System.currentTimeMillis()
+        showCatForWelcome = false
+        showCatForInactivity = false
+        isCatActionPlaying = false
         val textToSend = (overrideText ?: inputText).trim()
         if (textToSend.isNotBlank()) {
             val userMsg = ChatMessage(System.currentTimeMillis().toString(), textToSend, true)
@@ -944,12 +1034,17 @@ fun ChatInterface() {
                                     builder.append("\n\n").append(com.focusbyrj.app.util.AyvaDialogueEngine.getReschedulePrompt(context))
                                 }
                                 
+                                val isMorningBriefQuery = (isSummaryCommand && (subArg == "morning" || (subArg != "evening" && !isAll && hour < 12))) || sentText.contains("morning", ignoreCase = true)
+                                val isEveningBriefQuery = (isSummaryCommand && (subArg == "evening" || (subArg != "morning" && !isAll && hour >= 17))) || sentText.contains("evening", ignoreCase = true) || sentText.contains("night", ignoreCase = true)
+
                                 val summaryResponse = ChatMessage(
-                                    id = "summary_${java.util.UUID.randomUUID()}",
+                                    id = if (isMorningBriefQuery) "morning_${System.currentTimeMillis()}" else if (isEveningBriefQuery) "evening_${System.currentTimeMillis()}" else "summary_${java.util.UUID.randomUUID()}",
                                     text = builder.toString().trimEnd(),
                                     isUser = false,
-                                    isTaskSummary = !isSummaryCommand,
-                                    taskSummaryJson = if (isSummaryCommand) null else taskJsonArray.toString()
+                                    isTaskSummary = !isSummaryCommand && !isMorningBriefQuery && !isEveningBriefQuery,
+                                    taskSummaryJson = if (isSummaryCommand || isMorningBriefQuery || isEveningBriefQuery) null else taskJsonArray.toString(),
+                                    isMorningBrief = isMorningBriefQuery,
+                                    isEveningBrief = isEveningBriefQuery
                                 )
                                 
                                 withContext(Dispatchers.Main) {
@@ -1407,154 +1502,238 @@ fun ChatInterface() {
                 }
             } else {
                 val reversedMessages = remember(messages) { messages.asReversed() }
-                LazyColumn(
-                    state = listState,
+                val catSpacerHeight by androidx.compose.animation.core.animateDpAsState(
+                    targetValue = if (isCatActionPlaying) 175.dp else 56.dp,
+                    animationSpec = androidx.compose.animation.core.spring(
+                        dampingRatio = androidx.compose.animation.core.Spring.DampingRatioMediumBouncy,
+                        stiffness = androidx.compose.animation.core.Spring.StiffnessLow
+                    ),
+                    label = "cat_spacer_height"
+                )
+                Box(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    reverseLayout = true
                 ) {
-                    items(
-                        count = reversedMessages.size,
-                        key = { index -> reversedMessages[index].id },
-                        contentType = { index -> if (reversedMessages[index].isUser) "user_msg" else "ayva_msg" }
-                    ) { index ->
-                        val msg = reversedMessages[index]
-                        val isLatest = index == 0
-                        val isActiveDrill = isLatest && activeDrillSession != null && msg.isArithmetic
-                        val currentCombo = if (isActiveDrill) activeDrillSession?.combo ?: 0 else 0
-                        val drillProgress = if (isActiveDrill && activeDrillSession != null && activeDrillSession!!.targetQuestions > 0) {
-                            Pair(activeDrillSession!!.total + 1, activeDrillSession!!.targetQuestions)
-                        } else null
-                        val isBlitzMode = activeDrillSession?.isBlitz ?: false
-                        
-                        ChatBubble(
-                            message = msg, 
-                            fontSizeSp = chatFontSizeSp,
-                            isActiveDrill = isActiveDrill,
-                            isActiveDrillRunning = activeDrillSession != null,
-                            currentCombo = currentCombo,
-                            drillProgress = drillProgress,
-                            isBlitzMode = isBlitzMode,
-                            onQueryClick = { query ->
-                                if (query.startsWith("/")) {
-                                    sendMessage(query)
-                                } else {
-                                    sendMessage("/talk $query")
-                                }
-                            },
-                            onMessageUpdate = { updatedMsg ->
-                                val idx = messages.indexOfFirst { it.id == updatedMsg.id }
-                                if (idx != -1) {
-                                    val newList = messages.toMutableList()
-                                    newList[idx] = updatedMsg
-                                    messages = newList
-                                }
-                            },
-                            onViewSolutions = { json ->
-                                showSolutionsJson = json
-                            },
-                            onStartStreakDrill = {
-                                if (activeDrillSession == null) {
-                                    val aptProfile = com.focusbyrj.app.util.AptitudeManager.profileFlow.value
-                                    val diffStr = when {
-                                        aptProfile.titleTier >= 5 -> "hard"
-                                        aptProfile.titleTier >= 3 -> "medium"
-                                        else -> "easy"
-                                    }
-                                    val newSession = createDrillSessionWithQuestions(diffStr, 10)
-                                    val diffEnum = when (diffStr) {
-                                        "hard" -> com.focusbyrj.app.util.ArithmeticDifficulty.HARD
-                                        "medium" -> com.focusbyrj.app.util.ArithmeticDifficulty.MEDIUM
-                                        else -> com.focusbyrj.app.util.ArithmeticDifficulty.EASY
-                                    }
-                                    val json = newSession.preGeneratedQuestions.firstOrNull() ?: run {
-                                        val q = com.focusbyrj.app.util.ArithmeticEngine.generateQuestion(diffEnum)
-                                        org.json.JSONObject().apply {
-                                            put("title", q.title)
-                                            put("questionText", q.questionText)
-                                            val arr = org.json.JSONArray()
-                                            q.options.forEach { arr.put(it) }
-                                            put("options", arr)
-                                            put("correctIndex", q.correctIndex)
-                                            put("explanation", q.explanation)
-                                        }.toString()
-                                    }
-                                    
-                                    val nextMsg = ChatMessage(
-                                        id = java.util.UUID.randomUUID().toString(),
-                                        text = "Arithmetic Drill",
-                                        isUser = false,
-                                        isArithmetic = true,
-                                        arithmeticJson = json
-                                    )
-                                    activeDrillSession = newSession
-                                    messages = messages + nextMsg
-                                }
-                            },
-                            onDrillAnswer = handleDrillAnswer,
-                            onDrillEnd = handleDrillEnd,
-                        onRescheduleClick = {
-                            val rep = "/reschedule "
-                            inputTextFieldValue = TextFieldValue(
-                                text = rep,
-                                selection = TextRange(rep.length)
-                            )
-                        },
-                        onTaskToggle = { taskId ->
-                            coroutineScope.launch(Dispatchers.IO) {
-                                val app = context.applicationContext as com.focusbyrj.app.FocusApplication
-                                val repo = app.taskRepository
-                                val task = repo.getTaskById(taskId)
-                                if (task != null) {
-                                    val newCompleted = !task.isCompleted
-                                    val updatedTask = task.copy(
-                                        isCompleted = newCompleted,
-                                        completedAt = if (newCompleted) System.currentTimeMillis() else null
-                                    )
-                                    repo.updateTask(updatedTask)
-                                    if (newCompleted) {
-                                        TaskReminderHelper.cancelReminderById(context, taskId)
-                                    } else if (updatedTask.dueDate != null) {
-                                        TaskReminderHelper.scheduleReminder(context, updatedTask)
-                                    }
-                                    TodoWidgetProvider.updateAllWidgets(context)
-                                    
-                                    withContext(Dispatchers.Main) {
-                                        messages = messages.map { m ->
-                                            if (m.taskSummaryJson != null) {
-                                                try {
-                                                    val arr = org.json.JSONArray(m.taskSummaryJson)
-                                                    val newArr = org.json.JSONArray()
-                                                    for (i in 0 until arr.length()) {
-                                                        val item = arr.getJSONObject(i)
-                                                        if (item.optLong("id") == taskId) {
-                                                            item.put("isCompleted", newCompleted)
-                                                        }
-                                                        newArr.put(item)
-                                                    }
-                                                    m.copy(taskSummaryJson = newArr.toString())
-                                                } catch (e: Exception) { m }
-                                            } else m
-                                        }
-                                        if (newCompleted) {
-                                            val ackMsg = ChatMessage(
-                                                id = "done_${System.currentTimeMillis()}",
-                                                text = "Checked off: *${task.title}* 🎉",
-                                                isUser = false
-                                            )
-                                            messages = messages + ackMsg
-                                        }
-                                    }
-                                }
-                            }
-                        },
-                        onFilterChange = { cmd ->
-                            sendMessage(cmd)
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 16.dp),
+                        reverseLayout = true
+                    ) {
+                        item(key = "cat_bottom_spacer") {
+                            Spacer(modifier = Modifier.height(catSpacerHeight))
                         }
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
+                        items(
+                            count = reversedMessages.size,
+                            key = { index -> reversedMessages[index].id },
+                            contentType = { index -> if (reversedMessages[index].isUser) "user_msg" else "ayva_msg" }
+                        ) { index ->
+                            val msg = reversedMessages[index]
+                            val isLatest = index == 0
+                            val isActiveDrill = isLatest && activeDrillSession != null && msg.isArithmetic
+                            val currentCombo = if (isActiveDrill) activeDrillSession?.combo ?: 0 else 0
+                            val drillProgress = if (isActiveDrill && activeDrillSession != null && activeDrillSession!!.targetQuestions > 0) {
+                                Pair(activeDrillSession!!.total + 1, activeDrillSession!!.targetQuestions)
+                            } else null
+                            val isBlitzMode = activeDrillSession?.isBlitz ?: false
+                            
+                            ChatBubble(
+                                message = msg, 
+                                fontSizeSp = chatFontSizeSp,
+                                isActiveDrill = isActiveDrill,
+                                isActiveDrillRunning = activeDrillSession != null,
+                                currentCombo = currentCombo,
+                                drillProgress = drillProgress,
+                                isBlitzMode = isBlitzMode,
+                                onQueryClick = { query ->
+                                    if (query.startsWith("/")) {
+                                        sendMessage(query)
+                                    } else {
+                                        sendMessage("/talk $query")
+                                    }
+                                },
+                                onMessageUpdate = { updatedMsg ->
+                                    val idx = messages.indexOfFirst { it.id == updatedMsg.id }
+                                    if (idx != -1) {
+                                        val newList = messages.toMutableList()
+                                        newList[idx] = updatedMsg
+                                        messages = newList
+                                    }
+                                },
+                                onViewSolutions = { json ->
+                                    showSolutionsJson = json
+                                },
+                                onStartStreakDrill = {
+                                    if (activeDrillSession == null) {
+                                        val aptProfile = com.focusbyrj.app.util.AptitudeManager.profileFlow.value
+                                        val diffStr = when {
+                                            aptProfile.titleTier >= 5 -> "hard"
+                                            aptProfile.titleTier >= 3 -> "medium"
+                                            else -> "easy"
+                                        }
+                                        val newSession = createDrillSessionWithQuestions(diffStr, 10)
+                                        val diffEnum = when (diffStr) {
+                                            "hard" -> com.focusbyrj.app.util.ArithmeticDifficulty.HARD
+                                            "medium" -> com.focusbyrj.app.util.ArithmeticDifficulty.MEDIUM
+                                            else -> com.focusbyrj.app.util.ArithmeticDifficulty.EASY
+                                        }
+                                        val json = newSession.preGeneratedQuestions.firstOrNull() ?: run {
+                                            val q = com.focusbyrj.app.util.ArithmeticEngine.generateQuestion(diffEnum)
+                                            org.json.JSONObject().apply {
+                                                put("title", q.title)
+                                                put("questionText", q.questionText)
+                                                val arr = org.json.JSONArray()
+                                                q.options.forEach { arr.put(it) }
+                                                put("options", arr)
+                                                put("correctIndex", q.correctIndex)
+                                                put("explanation", q.explanation)
+                                            }.toString()
+                                        }
+                                        
+                                        val nextMsg = ChatMessage(
+                                            id = java.util.UUID.randomUUID().toString(),
+                                            text = "Arithmetic Drill",
+                                            isUser = false,
+                                            isArithmetic = true,
+                                            arithmeticJson = json
+                                        )
+                                        activeDrillSession = newSession
+                                        messages = messages + nextMsg
+                                    }
+                                },
+                                onSkipDayWithFreeze = { promptMsg ->
+                                    val success = com.focusbyrj.app.util.AptitudeManager.useStreakFreezeToSkipDay(1000)
+                                    if (success) {
+                                        messages = messages.filter { it.id != promptMsg.id }
+                                        val angryMsg = ChatMessage(
+                                            id = "angry_freeze_${System.currentTimeMillis()}",
+                                            text = "😾 *Day Skipped with Streak Freeze!* (-1,000 🪙)\n\nAyva is grumpy that you skipped today's practice drill, but your streak is protected with a Freeze Shield! 🧊🔥",
+                                            isUser = false,
+                                            timestamp = System.currentTimeMillis(),
+                                            isStreakFreezeSkipped = true
+                                        )
+                                        messages = messages + angryMsg
+                                        currentCatActionAsset = "cat_angry.lottie"
+                                        isCatActionPlaying = true
+                                        android.widget.Toast.makeText(context, "🧊 Streak Freeze applied! 1,000 Gold spent.", android.widget.Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        val currentGold = com.focusbyrj.app.util.FocusEconomyManager.profileFlow.value.gold
+                                        android.widget.Toast.makeText(context, "⚠️ Need 1,000 Gold Coins to freeze streak! (You have $currentGold 🪙)", android.widget.Toast.LENGTH_LONG).show()
+                                    }
+                                },
+                                onDrillAnswer = handleDrillAnswer,
+                                onDrillEnd = handleDrillEnd,
+                            onRescheduleClick = {
+                                val rep = "/reschedule "
+                                inputTextFieldValue = TextFieldValue(
+                                    text = rep,
+                                    selection = TextRange(rep.length)
+                                )
+                            },
+                            onTaskToggle = { taskId ->
+                                coroutineScope.launch(Dispatchers.IO) {
+                                    val app = context.applicationContext as com.focusbyrj.app.FocusApplication
+                                    val repo = app.taskRepository
+                                    val task = repo.getTaskById(taskId)
+                                    if (task != null) {
+                                        val newCompleted = !task.isCompleted
+                                        val updatedTask = task.copy(
+                                            isCompleted = newCompleted,
+                                            completedAt = if (newCompleted) System.currentTimeMillis() else null
+                                        )
+                                        repo.updateTask(updatedTask)
+                                        if (newCompleted) {
+                                            TaskReminderHelper.cancelReminderById(context, taskId)
+                                        } else if (updatedTask.dueDate != null) {
+                                            TaskReminderHelper.scheduleReminder(context, updatedTask)
+                                        }
+                                        TodoWidgetProvider.updateAllWidgets(context)
+                                        
+                                        withContext(Dispatchers.Main) {
+                                            messages = messages.map { m ->
+                                                if (m.taskSummaryJson != null) {
+                                                    try {
+                                                        val arr = org.json.JSONArray(m.taskSummaryJson)
+                                                        val newArr = org.json.JSONArray()
+                                                        for (i in 0 until arr.length()) {
+                                                            val item = arr.getJSONObject(i)
+                                                            if (item.optLong("id") == taskId) {
+                                                                item.put("isCompleted", newCompleted)
+                                                            }
+                                                            newArr.put(item)
+                                                        }
+                                                        m.copy(taskSummaryJson = newArr.toString())
+                                                    } catch (e: Exception) { m }
+                                                } else m
+                                            }
+                                            if (newCompleted) {
+                                                val ackMsg = ChatMessage(
+                                                    id = "done_${System.currentTimeMillis()}",
+                                                    text = "Checked off: *${task.title}* 🎉",
+                                                    isUser = false
+                                                )
+                                                messages = messages + ackMsg
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            onFilterChange = { cmd ->
+                                sendMessage(cmd)
+                            }
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                }
+
+                // Animated Peeking Cat / Expanded Action Cat Lottie View
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = isCatVisible,
+                    enter = fadeIn(tween(400)) + slideInVertically(initialOffsetY = { it }, animationSpec = tween(500)),
+                    exit = fadeOut(tween(300)) + slideOutVertically(targetOffsetY = { it }, animationSpec = tween(400)),
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(end = 12.dp, bottom = 0.dp)
+                ) {
+                    androidx.compose.animation.AnimatedContent(
+                        targetState = isCatActionPlaying,
+                        transitionSpec = {
+                            (fadeIn(tween(350)) + scaleIn(initialScale = 0.7f, animationSpec = tween(350)))
+                                .togetherWith(fadeOut(tween(250)) + scaleOut(targetScale = 0.7f, animationSpec = tween(250)))
+                        },
+                        label = "cat_view_transition"
+                    ) { playingAction ->
+                        if (playingAction) {
+                            CatActionLottieView(
+                                assetName = currentCatActionAsset,
+                                onDismiss = {
+                                    isCatActionPlaying = false
+                                    catTapCount = 0
+                                }
+                            )
+                        } else {
+                            CatLottiePeekingView(
+                                onTap = {
+                                    val now = System.currentTimeMillis()
+                                    if (now - lastCatTapTime > 1500L) {
+                                        catTapCount = 1
+                                    } else {
+                                        catTapCount += 1
+                                    }
+                                    lastCatTapTime = now
+                                    if (catTapCount >= 3) {
+                                        catTapCount = 0
+                                        catActionInvocationCount += 1
+                                        val pool = listOf("cat_action.lottie", "cat_error.lottie", "cat_angry.lottie")
+                                        currentCatActionAsset = pool[(catActionInvocationCount - 1) % pool.size]
+                                        isCatActionPlaying = true
+                                    }
+                                }
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -1966,6 +2145,7 @@ fun ChatBubble(
     onDrillAnswer: ((Boolean, QuestionRecord) -> Unit)? = null,
     onDrillEnd: (() -> Unit)? = null,
     onStartStreakDrill: (() -> Unit)? = null,
+    onSkipDayWithFreeze: ((ChatMessage) -> Unit)? = null,
     onRescheduleClick: (() -> Unit)? = null,
     onTaskToggle: ((Long) -> Unit)? = null,
     onFilterChange: ((String) -> Unit)? = null,
@@ -1979,7 +2159,8 @@ fun ChatBubble(
             message = message,
             fontSizeSp = fontSizeSp,
             isActiveDrillRunning = isActiveDrillRunning,
-            onStartDrill = { onStartStreakDrill?.invoke() }
+            onStartDrill = { onStartStreakDrill?.invoke() },
+            onSkipWithFreeze = { onSkipDayWithFreeze?.invoke(message) }
         )
         return
     }
@@ -2000,7 +2181,10 @@ fun ChatBubble(
         DailyQuestsCard()
         return
     }
-    if (message.isTaskSummary && !message.isUser) {
+    val isMorning = message.isMorningBrief || message.id.startsWith("morning_")
+    val isEvening = message.isEveningBrief || message.id.startsWith("evening_")
+
+    if (message.isTaskSummary && !message.isUser && !isMorning && !isEvening) {
         TaskSummaryCard(
             message = message,
             fontSizeSp = fontSizeSp,
@@ -2040,7 +2224,7 @@ fun ChatBubble(
                 Spacer(modifier = Modifier.width(8.dp))
             }
             
-            val maxBubbleWidth = (280 + (fontSizeSp - 15f) * 10f).coerceIn(280f, 350f).dp
+            val maxBubbleWidth = if (isMorning || isEvening) (310 + (fontSizeSp - 15f) * 10f).coerceIn(310f, 360f).dp else (280 + (fontSizeSp - 15f) * 10f).coerceIn(280f, 350f).dp
             androidx.compose.material3.Surface(
                 modifier = Modifier.widthIn(max = maxBubbleWidth),
                 shape = RoundedCornerShape(
@@ -2072,6 +2256,29 @@ fun ChatBubble(
                             vertical = (10 + (fontSizeSp - 15f) * 0.5f).coerceIn(8f, 16f).dp
                         )
                     ) {
+                        if (isMorning && !message.isUser) {
+                            MorningBriefLottieHeader(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(135.dp)
+                                    .padding(bottom = 10.dp)
+                            )
+                        } else if (isEvening && !message.isUser) {
+                            EveningBriefLottieHeader(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(135.dp)
+                                    .padding(bottom = 10.dp)
+                            )
+                        } else if (message.isStreakFreezeSkipped && !message.isUser) {
+                            CatAngryLottieHeader(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(140.dp)
+                                    .padding(bottom = 10.dp)
+                            )
+                        }
+
                         Text(
                             text = parseRichFormattedText(message.text),
                             style = androidx.compose.material3.MaterialTheme.typography.bodyMedium.copy(
@@ -2505,9 +2712,12 @@ fun StreakPromptCard(
     message: ChatMessage,
     fontSizeSp: Float = 15f,
     isActiveDrillRunning: Boolean = false,
-    onStartDrill: () -> Unit
+    onStartDrill: () -> Unit,
+    onSkipWithFreeze: () -> Unit
 ) {
     val isDark = isSystemInDarkTheme()
+    val economyProfile by com.focusbyrj.app.util.FocusEconomyManager.profileFlow.collectAsState()
+    val canAffordFreeze = economyProfile.gold >= 1000
     val json = remember(message.streakPromptJson) {
         try {
             if (message.streakPromptJson != null) org.json.JSONObject(message.streakPromptJson) else null
@@ -2636,6 +2846,38 @@ fun StreakPromptCard(
                                 text = if (isActiveDrillRunning) "Drill in Progress" else "Start 10-Question Drill",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = (fontSizeSp * 0.95f).sp
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    OutlinedButton(
+                        onClick = onSkipWithFreeze,
+                        enabled = !isActiveDrillRunning,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = if (isDark) Color(0xFF0F172A).copy(alpha = 0.5f) else Color(0xFFF0FDF4),
+                            contentColor = if (canAffordFreeze) Color(0xFF0284C7) else Color.Gray,
+                            disabledContainerColor = Color.Transparent,
+                            disabledContentColor = Color.Gray.copy(alpha = 0.5f)
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.2.dp,
+                            if (canAffordFreeze) Color(0xFF38BDF8).copy(alpha = 0.8f) else Color.Gray.copy(alpha = 0.4f)
+                        )
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Text(text = "🧊", fontSize = 14.sp)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Skip Day with Freeze (1,000 🪙)",
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = (fontSizeSp * 0.82f).sp
                             )
                         }
                     }
@@ -2854,5 +3096,190 @@ fun PendingActionCard(message: ChatMessage, fontSizeSp: Float, onMessageUpdate: 
             Spacer(modifier = Modifier.width(6.dp))
             Text("Action cancelled.", color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant, fontSize = (fontSizeSp * 0.78f).coerceIn(11f, 13f).sp, fontWeight = FontWeight.Medium)
         }
+    }
+}
+
+@Composable
+fun CatLottiePeekingView(
+    onTap: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val composition by rememberLottieComposition(
+        LottieCompositionSpec.RawRes(com.focusbyrj.app.R.raw.cat_animation)
+    )
+    val progress by animateLottieCompositionAsState(
+        composition = composition,
+        iterations = LottieConstants.IterateForever
+    )
+    val coroutineScope = rememberCoroutineScope()
+    val scaleAnim = remember { androidx.compose.animation.core.Animatable(1f) }
+
+    Box(
+        modifier = modifier
+            .scale(scaleAnim.value)
+            .width(96.dp)
+            .height(55.dp)
+            .clickable(
+                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                indication = null
+            ) {
+                coroutineScope.launch {
+                    scaleAnim.animateTo(
+                        targetValue = 1.15f,
+                        animationSpec = androidx.compose.animation.core.spring(
+                            dampingRatio = androidx.compose.animation.core.Spring.DampingRatioMediumBouncy,
+                            stiffness = androidx.compose.animation.core.Spring.StiffnessMedium
+                        )
+                    )
+                    scaleAnim.animateTo(
+                        targetValue = 1f,
+                        animationSpec = androidx.compose.animation.core.spring(
+                            dampingRatio = androidx.compose.animation.core.Spring.DampingRatioMediumBouncy,
+                            stiffness = androidx.compose.animation.core.Spring.StiffnessMedium
+                        )
+                    )
+                }
+                onTap()
+            },
+        contentAlignment = Alignment.BottomCenter
+    ) {
+        LottieAnimation(
+            composition = composition,
+            progress = { progress },
+            modifier = Modifier.fillMaxSize()
+        )
+    }
+}
+
+@Composable
+fun CatActionLottieView(
+    assetName: String = "cat_action.lottie",
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val composition by rememberLottieComposition(
+        LottieCompositionSpec.Asset(assetName)
+    )
+    val progress by animateLottieCompositionAsState(
+        composition = composition,
+        iterations = LottieConstants.IterateForever
+    )
+
+    Box(
+        modifier = modifier
+            .size(165.dp)
+            .clickable(
+                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                indication = null
+            ) { onDismiss() },
+        contentAlignment = Alignment.BottomCenter
+    ) {
+        LottieAnimation(
+            composition = composition,
+            progress = { progress },
+            modifier = Modifier.fillMaxSize()
+        )
+    }
+}
+
+@Composable
+fun MorningBriefLottieHeader(
+    modifier: Modifier = Modifier
+) {
+    val composition by rememberLottieComposition(
+        LottieCompositionSpec.Asset("cat_morning.lottie")
+    )
+    val progress by animateLottieCompositionAsState(
+        composition = composition,
+        iterations = LottieConstants.IterateForever
+    )
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomStart = 10.dp, bottomEnd = 10.dp))
+            .background(
+                androidx.compose.ui.graphics.Brush.verticalGradient(
+                    colors = listOf(
+                        androidx.compose.material3.MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
+                        androidx.compose.material3.MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
+                    )
+                )
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        LottieAnimation(
+            composition = composition,
+            progress = { progress },
+            modifier = Modifier.fillMaxSize()
+        )
+    }
+}
+
+@Composable
+fun EveningBriefLottieHeader(
+    modifier: Modifier = Modifier
+) {
+    val composition by rememberLottieComposition(
+        LottieCompositionSpec.Asset("cat_evening.lottie")
+    )
+    val progress by animateLottieCompositionAsState(
+        composition = composition,
+        iterations = LottieConstants.IterateForever
+    )
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomStart = 10.dp, bottomEnd = 10.dp))
+            .background(
+                androidx.compose.ui.graphics.Brush.verticalGradient(
+                    colors = listOf(
+                        androidx.compose.material3.MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.35f),
+                        androidx.compose.material3.MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
+                    )
+                )
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        LottieAnimation(
+            composition = composition,
+            progress = { progress },
+            modifier = Modifier.fillMaxSize()
+        )
+    }
+}
+
+@Composable
+fun CatAngryLottieHeader(
+    modifier: Modifier = Modifier
+) {
+    val composition by rememberLottieComposition(
+        LottieCompositionSpec.Asset("cat_angry.lottie")
+    )
+    val progress by animateLottieCompositionAsState(
+        composition = composition,
+        iterations = LottieConstants.IterateForever
+    )
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomStart = 10.dp, bottomEnd = 10.dp))
+            .background(
+                androidx.compose.ui.graphics.Brush.verticalGradient(
+                    colors = listOf(
+                        Color(0xFFEF4444).copy(alpha = 0.25f),
+                        androidx.compose.material3.MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
+                    )
+                )
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        LottieAnimation(
+            composition = composition,
+            progress = { progress },
+            modifier = Modifier.fillMaxSize()
+        )
     }
 }

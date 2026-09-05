@@ -125,20 +125,9 @@ fun DailyQuestsCard(
                                 }
                             )
                         }
-                        questState.earlyBirdEarned -> {
-                            val hrs = questState.hoursUntilEarlyBird
-                            Text(
-                                text = "Chest Earned! Unlocks in ${if (hrs <= 1) "1 hour." else "$hrs hours."}",
-                                style = MaterialTheme.typography.bodyMedium.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 14.5.sp
-                                ),
-                                color = Color(0xFFFF9600)
-                            )
-                        }
                         else -> {
                             Text(
-                                text = "Do a test between 6:00am and noon to earn this chest.",
+                                text = "Do a test between 6:00am and 6:00pm to earn this chest.",
                                 style = MaterialTheme.typography.bodyMedium.copy(
                                     fontWeight = FontWeight.Normal,
                                     fontSize = 14.sp,
@@ -230,16 +219,6 @@ fun DailyQuestsCard(
                                 }
                             )
                         }
-                        questState.nightOwlEarned -> {
-                            Text(
-                                text = "Chest Earned! Unlocks tomorrow at 6:00 AM.",
-                                style = MaterialTheme.typography.bodyMedium.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 14.5.sp
-                                ),
-                                color = Color(0xFF1CB0F6)
-                            )
-                        }
                         else -> {
                             val nightOwlDescription = buildAnnotatedString {
                                 append("Do a ")
@@ -252,7 +231,7 @@ fun DailyQuestsCard(
                                 }
                                 append(" and ")
                                 withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = Color.White)) {
-                                    append("midnight")
+                                    append("6:00am")
                                 }
                                 append(" to unlock this chest.")
                             }

@@ -127,14 +127,13 @@ object DailyQuestManager {
         val cal = Calendar.getInstance()
         val hour = cal.get(Calendar.HOUR_OF_DAY) // 0..23
 
-        // Early Bird: Complete test in morning (6am - 12pm) -> Available to claim in evening (6pm - midnight)
+        // Early Bird: Complete test in daytime (6am - 6pm) -> Ready to claim immediately!
         val earlyBirdEarnedToday = (ebEarnedDate == today)
-        val isEarlyBirdAvailable = earlyBirdEarnedToday && (hour >= 18) && !morningClaimed
-        val hoursUntilEarlyBird = if (hour < 18) maxOf(1, 18 - hour) else 0
+        val isEarlyBirdAvailable = earlyBirdEarnedToday && !morningClaimed
 
-        // Night Owl: Complete test in evening (6pm - midnight) -> Available to claim next morning (6am - 12pm)
-        val nightOwlEarned = noEarnedDate.isNotEmpty()
-        val isNightOwlAvailable = nightOwlEarned && (hour in 6..17) && !eveningClaimed
+        // Night Owl: Complete test in evening/night -> Ready to claim immediately!
+        val nightOwlEarnedToday = (noEarnedDate == today)
+        val isNightOwlAvailable = nightOwlEarnedToday && !eveningClaimed
 
         _stateFlow.value = DailyQuestState(
             dateKey = today,
@@ -144,8 +143,8 @@ object DailyQuestManager {
             eveningChestClaimed = eveningClaimed,
             earlyBirdEarned = earlyBirdEarnedToday,
             isEarlyBirdAvailable = isEarlyBirdAvailable,
-            hoursUntilEarlyBird = hoursUntilEarlyBird,
-            nightOwlEarned = nightOwlEarned,
+            hoursUntilEarlyBird = 0,
+            nightOwlEarned = nightOwlEarnedToday,
             isNightOwlAvailable = isNightOwlAvailable,
             isMorningAvailable = isEarlyBirdAvailable,
             isEveningAvailable = isNightOwlAvailable
@@ -163,13 +162,10 @@ object DailyQuestManager {
         val editor = p.edit().putInt(KEY_DRILLS_COMPLETED, current + 1)
 
         // Track test completion time for chest unlocks
-        if (hour in 6..11) {
+        if (hour in 6..17) {
             editor.putString(KEY_EARLY_BIRD_EARNED_DATE, today)
-        } else if (hour >= 18 || hour < 6) {
-            editor.putString(KEY_NIGHT_OWL_EARNED_DATE, today)
         } else {
-            // Afternoon test: grant both for user convenience
-            editor.putString(KEY_EARLY_BIRD_EARNED_DATE, today)
+            editor.putString(KEY_NIGHT_OWL_EARNED_DATE, today)
         }
         editor.apply()
 

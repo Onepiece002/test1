@@ -15,8 +15,8 @@ android {
     multiDexEnabled = true
     minSdk = 24
     targetSdk = 35
-    versionCode = 40
-    versionName = "1.4.0"
+    versionCode = 41
+    versionName = "1.4.1"
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
@@ -115,6 +115,9 @@ dependencies {
 
   // Palette for UI tinting
   implementation("androidx.palette:palette-ktx:1.0.0")
+
+  // Lottie Animation
+  implementation("com.airbnb.android:lottie-compose:6.4.0")
 
   // Testing
   testImplementation(libs.junit)

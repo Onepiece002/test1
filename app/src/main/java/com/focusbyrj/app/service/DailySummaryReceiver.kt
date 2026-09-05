@@ -195,7 +195,8 @@ class DailySummaryReceiver : BroadcastReceiver() {
             text = sb.toString().trim(),
             isUser = false,
             timestamp = System.currentTimeMillis(),
-            isTaskSummary = pendingTasks.isNotEmpty()
+            isTaskSummary = false,
+            isMorningBrief = true
         )
 
         BubbleChatManager.addMessage(context, message, incrementBadge = true)
@@ -240,7 +241,8 @@ class DailySummaryReceiver : BroadcastReceiver() {
             text = sb.toString().trim(),
             isUser = false,
             timestamp = System.currentTimeMillis(),
-            isTaskSummary = pendingTasks.isNotEmpty()
+            isTaskSummary = false,
+            isEveningBrief = true
         )
 
         BubbleChatManager.addMessage(context, message, incrementBadge = true)

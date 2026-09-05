@@ -2,8 +2,11 @@ package com.focusbyrj.app.util
 
 import org.junit.Test
 import org.junit.Assert.*
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 import com.focusbyrj.app.ui.screens.createDrillSessionWithQuestions
 
+@RunWith(RobolectricTestRunner::class)
 class DrillCrashTest {
     @Test
     fun testDrillCreation() {

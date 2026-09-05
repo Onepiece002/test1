@@ -41,7 +41,11 @@ data class PersistedChatMessage(
     val taskSummaryJson: String? = null,
     val isTalkAction: Boolean = false,
     val talkActionJson: String? = null,
-    val pendingActionJson: String? = null
+    val pendingActionJson: String? = null,
+    val isDailyQuests: Boolean = false,
+    val isMorningBrief: Boolean = false,
+    val isEveningBrief: Boolean = false,
+    val isStreakFreezeSkipped: Boolean = false
 )
 
 object BubbleChatManager {
@@ -136,7 +140,11 @@ object BubbleChatManager {
                         taskSummaryJson = if (obj.has("taskSummaryJson") && !obj.isNull("taskSummaryJson")) obj.optString("taskSummaryJson", null) else null,
                         isTalkAction = obj.optBoolean("isTalkAction", false),
                         talkActionJson = if (obj.has("talkActionJson") && !obj.isNull("talkActionJson")) obj.optString("talkActionJson", null) else null,
-                        pendingActionJson = if (obj.has("pendingActionJson") && !obj.isNull("pendingActionJson")) obj.optString("pendingActionJson", null) else null
+                        pendingActionJson = if (obj.has("pendingActionJson") && !obj.isNull("pendingActionJson")) obj.optString("pendingActionJson", null) else null,
+                        isDailyQuests = obj.optBoolean("isDailyQuests", false),
+                        isMorningBrief = obj.optBoolean("isMorningBrief", false) || obj.optString("id", "").startsWith("morning_"),
+                        isEveningBrief = obj.optBoolean("isEveningBrief", false) || obj.optString("id", "").startsWith("evening_"),
+                        isStreakFreezeSkipped = obj.optBoolean("isStreakFreezeSkipped", false) || obj.optString("id", "").startsWith("angry_freeze_")
                     )
                 )
             }
@@ -169,6 +177,10 @@ object BubbleChatManager {
                     put("isTalkAction", msg.isTalkAction)
                     put("talkActionJson", msg.talkActionJson)
                     put("pendingActionJson", msg.pendingActionJson)
+                    put("isDailyQuests", msg.isDailyQuests)
+                    put("isMorningBrief", msg.isMorningBrief)
+                    put("isEveningBrief", msg.isEveningBrief)
+                    put("isStreakFreezeSkipped", msg.isStreakFreezeSkipped)
                 }
                 jsonArray.put(obj)
             }
