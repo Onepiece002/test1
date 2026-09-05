@@ -1,3 +1,4 @@
+// Daily Quest Manager - v1.4.0
 package com.focusbyrj.app.util
 
 import android.content.Context

@@ -1,3 +1,4 @@
+// Daily Quests UI Component - v1.4.0
 package com.focusbyrj.app.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
