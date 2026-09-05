@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AutoFixHigh
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Send
@@ -90,7 +91,35 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-data class DrillSession(val difficulty: String, val targetQuestions: Int = -1, var correct: Int = 0, var total: Int = 0, var xp: Int = 0, var gold: Int = 0)
+data class QuestionRecord(
+    val questionNumber: Int,
+    val title: String,
+    val questionText: String,
+    val options: List<String>,
+    val correctIndex: Int,
+    val userSelectedIndex: Int?,
+    val status: String,
+    val explanation: String
+)
+
+data class DrillSession(
+    val difficulty: String, 
+    val targetQuestions: Int = -1, 
+    var correct: Int = 0, 
+    var total: Int = 0, 
+    var xp: Int = 0, 
+    var gold: Int = 0,
+    var combo: Int = 0,
+    var maxCombo: Int = 0,
+    val isBlitz: Boolean = false,
+    var blitzSecondsRemaining: Int = 60,
+    val startTime: Long = System.currentTimeMillis(),
+    val questionRecords: MutableList<QuestionRecord> = mutableListOf(),
+    val preGeneratedQuestions: List<String> = emptyList(),
+    val attemptedIndices: MutableSet<Int> = mutableSetOf(),
+    val markedForReview: MutableSet<Int> = mutableSetOf(),
+    var highestSeenIndex: Int = 0
+)
 
 data class QuickActionCommand(val label: String, val commandText: String)
 
@@ -110,8 +139,31 @@ data class ChatMessage(
     val taskSummaryJson: String? = null,
     val isTalkAction: Boolean = false,
     val talkActionJson: String? = null,
-    val pendingActionJson: String? = null
+    val pendingActionJson: String? = null,
+    val isDailyQuests: Boolean = false
 )
+
+fun createDrillSessionWithQuestions(difficulty: String, targetQuestions: Int): DrillSession {
+    if (targetQuestions <= 0) return DrillSession(difficulty = difficulty, targetQuestions = targetQuestions)
+    val diffEnum = when (difficulty) {
+        "hard" -> com.focusbyrj.app.util.ArithmeticDifficulty.HARD
+        "medium" -> com.focusbyrj.app.util.ArithmeticDifficulty.MEDIUM
+        else -> com.focusbyrj.app.util.ArithmeticDifficulty.EASY
+    }
+    val generated = (0 until targetQuestions).map {
+        val q = com.focusbyrj.app.util.ArithmeticEngine.generateQuestion(diffEnum)
+        org.json.JSONObject().apply {
+            put("title", q.title)
+            put("questionText", q.questionText)
+            val arr = org.json.JSONArray()
+            q.options.forEach { arr.put(it) }
+            put("options", arr)
+            put("correctIndex", q.correctIndex)
+            put("explanation", q.explanation)
+        }.toString()
+    }
+    return DrillSession(difficulty = difficulty, targetQuestions = targetQuestions, preGeneratedQuestions = generated)
+}
 
 class BubbleChatActivity : ComponentActivity() {
 
@@ -206,11 +258,13 @@ class BubbleChatActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        com.focusbyrj.app.util.BubbleChatManager.updateLastActivityTime(this)
         sendBroadcast(Intent("com.focusbyrj.app.CHAT_OPENED"))
     }
 
     override fun onPause() {
         super.onPause()
+        com.focusbyrj.app.util.BubbleChatManager.updateLastActivityTime(this)
         sendBroadcast(Intent("com.focusbyrj.app.CHAT_CLOSED"))
         if (isFinishing) {
             // Optional: any specific finish logic
@@ -234,6 +288,7 @@ fun ChatInterface() {
     val prefs = remember { context.getSharedPreferences("bubble_prefs", android.content.Context.MODE_PRIVATE) }
     
     var messages by remember { 
+        BubbleChatManager.checkAndClearIfInactive(context)
         val stored = BubbleChatManager.getMessages(context)
         val initialList = if (stored.isEmpty()) {
             val welcome = PersistedChatMessage(
@@ -257,6 +312,27 @@ fun ChatInterface() {
     var showFontSizeDialog by remember { mutableStateOf(false) }
     var chatFontSizeSp by remember { mutableStateOf(prefs.getFloat("chat_font_size_sp", 15f)) }
     var activeDrillSession by remember { mutableStateOf<DrillSession?>(null) }
+    var showDrillSummaryMessage by remember { mutableStateOf<ChatMessage?>(null) }
+    var showSolutionsJson by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(activeDrillSession?.isBlitz) {
+        if (activeDrillSession?.isBlitz == true) {
+            while (activeDrillSession?.isBlitz == true) {
+                delay(1000L)
+                val session = activeDrillSession ?: break
+                if (session.blitzSecondsRemaining > 1) {
+                    activeDrillSession = session.copy(blitzSecondsRemaining = session.blitzSecondsRemaining - 1)
+                } else {
+                    session.blitzSecondsRemaining = 0
+                    com.focusbyrj.app.util.GamificationHaptics.playCelebration(context)
+                    val summaryMsg = com.focusbyrj.app.util.DrillSummaryHelper.generateSummaryMessage(session)
+                    messages = messages + summaryMsg
+                    activeDrillSession = null
+                    break
+                }
+            }
+        }
+    }
 
     var inputTextFieldValue by remember { mutableStateOf(TextFieldValue("")) }
     val inputText = inputTextFieldValue.text
@@ -265,19 +341,11 @@ fun ChatInterface() {
 
     val quickActionCommands = remember {
         listOf(
-            QuickActionCommand("/talk", "/talk "),
-            QuickActionCommand("/advice", "/advice "),
-            QuickActionCommand("/breathe", "/breathe "),
-            QuickActionCommand("/screentime", "/screentime "),
-            QuickActionCommand("/tasks", "/tasks "),
-            QuickActionCommand("/tasks all", "/tasks all "),
-            QuickActionCommand("/summary", "/summary "),
-            QuickActionCommand("/drill", "/drill "),
-            QuickActionCommand("/clear", "/clear "),
-            QuickActionCommand("/priority", "/priority "),
-            QuickActionCommand("/reschedule", "/reschedule "),
-            QuickActionCommand("/profile", "/profile "),
-            QuickActionCommand("/postpone all", "/postpone all ")
+            QuickActionCommand("💬 /talk", "/talk "),
+            QuickActionCommand("📋 /tasks", "/tasks "),
+            QuickActionCommand("🧹 /clear", "/clear"),
+            QuickActionCommand("⚡ /blitz", "/blitz"),
+            QuickActionCommand("🧮 /drill", "/drill easy 10")
         )
     }
 
@@ -315,6 +383,7 @@ fun ChatInterface() {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
                 BubbleChatManager.clearUnread(context)
+                BubbleChatManager.updateLastActivityTime(context)
                 val stored = BubbleChatManager.getMessages(context)
                 if (stored.isNotEmpty()) {
                     val existingIds = messages.map { it.id }.toSet()
@@ -370,17 +439,8 @@ fun ChatInterface() {
         val startDrillFromNotification = (context as? android.app.Activity)?.intent?.getBooleanExtra("EXTRA_START_DRILL", false) == true
         if (startDrillFromNotification && activeDrillSession == null) {
             (context as? android.app.Activity)?.intent?.removeExtra("EXTRA_START_DRILL")
-            val diff = com.focusbyrj.app.util.ArithmeticDifficulty.EASY
-            val q = com.focusbyrj.app.util.ArithmeticEngine.generateQuestion(diff)
-            val json = org.json.JSONObject().apply {
-                put("title", q.title)
-                put("questionText", q.questionText)
-                val arr = org.json.JSONArray()
-                q.options.forEach { arr.put(it) }
-                put("options", arr)
-                put("correctIndex", q.correctIndex)
-                put("explanation", q.explanation)
-            }.toString()
+            val newSession = createDrillSessionWithQuestions("easy", 10)
+            val json = newSession.preGeneratedQuestions.firstOrNull()
             
             val response = ChatMessage(
                 id = java.util.UUID.randomUUID().toString(),
@@ -389,7 +449,7 @@ fun ChatInterface() {
                 isArithmetic = true,
                 arithmeticJson = json
             )
-            activeDrillSession = DrillSession("easy", 10)
+            activeDrillSession = newSession
             messages = messages + response
         }
 
@@ -414,7 +474,7 @@ fun ChatInterface() {
         
         when {
             parts.size == 1 -> {
-                val available = listOf("/talk", "/advice", "/breathe", "/screentime", "/tasks", "/tasks all", "/summary", "/summary all", "/drill", "/profile", "/priority", "/postpone all", "/reschedule", "/clear", "/help")
+                val available = listOf("/talk", "/advice", "/breathe", "/screentime", "/tasks", "/tasks all", "/summary", "/summary all", "/drill", "/blitz", "/quests", "/daily", "/chest", "/box", "/mystery", "/freeze", "/wager", "/profile", "/priority", "/postpone all", "/reschedule", "/clear", "/help")
                 available.filter { it.startsWith(cmd) }.map { Suggestion(it, "$it ") }
             }
             (cmd == "/summary" || cmd == "/tasks" || cmd == "/task") && parts.size == 2 -> {
@@ -572,22 +632,22 @@ fun ChatInterface() {
                                 }
                                 return@launch
                             }
-                            "/drill", "/math", "/quiz" -> {
-                                val difficultyStr = parts.getOrNull(1)?.lowercase() ?: "easy"
-                                val limitStr = parts.getOrNull(2)?.lowercase() ?: "unlimited"
-                                val targetQ = when(limitStr) {
-                                    "10" -> 10
-                                    "20" -> 20
-                                    else -> -1
+                            "/quests", "/daily", "/tasks_learning", "/chest", "/box", "/mystery" -> {
+                                val questMsg = ChatMessage(
+                                    id = java.util.UUID.randomUUID().toString(),
+                                    text = "Daily Learning Quests & Mystery Chest",
+                                    isUser = false,
+                                    isDailyQuests = true
+                                )
+                                withContext(Dispatchers.Main) {
+                                    messages = messages + questMsg
                                 }
-                                val diff = when (difficultyStr) {
-                                    "medium" -> com.focusbyrj.app.util.ArithmeticDifficulty.MEDIUM
-                                    "hard" -> com.focusbyrj.app.util.ArithmeticDifficulty.HARD
-                                    else -> com.focusbyrj.app.util.ArithmeticDifficulty.EASY
-                                }
-                                val q = com.focusbyrj.app.util.ArithmeticEngine.generateQuestion(diff)
+                                return@launch
+                            }
+                            "/blitz", "/speed" -> {
+                                val q = com.focusbyrj.app.util.ArithmeticEngine.generateQuestion(com.focusbyrj.app.util.ArithmeticDifficulty.EASY)
                                 val json = org.json.JSONObject().apply {
-                                    put("title", q.title)
+                                    put("title", "⚡ Speed Blitz (5m)")
                                     put("questionText", q.questionText)
                                     val arr = org.json.JSONArray()
                                     q.options.forEach { arr.put(it) }
@@ -598,13 +658,93 @@ fun ChatInterface() {
                                 
                                 val response = ChatMessage(
                                     id = java.util.UUID.randomUUID().toString(),
+                                    text = "⚡ Speed Blitz started! 5 minutes (300s) on the clock with unlimited questions. Each correct answer adds +30s and ignites combo multipliers!",
+                                    isUser = false,
+                                    isArithmetic = true,
+                                    arithmeticJson = json
+                                )
+                                withContext(Dispatchers.Main) {
+                                    activeDrillSession = DrillSession(
+                                        difficulty = "easy",
+                                        targetQuestions = -1,
+                                        isBlitz = true,
+                                        blitzSecondsRemaining = 300
+                                    )
+                                    messages = messages + response
+                                }
+                                return@launch
+                            }
+                            "/freeze", "/shield" -> {
+                                val count = com.focusbyrj.app.util.AptitudeManager.getStreakFreezesCount()
+                                val text = if (count < 3) {
+                                    "🛡️ You have $count / 3 Streak Freezes equipped.\n\nEquip a Streak Freeze from `/profile` (200 🪙) to automatically protect your daily streak if you ever miss a practice day!"
+                                } else {
+                                    "🛡️ You have maximum Streak Freezes equipped (3 / 3)!\n\nYour streak will automatically be protected if you ever miss a practice day."
+                                }
+                                val response = ChatMessage(
+                                    id = java.util.UUID.randomUUID().toString(),
+                                    text = text,
+                                    isUser = false
+                                )
+                                withContext(Dispatchers.Main) {
+                                    messages = messages + response
+                                }
+                                return@launch
+                            }
+                            "/wager" -> {
+                                val prof = com.focusbyrj.app.util.AptitudeManager.profileFlow.value
+                                val text = if (prof.isWagerActive) {
+                                    "💰 7-Day Wager Active: Day ${prof.wagerDaysCompleted}/7 completed!\n\nMaintain your practice streak to win 100 Gold Coins and 100 XP!"
+                                } else {
+                                    "💰 7-Day Learning Wager\n\nStake 50 Gold Coins from your wallet. Practice 7 days in a row to double your coins (100 🪙 + 100 XP)!\n\nOpen `/profile` to enter the wager."
+                                }
+                                val response = ChatMessage(
+                                    id = java.util.UUID.randomUUID().toString(),
+                                    text = text,
+                                    isUser = false
+                                )
+                                withContext(Dispatchers.Main) {
+                                    messages = messages + response
+                                }
+                                return@launch
+                            }
+                            "/drill", "/math", "/quiz" -> {
+                                val difficultyStr = parts.getOrNull(1)?.lowercase() ?: "easy"
+                                val limitStr = parts.getOrNull(2)?.lowercase() ?: "10"
+                                val targetQ = when(limitStr) {
+                                    "10" -> 10
+                                    "20" -> 20
+                                    "unlimited", "infinite", "endless" -> -1
+                                    else -> 10
+                                }
+                                val newSession = createDrillSessionWithQuestions(difficultyStr, targetQ)
+                                val diff = when (difficultyStr) {
+                                    "medium" -> com.focusbyrj.app.util.ArithmeticDifficulty.MEDIUM
+                                    "hard" -> com.focusbyrj.app.util.ArithmeticDifficulty.HARD
+                                    else -> com.focusbyrj.app.util.ArithmeticDifficulty.EASY
+                                }
+                                val json = newSession.preGeneratedQuestions.firstOrNull() ?: run {
+                                    val q = com.focusbyrj.app.util.ArithmeticEngine.generateQuestion(diff)
+                                    org.json.JSONObject().apply {
+                                        put("title", q.title)
+                                        put("questionText", q.questionText)
+                                        val arr = org.json.JSONArray()
+                                        q.options.forEach { arr.put(it) }
+                                        put("options", arr)
+                                        put("correctIndex", q.correctIndex)
+                                        put("explanation", q.explanation)
+                                    }.toString()
+                                }
+                                
+                                val response = ChatMessage(
+                                    id = java.util.UUID.randomUUID().toString(),
                                     text = "Arithmetic Drill",
                                     isUser = false,
                                     isArithmetic = true,
                                     arithmeticJson = json
                                 )
                                 withContext(Dispatchers.Main) {
-                                    activeDrillSession = DrillSession(difficultyStr, targetQ)
+                                    activeDrillSession = newSession
                                     messages = messages + response
                                 }
                                 return@launch
@@ -1007,231 +1147,354 @@ fun ChatInterface() {
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .fillMaxHeight()
-            .padding(top = 110.dp) // Space for the floating bubble!
-            .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
-            .background(MaterialTheme.colorScheme.surface)
-            .pointerInput(Unit) { 
-                detectTapGestures(onTap = { /* Prevent clicks from falling through */ })
+    val isFullscreenMode = activeDrillSession != null
+
+    val generateNextQuestion: () -> Unit = {
+        activeDrillSession?.let { session ->
+            if (!session.isBlitz && session.targetQuestions != -1 && session.total >= session.targetQuestions) {
+                val summaryMsg = com.focusbyrj.app.util.DrillSummaryHelper.generateSummaryMessage(session)
+                messages = messages + summaryMsg
+                activeDrillSession = null
+            } else {
+                val diffEnum = when (session.difficulty) {
+                    "medium" -> com.focusbyrj.app.util.ArithmeticDifficulty.MEDIUM
+                    "hard" -> com.focusbyrj.app.util.ArithmeticDifficulty.HARD
+                    else -> com.focusbyrj.app.util.ArithmeticDifficulty.EASY
+                }
+                val nextQ = com.focusbyrj.app.util.ArithmeticEngine.generateQuestion(diffEnum)
+                val json = org.json.JSONObject().apply {
+                    put("title", if (session.isBlitz) "⚡ Speed Blitz" else nextQ.title)
+                    put("questionText", nextQ.questionText)
+                    val arr = org.json.JSONArray()
+                    nextQ.options.forEach { arr.put(it) }
+                    put("options", arr)
+                    put("correctIndex", nextQ.correctIndex)
+                    put("explanation", nextQ.explanation)
+                }.toString()
+                
+                val nextMsg = ChatMessage(
+                    id = java.util.UUID.randomUUID().toString(),
+                    text = if (session.isBlitz) "⚡ Speed Blitz" else "Arithmetic Drill",
+                    isUser = false,
+                    isArithmetic = true,
+                    arithmeticJson = json
+                )
+                messages = messages + nextMsg
             }
-    ) {
-        // Handle drag bar and menu
-        Box(
+        }
+    }
+
+    // Handlers for active drill / blitz session interactions
+    val handleDrillAnswer: (Boolean, QuestionRecord) -> Unit = { isCorrect, qRecord ->
+        activeDrillSession?.let { session ->
+            session.questionRecords.add(qRecord)
+            session.total++
+            if (isCorrect) {
+                session.correct++
+                session.combo++
+                if (session.combo > session.maxCombo) {
+                    session.maxCombo = session.combo
+                }
+                val comboMultiplier = when {
+                    session.combo >= 8 -> 2.0
+                    session.combo >= 5 -> 1.5
+                    session.combo >= 3 -> 1.25
+                    else -> 1.0
+                }
+                session.xp += (40 * comboMultiplier).toInt()
+                session.gold += (20 * comboMultiplier).toInt()
+                if (session.isBlitz) {
+                    session.blitzSecondsRemaining = session.blitzSecondsRemaining + 30
+                }
+            } else {
+                session.combo = 0
+            }
+            coroutineScope.launch {
+                delay(if (session.isBlitz) 450 else 700) // Fast next question with feedback time
+                // Check if session hasn't been ended during delay
+                if (activeDrillSession != null) {
+                    if (session.targetQuestions <= 0) {
+                        generateNextQuestion()
+                    }
+                }
+            }
+        }
+        Unit
+    }
+
+    val handleDrillEnd: () -> Unit = {
+        activeDrillSession?.let { session ->
+            val summaryMsg = com.focusbyrj.app.util.DrillSummaryHelper.generateSummaryMessage(session)
+            messages = messages + summaryMsg
+            showDrillSummaryMessage = summaryMsg
+            activeDrillSession = null
+        }
+        Unit
+    }
+
+    if (activeDrillSession != null) {
+        val drillQuestions = messages.filter { it.isArithmetic }
+        val latestQuestionMessage = drillQuestions.lastOrNull() ?: ChatMessage(
+            id = "fallback_${System.currentTimeMillis()}",
+            text = "Arithmetic Drill",
+            isUser = false,
+            isArithmetic = true
+        )
+        FullscreenDrillView(
+            activeSession = activeDrillSession!!,
+            latestQuestionMessage = latestQuestionMessage,
+            allQuestions = drillQuestions,
+            onNextQuestion = generateNextQuestion,
+            onAnswerSubmitted = handleDrillAnswer,
+            onEndSession = handleDrillEnd
+        )
+    } else if (showDrillSummaryMessage != null) {
+        FullscreenDrillSummaryView(
+            message = showDrillSummaryMessage!!,
+            onClose = { showDrillSummaryMessage = null },
+            onViewSolutions = { json ->
+                showDrillSummaryMessage = null
+                showSolutionsJson = json
+            },
+            onMessageUpdate = { updatedMsg ->
+                val idx = messages.indexOfFirst { it.id == updatedMsg.id }
+                if (idx != -1) {
+                    val newList = messages.toMutableList()
+                    newList[idx] = updatedMsg
+                    messages = newList
+                }
+                if (showDrillSummaryMessage?.id == updatedMsg.id) {
+                    showDrillSummaryMessage = updatedMsg
+                }
+            }
+        )
+    } else if (showSolutionsJson != null) {
+        FullscreenSolutionsView(
+            summaryJson = showSolutionsJson!!,
+            onClose = { showSolutionsJson = null }
+        )
+    } else {
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .fillMaxHeight()
+                .padding(top = 110.dp)
+                .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+                .background(MaterialTheme.colorScheme.surface)
+                .pointerInput(Unit) { 
+                    detectTapGestures(onTap = { /* Prevent clicks from falling through */ })
+                }
         ) {
-            Box(modifier = Modifier.align(Alignment.CenterEnd)) {
-                IconButton(onClick = { showMenu = true }, modifier = Modifier.size(24.dp)) {
-                    Icon(Icons.Filled.MoreVert, contentDescription = "Menu", tint = MaterialTheme.colorScheme.onSurface)
-                }
-                DropdownMenu(
-                    expanded = showMenu,
-                    onDismissRequest = { showMenu = false }
+            // Handle drag bar, title, and menu
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        start = 16.dp, 
+                        end = 16.dp, 
+                        top = 10.dp, 
+                        bottom = 10.dp
+                    )
+            ) {
+                // Close / dismiss button on left
+                IconButton(
+                    onClick = { (context as? android.app.Activity)?.finish() },
+                    modifier = Modifier
+                        .size(28.dp)
+                        .align(Alignment.CenterStart)
                 ) {
-                    DropdownMenuItem(
-                        text = { Text("Text Size") },
-                        leadingIcon = {
-                            Icon(Icons.Filled.FormatSize, contentDescription = null, modifier = Modifier.size(20.dp))
-                        },
-                        onClick = {
-                            showMenu = false
-                            showFontSizeDialog = true
-                        }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Clear History") },
-                        onClick = {
-                            val welcome = ChatMessage(
-                                id = "welcome_${System.currentTimeMillis()}",
-                                text = com.focusbyrj.app.util.AyvaDialogueEngine.getHelloWelcomeMessage(context),
-                                isUser = false,
-                                timestamp = System.currentTimeMillis()
-                            )
-                            messages = listOf(welcome)
-                            BubbleChatManager.saveMessages(context, listOf(
-                                PersistedChatMessage(welcome.id, welcome.text, welcome.isUser, welcome.timestamp)
-                            ))
-                            BubbleChatManager.clearUnread(context)
-                            showMenu = false
-                        }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Open Settings") },
-                        onClick = {
-                            showMenu = false
-                            val i = Intent(context, com.focusbyrj.app.MainActivity::class.java).apply {
-                                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                                putExtra("navigate_to", "bubble_settings")
-                            }
-                            context.startActivity(i)
-                            (context as? android.app.Activity)?.finish()
-                        }
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Close",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
                     )
                 }
-            }
-            
-            Box(
-                modifier = Modifier
-                    .width(40.dp)
-                    .height(4.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
-                    .align(Alignment.Center)
-            )
-        }
 
-        if (messages.isEmpty()) {
-            val emptyChatText = remember(messages.isEmpty()) {
-                com.focusbyrj.app.util.AyvaDialogueEngine.getClearChatIntro(context)
-            }
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .padding(32.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = parseRichFormattedText(emptyChatText),
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontSize = chatFontSizeSp.sp,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                        lineHeight = (chatFontSizeSp * 1.45f).sp
-                    ),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                )
-            }
-        } else {
-            val reversedMessages = remember(messages) { messages.asReversed() }
-            LazyColumn(
-                state = listState,
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                reverseLayout = true
-            ) {
-                items(
-                    count = reversedMessages.size,
-                    key = { index -> reversedMessages[index].id },
-                    contentType = { index -> if (reversedMessages[index].isUser) "user_msg" else "ayva_msg" }
-                ) { index ->
-                    val msg = reversedMessages[index]
-                    val isLatest = index == 0
-                    val isActiveDrill = isLatest && activeDrillSession != null && msg.isArithmetic
-                    
-                    ChatBubble(
-                        message = msg, 
-                        fontSizeSp = chatFontSizeSp,
-                        isActiveDrill = isActiveDrill,
-                        isActiveDrillRunning = activeDrillSession != null,
-                        onQueryClick = { query ->
-                            if (query.startsWith("/")) {
-                                sendMessage(query)
-                            } else {
-                                sendMessage("/talk $query")
+                // Center drag handle + title
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.align(Alignment.Center)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .width(36.dp)
+                            .height(4.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "Ayva",
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, fontSize = 14.sp),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+
+                Box(modifier = Modifier.align(Alignment.CenterEnd)) {
+                    IconButton(onClick = { showMenu = true }, modifier = Modifier.size(28.dp)) {
+                        Icon(Icons.Filled.MoreVert, contentDescription = "Menu", tint = MaterialTheme.colorScheme.onSurface)
+                    }
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Text Size") },
+                            leadingIcon = {
+                                Icon(Icons.Filled.FormatSize, contentDescription = null, modifier = Modifier.size(20.dp))
+                            },
+                            onClick = {
+                                showMenu = false
+                                showFontSizeDialog = true
                             }
-                        },
-                        onMessageUpdate = { updatedMsg ->
-                            val idx = messages.indexOfFirst { it.id == updatedMsg.id }
-                            if (idx != -1) {
-                                val newList = messages.toMutableList()
-                                newList[idx] = updatedMsg
-                                messages = newList
-                            }
-                        },
-                        onStartStreakDrill = {
-                            if (activeDrillSession == null) {
-                                val aptProfile = com.focusbyrj.app.util.AptitudeManager.profileFlow.value
-                                val diffStr = when {
-                                    aptProfile.titleTier >= 5 -> "hard"
-                                    aptProfile.titleTier >= 3 -> "medium"
-                                    else -> "easy"
-                                }
-                                val diffEnum = when (diffStr) {
-                                    "hard" -> com.focusbyrj.app.util.ArithmeticDifficulty.HARD
-                                    "medium" -> com.focusbyrj.app.util.ArithmeticDifficulty.MEDIUM
-                                    else -> com.focusbyrj.app.util.ArithmeticDifficulty.EASY
-                                }
-                                val q = com.focusbyrj.app.util.ArithmeticEngine.generateQuestion(diffEnum)
-                                val json = org.json.JSONObject().apply {
-                                    put("title", q.title)
-                                    put("questionText", q.questionText)
-                                    val arr = org.json.JSONArray()
-                                    q.options.forEach { arr.put(it) }
-                                    put("options", arr)
-                                    put("correctIndex", q.correctIndex)
-                                    put("explanation", q.explanation)
-                                }.toString()
-                                
-                                val nextMsg = ChatMessage(
-                                    id = java.util.UUID.randomUUID().toString(),
-                                    text = "Arithmetic Drill",
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Clear History") },
+                            onClick = {
+                                val welcome = ChatMessage(
+                                    id = "welcome_${System.currentTimeMillis()}",
+                                    text = com.focusbyrj.app.util.AyvaDialogueEngine.getHelloWelcomeMessage(context),
                                     isUser = false,
-                                    isArithmetic = true,
-                                    arithmeticJson = json
+                                    timestamp = System.currentTimeMillis()
                                 )
-                                activeDrillSession = DrillSession(diffStr, 10)
-                                messages = messages + nextMsg
+                                messages = listOf(welcome)
+                                BubbleChatManager.saveMessages(context, listOf(
+                                    PersistedChatMessage(welcome.id, welcome.text, welcome.isUser, welcome.timestamp)
+                                ))
+                                BubbleChatManager.clearUnread(context)
+                                showMenu = false
                             }
-                        },
-                        onDrillAnswer = { isCorrect ->
-                            activeDrillSession?.let { session ->
-                                session.total++
-                                if (isCorrect) {
-                                    session.correct++
-                                    session.xp += 40
-                                    session.gold += 20
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Open Settings") },
+                            onClick = {
+                                showMenu = false
+                                val i = Intent(context, com.focusbyrj.app.MainActivity::class.java).apply {
+                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                                    putExtra("navigate_to", "bubble_settings")
                                 }
-                                coroutineScope.launch {
-                                    delay(400) // Reduced from 1500 for immediate next question
-                                    // Check if session hasn't been ended during delay
-                                    if (activeDrillSession != null) {
-                                        if (session.targetQuestions != -1 && session.total >= session.targetQuestions) {
-                                            val summaryMsg = com.focusbyrj.app.util.DrillSummaryHelper.generateSummaryMessage(session)
-                                            messages = messages + summaryMsg
-                                            activeDrillSession = null
-                                        } else {
-                                            val diffEnum = when (session.difficulty) {
-                                                "medium" -> com.focusbyrj.app.util.ArithmeticDifficulty.MEDIUM
-                                                "hard" -> com.focusbyrj.app.util.ArithmeticDifficulty.HARD
-                                                else -> com.focusbyrj.app.util.ArithmeticDifficulty.EASY
-                                            }
-                                            val nextQ = com.focusbyrj.app.util.ArithmeticEngine.generateQuestion(diffEnum)
-                                            val json = org.json.JSONObject().apply {
-                                                put("title", nextQ.title)
-                                                put("questionText", nextQ.questionText)
-                                                val arr = org.json.JSONArray()
-                                                nextQ.options.forEach { arr.put(it) }
-                                                put("options", arr)
-                                                put("correctIndex", nextQ.correctIndex)
-                                                put("explanation", nextQ.explanation)
-                                            }.toString()
-                                            
-                                            val nextMsg = ChatMessage(
-                                                id = java.util.UUID.randomUUID().toString(),
-                                                text = "Arithmetic Drill",
-                                                isUser = false,
-                                                isArithmetic = true,
-                                                arithmeticJson = json
-                                            )
-                                            messages = messages + nextMsg
-                                        }
+                                context.startActivity(i)
+                                (context as? android.app.Activity)?.finish()
+                            }
+                        )
+                    }
+                }
+            }
+
+            if (messages.isEmpty()) {
+                val emptyChatText = remember(messages.isEmpty()) {
+                    com.focusbyrj.app.util.AyvaDialogueEngine.getClearChatIntro(context)
+                }
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .padding(32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = parseRichFormattedText(emptyChatText),
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontSize = chatFontSizeSp.sp,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            lineHeight = (chatFontSizeSp * 1.45f).sp
+                        ),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    )
+                }
+            } else {
+                val reversedMessages = remember(messages) { messages.asReversed() }
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    reverseLayout = true
+                ) {
+                    items(
+                        count = reversedMessages.size,
+                        key = { index -> reversedMessages[index].id },
+                        contentType = { index -> if (reversedMessages[index].isUser) "user_msg" else "ayva_msg" }
+                    ) { index ->
+                        val msg = reversedMessages[index]
+                        val isLatest = index == 0
+                        val isActiveDrill = isLatest && activeDrillSession != null && msg.isArithmetic
+                        val currentCombo = if (isActiveDrill) activeDrillSession?.combo ?: 0 else 0
+                        val drillProgress = if (isActiveDrill && activeDrillSession != null && activeDrillSession!!.targetQuestions > 0) {
+                            Pair(activeDrillSession!!.total + 1, activeDrillSession!!.targetQuestions)
+                        } else null
+                        val isBlitzMode = activeDrillSession?.isBlitz ?: false
+                        
+                        ChatBubble(
+                            message = msg, 
+                            fontSizeSp = chatFontSizeSp,
+                            isActiveDrill = isActiveDrill,
+                            isActiveDrillRunning = activeDrillSession != null,
+                            currentCombo = currentCombo,
+                            drillProgress = drillProgress,
+                            isBlitzMode = isBlitzMode,
+                            onQueryClick = { query ->
+                                if (query.startsWith("/")) {
+                                    sendMessage(query)
+                                } else {
+                                    sendMessage("/talk $query")
+                                }
+                            },
+                            onMessageUpdate = { updatedMsg ->
+                                val idx = messages.indexOfFirst { it.id == updatedMsg.id }
+                                if (idx != -1) {
+                                    val newList = messages.toMutableList()
+                                    newList[idx] = updatedMsg
+                                    messages = newList
+                                }
+                            },
+                            onViewSolutions = { json ->
+                                showSolutionsJson = json
+                            },
+                            onStartStreakDrill = {
+                                if (activeDrillSession == null) {
+                                    val aptProfile = com.focusbyrj.app.util.AptitudeManager.profileFlow.value
+                                    val diffStr = when {
+                                        aptProfile.titleTier >= 5 -> "hard"
+                                        aptProfile.titleTier >= 3 -> "medium"
+                                        else -> "easy"
                                     }
+                                    val newSession = createDrillSessionWithQuestions(diffStr, 10)
+                                    val diffEnum = when (diffStr) {
+                                        "hard" -> com.focusbyrj.app.util.ArithmeticDifficulty.HARD
+                                        "medium" -> com.focusbyrj.app.util.ArithmeticDifficulty.MEDIUM
+                                        else -> com.focusbyrj.app.util.ArithmeticDifficulty.EASY
+                                    }
+                                    val json = newSession.preGeneratedQuestions.firstOrNull() ?: run {
+                                        val q = com.focusbyrj.app.util.ArithmeticEngine.generateQuestion(diffEnum)
+                                        org.json.JSONObject().apply {
+                                            put("title", q.title)
+                                            put("questionText", q.questionText)
+                                            val arr = org.json.JSONArray()
+                                            q.options.forEach { arr.put(it) }
+                                            put("options", arr)
+                                            put("correctIndex", q.correctIndex)
+                                            put("explanation", q.explanation)
+                                        }.toString()
+                                    }
+                                    
+                                    val nextMsg = ChatMessage(
+                                        id = java.util.UUID.randomUUID().toString(),
+                                        text = "Arithmetic Drill",
+                                        isUser = false,
+                                        isArithmetic = true,
+                                        arithmeticJson = json
+                                    )
+                                    activeDrillSession = newSession
+                                    messages = messages + nextMsg
                                 }
-                            }
-                        },
-                        onDrillEnd = {
-                            activeDrillSession?.let { session ->
-                                val summaryMsg = com.focusbyrj.app.util.DrillSummaryHelper.generateSummaryMessage(session)
-                                messages = messages + summaryMsg
-                                activeDrillSession = null
-                            }
-                        },
+                            },
+                            onDrillAnswer = handleDrillAnswer,
+                            onDrillEnd = handleDrillEnd,
                         onRescheduleClick = {
                             val rep = "/reschedule "
                             inputTextFieldValue = TextFieldValue(
@@ -1297,12 +1560,17 @@ fun ChatInterface() {
         }
 
         // Input Area
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                .padding(horizontal = 16.dp, vertical = 12.dp)
+        AnimatedVisibility(
+            visible = activeDrillSession == null,
+            enter = expandVertically() + fadeIn(),
+            exit = shrinkVertically() + fadeOut()
         ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+            ) {
             // Horizontal scrollable quick action commands floating above icons
             androidx.compose.foundation.lazy.LazyRow(
                 modifier = Modifier
@@ -1396,8 +1664,8 @@ fun ChatInterface() {
                             modifier = Modifier.size(20.dp)
                         )
                     }
-                    
-                    // Drill Quick Action
+
+                    // Math Drill Quick Action
                     Box(
                         modifier = Modifier
                             .size(36.dp)
@@ -1412,7 +1680,10 @@ fun ChatInterface() {
                             },
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("⚡", fontSize = 16.sp)
+                        Text(
+                            text = "🧮",
+                            fontSize = 16.sp
+                        )
                     }
                     
                     // Priority Toggle
@@ -1530,6 +1801,7 @@ fun ChatInterface() {
             // Navigation Bar padding
             Spacer(modifier = Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
         }
+    }
 
         if (showFontSizeDialog) {
             ChatTextSizeDialog(
@@ -1539,6 +1811,7 @@ fun ChatInterface() {
             )
         }
     }
+}
 }
 
 @Composable
@@ -1687,7 +1960,10 @@ fun ChatBubble(
     fontSizeSp: Float = 15f,
     isActiveDrill: Boolean = false,
     isActiveDrillRunning: Boolean = false,
-    onDrillAnswer: ((Boolean) -> Unit)? = null,
+    currentCombo: Int = 0,
+    drillProgress: Pair<Int, Int>? = null,
+    isBlitzMode: Boolean = false,
+    onDrillAnswer: ((Boolean, QuestionRecord) -> Unit)? = null,
     onDrillEnd: (() -> Unit)? = null,
     onStartStreakDrill: (() -> Unit)? = null,
     onRescheduleClick: (() -> Unit)? = null,
@@ -1695,7 +1971,8 @@ fun ChatBubble(
     onFilterChange: ((String) -> Unit)? = null,
     onNavigateSummary: (() -> Unit)? = null,
     onQueryClick: ((String) -> Unit)? = null,
-    onMessageUpdate: (ChatMessage) -> Unit = {}
+    onMessageUpdate: (ChatMessage) -> Unit = {},
+    onViewSolutions: ((String) -> Unit)? = null
 ) {
     if (message.isStreakPrompt) {
         StreakPromptCard(
@@ -1707,11 +1984,20 @@ fun ChatBubble(
         return
     }
     if (message.isDrillSummary) {
-        DrillSummaryCard(message = message, fontSizeSp = fontSizeSp)
+        DrillSummaryCard(
+            message = message, 
+            fontSizeSp = fontSizeSp,
+            onMessageUpdate = onMessageUpdate,
+            onViewSolutions = onViewSolutions
+        )
         return
     }
     if (message.isAptitudeProfile) {
         com.focusbyrj.app.ui.screens.AptitudeProfileCard()
+        return
+    }
+    if (message.isDailyQuests) {
+        DailyQuestsCard()
         return
     }
     if (message.isTaskSummary && !message.isUser) {
@@ -1773,6 +2059,9 @@ fun ChatBubble(
                         message = message, 
                         fontSizeSp = fontSizeSp,
                         isActiveDrill = isActiveDrill,
+                        currentCombo = currentCombo,
+                        drillProgress = drillProgress,
+                        isBlitzMode = isBlitzMode,
                         onAnswered = onDrillAnswer,
                         onEndDrill = onDrillEnd
                     )

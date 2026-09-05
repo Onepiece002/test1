@@ -1,8 +1,10 @@
 package com.focusbyrj.app.ui.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -16,17 +18,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.focusbyrj.app.util.AptitudeManager
+import com.focusbyrj.app.util.GamificationHaptics
 import kotlin.math.roundToInt
 
 @Composable
 fun AptitudeProfileCard() {
     val profile by AptitudeManager.profileFlow.collectAsState()
     val isDark = isSystemInDarkTheme()
+    val context = LocalContext.current
     
     val (cardBg, borderColor, titleColor, icon) = when (profile.titleTier) {
         6 -> listOf(
@@ -125,6 +130,84 @@ fun AptitudeProfileCard() {
             }
 
             Spacer(modifier = Modifier.height(16.dp))
+
+            // Weekly Aspirant League Section
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = if (isDark) Color(0x33000000) else Color(0x33FFFFFF),
+                border = BorderStroke(1.dp, (borderColor as Color).copy(alpha = 0.35f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(profile.divisionIcon, fontSize = 22.sp)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    text = profile.divisionTitle,
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Weekly Aspirant League",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = Color(0xFFFFB300).copy(alpha = 0.15f)
+                        ) {
+                            Text(
+                                text = "${profile.weeklyXp} Weekly XP",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = Color(0xFFFFB300),
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    val divProgress = if (profile.divisionNextTierXp > 0) {
+                        (profile.weeklyXp.toFloat() / profile.divisionNextTierXp.toFloat()).coerceIn(0f, 1f)
+                    } else 1f
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(8.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .fillMaxWidth(divProgress.coerceAtLeast(0.001f))
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(Brush.horizontalGradient(listOf(Color(0xFFFFD54F), Color(0xFFFF9800))))
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = if (profile.weeklyXp < profile.divisionNextTierXp)
+                            "${profile.divisionNextTierXp - profile.weeklyXp} XP until promotion"
+                        else "Promotion zone secured! 🏆",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
 
             // Streak & Daily Streak Bonus Section
             Surface(
@@ -252,6 +335,123 @@ fun AptitudeProfileCard() {
                                     fontSize = 9.sp,
                                     fontWeight = FontWeight.Medium,
                                     color = if (isAchieved) Color(0xFFFF7043) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Streak Freeze Shield & Wager Section
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = if (isDark) Color(0x33000000) else Color(0x33FFFFFF),
+                border = BorderStroke(1.dp, (borderColor as Color).copy(alpha = 0.35f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    // Streak Freeze Row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("🛡️", fontSize = 20.sp)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Column {
+                                Text(
+                                    text = "Streak Freeze (${profile.streakFreezesCount}/3)",
+                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Auto-protects streak if a day is missed",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        if (profile.streakFreezesCount < 3) {
+                            Button(
+                                onClick = {
+                                    val success = AptitudeManager.buyStreakFreeze(200)
+                                    if (success) {
+                                        GamificationHaptics.playCelebration(context)
+                                        Toast.makeText(context, "🛡️ Streak Freeze Shield Equipped!", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        Toast.makeText(context, "Need 200 Gold to equip shield", Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0288D1))
+                            ) {
+                                Text("Equip (200 🪙)", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        } else {
+                            Text("Max Capacity", fontSize = 11.sp, color = Color(0xFF4CAF50), fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+                    HorizontalDivider(color = (borderColor as Color).copy(alpha = 0.2f))
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // 7-Day Wager Row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("💰", fontSize = 20.sp)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Column {
+                                Text(
+                                    text = if (profile.isWagerActive) "7-Day Wager (Day ${profile.wagerDaysCompleted}/7)" else "7-Day Streak Wager",
+                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = if (profile.isWagerActive) Color(0xFFFFB300) else MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = if (profile.isWagerActive) "Win 100 Gold + 100 XP upon completion" else "Stake 50 🪙 to win 100 🪙 on 7-day streak",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        if (!profile.isWagerActive) {
+                            Button(
+                                onClick = {
+                                    val success = AptitudeManager.startWager(50)
+                                    if (success) {
+                                        GamificationHaptics.playCelebration(context)
+                                        Toast.makeText(context, "💰 7-Day Wager started! Practice 7 days in a row to win 100 Gold!", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        Toast.makeText(context, "Need 50 Gold to start wager", Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFB300), contentColor = Color.Black)
+                            ) {
+                                Text("Wager 50 🪙", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        } else {
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = Color(0xFFFFB300).copy(alpha = 0.2f)
+                            ) {
+                                Text(
+                                    text = "Active (${profile.wagerDaysCompleted}/7)",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFFFB300),
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                                 )
                             }
                         }

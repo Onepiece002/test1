@@ -18,7 +18,9 @@
 package com.focusbyrj.app
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.text.style.TextOverflow
 import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -56,6 +58,8 @@ import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.School
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -311,10 +315,14 @@ fun MainAppScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
                         .padding(horizontal = 16.dp, vertical = 20.dp)
                 ) {
-                    Spacer(modifier = Modifier.height(14.dp))
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        Spacer(modifier = Modifier.height(14.dp))
 
                     // Executive Profile Card inside Drawer
                     Surface(
@@ -380,11 +388,11 @@ fun MainAppScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                // Streak Pill
+                                // Multiplier Pill
                                 Surface(
                                     shape = RoundedCornerShape(12.dp),
-                                    color = Color(0xFFEA580C).copy(alpha = 0.12f),
-                                    border = BorderStroke(0.8.dp, Color(0xFFF97316).copy(alpha = 0.35f)),
+                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                                    border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
                                     modifier = Modifier.weight(1f)
                                 ) {
                                     Row(
@@ -392,12 +400,14 @@ fun MainAppScreen(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.Center
                                     ) {
-                                        Text("🔥", fontSize = 12.sp)
+                                        Text("⚡", fontSize = 12.sp)
                                         Spacer(modifier = Modifier.width(4.dp))
                                         Text(
-                                            text = "${focusStats.currentStreak}d Streak",
+                                            text = "${FocusEconomyManager.getGoldMultiplier(economyProfile.level)}x Multiplier",
                                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                            color = Color(0xFFF97316)
+                                            color = MaterialTheme.colorScheme.primary,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
                                         )
                                     }
                                 }
@@ -414,12 +424,14 @@ fun MainAppScreen(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.Center
                                     ) {
-                                        Text("💎", fontSize = 12.sp)
+                                        Text("🪙", fontSize = 12.sp)
                                         Spacer(modifier = Modifier.width(4.dp))
                                         Text(
-                                            text = "${economyProfile.gold}",
+                                            text = "${economyProfile.gold} Gold",
                                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                            color = Color(0xFFF59E0B)
+                                            color = Color(0xFFF59E0B),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
                                         )
                                     }
                                 }
@@ -538,7 +550,6 @@ fun MainAppScreen(
                             modifier = Modifier.padding(start = 54.dp, end = 8.dp)
                         )
 
-                        // Bubble Settings
                         DrawerMenuItem(
                             icon = Icons.Filled.Chat,
                             title = "Bubble Settings",
@@ -621,28 +632,29 @@ fun MainAppScreen(
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(26.dp))
-
-                    // Footer Branding
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = "Focus by Rj • v${BuildConfig.VERSION_NAME}",
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = "Stay present. Guard your mind.",
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-                        )
-                    }
-
                     Spacer(modifier = Modifier.height(16.dp))
                 }
+
+                // Footer Branding (pinned to very bottom of drawer)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp, bottom = 8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Focus by Rj • v${BuildConfig.VERSION_NAME}",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "Stay present. Guard your mind.",
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                    )
+                }
+            }
             }
         }
     ) {

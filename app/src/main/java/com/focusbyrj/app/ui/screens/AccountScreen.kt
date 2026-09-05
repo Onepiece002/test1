@@ -531,7 +531,11 @@ fun OverviewTab(stats: com.focusbyrj.app.util.FocusStats, heatmapTheme: com.focu
             .padding(horizontal = 24.dp)
             .verticalScroll(rememberScrollState())
     ) {
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(16.dp))
+        // Duolingo-style Daily Quests card
+        DailyQuestsCard()
+
+        Spacer(modifier = Modifier.height(16.dp))
         com.focusbyrj.app.ui.components.HeatmapAndStreaksWidget(dailyUsage = stats.dailyFocusMinutes, theme = heatmapTheme, profile = profile)
         
         Spacer(modifier = Modifier.height(32.dp))

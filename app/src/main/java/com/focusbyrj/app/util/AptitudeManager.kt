@@ -25,7 +25,16 @@ data class AptitudeProfile(
     val currentStreak: Int = 0,
     val longestStreak: Int = 0,
     val streakBonusPercent: Int = 0,
-    val isVacationMode: Boolean = false
+    val isVacationMode: Boolean = false,
+    val streakFreezesCount: Int = 1,
+    val freezeUsedNotice: String? = null,
+    val weeklyXp: Int = 0,
+    val divisionTier: Int = 1,
+    val divisionTitle: String = "Bronze Aspirant",
+    val divisionIcon: String = "🥉",
+    val divisionNextTierXp: Int = 150,
+    val isWagerActive: Boolean = false,
+    val wagerDaysCompleted: Int = 0
 ) {
     val accuracy: Float
         get() = if (totalQuestions > 0) (correctQuestions.toFloat() / totalQuestions) * 100f else 0f
@@ -41,10 +50,25 @@ object AptitudeManager {
     private const val KEY_LONGEST_STREAK = "longest_streak"
     private const val KEY_LAST_ACTIVE_DATE = "last_active_date"
     const val KEY_VACATION_MODE = "vacation_mode"
-    
+
+    // Gamification Extensions (Duolingo Style)
+    private const val KEY_STREAK_FREEZES = "streak_freezes_count"
+    private const val KEY_LAST_FREEZE_USED_DATE = "last_freeze_used_date"
+    private const val KEY_WEEKLY_XP = "weekly_aptitude_xp"
+    private const val KEY_WEEK_KEY = "weekly_week_key"
+    private const val KEY_WAGER_ACTIVE = "wager_active"
+    private const val KEY_WAGER_DAYS = "wager_days"
+    private const val KEY_WAGER_LAST_DATE = "wager_last_date"
+
     private var prefs: SharedPreferences? = null
-    
-    private val _profileFlow = MutableStateFlow(calculateProfile(0, 0, 0, 0, 0, 0, "", false))
+
+    private val _profileFlow = MutableStateFlow(
+        calculateProfile(
+            xp = 0, tQ = 0, cQ = 0, tD = 0, savedStreak = 0, longestStreak = 0,
+            lastDate = "", isVacationMode = false, streakFreezes = 1, freezeUsedNotice = null,
+            weeklyXp = 0, isWagerActive = false, wagerDays = 0
+        )
+    )
     val profileFlow: StateFlow<AptitudeProfile> = _profileFlow.asStateFlow()
 
     fun init(context: Context) {
@@ -55,6 +79,14 @@ object AptitudeManager {
             val vm = bubblePrefs.getBoolean(KEY_VACATION_MODE, false)
             prefs?.edit()?.putBoolean(KEY_VACATION_MODE, vm)?.apply()
         }
+
+        // Initialize starter streak freeze if first run
+        prefs?.let {
+            if (!it.contains(KEY_STREAK_FREEZES)) {
+                it.edit().putInt(KEY_STREAK_FREEZES, 1).apply()
+            }
+        }
+
         refreshProfile()
     }
 
@@ -86,10 +118,8 @@ object AptitudeManager {
                 val yesterday = getYesterdayDateString()
                 prefs?.edit()?.putString(KEY_LAST_ACTIVE_DATE, yesterday)?.apply()
             }
-            // Re-schedule drill reminders if enabled
             com.focusbyrj.app.service.AptitudeReminderReceiver.scheduleDrillReminders(context)
         } else {
-            // Cancel drill reminders while in vacation mode
             com.focusbyrj.app.service.AptitudeReminderReceiver.cancelAllReminders(context)
         }
 
@@ -106,43 +136,160 @@ object AptitudeManager {
         return SimpleDateFormat("yyyy-MM-dd", Locale.US).format(cal.time)
     }
 
+    private fun getCurrentWeekKey(): String {
+        val cal = Calendar.getInstance()
+        cal.firstDayOfWeek = Calendar.MONDAY
+        cal.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+        return SimpleDateFormat("yyyy-'W'ww", Locale.US).format(cal.time)
+    }
+
+    fun getStreakFreezesCount(): Int {
+        return prefs?.getInt(KEY_STREAK_FREEZES, 1) ?: 1
+    }
+
+    fun addStreakFreezes(amount: Int) {
+        val p = prefs ?: return
+        val current = p.getInt(KEY_STREAK_FREEZES, 1)
+        val updated = minOf(3, current + amount)
+        p.edit().putInt(KEY_STREAK_FREEZES, updated).apply()
+        refreshProfile()
+    }
+
+    fun buyStreakFreeze(cost: Int = 200): Boolean {
+        val p = prefs ?: return false
+        val currentFreezes = p.getInt(KEY_STREAK_FREEZES, 1)
+        if (currentFreezes >= 3) return false // Max 3 shields
+
+        val success = FocusEconomyManager.spendGold(cost)
+        if (success) {
+            p.edit().putInt(KEY_STREAK_FREEZES, currentFreezes + 1).apply()
+            refreshProfile()
+            return true
+        }
+        return false
+    }
+
+    fun startWager(goldStake: Int = 50): Boolean {
+        val p = prefs ?: return false
+        val isWagerActive = p.getBoolean(KEY_WAGER_ACTIVE, false)
+        if (isWagerActive) return false
+
+        val success = FocusEconomyManager.spendGold(goldStake)
+        if (success) {
+            val today = getTodayDateString()
+            p.edit()
+                .putBoolean(KEY_WAGER_ACTIVE, true)
+                .putInt(KEY_WAGER_DAYS, 0)
+                .putString(KEY_WAGER_LAST_DATE, "")
+                .apply()
+            refreshProfile()
+            return true
+        }
+        return false
+    }
+
     fun refreshProfile() {
         val p = prefs ?: return
         val savedXp = p.getInt(KEY_APTITUDE_XP, 0)
         val tQ = p.getInt(KEY_TOTAL_QUESTIONS, 0)
         val cQ = p.getInt(KEY_CORRECT_QUESTIONS, 0)
         val tD = p.getInt(KEY_TOTAL_DRILLS, 0)
-        val savedStreak = p.getInt(KEY_CURRENT_STREAK, 0)
+        var savedStreak = p.getInt(KEY_CURRENT_STREAK, 0)
         val longestStreak = p.getInt(KEY_LONGEST_STREAK, 0)
-        val lastDate = p.getString(KEY_LAST_ACTIVE_DATE, "") ?: ""
+        var lastDate = p.getString(KEY_LAST_ACTIVE_DATE, "") ?: ""
         val vacation = p.getBoolean(KEY_VACATION_MODE, false)
-        
-        _profileFlow.value = calculateProfile(savedXp, tQ, cQ, tD, savedStreak, longestStreak, lastDate, vacation)
+        var freezes = p.getInt(KEY_STREAK_FREEZES, 1)
+
+        val today = getTodayDateString()
+        val yesterday = getYesterdayDateString()
+        var freezeNotice: String? = null
+
+        // Check if user missed yesterday and can be protected by a Streak Freeze
+        if (!vacation && lastDate.isNotEmpty() && lastDate != today && lastDate != yesterday && savedStreak > 0) {
+            if (freezes > 0) {
+                // Consume Streak Freeze
+                freezes -= 1
+                lastDate = yesterday
+                p.edit()
+                    .putInt(KEY_STREAK_FREEZES, freezes)
+                    .putString(KEY_LAST_ACTIVE_DATE, yesterday)
+                    .putString(KEY_LAST_FREEZE_USED_DATE, today)
+                    .apply()
+                freezeNotice = "🛡️ Streak Freeze preserved your $savedStreak-day streak!"
+            }
+        }
+
+        // Weekly XP check
+        val currentWeek = getCurrentWeekKey()
+        val savedWeek = p.getString(KEY_WEEK_KEY, "") ?: ""
+        var weeklyXp = p.getInt(KEY_WEEKLY_XP, 0)
+        if (savedWeek != currentWeek) {
+            weeklyXp = 0
+            p.edit().putString(KEY_WEEK_KEY, currentWeek).putInt(KEY_WEEKLY_XP, 0).apply()
+        }
+
+        val isWagerActive = p.getBoolean(KEY_WAGER_ACTIVE, false)
+        val wagerDays = p.getInt(KEY_WAGER_DAYS, 0)
+
+        _profileFlow.value = calculateProfile(
+            xp = savedXp,
+            tQ = tQ,
+            cQ = cQ,
+            tD = tD,
+            savedStreak = savedStreak,
+            longestStreak = longestStreak,
+            lastDate = lastDate,
+            isVacationMode = vacation,
+            streakFreezes = freezes,
+            freezeUsedNotice = freezeNotice,
+            weeklyXp = weeklyXp,
+            isWagerActive = isWagerActive,
+            wagerDays = wagerDays
+        )
     }
 
     fun addAptitudeXp(amount: Int) {
+        val p = prefs ?: return
         val currentXp = _profileFlow.value.xp
         val newXp = currentXp + amount
-        prefs?.edit()?.putInt(KEY_APTITUDE_XP, newXp)?.apply()
+        val currentWeekly = p.getInt(KEY_WEEKLY_XP, 0)
+
+        p.edit()
+            .putInt(KEY_APTITUDE_XP, newXp)
+            .putInt(KEY_WEEKLY_XP, currentWeekly + amount)
+            .apply()
+
+        DailyQuestManager.recordXpEarned(amount)
         refreshProfile()
     }
 
     fun getStreakBonusPercent(): Int {
         val p = _profileFlow.value
         val effectiveStreak = p.currentStreak
-        // 1 to 7 days: 5%, 10%, 15%, 20%, 25%, 30%, 35% (max constant at 7 days)
         val bonusDays = effectiveStreak.coerceIn(0, 7)
         return bonusDays * 5
     }
-    
+
     fun recordDrillResult(xpEarned: Int, questions: Int, correct: Int) {
         val p = _profileFlow.value
         val today = getTodayDateString()
         val yesterday = getYesterdayDateString()
-        val lastDate = prefs?.getString(KEY_LAST_ACTIVE_DATE, "") ?: ""
-        val savedStreak = prefs?.getInt(KEY_CURRENT_STREAK, 0) ?: 0
+        var lastDate = prefs?.getString(KEY_LAST_ACTIVE_DATE, "") ?: ""
+        var savedStreak = prefs?.getInt(KEY_CURRENT_STREAK, 0) ?: 0
         val savedLongest = prefs?.getInt(KEY_LONGEST_STREAK, 0) ?: 0
         val vacation = prefs?.getBoolean(KEY_VACATION_MODE, false) ?: false
+        var freezes = prefs?.getInt(KEY_STREAK_FREEZES, 1) ?: 1
+        var freezeNotice: String? = null
+
+        // Auto Streak Freeze protection if day was missed
+        if (!vacation && lastDate.isNotEmpty() && lastDate != today && lastDate != yesterday && savedStreak > 0) {
+            if (freezes > 0) {
+                freezes -= 1
+                lastDate = yesterday
+                prefs?.edit()?.putInt(KEY_STREAK_FREEZES, freezes)?.apply()
+                freezeNotice = "🛡️ Streak Freeze preserved your $savedStreak-day streak!"
+            }
+        }
 
         val newStreak = when {
             vacation -> savedStreak + 1
@@ -156,7 +303,39 @@ object AptitudeManager {
         val newTQ = p.totalQuestions + questions
         val newCQ = p.correctQuestions + correct
         val newTD = p.totalDrills + 1
-        
+
+        // Weekly XP
+        val currentWeek = getCurrentWeekKey()
+        val savedWeek = prefs?.getString(KEY_WEEK_KEY, "") ?: ""
+        var weeklyXp = prefs?.getInt(KEY_WEEKLY_XP, 0) ?: 0
+        if (savedWeek != currentWeek) {
+            weeklyXp = xpEarned
+        } else {
+            weeklyXp += xpEarned
+        }
+
+        // 7-Day Wager handling
+        var wagerActive = prefs?.getBoolean(KEY_WAGER_ACTIVE, false) ?: false
+        var wagerDays = prefs?.getInt(KEY_WAGER_DAYS, 0) ?: 0
+        val wagerLastDate = prefs?.getString(KEY_WAGER_LAST_DATE, "") ?: ""
+
+        if (wagerActive) {
+            if (lastDate != today && lastDate != yesterday && !vacation && freezeNotice == null) {
+                // Streak broken and no freeze -> Wager failed
+                wagerActive = false
+                wagerDays = 0
+            } else if (wagerLastDate != today) {
+                wagerDays += 1
+                prefs?.edit()?.putString(KEY_WAGER_LAST_DATE, today)?.apply()
+                if (wagerDays >= 7) {
+                    // Wager completed! Double reward: 100 gold + 100 XP
+                    FocusEconomyManager.addRewards(baseXp = 100, baseGold = 100)
+                    wagerActive = false
+                    wagerDays = 0
+                }
+            }
+        }
+
         prefs?.edit()?.apply {
             putInt(KEY_APTITUDE_XP, newXp)
             putInt(KEY_TOTAL_QUESTIONS, newTQ)
@@ -165,35 +344,59 @@ object AptitudeManager {
             putInt(KEY_CURRENT_STREAK, newStreak)
             putInt(KEY_LONGEST_STREAK, newLongest)
             putString(KEY_LAST_ACTIVE_DATE, today)
+            putString(KEY_WEEK_KEY, currentWeek)
+            putInt(KEY_WEEKLY_XP, weeklyXp)
+            putBoolean(KEY_WAGER_ACTIVE, wagerActive)
+            putInt(KEY_WAGER_DAYS, wagerDays)
         }?.apply()
-        
-        _profileFlow.value = calculateProfile(newXp, newTQ, newCQ, newTD, newStreak, newLongest, today, vacation)
+
+        // Report to DailyQuestManager
+        DailyQuestManager.recordXpEarned(xpEarned)
+
+        _profileFlow.value = calculateProfile(
+            xp = newXp,
+            tQ = newTQ,
+            cQ = newCQ,
+            tD = newTD,
+            savedStreak = newStreak,
+            longestStreak = newLongest,
+            lastDate = today,
+            isVacationMode = vacation,
+            streakFreezes = freezes,
+            freezeUsedNotice = freezeNotice,
+            weeklyXp = weeklyXp,
+            isWagerActive = wagerActive,
+            wagerDays = wagerDays
+        )
     }
 
-    // Level formula: xp = (level-1)^2 * 100
-    // => level = sqrt(xp/100) + 1
     private fun getLevelForXp(xp: Int): Int {
         return (sqrt(xp / 100.0)).toInt() + 1
     }
-    
+
     private fun getXpForLevel(level: Int): Int {
         return (level - 1) * (level - 1) * 100
     }
 
     private fun calculateProfile(
-        xp: Int, 
-        tQ: Int, 
-        cQ: Int, 
-        tD: Int, 
-        savedStreak: Int, 
-        longestStreak: Int, 
+        xp: Int,
+        tQ: Int,
+        cQ: Int,
+        tD: Int,
+        savedStreak: Int,
+        longestStreak: Int,
         lastDate: String,
-        isVacationMode: Boolean
+        isVacationMode: Boolean,
+        streakFreezes: Int,
+        freezeUsedNotice: String?,
+        weeklyXp: Int,
+        isWagerActive: Boolean,
+        wagerDays: Int
     ): AptitudeProfile {
         val level = getLevelForXp(xp)
         val currentLevelXp = getXpForLevel(level)
         val nextLevelXp = getXpForLevel(level + 1)
-        
+
         val (title, tier) = when {
             level >= 76 -> "Aptitude Grandmaster" to 6
             level >= 51 -> "Human Calculator" to 5
@@ -206,14 +409,21 @@ object AptitudeManager {
         val today = getTodayDateString()
         val yesterday = getYesterdayDateString()
         val currentStreak = when {
-            isVacationMode -> savedStreak // Frozen streak in vacation mode
+            isVacationMode -> savedStreak
             lastDate.isEmpty() -> 0
             lastDate == today || lastDate == yesterday -> savedStreak
-            else -> 0 // Broken streak if missed a day and not on vacation
+            else -> 0
         }
 
-        // Streak bonus starts from 1 day up to 7 days (+5% per day up to +35% max)
         val streakBonusPercent = minOf(currentStreak, 7) * 5
+
+        // Division Tier calculations
+        val (divTitle, divTier, divIcon, nextTierXp) = when {
+            weeklyXp >= 800 -> Quadruple("Diamond Topper", 4, "💎", 800)
+            weeklyXp >= 400 -> Quadruple("Gold Officer", 3, "🥇", 800)
+            weeklyXp >= 150 -> Quadruple("Silver Scholar", 2, "🥈", 400)
+            else -> Quadruple("Bronze Aspirant", 1, "🥉", 150)
+        }
 
         return AptitudeProfile(
             xp = xp,
@@ -228,7 +438,18 @@ object AptitudeManager {
             currentStreak = currentStreak,
             longestStreak = maxOf(longestStreak, currentStreak),
             streakBonusPercent = streakBonusPercent,
-            isVacationMode = isVacationMode
+            isVacationMode = isVacationMode,
+            streakFreezesCount = streakFreezes,
+            freezeUsedNotice = freezeUsedNotice,
+            weeklyXp = weeklyXp,
+            divisionTier = divTier,
+            divisionTitle = divTitle,
+            divisionIcon = divIcon,
+            divisionNextTierXp = nextTierXp,
+            isWagerActive = isWagerActive,
+            wagerDaysCompleted = wagerDays
         )
     }
+
+    private data class Quadruple<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
 }

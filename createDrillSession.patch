@@ -1,0 +1,29 @@
+--- app/src/main/java/com/focusbyrj/app/ui/screens/BubbleChatActivity.kt
++++ app/src/main/java/com/focusbyrj/app/ui/screens/BubbleChatActivity.kt
+@@ -141,6 +141,25 @@
+     val isDailyQuests: Boolean = false
+ )
+ 
++fun createDrillSessionWithQuestions(difficulty: String, targetQuestions: Int): DrillSession {
++    if (targetQuestions <= 0) return DrillSession(difficulty = difficulty, targetQuestions = targetQuestions)
++    val diffEnum = when (difficulty) {
++        "hard" -> com.focusbyrj.app.util.ArithmeticDifficulty.HARD
++        "medium" -> com.focusbyrj.app.util.ArithmeticDifficulty.MEDIUM
++        else -> com.focusbyrj.app.util.ArithmeticDifficulty.EASY
++    }
++    val generated = (0 until targetQuestions).map {
++        val q = com.focusbyrj.app.util.ArithmeticEngine.generateQuestion(diffEnum)
++        org.json.JSONObject().apply {
++            put("title", q.title)
++            put("questionText", q.questionText)
++            put("options", org.json.JSONArray(q.options))
++            put("correctIndex", q.correctIndex)
++            put("explanation", q.explanation)
++        }.toString()
++    }
++    return DrillSession(difficulty = difficulty, targetQuestions = targetQuestions, preGeneratedQuestions = generated)
++}
++
+ class BubbleChatActivity : ComponentActivity() {
+ 
+     private val closeReceiver = object : BroadcastReceiver() {

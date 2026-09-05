@@ -104,6 +104,7 @@ class BubbleService : Service() {
             when (intent?.action) {
                 "com.focusbyrj.app.CHAT_CLOSED" -> {
                     isChatOpen = false
+                    bubbleView?.visibility = android.view.View.VISIBLE
                     layoutParams?.x = lastX
                     layoutParams?.y = lastY
                     windowManager.updateViewLayout(bubbleView, layoutParams)
@@ -112,6 +113,7 @@ class BubbleService : Service() {
                 }
                 "com.focusbyrj.app.CHAT_OPENED" -> {
                     isChatOpen = true
+                    bubbleView?.visibility = android.view.View.VISIBLE
                     hideHandler.removeCallbacks(hideRunnable)
                     dismissPreviewPill(animated = false)
                     unpeekBubble(animate = false)
@@ -121,6 +123,12 @@ class BubbleService : Service() {
                     layoutParams?.y = (48 * resources.displayMetrics.density).toInt()
                     windowManager.updateViewLayout(bubbleView, layoutParams)
                     updateBadgeCount(0)
+                }
+                "com.focusbyrj.app.HIDE_BUBBLE" -> {
+                    bubbleView?.visibility = android.view.View.GONE
+                }
+                "com.focusbyrj.app.SHOW_BUBBLE" -> {
+                    bubbleView?.visibility = android.view.View.VISIBLE
                 }
                 BubbleChatManager.ACTION_UNREAD_COUNT_CHANGED -> {
                     updateBadgeCount()
@@ -153,6 +161,8 @@ class BubbleService : Service() {
         val filter = IntentFilter().apply {
             addAction("com.focusbyrj.app.CHAT_CLOSED")
             addAction("com.focusbyrj.app.CHAT_OPENED")
+            addAction("com.focusbyrj.app.HIDE_BUBBLE")
+            addAction("com.focusbyrj.app.SHOW_BUBBLE")
             addAction(BubbleChatManager.ACTION_UNREAD_COUNT_CHANGED)
             addAction(ACTION_SETTINGS_CHANGED)
             addAction(Intent.ACTION_USER_PRESENT)
@@ -449,6 +459,7 @@ class BubbleService : Service() {
 
                         val dxTotal = event.rawX - initialTouchX
                         val isLeft = (layoutParams!!.x + bubbleSize / 2) < screenWidth / 2
+                        updateBadgePosition(isLeft)
                         
                         if (isLeft && dxTotal < -(20 * displayMetrics.density)) {
                             peekBubble(force = true)
@@ -479,6 +490,9 @@ class BubbleService : Service() {
 
     private fun updateBadgeCount(count: Int = BubbleChatManager.getUnreadCount(this)) {
         val bv = badgeView ?: return
+        val screenWidth = resources.displayMetrics.widthPixels
+        val isLeft = ((layoutParams?.x ?: 0) + (30 * resources.displayMetrics.density)) < screenWidth / 2
+        updateBadgePosition(isLeft)
         if (count > 0) {
             // Unread chat messages takes priority (Red)
             (bv.background as? GradientDrawable)?.setColor(android.graphics.Color.parseColor("#E53935"))
@@ -510,6 +524,16 @@ class BubbleService : Service() {
             bv.visibility = View.VISIBLE
         } else {
             bv.visibility = View.GONE
+        }
+    }
+
+    private fun updateBadgePosition(isLeft: Boolean) {
+        val bv = badgeView ?: return
+        val lp = bv.layoutParams as? FrameLayout.LayoutParams ?: return
+        val desiredGravity = if (isLeft) (Gravity.TOP or Gravity.END) else (Gravity.TOP or Gravity.START)
+        if (lp.gravity != desiredGravity) {
+            lp.gravity = desiredGravity
+            bv.layoutParams = lp
         }
     }
 
@@ -736,6 +760,7 @@ class BubbleService : Service() {
         }
 
         val isLeft = (layoutParams?.x ?: 0) < screenWidth / 2
+        updateBadgePosition(isLeft)
         val hideOffset = (size * hiddenAmountRatio).toInt()
         val targetX = if (isLeft) -hideOffset else (screenWidth - size + hideOffset)
         
@@ -840,7 +865,9 @@ class BubbleService : Service() {
         val centerX = screenWidth / 2
 
         val currentX = layoutParams?.x ?: 0
-        val targetX = if (currentX < centerX) 0 else (screenWidth - size)
+        val isLeft = currentX < centerX
+        updateBadgePosition(isLeft)
+        val targetX = if (isLeft) 0 else (screenWidth - size)
         glowRingView?.animate()?.cancel()
         glowRingView?.alpha = 0f
         bubbleView?.animate()?.cancel()

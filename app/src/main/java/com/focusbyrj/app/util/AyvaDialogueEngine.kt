@@ -358,11 +358,10 @@ object AyvaDialogueEngine {
             else -> "Good evening!"
         }
         val helloPool = listOf(
-            "👋 *Hey there! I'm Ayva, your personal focus companion.* ✨\n\n$timeGreeting Ready to conquer your day? Drop a task below or let me know what we're tackling first!",
-            "✨ *Ayva here! Fresh chat, clear mind, zero excuses.* 🚀\n\n$timeGreeting I'm locked in and ready to help you stay on track. What's on your radar today?",
-            "👋 *Hello! I'm Ayva — your witty partner in anti-procrastination.* 😉\n\n$timeGreeting Clean slate mode activated. What are we making happen first?",
-            "🌟 *Hey! Ayva is on deck and ready for action.* ⚡\n\n$timeGreeting Whether you've got big goals or quick errands, I've got your back. What's top of mind?",
-            "👋 *Welcome! I'm Ayva.* ✨\n\n$timeGreeting Let's turn intentions into achievements today. What are we working on first? 🚀"
+            "👋 *Hey there! I'm Ayva, your personal focus & learning companion.* ✨\n\n$timeGreeting Ready to sharpen your brain? Type **/blitz** for a 5-minute math sprint, **/drill** for practice, or drop a task below to conquer!",
+            "✨ *Ayva here! Fresh mind, zero excuses.* 🚀\n\n$timeGreeting Let's build momentum! Type **/blitz** for mental arithmetic, check **/quests** for daily XP, or start an arithmetic drill!",
+            "👋 *Hello! I'm Ayva — your witty partner in anti-procrastination & cognitive mastery.* 😉\n\n$timeGreeting Ready for action? Test your mental speed with **/blitz** or type **/tasks** to view your schedule!",
+            "🌟 *Hey! Ayva is on deck and ready for action.* ⚡\n\n$timeGreeting Type **/blitz** for a rapid arithmetic workout, **/drill** to practice, or tell me what we're tackling next!"
         )
         return getNextFromDeck(context, "hello_welcome", helloPool)
     }

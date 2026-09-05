@@ -53,6 +53,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BatteryFull
 import androidx.compose.material.icons.filled.AutoMode
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeviceThermostat
@@ -229,6 +231,7 @@ fun NormalDashboard(
 
             DeepWorkCard(timeRemaining = timeRemaining, onToggleSession = onToggleSession, onSetTime = onSetTime)
             Spacer(modifier = Modifier.height(12.dp))
+
             RoutinesAndShieldedSection(
                 restrictions = restrictions,
                 schedules = schedules,
@@ -476,55 +479,6 @@ fun DeepWorkCard(
                     contentPadding = PaddingValues(horizontal = 22.dp, vertical = 12.dp)
                 ) {
                     Text("Start", fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Quick Duration Preset Pills
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                val presets = listOf(15, 25, 45, 60)
-                presets.forEach { presetMin ->
-                    val isSelected = (timeRemaining / 60).toInt() == presetMin
-                    Surface(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(12.dp))
-                            .clickable { onSetTime(presetMin) },
-                        shape = RoundedCornerShape(12.dp),
-                        color = if (isSelected) {
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-                        } else {
-                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
-                        },
-                        border = BorderStroke(
-                            0.8.dp,
-                            if (isSelected) {
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
-                            } else {
-                                Color.Transparent
-                            }
-                        )
-                    ) {
-                        Box(
-                            modifier = Modifier.padding(vertical = 7.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "${presetMin}m",
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                                color = if (isSelected) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant
-                                }
-                            )
-                        }
-                    }
                 }
             }
         }

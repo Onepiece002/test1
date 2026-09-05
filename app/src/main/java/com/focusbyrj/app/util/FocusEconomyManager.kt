@@ -254,6 +254,17 @@ object FocusEconomyManager {
         }
     }
     
+    fun spendGold(amount: Int): Boolean {
+        val p = prefs ?: return false
+        val currentGold = _profileFlow.value.gold
+        if (currentGold >= amount) {
+            p.edit().putInt("gold", currentGold - amount).apply()
+            loadProfile()
+            return true
+        }
+        return false
+    }
+
     fun recoverXp(goldCost: Int, xpGain: Int) {
         prefs?.let { p ->
             val currentGold = _profileFlow.value.gold
