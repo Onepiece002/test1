@@ -15,8 +15,8 @@ android {
     multiDexEnabled = true
     minSdk = 24
     targetSdk = 35
-    versionCode = 38
-    versionName = "1.3.8"
+    versionCode = 39
+    versionName = "1.3.9"
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
@@ -41,6 +41,7 @@ android {
   buildTypes {
     release {
       isMinifyEnabled = false
+      isCrunchPngs = false
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       
       val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"

@@ -832,16 +832,6 @@ private data class Quintuple<A, B, C, D, E>(
     val fifth: E
 )
 
-private data class Sextuple<A, B, C, D, E, F>(
-    val first: A,
-    val second: B,
-    val third: C,
-    val fourth: D,
-    val fifth: E,
-    val sixth: F
-)
-
-
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun GridNavigationDialog(

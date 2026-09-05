@@ -25,7 +25,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.json.JSONObject
-import com.focusbyrj.app.ui.components.Duolingo3DButton
+import com.focusbyrj.app.ui.components.*
 
 @Composable
 fun FullscreenDrillSummaryView(
@@ -90,7 +90,7 @@ fun FullscreenDrillSummaryView(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(horizontal = 20.dp)
-                        .padding(top = 40.dp, bottom = 100.dp),
+                        .padding(top = 100.dp, bottom = 100.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -283,7 +283,7 @@ fun FullscreenDrillSummaryView(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(horizontal = 24.dp)
-                        .padding(top = 60.dp, bottom = 120.dp),
+                        .padding(top = 110.dp, bottom = 120.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {

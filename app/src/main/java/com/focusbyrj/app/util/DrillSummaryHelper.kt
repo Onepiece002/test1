@@ -38,6 +38,12 @@ object DrillSummaryHelper {
         }
         xpEarned += streakBonusXp
 
+        // Potion / Beaker XP Boost Multiplier (e.g. 2X EXP)
+        val boostMultiplier = AptitudeManager.getXpMultiplier()
+        if (boostMultiplier > 1.0f) {
+            xpEarned = (xpEarned * boostMultiplier).roundToInt()
+        }
+
         // Sync gold to user wallet
         if (session.gold > 0) {
             FocusEconomyManager.addRewards(baseXp = 0, baseGold = session.gold)

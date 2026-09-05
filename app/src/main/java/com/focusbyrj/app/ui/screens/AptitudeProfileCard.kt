@@ -378,19 +378,19 @@ fun AptitudeProfileCard() {
                         if (profile.streakFreezesCount < 3) {
                             Button(
                                 onClick = {
-                                    val success = AptitudeManager.buyStreakFreeze(200)
+                                    val success = AptitudeManager.buyStreakFreeze(1000)
                                     if (success) {
                                         GamificationHaptics.playCelebration(context)
                                         Toast.makeText(context, "🛡️ Streak Freeze Shield Equipped!", Toast.LENGTH_SHORT).show()
                                     } else {
-                                        Toast.makeText(context, "Need 200 Gold to equip shield", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "Need 1,000 Gold to equip shield", Toast.LENGTH_SHORT).show()
                                     }
                                 },
                                 shape = RoundedCornerShape(8.dp),
                                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0288D1))
                             ) {
-                                Text("Equip (200 🪙)", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text("Equip (1000 🪙)", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
                         } else {
                             Text("Max Capacity", fontSize = 11.sp, color = Color(0xFF4CAF50), fontWeight = FontWeight.Bold)

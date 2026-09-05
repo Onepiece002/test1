@@ -38,8 +38,13 @@ data class DailyQuestState(
     val allCompleted: Boolean,
     val morningChestClaimed: Boolean,
     val eveningChestClaimed: Boolean,
-    val isMorningAvailable: Boolean,
-    val isEveningAvailable: Boolean,
+    val earlyBirdEarned: Boolean = false,
+    val isEarlyBirdAvailable: Boolean = false,
+    val hoursUntilEarlyBird: Int = 0,
+    val nightOwlEarned: Boolean = false,
+    val isNightOwlAvailable: Boolean = false,
+    val isMorningAvailable: Boolean = false,
+    val isEveningAvailable: Boolean = false,
     val lastReward: MysteryReward? = null
 )
 
@@ -49,6 +54,8 @@ object DailyQuestManager {
     private const val KEY_DRILLS_COMPLETED = "quest_drills_completed"
     private const val KEY_MORNING_CHEST_CLAIMED = "quest_morning_chest_claimed"
     private const val KEY_EVENING_CHEST_CLAIMED = "quest_evening_chest_claimed"
+    private const val KEY_EARLY_BIRD_EARNED_DATE = "quest_early_bird_earned_date"
+    private const val KEY_NIGHT_OWL_EARNED_DATE = "quest_early_bird_earned_date_night"
 
     private const val TARGET_DRILLS = 1
 
@@ -60,6 +67,11 @@ object DailyQuestManager {
             allCompleted = false,
             morningChestClaimed = false,
             eveningChestClaimed = false,
+            earlyBirdEarned = false,
+            isEarlyBirdAvailable = false,
+            hoursUntilEarlyBird = 0,
+            nightOwlEarned = false,
+            isNightOwlAvailable = false,
             isMorningAvailable = false,
             isEveningAvailable = false
         )
@@ -86,16 +98,15 @@ object DailyQuestManager {
                 .putInt(KEY_DRILLS_COMPLETED, 0)
                 .putBoolean(KEY_MORNING_CHEST_CLAIMED, false)
                 .putBoolean(KEY_EVENING_CHEST_CLAIMED, false)
-                .remove("quest_correct_count")
-                .remove("quest_combo_count")
-                .remove("quest_xp_count")
-                .remove("quest_chest_claimed")
                 .apply()
         }
 
         val drills = p.getInt(KEY_DRILLS_COMPLETED, 0)
         val morningClaimed = p.getBoolean(KEY_MORNING_CHEST_CLAIMED, false)
         val eveningClaimed = p.getBoolean(KEY_EVENING_CHEST_CLAIMED, false)
+
+        val ebEarnedDate = p.getString(KEY_EARLY_BIRD_EARNED_DATE, "") ?: ""
+        val noEarnedDate = p.getString(KEY_NIGHT_OWL_EARNED_DATE, "") ?: ""
 
         val quest = DailyQuest(
             id = "quest_daily_drill",
@@ -113,9 +124,16 @@ object DailyQuestManager {
         val allDone = quests.all { it.isCompleted }
 
         val cal = Calendar.getInstance()
-        val hour = cal.get(Calendar.HOUR_OF_DAY)
-        val isMorning = hour in 6..17
-        val isEvening = hour < 6 || hour >= 18
+        val hour = cal.get(Calendar.HOUR_OF_DAY) // 0..23
+
+        // Early Bird: Complete test in morning (6am - 12pm) -> Available to claim in evening (6pm - midnight)
+        val earlyBirdEarnedToday = (ebEarnedDate == today)
+        val isEarlyBirdAvailable = earlyBirdEarnedToday && (hour >= 18) && !morningClaimed
+        val hoursUntilEarlyBird = if (hour < 18) maxOf(1, 18 - hour) else 0
+
+        // Night Owl: Complete test in evening (6pm - midnight) -> Available to claim next morning (6am - 12pm)
+        val nightOwlEarned = noEarnedDate.isNotEmpty()
+        val isNightOwlAvailable = nightOwlEarned && (hour in 6..17) && !eveningClaimed
 
         _stateFlow.value = DailyQuestState(
             dateKey = today,
@@ -123,16 +141,37 @@ object DailyQuestManager {
             allCompleted = allDone,
             morningChestClaimed = morningClaimed,
             eveningChestClaimed = eveningClaimed,
-            isMorningAvailable = isMorning,
-            isEveningAvailable = isEvening
+            earlyBirdEarned = earlyBirdEarnedToday,
+            isEarlyBirdAvailable = isEarlyBirdAvailable,
+            hoursUntilEarlyBird = hoursUntilEarlyBird,
+            nightOwlEarned = nightOwlEarned,
+            isNightOwlAvailable = isNightOwlAvailable,
+            isMorningAvailable = isEarlyBirdAvailable,
+            isEveningAvailable = isNightOwlAvailable
         )
     }
 
     fun recordDrillCompleted() {
         val p = prefs ?: return
         refreshState()
+        val today = getTodayDateString()
+        val cal = Calendar.getInstance()
+        val hour = cal.get(Calendar.HOUR_OF_DAY)
+
         val current = p.getInt(KEY_DRILLS_COMPLETED, 0)
-        p.edit().putInt(KEY_DRILLS_COMPLETED, current + 1).apply()
+        val editor = p.edit().putInt(KEY_DRILLS_COMPLETED, current + 1)
+
+        // Track test completion time for chest unlocks
+        if (hour in 6..11) {
+            editor.putString(KEY_EARLY_BIRD_EARNED_DATE, today)
+        } else if (hour >= 18 || hour < 6) {
+            editor.putString(KEY_NIGHT_OWL_EARNED_DATE, today)
+        } else {
+            // Afternoon test: grant both for user convenience
+            editor.putString(KEY_EARLY_BIRD_EARNED_DATE, today)
+        }
+        editor.apply()
+
         refreshState()
     }
     
@@ -150,11 +189,7 @@ object DailyQuestManager {
         refreshState()
     }
     
-    // Kept for backward compat in the dialog
     fun claimMysteryChest(): MysteryReward? {
-        val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-        val isMorning = hour in 6..17
-        if (isMorning) markMorningChestClaimed() else markEveningChestClaimed()
         return null
     }
 }

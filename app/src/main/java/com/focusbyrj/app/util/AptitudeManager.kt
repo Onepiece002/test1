@@ -34,7 +34,9 @@ data class AptitudeProfile(
     val divisionIcon: String = "🥉",
     val divisionNextTierXp: Int = 150,
     val isWagerActive: Boolean = false,
-    val wagerDaysCompleted: Int = 0
+    val wagerDaysCompleted: Int = 0,
+    val isXpBoostActive: Boolean = false,
+    val xpBoostRemainingMinutes: Int = 0
 ) {
     val accuracy: Float
         get() = if (totalQuestions > 0) (correctQuestions.toFloat() / totalQuestions) * 100f else 0f
@@ -59,6 +61,8 @@ object AptitudeManager {
     private const val KEY_WAGER_ACTIVE = "wager_active"
     private const val KEY_WAGER_DAYS = "wager_days"
     private const val KEY_WAGER_LAST_DATE = "wager_last_date"
+    private const val KEY_XP_BOOST_EXPIRY = "xp_boost_expiry_timestamp"
+    private const val KEY_XP_BOOST_MULTIPLIER = "xp_boost_multiplier"
 
     private var prefs: SharedPreferences? = null
 
@@ -66,7 +70,8 @@ object AptitudeManager {
         calculateProfile(
             xp = 0, tQ = 0, cQ = 0, tD = 0, savedStreak = 0, longestStreak = 0,
             lastDate = "", isVacationMode = false, streakFreezes = 1, freezeUsedNotice = null,
-            weeklyXp = 0, isWagerActive = false, wagerDays = 0
+            weeklyXp = 0, isWagerActive = false, wagerDays = 0,
+            isXpBoostActive = false, xpBoostRemainingMins = 0
         )
     )
     val profileFlow: StateFlow<AptitudeProfile> = _profileFlow.asStateFlow()
@@ -155,7 +160,7 @@ object AptitudeManager {
         refreshProfile()
     }
 
-    fun buyStreakFreeze(cost: Int = 200): Boolean {
+    fun buyStreakFreeze(cost: Int = 1000): Boolean {
         val p = prefs ?: return false
         val currentFreezes = p.getInt(KEY_STREAK_FREEZES, 1)
         if (currentFreezes >= 3) return false // Max 3 shields
@@ -167,6 +172,44 @@ object AptitudeManager {
             return true
         }
         return false
+    }
+
+    fun activateXpBoost(durationMinutes: Int = 15, multiplier: Float = 2.0f) {
+        val p = prefs ?: return
+        val expiry = System.currentTimeMillis() + (durationMinutes * 60 * 1000L)
+        p.edit()
+            .putLong(KEY_XP_BOOST_EXPIRY, expiry)
+            .putFloat(KEY_XP_BOOST_MULTIPLIER, multiplier)
+            .apply()
+        refreshProfile()
+    }
+
+    fun getXpMultiplier(): Float {
+        val p = prefs ?: return 1.0f
+        val expiry = p.getLong(KEY_XP_BOOST_EXPIRY, 0L)
+        val now = System.currentTimeMillis()
+        return if (now < expiry) {
+            p.getFloat(KEY_XP_BOOST_MULTIPLIER, 2.0f)
+        } else {
+            1.0f
+        }
+    }
+
+    fun isXpBoostActive(): Boolean {
+        val p = prefs ?: return false
+        val expiry = p.getLong(KEY_XP_BOOST_EXPIRY, 0L)
+        return System.currentTimeMillis() < expiry
+    }
+
+    fun getXpBoostRemainingMinutes(): Int {
+        val p = prefs ?: return 0
+        val expiry = p.getLong(KEY_XP_BOOST_EXPIRY, 0L)
+        val remainingMillis = expiry - System.currentTimeMillis()
+        return if (remainingMillis > 0) {
+            (remainingMillis / (60 * 1000L)).toInt() + 1
+        } else {
+            0
+        }
     }
 
     fun startWager(goldStake: Int = 50): Boolean {
@@ -230,6 +273,8 @@ object AptitudeManager {
 
         val isWagerActive = p.getBoolean(KEY_WAGER_ACTIVE, false)
         val wagerDays = p.getInt(KEY_WAGER_DAYS, 0)
+        val xpBoostActive = isXpBoostActive()
+        val xpBoostRemaining = getXpBoostRemainingMinutes()
 
         _profileFlow.value = calculateProfile(
             xp = savedXp,
@@ -244,7 +289,9 @@ object AptitudeManager {
             freezeUsedNotice = freezeNotice,
             weeklyXp = weeklyXp,
             isWagerActive = isWagerActive,
-            wagerDays = wagerDays
+            wagerDays = wagerDays,
+            isXpBoostActive = xpBoostActive,
+            xpBoostRemainingMins = xpBoostRemaining
         )
     }
 
@@ -353,6 +400,9 @@ object AptitudeManager {
         // Report to DailyQuestManager
         DailyQuestManager.recordXpEarned(xpEarned)
 
+        val xpBoostActive = isXpBoostActive()
+        val xpBoostRemaining = getXpBoostRemainingMinutes()
+
         _profileFlow.value = calculateProfile(
             xp = newXp,
             tQ = newTQ,
@@ -366,7 +416,9 @@ object AptitudeManager {
             freezeUsedNotice = freezeNotice,
             weeklyXp = weeklyXp,
             isWagerActive = wagerActive,
-            wagerDays = wagerDays
+            wagerDays = wagerDays,
+            isXpBoostActive = xpBoostActive,
+            xpBoostRemainingMins = xpBoostRemaining
         )
     }
 
@@ -391,7 +443,9 @@ object AptitudeManager {
         freezeUsedNotice: String?,
         weeklyXp: Int,
         isWagerActive: Boolean,
-        wagerDays: Int
+        wagerDays: Int,
+        isXpBoostActive: Boolean,
+        xpBoostRemainingMins: Int
     ): AptitudeProfile {
         val level = getLevelForXp(xp)
         val currentLevelXp = getXpForLevel(level)
@@ -447,7 +501,9 @@ object AptitudeManager {
             divisionIcon = divIcon,
             divisionNextTierXp = nextTierXp,
             isWagerActive = isWagerActive,
-            wagerDaysCompleted = wagerDays
+            wagerDaysCompleted = wagerDays,
+            isXpBoostActive = isXpBoostActive,
+            xpBoostRemainingMinutes = xpBoostRemainingMins
         )
     }
 

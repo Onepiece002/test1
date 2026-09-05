@@ -52,50 +52,35 @@ enum class ChestRarity(
     val primaryColor: Color,
     val secondaryColor: Color,
     val bgTopColor: Color,
-    val bgBottomColor: Color,
-    val gemReward: Int,
-    val xpReward: Int,
-    val chanceForFreeze: Float
+    val bgBottomColor: Color
 ) {
     COMMON(
         title = "COMMON",
-        primaryColor = Color(0xFF64B5F6),
+        primaryColor = Color(0xFF42A5F5),
         secondaryColor = Color(0xFF1E88E5),
-        bgTopColor = Color(0xFF42A5F5),
-        bgBottomColor = Color(0xFF1976D2),
-        gemReward = 8,
-        xpReward = 60,
-        chanceForFreeze = 0.2f
+        bgTopColor = Color(0xFF38BDF8),
+        bgBottomColor = Color(0xFF0284C7)
     ),
     RARE(
         title = "RARE",
         primaryColor = Color(0xFF29B6F6),
         secondaryColor = Color(0xFF0288D1),
-        bgTopColor = Color(0xFF38BDF8),
-        bgBottomColor = Color(0xFF0284C7),
-        gemReward = 15,
-        xpReward = 120,
-        chanceForFreeze = 0.5f
+        bgTopColor = Color(0xFF0284C7),
+        bgBottomColor = Color(0xFF075985)
     ),
     EPIC(
         title = "EPIC",
         primaryColor = Color(0xFFAB47BC),
         secondaryColor = Color(0xFF7B1FA2),
         bgTopColor = Color(0xFFA855F7),
-        bgBottomColor = Color(0xFF7E22CE),
-        gemReward = 30,
-        xpReward = 200,
-        chanceForFreeze = 0.85f
+        bgBottomColor = Color(0xFF6B21A8)
     ),
     LEGENDARY(
         title = "LEGENDARY",
         primaryColor = Color(0xFFFFB300),
         secondaryColor = Color(0xFFFF8F00),
         bgTopColor = Color(0xFFFBBF24),
-        bgBottomColor = Color(0xFFD97706),
-        gemReward = 60,
-        xpReward = 350,
-        chanceForFreeze = 1.0f
+        bgBottomColor = Color(0xFFB45309)
     );
 
     fun nextTier(): ChestRarity {
@@ -111,12 +96,12 @@ enum class ChestRarity(
 /**
  * Duolingo-style Mystery Chest Upgrade and Reward Experience.
  * Exactly matches Duolingo's interactive chest upgrade flow with 3 chances,
- * rarity upgrading (RARE -> EPIC -> LEGENDARY), dynamic bouncy animations,
- * tactile haptics, and celebration gem reveal screen.
+ * rarity upgrading (COMMON -> RARE -> EPIC -> LEGENDARY), dynamic bouncy animations,
+ * tactile haptics, and celebration reward reveal screen.
  */
 @Composable
 fun DuolingoMysteryChestDialog(
-    initialRarity: ChestRarity = ChestRarity.RARE,
+    initialRarity: ChestRarity = ChestRarity.COMMON,
     onDismiss: () -> Unit,
     onClaimed: ((MysteryReward) -> Unit)? = null
 ) {
@@ -179,8 +164,18 @@ fun DuolingoMysteryChestDialog(
 
             delay(120)
 
-            // Calculate upgrade roll: 55% chance to upgrade rarity on each tap!
-            val didUpgrade = currentRarity != ChestRarity.LEGENDARY && Random.nextFloat() < 0.60f
+            // Calculate upgrade odds per tap:
+            // Common -> Rare: 60% chance
+            // Rare -> Epic: 35% chance
+            // Epic -> Legendary: 10% chance
+            val upgradeChance = when (currentRarity) {
+                ChestRarity.COMMON -> 0.60f
+                ChestRarity.RARE -> 0.35f
+                ChestRarity.EPIC -> 0.10f
+                ChestRarity.LEGENDARY -> 0.0f
+            }
+
+            val didUpgrade = currentRarity != ChestRarity.LEGENDARY && Random.nextFloat() < upgradeChance
             if (didUpgrade) {
                 currentRarity = currentRarity.nextTier()
                 upgradeSuccessNotice = true
@@ -197,34 +192,75 @@ fun DuolingoMysteryChestDialog(
                 delay(300)
                 GamificationHaptics.playCelebration(context)
 
-                // Grant rewards based on final achieved rarity
-                val gemsEarned = currentRarity.gemReward
-                val xpEarned = currentRarity.xpReward
+                val currentTotalXp = maxOf(0, AptitudeManager.profileFlow.value.xp)
+                var xpEarned = 0
+                var goldEarned = 0
                 var freezeAwarded = false
-                var bonusGems = 0
-
+                var bonusGold = 0
                 val currentFreezes = AptitudeManager.getStreakFreezesCount()
-                if (currentFreezes < 3 && Random.nextFloat() < currentRarity.chanceForFreeze) {
-                    AptitudeManager.addStreakFreezes(1)
-                    freezeAwarded = true
-                } else if (currentFreezes >= 3) {
-                    bonusGems = (gemsEarned * 0.4f).toInt()
+
+                when (currentRarity) {
+                    ChestRarity.COMMON -> {
+                        // Common: 2X EXP potion for 15 mins + 1000 gold
+                        xpEarned = 0
+                        goldEarned = 1000
+                        AptitudeManager.activateXpBoost(durationMinutes = 15, multiplier = 2.0f)
+                    }
+                    ChestRarity.RARE -> {
+                        // Rare: 1000 xp or 5% current xp (whichever higher) and 10,000 gold
+                        xpEarned = maxOf(1000, (currentTotalXp * 0.05f).toInt())
+                        goldEarned = 10000
+                        // 10% chance for streak freeze
+                        if (Random.nextFloat() < 0.10f) {
+                            if (currentFreezes < 3) {
+                                AptitudeManager.addStreakFreezes(1)
+                                freezeAwarded = true
+                            } else {
+                                bonusGold = 1000
+                            }
+                        }
+                    }
+                    ChestRarity.EPIC -> {
+                        // Epic: 10% xp or 2000 xp (whichever higher) and 50,000 gold + streak freeze
+                        xpEarned = maxOf(2000, (currentTotalXp * 0.10f).toInt())
+                        goldEarned = 50000
+                        if (currentFreezes < 3) {
+                            AptitudeManager.addStreakFreezes(1)
+                            freezeAwarded = true
+                        } else {
+                            bonusGold = 2000
+                        }
+                    }
+                    ChestRarity.LEGENDARY -> {
+                        // Legendary jackpot: 20% xp or 5000 xp + 100,000 gold + 2X boost + freeze
+                        xpEarned = maxOf(5000, (currentTotalXp * 0.20f).toInt())
+                        goldEarned = 100000
+                        AptitudeManager.activateXpBoost(durationMinutes = 30, multiplier = 2.0f)
+                        if (currentFreezes < 3) {
+                            AptitudeManager.addStreakFreezes(1)
+                            freezeAwarded = true
+                        } else {
+                            bonusGold = 5000
+                        }
+                    }
                 }
 
-                val finalGems = gemsEarned + bonusGems
+                val finalGold = goldEarned + bonusGold
 
                 // Save to economy
-                AptitudeManager.addAptitudeXp(xpEarned)
-                FocusEconomyManager.addRewards(baseXp = xpEarned, baseGold = finalGems)
+                if (xpEarned > 0) {
+                    AptitudeManager.addAptitudeXp(xpEarned)
+                }
+                FocusEconomyManager.addRewards(baseXp = xpEarned, baseGold = finalGold)
 
-                // Complete in quest manager if daily quest state
-                val questReward = DailyQuestManager.claimMysteryChest()
+                // Complete in quest manager
+                DailyQuestManager.claimMysteryChest()
 
                 val resultReward = MysteryReward(
                     xp = xpEarned,
-                    gold = finalGems,
+                    gold = finalGold,
                     streakFreezeAwarded = freezeAwarded,
-                    bonusGoldInsteadOfFreeze = bonusGems
+                    bonusGoldInsteadOfFreeze = bonusGold
                 )
                 claimedReward = resultReward
                 isRevealed = true
@@ -250,8 +286,8 @@ fun DuolingoMysteryChestDialog(
                     if (isRevealed) {
                         Brush.verticalGradient(
                             listOf(
-                                Color(0xFF0F1E25),
-                                Color(0xFF091115)
+                                Color(0xFF0F172A),
+                                Color(0xFF020617)
                             )
                         )
                     } else {
@@ -263,17 +299,22 @@ fun DuolingoMysteryChestDialog(
                         )
                     }
                 )
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null
-                ) {
-                    if (!isRevealed) {
-                        performTapChance()
-                    }
-                }
         ) {
+            // Ambient Floating Sparkles Canvas
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val w = size.width
+                val h = size.height
+                val starColor = Color.White.copy(alpha = 0.25f)
+
+                drawSparkleStar(Offset(w * 0.15f, h * 0.18f + floatOffset), 14.dp.toPx(), starColor)
+                drawSparkleStar(Offset(w * 0.85f, h * 0.22f - floatOffset), 18.dp.toPx(), starColor)
+                drawSparkleStar(Offset(w * 0.20f, h * 0.65f - floatOffset), 12.dp.toPx(), starColor)
+                drawSparkleStar(Offset(w * 0.80f, h * 0.72f + floatOffset), 16.dp.toPx(), starColor)
+                drawSparkleStar(Offset(w * 0.50f, h * 0.12f + floatOffset * 0.5f), 10.dp.toPx(), starColor)
+            }
+
             if (!isRevealed) {
-                // ==================== UPGRADE PHASE ====================
+                // ==================== TAPPING / UPGRADING PHASE ====================
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -281,92 +322,88 @@ fun DuolingoMysteryChestDialog(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // Top: Rarity Header
+                    // Top: Rarity Pill Badge
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.padding(top = 28.dp)
+                        modifier = Modifier.padding(top = 16.dp)
                     ) {
-                        Text(
-                            text = currentRarity.title,
-                            fontSize = 28.sp,
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = 2.sp,
-                            color = Color.White,
-                            textAlign = TextAlign.Center
-                        )
+                        Surface(
+                            shape = RoundedCornerShape(20.dp),
+                            color = Color.Black.copy(alpha = 0.25f),
+                            border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.35f))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = currentRarity.title,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = Color.White,
+                                    letterSpacing = 1.2.sp
+                                )
+                            }
+                        }
+
+                        // Upgrade notification banner
                         AnimatedVisibility(
                             visible = upgradeSuccessNotice,
                             enter = fadeIn() + scaleIn(),
                             exit = fadeOut()
                         ) {
                             Text(
-                                text = "✨ UPGRADED! ✨",
+                                text = "✨ UPGRADED TO ${currentRarity.title}! ✨",
                                 fontSize = 16.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = Color(0xFFFFEB3B),
-                                modifier = Modifier.padding(top = 4.dp)
+                                fontWeight = FontWeight.Black,
+                                color = Color(0xFFFFD700),
+                                modifier = Modifier.padding(top = 8.dp)
                             )
                         }
                     }
 
-                    // Center: 3D Chest Graphic + Sparkling Stars
+                    // Center: 3D Animated Chest
                     Box(
-                        contentAlignment = Alignment.Center,
                         modifier = Modifier
-                            .size(300.dp)
-                            .offset(y = floatOffset.dp)
+                            .size(280.dp)
                             .scale(tapScale.value)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                enabled = chancesLeft > 0 && !isUpgrading
+                            ) {
+                                performTapChance()
+                            },
+                        contentAlignment = Alignment.Center
                     ) {
-                        // Ambient Twinkle Stars
-                        Canvas(modifier = Modifier.fillMaxSize()) {
-                            drawSparkleStar(
-                                center = Offset(size.width * 0.18f, size.height * 0.35f),
-                                radius = 10f * ambientPulse,
-                                color = Color.White.copy(alpha = 0.85f)
-                            )
-                            drawSparkleStar(
-                                center = Offset(size.width * 0.84f, size.height * 0.28f),
-                                radius = 12f * ambientPulse,
-                                color = Color.White.copy(alpha = 0.9f)
-                            )
-                            drawSparkleStar(
-                                center = Offset(size.width * 0.88f, size.height * 0.58f),
-                                radius = 8f * ambientPulse,
-                                color = Color.White.copy(alpha = 0.75f)
-                            )
-                            drawSparkleStar(
-                                center = Offset(size.width * 0.12f, size.height * 0.72f),
-                                radius = 9f * ambientPulse,
-                                color = Color.White.copy(alpha = 0.8f)
-                            )
-                            drawSparkleStar(
-                                center = Offset(size.width * 0.5f, size.height * 0.12f),
-                                radius = 11f * ambientPulse,
-                                color = Color.White.copy(alpha = 0.85f)
+                        // Radial Ambient Halo
+                        Canvas(modifier = Modifier.size(280.dp)) {
+                            drawCircle(
+                                brush = Brush.radialGradient(
+                                    colors = listOf(
+                                        Color.White.copy(alpha = 0.35f),
+                                        Color.Transparent
+                                    ),
+                                    center = center,
+                                    radius = size.width * 0.45f * ambientPulse
+                                )
                             )
                         }
 
-                        // Duolingo 3D Vector Chest
+                        // 3D Chest Model
                         DuolingoChest3DGraphic(
                             rarity = currentRarity,
                             wobbleDegrees = chestWobble.value,
-                            modifier = Modifier
-                                .size(240.dp)
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null
-                                ) {
-                                    performTapChance()
-                                }
+                            modifier = Modifier.size(220.dp)
                         )
                     }
 
-                    // Bottom: 3 Dots and Dynamic Prompt Text
+                    // Bottom: 3 Chance Dots & Instruction
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.padding(bottom = 36.dp)
+                        modifier = Modifier.padding(bottom = 24.dp)
                     ) {
-                        // 3 Chance Indicator Dots
+                        // 3 Chances Indicator (Duolingo Style: Arrow circles)
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(16.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -374,8 +411,9 @@ fun DuolingoMysteryChestDialog(
                             // Dot 1 (corresponds to chance 3 -> 2)
                             ChanceDotItem(
                                 state = when {
-                                    chancesLeft >= 3 -> ChanceDotState.ACTIVE
-                                    else -> ChanceDotState.COMPLETED
+                                    chancesLeft == 3 -> ChanceDotState.ACTIVE
+                                    chancesLeft < 3 -> ChanceDotState.COMPLETED
+                                    else -> ChanceDotState.PENDING
                                 },
                                 pulse = if (chancesLeft >= 3) ambientPulse else 1f
                             )
@@ -406,9 +444,9 @@ fun DuolingoMysteryChestDialog(
                         // Prompt Text
                         Text(
                             text = when (chancesLeft) {
-                                3 -> "Tap for a chance to upgrade!"
-                                2 -> "Tap! Tap!"
-                                1 -> "1 chance left!"
+                                3 -> "Tap the chest to unlock or upgrade!"
+                                2 -> "Tap again! Upgrade your prize!"
+                                1 -> "Final tap to reveal rewards!"
                                 else -> "Opening chest..."
                             },
                             fontSize = 20.sp,
@@ -420,7 +458,8 @@ fun DuolingoMysteryChestDialog(
                 }
             } else {
                 // ==================== REWARD REVEAL PHASE ====================
-                val reward = claimedReward ?: MysteryReward(xp = 120, gold = 15, streakFreezeAwarded = false)
+                val reward = claimedReward ?: MysteryReward(xp = 1000, gold = 10000, streakFreezeAwarded = false)
+                val isCommonPotion = currentRarity == ChestRarity.COMMON
 
                 Column(
                     modifier = Modifier
@@ -429,7 +468,7 @@ fun DuolingoMysteryChestDialog(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // Top Right: Gems Counter
+                    // Top Right: Gold Counter
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -439,100 +478,146 @@ fun DuolingoMysteryChestDialog(
                     ) {
                         Surface(
                             shape = RoundedCornerShape(14.dp),
-                            color = Color(0xFF1B2E37),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2B4653))
+                            color = Color(0xFF1E293B),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF334155))
                         ) {
                             Row(
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text("🔷", fontSize = 16.sp)
+                                Text("🪙", fontSize = 16.sp)
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
                                     text = "${economyProfile.gold}",
                                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black),
-                                    color = Color(0xFF38BDF8)
+                                    color = Color(0xFFFFD54F)
                                 )
                             }
                         }
                     }
 
-                    // Center Content: +X gems and 3D Gems Pile
+                    // Center Content
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.weight(1f),
                         verticalArrangement = Arrangement.Center
                     ) {
-                        // Title: +X gems
-                        Text(
-                            text = "+${reward.gold} gems",
-                            fontSize = 38.sp,
-                            fontWeight = FontWeight.Black,
-                            color = Color(0xFF38BDF8),
-                            textAlign = TextAlign.Center
-                        )
+                        if (isCommonPotion) {
+                            // Common Reward: 2X EXP Potion Beaker
+                            Text(
+                                text = "2X EXP BOOST",
+                                fontSize = 34.sp,
+                                fontWeight = FontWeight.Black,
+                                color = Color(0xFF38BDF8),
+                                textAlign = TextAlign.Center
+                            )
 
-                        Spacer(modifier = Modifier.height(10.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
 
-                        // Bonus info if applicable
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                            Text(
+                                text = "Double XP for next 15 mins on Drills & Blitz!",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFFE2E8F0),
+                                textAlign = TextAlign.Center
+                            )
+
+                            Spacer(modifier = Modifier.height(14.dp))
+
                             Surface(
                                 shape = RoundedCornerShape(8.dp),
                                 color = Color(0xFFFFB300).copy(alpha = 0.2f),
                                 border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFB300))
                             ) {
                                 Text(
-                                    text = "+${reward.xp} XP",
-                                    fontSize = 13.sp,
+                                    text = "+${reward.gold} 🪙 Gold",
+                                    fontSize = 14.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color(0xFFFFD54F),
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                                 )
                             }
 
-                            if (reward.streakFreezeAwarded) {
+                            Spacer(modifier = Modifier.height(28.dp))
+
+                            // Animated XP Potion Beaker Graphic
+                            DuolingoXpPotionBeakerGraphic(
+                                modifier = Modifier
+                                    .size(200.dp)
+                                    .scale(ambientPulse * 0.95f + 0.05f)
+                            )
+                        } else {
+                            // Rare / Epic / Legendary Rewards: Gold + XP Pile
+                            Text(
+                                text = "+${reward.gold} Gold",
+                                fontSize = 38.sp,
+                                fontWeight = FontWeight.Black,
+                                color = Color(0xFFFFD54F),
+                                textAlign = TextAlign.Center
+                            )
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
                                 Surface(
                                     shape = RoundedCornerShape(8.dp),
-                                    color = Color(0xFF00E5FF).copy(alpha = 0.2f),
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00E5FF))
+                                    color = Color(0xFF38BDF8).copy(alpha = 0.2f),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF38BDF8))
                                 ) {
                                     Text(
-                                        text = "+1 🛡️ Streak Freeze",
-                                        fontSize = 13.sp,
+                                        text = "+${reward.xp} XP",
+                                        fontSize = 14.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF80D8FF),
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                        color = Color(0xFF7DD3FC),
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                                     )
                                 }
+
+                                if (reward.streakFreezeAwarded) {
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = Color(0xFF00E5FF).copy(alpha = 0.2f),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00E5FF))
+                                    ) {
+                                        Text(
+                                            text = "+1 🛡️ Streak Freeze",
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFF80D8FF),
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                        )
+                                    }
+                                }
                             }
+
+                            Spacer(modifier = Modifier.height(32.dp))
+
+                            // 3D Gold Coins Pile Graphic
+                            DuolingoGoldCoinsPileGraphic(
+                                modifier = Modifier
+                                    .size(220.dp)
+                                    .scale(ambientPulse * 0.95f + 0.05f)
+                            )
                         }
-
-                        Spacer(modifier = Modifier.height(36.dp))
-
-                        // 3D Gem Pile Graphic
-                        DuolingoGemsPileGraphic(
-                            modifier = Modifier
-                                .size(220.dp)
-                                .scale(ambientPulse * 0.95f + 0.05f)
-                        )
                     }
 
                     // Bottom: Duolingo 3D "CONTINUE" Button
                     Duolingo3DButton(
                         text = "CONTINUE",
+                        buttonColor = Color(0xFF1CB0F6),
+                        bevelColor = Color(0xFF1899D6),
+                        textColor = Color.White,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 20.dp),
                         onClick = {
                             GamificationHaptics.playLight(context)
                             claimedReward?.let { onClaimed?.invoke(it) }
                             onDismiss()
-                        },
-                        containerColor = Color(0xFF1CB0F6),
-                        shadowColor = Color(0xFF1899D6),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 20.dp)
+                        }
                     )
                 }
             }
@@ -597,68 +682,6 @@ private fun ChanceDotItem(
 }
 
 /**
- * 3D Tactile Duolingo Button with bottom bevel depth that squashes on press.
- */
-@Composable
-fun Duolingo3DButton(
-    text: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    containerColor: Color = Color(0xFF1CB0F6),
-    shadowColor: Color = Color(0xFF1899D6),
-    textColor: Color = Color.White
-) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    val pressOffsetY by animateFloatAsState(
-        targetValue = if (isPressed) 4f else 0f,
-        animationSpec = tween(durationMillis = 60),
-        label = "button_press"
-    )
-
-    Box(
-        modifier = modifier
-            .height(54.dp)
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
-                onClick = onClick
-            )
-    ) {
-        // Bottom Shadow / Bevel Lip (4dp depth)
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp)
-                .offset(y = 4.dp)
-                .clip(RoundedCornerShape(16.dp))
-                .background(shadowColor)
-        )
-
-        // Top Face of Button
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp)
-                .offset(y = pressOffsetY.dp)
-                .clip(RoundedCornerShape(16.dp))
-                .background(containerColor),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = text,
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 1.sp
-                ),
-                color = textColor,
-                textAlign = TextAlign.Center
-            )
-        }
-    }
-}
-
-/**
  * Custom 3D Vector Chest Graphic matching Duolingo's aesthetic.
  */
 @Composable
@@ -675,23 +698,19 @@ private fun DuolingoChest3DGraphic(
         val w = size.width
         val h = size.height
 
-        // Colors based on Rarity
         val bodyPrimary = when (rarity) {
-            ChestRarity.COMMON -> Color(0xFF29B6F6)
+            ChestRarity.COMMON -> Color(0xFF42A5F5)
             ChestRarity.RARE -> Color(0xFF0288D1)
             ChestRarity.EPIC -> Color(0xFF8E24AA)
             ChestRarity.LEGENDARY -> Color(0xFFE65100)
         }
         val bodySecondary = when (rarity) {
-            ChestRarity.COMMON -> Color(0xFF0288D1)
+            ChestRarity.COMMON -> Color(0xFF1E88E5)
             ChestRarity.RARE -> Color(0xFF01579B)
             ChestRarity.EPIC -> Color(0xFF4A148C)
             ChestRarity.LEGENDARY -> Color(0xFFBF360C)
         }
-        val goldHighlight = Color(0xFFFFE082)
         val goldMain = Color(0xFFFFB300)
-        val goldShadow = Color(0xFFFF8F00)
-        val goldDeepShadow = Color(0xFFC67100)
 
         // 1. Base Shadow on ground
         drawOval(
@@ -748,93 +767,165 @@ private fun DuolingoChest3DGraphic(
             )
         )
 
-        // 4. Chunky Gold Lid Border & Straps (Duolingo Style)
-        // Left gold strap
-        val leftStrap = Path().apply {
-            moveTo(w * 0.16f, h * 0.46f)
-            cubicTo(w * 0.18f, h * 0.26f, w * 0.32f, h * 0.24f, w * 0.34f, h * 0.24f)
-            lineTo(w * 0.40f, h * 0.24f)
-            cubicTo(w * 0.38f, h * 0.26f, w * 0.26f, h * 0.28f, w * 0.24f, h * 0.46f)
-            close()
-        }
-        drawPath(path = leftStrap, color = goldMain)
-
-        // Right gold strap
-        val rightStrap = Path().apply {
-            moveTo(w * 0.84f, h * 0.46f)
-            cubicTo(w * 0.82f, h * 0.26f, w * 0.68f, h * 0.24f, w * 0.66f, h * 0.24f)
-            lineTo(w * 0.60f, h * 0.24f)
-            cubicTo(w * 0.62f, h * 0.26f, w * 0.74f, h * 0.28f, w * 0.76f, h * 0.46f)
-            close()
-        }
-        drawPath(path = rightStrap, color = goldMain)
-
-        // Left gold corner pillar
-        drawRoundRect(
-            color = goldMain,
-            topLeft = Offset(w * 0.18f, h * 0.44f),
-            size = Size(w * 0.12f, h * 0.36f),
-            cornerRadius = CornerRadius(10f, 10f)
+        // Center Gold Lock Emblem
+        val lockSize = w * 0.18f
+        val lockCenter = Offset(w * 0.50f, h * 0.50f)
+        drawCircle(
+            color = Color(0xFFFFB300),
+            radius = lockSize * 0.5f,
+            center = lockCenter
         )
-
-        // Right gold corner pillar
-        drawRoundRect(
-            color = goldMain,
-            topLeft = Offset(w * 0.70f, h * 0.44f),
-            size = Size(w * 0.12f, h * 0.36f),
-            cornerRadius = CornerRadius(10f, 10f)
+        drawCircle(
+            color = Color(0xFFFFD54F),
+            radius = lockSize * 0.35f,
+            center = Offset(lockCenter.x - 2, lockCenter.y - 2)
         )
-
-        // Center Gold Horizontal Bezel / Rim
-        drawRoundRect(
-            color = goldShadow,
-            topLeft = Offset(w * 0.13f, h * 0.43f),
-            size = Size(w * 0.74f, h * 0.13f),
-            cornerRadius = CornerRadius(18f, 18f)
+        drawCircle(
+            color = Color(0xFF3E2723),
+            radius = lockSize * 0.18f,
+            center = lockCenter
         )
-        drawRoundRect(
-            color = goldMain,
-            topLeft = Offset(w * 0.13f, h * 0.41f),
-            size = Size(w * 0.74f, h * 0.12f),
-            cornerRadius = CornerRadius(18f, 18f)
-        )
-        // Bezel top highlight
-        drawRoundRect(
-            color = goldHighlight,
-            topLeft = Offset(w * 0.16f, h * 0.415f),
-            size = Size(w * 0.68f, h * 0.035f),
-            cornerRadius = CornerRadius(8f, 8f)
-        )
-
-        // 5. Center Golden Heart / Shield Crest Lock
-        // Outer gold crest holder
-        val crestHolder = Path().apply {
-            moveTo(w * 0.40f, h * 0.42f)
-            lineTo(w * 0.60f, h * 0.42f)
-            cubicTo(w * 0.62f, h * 0.54f, w * 0.55f, h * 0.60f, w * 0.50f, h * 0.63f)
-            cubicTo(w * 0.45f, h * 0.60f, w * 0.38f, h * 0.54f, w * 0.40f, h * 0.42f)
-            close()
-        }
-        drawPath(path = crestHolder, color = goldDeepShadow)
-
-        // Inner White Shield / Heart Lock
-        val innerShield = Path().apply {
-            moveTo(w * 0.43f, h * 0.44f)
-            lineTo(w * 0.57f, h * 0.44f)
-            cubicTo(w * 0.59f, h * 0.53f, w * 0.54f, h * 0.58f, w * 0.50f, h * 0.60f)
-            cubicTo(w * 0.46f, h * 0.58f, w * 0.41f, h * 0.53f, w * 0.43f, h * 0.44f)
-            close()
-        }
-        drawPath(path = innerShield, color = Color.White)
-        drawPath(path = innerShield, color = Color(0xFFE2E8F0), style = Stroke(width = 3f))
     }
 }
 
 /**
- * 3D Gems Pile Graphic for the Reward Reveal Screen.
+ * Animated Duolingo-style XP Potion Beaker Flask Graphic.
  */
 @Composable
-private fun DuolingoGemsPileGraphic(
+private fun DuolingoXpPotionBeakerGraphic(
+    modifier: Modifier = Modifier
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "beaker_anim")
+    val bubbleFloat by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1500, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "bubble_float"
+    )
+
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+
+        // Ground shadow
+        drawOval(
+            color = Color(0x33000000),
+            topLeft = Offset(w * 0.2f, h * 0.85f),
+            size = Size(w * 0.6f, h * 0.12f)
+        )
+
+        // Ambient potion glow
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(
+                    Color(0xFF00E5FF).copy(alpha = 0.45f),
+                    Color.Transparent
+                ),
+                center = Offset(w * 0.5f, h * 0.58f),
+                radius = w * 0.45f
+            )
+        )
+
+        // Beaker Flask Body (Erlenmeyer shape)
+        val neckTop = h * 0.20f
+        val neckBottom = h * 0.42f
+        val flaskBottom = h * 0.82f
+        val neckHalfWidth = w * 0.12f
+        val baseHalfWidth = w * 0.36f
+
+        val beakerPath = Path().apply {
+            moveTo(w * 0.5f - neckHalfWidth, neckTop)
+            lineTo(w * 0.5f + neckHalfWidth, neckTop)
+            lineTo(w * 0.5f + neckHalfWidth, neckBottom)
+            lineTo(w * 0.5f + baseHalfWidth, flaskBottom)
+            cubicTo(
+                w * 0.5f + baseHalfWidth, flaskBottom + h * 0.04f,
+                w * 0.5f - baseHalfWidth, flaskBottom + h * 0.04f,
+                w * 0.5f - baseHalfWidth, flaskBottom
+            )
+            lineTo(w * 0.5f - neckHalfWidth, neckBottom)
+            close()
+        }
+
+        // Liquid inside beaker
+        val liquidTop = h * 0.48f
+        val liquidPath = Path().apply {
+            val liquidHalfWidth = w * 0.22f
+            moveTo(w * 0.5f - liquidHalfWidth, liquidTop)
+            lineTo(w * 0.5f + liquidHalfWidth, liquidTop)
+            lineTo(w * 0.5f + baseHalfWidth - 4, flaskBottom - 4)
+            cubicTo(
+                w * 0.5f + baseHalfWidth - 4, flaskBottom + h * 0.03f,
+                w * 0.5f - baseHalfWidth + 4, flaskBottom + h * 0.03f,
+                w * 0.5f - baseHalfWidth + 4, flaskBottom - 4
+            )
+            close()
+        }
+
+        drawPath(
+            path = liquidPath,
+            brush = Brush.verticalGradient(
+                listOf(
+                    Color(0xFF00E5FF),
+                    Color(0xFF0288D1)
+                ),
+                startY = liquidTop,
+                endY = flaskBottom
+            )
+        )
+
+        // Animated Rising Bubbles
+        val b1Y = liquidTop + (flaskBottom - liquidTop) * (1f - bubbleFloat)
+        drawCircle(
+            color = Color.White.copy(alpha = 0.8f),
+            radius = 6.dp.toPx(),
+            center = Offset(w * 0.45f, b1Y)
+        )
+        val b2Y = liquidTop + (flaskBottom - liquidTop) * (1f - ((bubbleFloat + 0.5f) % 1f))
+        drawCircle(
+            color = Color.White.copy(alpha = 0.7f),
+            radius = 4.dp.toPx(),
+            center = Offset(w * 0.56f, b2Y)
+        )
+
+        // Glass outline
+        drawPath(
+            path = beakerPath,
+            color = Color.White.copy(alpha = 0.85f),
+            style = Stroke(width = 4.dp.toPx())
+        )
+
+        // Beaker Rim
+        drawRoundRect(
+            color = Color.White,
+            topLeft = Offset(w * 0.5f - neckHalfWidth - 4.dp.toPx(), neckTop - 3.dp.toPx()),
+            size = Size((neckHalfWidth * 2) + 8.dp.toPx(), 8.dp.toPx()),
+            cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx())
+        )
+
+        // Glass highlight reflection streak
+        drawLine(
+            color = Color.White.copy(alpha = 0.6f),
+            start = Offset(w * 0.5f - neckHalfWidth + 4, neckBottom + 6),
+            end = Offset(w * 0.5f - baseHalfWidth + 14, flaskBottom - 10),
+            strokeWidth = 3.dp.toPx(),
+            cap = StrokeCap.Round
+        )
+
+        // 2X Badge on Beaker
+        drawSparkleStar(Offset(w * 0.75f, h * 0.28f), 14.dp.toPx(), Color(0xFFFFD54F))
+        drawSparkleStar(Offset(w * 0.22f, h * 0.42f), 10.dp.toPx(), Color(0xFF80D8FF))
+    }
+}
+
+/**
+ * 3D Pile of Gold Coins Graphic.
+ */
+@Composable
+private fun DuolingoGoldCoinsPileGraphic(
     modifier: Modifier = Modifier
 ) {
     Canvas(modifier = modifier) {
@@ -843,148 +934,62 @@ private fun DuolingoGemsPileGraphic(
 
         // Ground shadow
         drawOval(
-            color = Color(0x66000000),
-            topLeft = Offset(w * 0.08f, h * 0.72f),
-            size = Size(w * 0.84f, h * 0.22f)
+            color = Color(0x33000000),
+            topLeft = Offset(w * 0.15f, h * 0.78f),
+            size = Size(w * 0.70f, h * 0.18f)
         )
 
-        // Draw multiple glowing 3D Gems in a pyramid cluster
-        // Bottom layer left
-        drawGemHexagon(
-            center = Offset(w * 0.30f, h * 0.65f),
-            radius = w * 0.16f,
-            primaryColor = Color(0xFF00B0FF),
-            highlightColor = Color(0xFF80D8FF),
-            shadowColor = Color(0xFF0091EA)
-        )
+        // Bottom layer coins
+        draw3DGoldCoin(Offset(w * 0.30f, h * 0.68f), radius = w * 0.14f)
+        draw3DGoldCoin(Offset(w * 0.70f, h * 0.68f), radius = w * 0.14f)
+        draw3DGoldCoin(Offset(w * 0.50f, h * 0.72f), radius = w * 0.16f)
 
-        // Bottom layer right
-        drawGemHexagon(
-            center = Offset(w * 0.70f, h * 0.65f),
-            radius = w * 0.16f,
-            primaryColor = Color(0xFF00B0FF),
-            highlightColor = Color(0xFF80D8FF),
-            shadowColor = Color(0xFF0091EA)
-        )
+        // Mid layer coins
+        draw3DGoldCoin(Offset(w * 0.38f, h * 0.50f), radius = w * 0.13f)
+        draw3DGoldCoin(Offset(w * 0.62f, h * 0.50f), radius = w * 0.13f)
 
-        // Bottom layer center front
-        drawGemHexagon(
-            center = Offset(w * 0.50f, h * 0.70f),
-            radius = w * 0.18f,
-            primaryColor = Color(0xFF29B6F6),
-            highlightColor = Color(0xFFE1F5FE),
-            shadowColor = Color(0xFF0288D1)
-        )
+        // Top apex coin
+        draw3DGoldCoin(Offset(w * 0.50f, h * 0.34f), radius = w * 0.15f)
 
-        // Mid layer left
-        drawGemHexagon(
-            center = Offset(w * 0.38f, h * 0.45f),
-            radius = w * 0.15f,
-            primaryColor = Color(0xFF40C4FF),
-            highlightColor = Color(0xFFE1F5FE),
-            shadowColor = Color(0xFF0091EA)
-        )
-
-        // Mid layer right
-        drawGemHexagon(
-            center = Offset(w * 0.62f, h * 0.45f),
-            radius = w * 0.15f,
-            primaryColor = Color(0xFF00B0FF),
-            highlightColor = Color(0xFF80D8FF),
-            shadowColor = Color(0xFF0091EA)
-        )
-
-        // Top apex gem
-        drawGemHexagon(
-            center = Offset(w * 0.50f, h * 0.28f),
-            radius = w * 0.17f,
-            primaryColor = Color(0xFF40C4FF),
-            highlightColor = Color.White,
-            shadowColor = Color(0xFF0288D1)
-        )
+        // Sparkles
+        drawSparkleStar(Offset(w * 0.25f, h * 0.35f), 12.dp.toPx(), Color(0xFFFFD54F))
+        drawSparkleStar(Offset(w * 0.78f, h * 0.42f), 16.dp.toPx(), Color.White)
+        drawSparkleStar(Offset(w * 0.50f, h * 0.18f), 14.dp.toPx(), Color(0xFFFFE082))
     }
 }
 
-/**
- * Draws a faceted 3D Hexagonal Gemstone.
- */
-private fun DrawScope.drawGemHexagon(
+private fun DrawScope.draw3DGoldCoin(
     center: Offset,
-    radius: Float,
-    primaryColor: Color,
-    highlightColor: Color,
-    shadowColor: Color
+    radius: Float
 ) {
-    val points = mutableListOf<Offset>()
-    for (i in 0 until 6) {
-        val angle = (i * 60f - 30f) * (PI / 180f).toFloat()
-        points.add(
-            Offset(
-                center.x + radius * cos(angle),
-                center.y + radius * sin(angle)
-            )
-        )
-    }
-
-    // Outer Hexagon Path
-    val outerHex = Path().apply {
-        moveTo(points[0].x, points[0].y)
-        for (i in 1 until 6) {
-            lineTo(points[i].x, points[i].y)
-        }
-        close()
-    }
-    drawPath(path = outerHex, color = shadowColor)
-
-    // Inner smaller face
-    val innerRadius = radius * 0.55f
-    val innerPoints = mutableListOf<Offset>()
-    for (i in 0 until 6) {
-        val angle = (i * 60f - 30f) * (PI / 180f).toFloat()
-        innerPoints.add(
-            Offset(
-                center.x + innerRadius * cos(angle),
-                center.y + innerRadius * sin(angle)
-            )
-        )
-    }
-
-    // Top Facets (Highlights)
-    val topFacet = Path().apply {
-        moveTo(points[0].x, points[0].y)
-        lineTo(points[1].x, points[1].y)
-        lineTo(innerPoints[1].x, innerPoints[1].y)
-        lineTo(innerPoints[0].x, innerPoints[0].y)
-        close()
-    }
-    drawPath(path = topFacet, color = highlightColor)
-
-    // Side Facets
-    val leftFacet = Path().apply {
-        moveTo(points[1].x, points[1].y)
-        lineTo(points[2].x, points[2].y)
-        lineTo(innerPoints[2].x, innerPoints[2].y)
-        lineTo(innerPoints[1].x, innerPoints[1].y)
-        close()
-    }
-    drawPath(path = leftFacet, color = primaryColor)
-
-    // Center Hexagon Flat Table
-    val centerTable = Path().apply {
-        moveTo(innerPoints[0].x, innerPoints[0].y)
-        for (i in 1 until 6) {
-            lineTo(innerPoints[i].x, innerPoints[i].y)
-        }
-        close()
-    }
-    drawPath(path = centerTable, color = primaryColor)
-
-    // Glint highlight inside table
+    // 3D Rim Shadow
     drawCircle(
-        color = Color.White.copy(alpha = 0.9f),
-        radius = innerRadius * 0.25f,
-        center = Offset(center.x - innerRadius * 0.2f, center.y - innerRadius * 0.2f)
+        color = Color(0xFFC67100),
+        radius = radius,
+        center = Offset(center.x, center.y + 4.dp.toPx())
     )
+    // Gold Face
+    drawCircle(
+        brush = Brush.radialGradient(
+            listOf(
+                Color(0xFFFFE082),
+                Color(0xFFFFB300)
+            ),
+            center = center,
+            radius = radius
+        ),
+        radius = radius,
+        center = center
+    )
+    // Inner Ring
+    drawCircle(
+        color = Color(0xFFFF8F00),
+        radius = radius * 0.78f,
+        center = center,
+        style = Stroke(width = 2.dp.toPx())
+    )
+    // Star or Symbol in center
+    drawSparkleStar(center, radius * 0.35f, Color(0xFFFFD54F))
 }
 
 /**
