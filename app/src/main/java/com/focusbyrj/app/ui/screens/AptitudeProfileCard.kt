@@ -4,27 +4,27 @@ import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.focusbyrj.app.util.AptitudeManager
 import com.focusbyrj.app.util.GamificationHaptics
+import com.focusbyrj.app.ui.components.DuolingoBoltIcon
 import kotlin.math.roundToInt
 
 @Composable
@@ -33,435 +33,362 @@ fun AptitudeProfileCard() {
     val isDark = isSystemInDarkTheme()
     val context = LocalContext.current
     
-    val (cardBg, borderColor, titleColor, icon) = when (profile.titleTier) {
-        6 -> listOf(
-            if (isDark) Color(0xFF261B07) else Color(0xFFFFF8E1),
-            Color(0xFFFFD54F),
-            Color(0xFFFFB300),
-            "👑"
-        )
-        5 -> listOf(
-            if (isDark) Color(0xFF1E112A) else Color(0xFFF3E5F5),
-            Color(0xFFBA68C8),
-            Color(0xFF8E24AA),
-            "🔮"
-        )
-        4 -> listOf(
-            if (isDark) Color(0xFF0F1B2A) else Color(0xFFE3F2FD),
-            Color(0xFF64B5F6),
-            Color(0xFF1976D2),
-            "⚡"
-        )
-        3 -> listOf(
-            if (isDark) Color(0xFF1A1F24) else Color(0xFFECEFF1),
-            Color(0xFF90A4AE),
-            Color(0xFF546E7A),
-            "⚔️"
-        )
-        2 -> listOf(
-            if (isDark) Color(0xFF162319) else Color(0xFFE8F5E9),
-            Color(0xFF81C784),
-            Color(0xFF388E3C),
-            "📜"
-        )
-        else -> listOf(
-            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-            MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
-            MaterialTheme.colorScheme.primary,
-            "🔰"
-        )
-    }
-
-    Surface(
-        shape = RoundedCornerShape(20.dp),
-        color = cardBg as Color,
-        border = BorderStroke(if (profile.titleTier >= 4) 2.dp else 1.dp, borderColor as Color),
+    // Duolingo Authentic Colors
+    val cardBg = if (isDark) Color(0xFF131F24) else Color(0xFFFFFFFF)
+    val borderColor = if (isDark) Color(0xFF28414D) else Color(0xFFE5E5E5)
+    val textColor = if (isDark) Color.White else Color(0xFF4B4B4B)
+    val mutedTextColor = if (isDark) Color(0xFF8699A6) else Color(0xFFAFAFAF)
+    
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp)
+            .padding(vertical = 12.dp, horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(20.dp), 
-            horizontalAlignment = Alignment.CenterHorizontally
+        // Top Stats Row
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), 
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            
-            // Tier Badge Icon
-            Box(
-                modifier = Modifier
-                    .size(76.dp)
-                    .clip(CircleShape)
-                    .background((borderColor as Color).copy(alpha = 0.2f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(text = icon as String, fontSize = 40.sp)
-            }
-            
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            Text(
-                text = profile.title,
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
-                color = titleColor as Color,
-                textAlign = TextAlign.Center
-            )
-            
-            Text(
-                text = "Level ${profile.level}",
-                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                color = (titleColor as Color).copy(alpha = 0.8f)
-            )
-            
-            Spacer(modifier = Modifier.height(18.dp))
-            HorizontalDivider(color = (borderColor as Color).copy(alpha = 0.25f))
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // Overall Stats Row
-            Row(
-                modifier = Modifier.fillMaxWidth(), 
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                ProfileStatBox("Total Drills", profile.totalDrills.toString(), MaterialTheme.colorScheme.onSurface)
-                ProfileStatBox("Questions", profile.totalQuestions.toString(), MaterialTheme.colorScheme.onSurface)
-                ProfileStatBox(
-                    "Accuracy", 
-                    "${profile.accuracy.roundToInt()}%", 
-                    if (profile.accuracy >= 90f) Color(0xFF4CAF50) else MaterialTheme.colorScheme.onSurface
-                )
-            }
+            ProfileStatItem("Total Drills", profile.totalDrills.toString(), textColor, mutedTextColor)
+            ProfileStatItem("Questions", profile.totalQuestions.toString(), textColor, mutedTextColor)
+            ProfileStatItem("Accuracy", "${profile.accuracy.roundToInt()}%", textColor, mutedTextColor)
+        }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Weekly Aspirant League Section
-            Surface(
-                shape = RoundedCornerShape(14.dp),
-                color = if (isDark) Color(0x33000000) else Color(0x33FFFFFF),
-                border = BorderStroke(1.dp, (borderColor as Color).copy(alpha = 0.35f)),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(profile.divisionIcon, fontSize = 22.sp)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Column {
-                                Text(
-                                    text = profile.divisionTitle,
-                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = "Weekly Aspirant League",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = Color(0xFFFFB300).copy(alpha = 0.15f)
-                        ) {
+        // League Card
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = cardBg,
+            border = BorderStroke(2.dp, borderColor),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(profile.divisionIcon, fontSize = 28.sp)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
                             Text(
-                                text = "${profile.weeklyXp} Weekly XP",
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                color = Color(0xFFFFB300),
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                text = profile.divisionTitle,
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black, fontSize = 18.sp),
+                                color = textColor
+                            )
+                            Text(
+                                text = "Weekly Aspirant League",
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                color = mutedTextColor
                             )
                         }
                     }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    val divProgress = if (profile.divisionNextTierXp > 0) {
-                        (profile.weeklyXp.toFloat() / profile.divisionNextTierXp.toFloat()).coerceIn(0f, 1f)
-                    } else 1f
-
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(8.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxHeight()
-                                .fillMaxWidth(divProgress.coerceAtLeast(0.001f))
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(Brush.horizontalGradient(listOf(Color(0xFFFFD54F), Color(0xFFFF9800))))
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = if (profile.weeklyXp < profile.divisionNextTierXp)
-                            "${profile.divisionNextTierXp - profile.weeklyXp} XP until promotion"
-                        else "Promotion zone secured! 🏆",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // Streak & Daily Streak Bonus Section
-            Surface(
-                shape = RoundedCornerShape(14.dp),
-                color = if (isDark) Color(0x33000000) else Color(0x33FFFFFF),
-                border = BorderStroke(1.dp, (borderColor as Color).copy(alpha = 0.35f)),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // Current Streak
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("🔥", fontSize = 20.sp)
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Column {
-                                Text(
-                                    text = "${profile.currentStreak} Days",
-                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                                    color = if (profile.currentStreak > 0) Color(0xFFFF7043) else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Text(
-                                    text = "Current Streak",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-
-                        // Longest Streak
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("⚡", fontSize = 20.sp)
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Column(horizontalAlignment = Alignment.End) {
-                                Text(
-                                    text = "${profile.longestStreak} Days",
-                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                                    color = Color(0xFFFFB300)
-                                )
-                                Text(
-                                    text = "Longest Streak",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // 7-Day Streak Bonus Tracker
-                    val streakDaysCapped = minOf(profile.currentStreak, 7)
-                    val bonusPercent = profile.streakBonusPercent
-                    
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFFFFC800).copy(alpha = 0.15f)
                     ) {
                         Text(
-                            text = "Daily Streak Bonus",
-                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                            color = MaterialTheme.colorScheme.onSurface
+                            text = "${profile.weeklyXp} Weekly XP",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Black),
+                            color = Color(0xFFFFC800),
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         )
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = if (bonusPercent > 0) Color(0xFFFF7043).copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant,
-                            border = BorderStroke(1.dp, if (bonusPercent > 0) Color(0xFFFF7043).copy(alpha = 0.5f) else Color.Transparent)
-                        ) {
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                val divProgress = if (profile.divisionNextTierXp > 0) {
+                    (profile.weeklyXp.toFloat() / profile.divisionNextTierXp.toFloat()).coerceIn(0f, 1f)
+                } else 1f
+                
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(14.dp)
+                        .clip(RoundedCornerShape(7.dp))
+                        .background(if (isDark) Color(0xFF28414D) else Color(0xFFE5E5E5))
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .fillMaxWidth(divProgress.coerceAtLeast(0.001f))
+                            .clip(RoundedCornerShape(7.dp))
+                            .background(Color(0xFFFFC800))
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = if (profile.weeklyXp < profile.divisionNextTierXp)
+                        "${profile.divisionNextTierXp - profile.weeklyXp} XP until promotion"
+                    else "Promotion zone secured! 🏆",
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                    color = mutedTextColor
+                )
+            }
+        }
+
+        // Streak Card
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = cardBg,
+            border = BorderStroke(2.dp, borderColor),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp, horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Top Row: Current vs Longest
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    // Current Streak
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = if (bonusPercent > 0) "+$bonusPercent% XP (Day $streakDaysCapped/7)" else "Day 0/7 (No Bonus)",
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                color = if (bonusPercent > 0) Color(0xFFFF7043) else MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                text = "🔥",
+                                fontSize = 24.sp,
+                                modifier = Modifier.padding(end = 4.dp)
+                            )
+                            Text(
+                                text = "${profile.currentStreak.coerceAtLeast(1)} Days",
+                                style = MaterialTheme.typography.titleLarge.copy(
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 20.sp
+                                ),
+                                color = Color(0xFFFF9600)
+                            )
+                        }
+                        Text(
+                            text = "Current Streak",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, fontSize = 13.sp),
+                            color = mutedTextColor,
+                            modifier = Modifier.padding(start = 28.dp)
+                        )
+                    }
+                    
+                    // Longest Streak
+                    Column(horizontalAlignment = Alignment.End) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            DuolingoBoltIcon(
+                                modifier = Modifier.size(20.dp).padding(end = 4.dp),
+                                color = Color(0xFFFFC800)
+                            )
+                            Text(
+                                text = "${Math.max(profile.currentStreak, profile.longestStreak)} Days",
+                                style = MaterialTheme.typography.titleLarge.copy(
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 20.sp
+                                ),
+                                color = Color(0xFFFFC800)
+                            )
+                        }
+                        Text(
+                            text = "Longest Streak",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, fontSize = 13.sp),
+                            color = mutedTextColor,
+                            modifier = Modifier.padding(end = 4.dp)
+                        )
+                    }
+                }
+
+                // Middle Row: Daily Streak Bonus
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Daily Streak Bonus",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Black,
+                            fontSize = 16.sp
+                        ),
+                        color = textColor
+                    )
+                    
+                    val currentCycleDay = if (profile.currentStreak == 0) 1 else ((profile.currentStreak - 1) % 7) + 1
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFFFF9600).copy(alpha = 0.15f)
+                    ) {
+                        Text(
+                            text = "+${profile.streakBonusPercent.coerceAtLeast(5)}% XP (Day $currentCycleDay/7)",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black),
+                            color = Color(0xFFFF9600),
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+                
+                // Bottom Row: 7 circles
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    val currentCycleDay = if (profile.currentStreak == 0) 1 else ((profile.currentStreak - 1) % 7) + 1
+                    for (i in 1..7) {
+                        val isActive = i <= currentCycleDay
+                        val circleColor = if (isActive) Color(0xFFFF9600) else borderColor
+                        
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .border(2.dp, circleColor, CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (isActive) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(22.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFFFF9600)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Check,
+                                            contentDescription = "Done",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                } else {
+                                    Text(
+                                        text = i.toString(),
+                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Black),
+                                        color = mutedTextColor
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "D$i",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black),
+                                color = if (isActive) Color(0xFFFF9600) else mutedTextColor
                             )
                         }
                     }
+                }
+            }
+        }
 
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // 7 Days Visual Progress Indicators
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        for (day in 1..7) {
-                            val isAchieved = profile.currentStreak >= day
-                            val isCurrentDay = profile.currentStreak == day || (day == 7 && profile.currentStreak >= 7)
-                            val dayColor = if (isAchieved) Color(0xFFFF7043) else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
-                            val textColor = if (isAchieved) Color.White else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(28.dp)
-                                        .clip(CircleShape)
-                                        .background(
-                                            if (isAchieved) {
-                                                Brush.radialGradient(listOf(Color(0xFFFF8A65), Color(0xFFE64A19)))
-                                            } else {
-                                                Brush.linearGradient(listOf(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.colorScheme.surfaceVariant))
-                                            }
-                                        )
-                                        .border(
-                                            width = if (isCurrentDay && isAchieved) 1.5.dp else 1.dp,
-                                            color = if (isCurrentDay && isAchieved) Color(0xFFFFD54F) else dayColor,
-                                            shape = CircleShape
-                                        ),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = if (isAchieved) "✓" else "$day",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = textColor
-                                    )
+        // Shop Items (Streak Freeze and Wager)
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = cardBg,
+            border = BorderStroke(2.dp, borderColor),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                // Streak Freeze Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                        Text("🛡️", fontSize = 24.sp)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                text = "Streak Freeze (${profile.streakFreezesCount}/3)",
+                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Black, fontSize = 15.sp),
+                                color = textColor
+                            )
+                            Text(
+                                text = "Auto-protects streak if missed",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = mutedTextColor
+                            )
+                        }
+                    }
+                    if (profile.streakFreezesCount < 3) {
+                        Button(
+                            onClick = {
+                                val success = AptitudeManager.buyStreakFreeze(1000)
+                                if (success) {
+                                    GamificationHaptics.playCelebration(context)
+                                    Toast.makeText(context, "🛡️ Streak Freeze Equipped!", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(context, "Need 1,000 Gold to equip shield", Toast.LENGTH_SHORT).show()
                                 }
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = "D$day",
-                                    fontSize = 9.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = if (isAchieved) Color(0xFFFF7043) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                                )
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1CB0F6))
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("Equip", fontSize = 12.sp, fontWeight = FontWeight.Black, color = Color.White)
+                                Text("(1000 🪙)", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.9f))
                             }
                         }
+                    } else {
+                        Text("Equipped", fontSize = 12.sp, color = Color(0xFF58CC02), fontWeight = FontWeight.Black, modifier = Modifier.padding(end = 8.dp))
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                HorizontalDivider(color = borderColor, thickness = 2.dp)
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // 7-Day Wager Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                        Text("💰", fontSize = 24.sp)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                text = if (profile.isWagerActive) "Wager Active (${profile.wagerDaysCompleted}/7)" else "7-Day Streak Wager",
+                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Black, fontSize = 15.sp),
+                                color = textColor
+                            )
+                            Text(
+                                text = if (profile.isWagerActive) "Maintain your streak to win 100 🪙" else "Stake 50 🪙 to double it in 7 days",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = mutedTextColor
+                            )
+                        }
+                    }
+                    if (!profile.isWagerActive) {
+                        Button(
+                            onClick = {
+                                val success = AptitudeManager.startWager(50)
+                                if (success) {
+                                    GamificationHaptics.playCelebration(context)
+                                    Toast.makeText(context, "💰 Wager started! Maintain a 7-day streak to double it!", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(context, "Need 50 Gold to start wager", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFC800))
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("Wager", fontSize = 12.sp, fontWeight = FontWeight.Black, color = Color(0xFF2B1D00))
+                                Text("50 🪙", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2B1D00).copy(alpha = 0.9f))
+                            }
+                        }
+                    } else {
+                        Text("Active", fontSize = 12.sp, color = Color(0xFFFFC800), fontWeight = FontWeight.Black, modifier = Modifier.padding(end = 8.dp))
                     }
                 }
             }
+        }
 
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // Streak Freeze Shield & Wager Section
-            Surface(
-                shape = RoundedCornerShape(14.dp),
-                color = if (isDark) Color(0x33000000) else Color(0x33FFFFFF),
-                border = BorderStroke(1.dp, (borderColor as Color).copy(alpha = 0.35f)),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    // Streak Freeze Row
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("🛡️", fontSize = 20.sp)
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Column {
-                                Text(
-                                    text = "Streak Freeze (${profile.streakFreezesCount}/3)",
-                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = "Auto-protects streak if a day is missed",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-
-                        if (profile.streakFreezesCount < 3) {
-                            Button(
-                                onClick = {
-                                    val success = AptitudeManager.buyStreakFreeze(1000)
-                                    if (success) {
-                                        GamificationHaptics.playCelebration(context)
-                                        Toast.makeText(context, "🛡️ Streak Freeze Shield Equipped!", Toast.LENGTH_SHORT).show()
-                                    } else {
-                                        Toast.makeText(context, "Need 1,000 Gold to equip shield", Toast.LENGTH_SHORT).show()
-                                    }
-                                },
-                                shape = RoundedCornerShape(8.dp),
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0288D1))
-                            ) {
-                                Text("Equip (1000 🪙)", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            }
-                        } else {
-                            Text("Max Capacity", fontSize = 11.sp, color = Color(0xFF4CAF50), fontWeight = FontWeight.Bold)
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-                    HorizontalDivider(color = (borderColor as Color).copy(alpha = 0.2f))
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    // 7-Day Wager Row
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("💰", fontSize = 20.sp)
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Column {
-                                Text(
-                                    text = if (profile.isWagerActive) "7-Day Wager (Day ${profile.wagerDaysCompleted}/7)" else "7-Day Streak Wager",
-                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                                    color = if (profile.isWagerActive) Color(0xFFFFB300) else MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = if (profile.isWagerActive) "Win 100 Gold + 100 XP upon completion" else "Stake 50 🪙 to win 100 🪙 on 7-day streak",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-
-                        if (!profile.isWagerActive) {
-                            Button(
-                                onClick = {
-                                    val success = AptitudeManager.startWager(50)
-                                    if (success) {
-                                        GamificationHaptics.playCelebration(context)
-                                        Toast.makeText(context, "💰 7-Day Wager started! Practice 7 days in a row to win 100 Gold!", Toast.LENGTH_SHORT).show()
-                                    } else {
-                                        Toast.makeText(context, "Need 50 Gold to start wager", Toast.LENGTH_SHORT).show()
-                                    }
-                                },
-                                shape = RoundedCornerShape(8.dp),
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFB300), contentColor = Color.Black)
-                            ) {
-                                Text("Wager 50 🪙", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            }
-                        } else {
-                            Surface(
-                                shape = RoundedCornerShape(6.dp),
-                                color = Color(0xFFFFB300).copy(alpha = 0.2f)
-                            ) {
-                                Text(
-                                    text = "Active (${profile.wagerDaysCompleted}/7)",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFFFFB300),
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(18.dp))
-            
-            // Progress Bar to Next Level
+        // Bottom XP Bar
+        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
             val xpNeeded = profile.xpForNextLevel - profile.xp
             val range = (profile.xpForNextLevel - profile.xpForCurrentLevel).toFloat().takeIf { it > 0f } ?: 1f
             val progress = ((profile.xp - profile.xpForCurrentLevel).toFloat() / range).coerceIn(0f, 1f)
@@ -472,32 +399,38 @@ fun AptitudeProfileCard() {
             ) {
                 Text(
                     text = "${profile.xp} XP",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Black),
+                    color = textColor
                 )
                 Text(
-                    text = if (xpNeeded > 0) "$xpNeeded XP to next level" else "Level Up!",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = if (xpNeeded > 0) "$xpNeeded XP to next level" else "Level Up Ready!",
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Black),
+                    color = textColor
                 )
             }
             Spacer(modifier = Modifier.height(8.dp))
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(12.dp)
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+                    .height(16.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(borderColor)
             ) {
                 Box(
                     modifier = Modifier
                         .fillMaxHeight()
                         .fillMaxWidth(progress.coerceAtLeast(0.001f))
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(
-                            if (profile.titleTier >= 5) Brush.horizontalGradient(listOf(Color(0xFF8E24AA), Color(0xFFD81B60)))
-                            else Brush.horizontalGradient(listOf((titleColor as Color).copy(alpha = 0.5f), titleColor as Color))
-                        )
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xFF58CC02))
+                )
+                // Highlight line for 3D effect
+                Box(
+                    modifier = Modifier
+                        .padding(top = 4.dp, start = 8.dp, end = 8.dp)
+                        .fillMaxWidth(progress.coerceAtLeast(0.001f))
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(Color.White.copy(alpha = 0.3f))
                 )
             }
         }
@@ -505,9 +438,9 @@ fun AptitudeProfileCard() {
 }
 
 @Composable
-fun ProfileStatBox(label: String, value: String, color: Color) {
+fun ProfileStatItem(label: String, value: String, textColor: Color, mutedTextColor: Color) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(text = value, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold), color = color)
-        Text(text = label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(text = value, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Black, fontSize = 24.sp), color = textColor)
+        Text(text = label, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold), color = mutedTextColor)
     }
 }

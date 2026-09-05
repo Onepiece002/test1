@@ -49,9 +49,8 @@ class BubbleService : Service() {
     private var closeView: View? = null
     private var layoutParams: WindowManager.LayoutParams? = null
 
-    // Message Preview Pill (Facebook Messenger style preview next to bubble)
+    // Message Preview Pill (Facebook Messenger style preview merged to bubble)
     private var previewPillView: View? = null
-    private var previewTextView: TextView? = null
     private var previewLayoutParams: WindowManager.LayoutParams? = null
     private val previewDismissHandler = Handler(Looper.getMainLooper())
     private val previewDismissRunnable = Runnable { dismissPreviewPill(animated = true) }
@@ -551,7 +550,7 @@ class BubbleService : Service() {
             .replace(Regex("\n+"), " ")
             .trim()
 
-        val displayText = if (cleanText.length > 55) cleanText.take(52) + "…" else cleanText
+        val displayText = if (cleanText.length > 60) cleanText.take(57) + "…" else cleanText
         if (displayText.isEmpty()) return
 
         val displayMetrics = resources.displayMetrics
@@ -559,53 +558,41 @@ class BubbleService : Service() {
         val screenWidth = displayMetrics.widthPixels
         val screenHeight = displayMetrics.heightPixels
         val bubbleSize = (60 * density).toInt()
-        val pillMargin = (10 * density).toInt()
 
-        val isLeft = (currentLayoutParams.x + bubbleSize / 2) < screenWidth / 2
-
-        // Create pill view if not created yet
-        if (previewPillView == null) {
-            val pill = TextView(this).apply {
-                textSize = 13.5f
-                setTextColor(android.graphics.Color.WHITE)
-                typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
-                maxLines = 2
-                ellipsize = android.text.TextUtils.TruncateAt.END
-                setPadding((14 * density).toInt(), (8 * density).toInt(), (14 * density).toInt(), (8 * density).toInt())
-                elevation = 12 * density
-                background = GradientDrawable().apply {
-                    shape = GradientDrawable.RECTANGLE
-                    cornerRadius = 18 * density
-                    setColor(android.graphics.Color.parseColor("#1E293B")) // Slate 800 dark bubble
-                    setStroke((1 * density).toInt(), android.graphics.Color.parseColor("#38BDF8")) // Modern sky-blue cyan border accent
-                }
-                setOnClickListener {
-                    dismissPreviewPill(animated = false)
-                    openChatWindow()
-                }
-            }
-            previewTextView = pill
-            previewPillView = pill
+        if (isPeeking) {
+            unpeekBubble(animate = false)
         }
 
-        previewTextView?.text = displayText
+        val isLeft = (currentLayoutParams.x + bubbleSize / 2) < screenWidth / 2
+        val bubbleX = if (isLeft) 0 else (screenWidth - bubbleSize)
+        val bubbleY = currentLayoutParams.y
+        val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
 
-        // Measure wrap_content size with max width constraint
-        val maxPillWidth = (screenWidth * 0.65f).coerceAtMost(260 * density).toInt()
-        previewPillView?.measure(
-            View.MeasureSpec.makeMeasureSpec(maxPillWidth, View.MeasureSpec.AT_MOST),
+        val calloutView = (previewPillView as? MessengerBubbleNotificationView) ?: MessengerBubbleNotificationView(this).also {
+            previewPillView = it
+            it.setOnClickListener {
+                dismissPreviewPill(animated = false)
+                openChatWindow()
+            }
+        }
+        calloutView.bind(displayText, isLeft, isDark)
+
+        val maxCalloutWidth = (screenWidth - bubbleSize - (24 * density).toInt()).coerceIn((170 * density).toInt(), (270 * density).toInt())
+        calloutView.measure(
+            View.MeasureSpec.makeMeasureSpec(maxCalloutWidth, View.MeasureSpec.AT_MOST),
             View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
         )
-        val pillWidth = previewPillView?.measuredWidth ?: (200 * density).toInt()
-        val pillHeight = previewPillView?.measuredHeight ?: (36 * density).toInt()
+        val pillWidth = calloutView.measuredWidth
+        val pillHeight = calloutView.measuredHeight
 
+        // Perfectly merge the speech beak tip with the chat head circle rim
         val pillX = if (isLeft) {
-            currentLayoutParams.x + bubbleSize + pillMargin
+            bubbleX + bubbleSize - (2 * density).toInt()
         } else {
-            currentLayoutParams.x - pillWidth - pillMargin
-        }.coerceIn(pillMargin, screenWidth - pillWidth - pillMargin)
+            bubbleX - pillWidth + (2 * density).toInt()
+        }.coerceIn((4 * density).toInt(), screenWidth - pillWidth - (4 * density).toInt())
 
-        val pillY = (currentLayoutParams.y + (bubbleSize - pillHeight) / 2)
+        val pillY = (bubbleY + (bubbleSize - pillHeight) / 2)
             .coerceIn((20 * density).toInt(), screenHeight - pillHeight - (20 * density).toInt())
 
         val overlayType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -628,36 +615,34 @@ class BubbleService : Service() {
         }
         previewLayoutParams = pillParams
 
-        val pillView = previewPillView ?: return
-
         // Add to WindowManager if not already attached
-        if (pillView.windowToken == null) {
+        if (calloutView.windowToken == null) {
             try {
-                windowManager.addView(pillView, pillParams)
+                windowManager.addView(calloutView, pillParams)
             } catch (_: Exception) {
                 return
             }
         } else {
             try {
-                windowManager.updateViewLayout(pillView, pillParams)
+                windowManager.updateViewLayout(calloutView, pillParams)
             } catch (_: Exception) {}
         }
 
-        // Messenger-style entrance: pop in with subtle translation and scale
-        pillView.animate().cancel()
-        pillView.alpha = 0f
-        pillView.scaleX = 0.75f
-        pillView.scaleY = 0.75f
-        pillView.translationX = if (isLeft) -25f * density else 25f * density
-        pillView.visibility = View.VISIBLE
+        // Messenger-style entrance: pop out from the beak anchor tip touching the chat avatar
+        calloutView.animate().cancel()
+        calloutView.alpha = 0f
+        calloutView.pivotX = if (isLeft) 0f else pillWidth.toFloat()
+        calloutView.pivotY = pillHeight / 2f
+        calloutView.scaleX = 0.15f
+        calloutView.scaleY = 0.15f
+        calloutView.visibility = View.VISIBLE
 
-        pillView.animate()
+        calloutView.animate()
             .alpha(1f)
             .scaleX(1f)
             .scaleY(1f)
-            .translationX(0f)
-            .setDuration(260)
-            .setInterpolator(android.view.animation.OvershootInterpolator(1.2f))
+            .setDuration(280)
+            .setInterpolator(android.view.animation.OvershootInterpolator(1.25f))
             .start()
 
         // Auto-dismiss after 6 seconds
@@ -671,16 +656,18 @@ class BubbleService : Service() {
         if (pill.windowToken == null || pill.visibility != View.VISIBLE) return
 
         if (animated) {
+            val isLeft = ((layoutParams?.x ?: 0) + (30 * resources.displayMetrics.density)) < resources.displayMetrics.widthPixels / 2
+            pill.pivotX = if (isLeft) 0f else pill.width.toFloat()
+            pill.pivotY = pill.height / 2f
             pill.animate()
                 .alpha(0f)
-                .scaleX(0.8f)
-                .scaleY(0.8f)
+                .scaleX(0.15f)
+                .scaleY(0.15f)
                 .setDuration(200)
                 .withEndAction {
                     pill.visibility = View.GONE
                     try { windowManager.removeView(pill) } catch (_: Exception) {}
                     previewPillView = null
-                    previewTextView = null
                 }
                 .start()
         } else {
@@ -688,7 +675,6 @@ class BubbleService : Service() {
             pill.visibility = View.GONE
             try { windowManager.removeView(pill) } catch (_: Exception) {}
             previewPillView = null
-            previewTextView = null
         }
     }
 
@@ -1001,3 +987,185 @@ class BubbleService : Service() {
         }
     }
 }
+
+class MessengerCalloutDrawable(
+    var isLeft: Boolean,
+    var backgroundColor: Int,
+    var strokeColor: Int,
+    var strokeWidth: Float,
+    var cornerRadius: Float,
+    var tailWidth: Float,
+    var tailHeight: Float
+) : android.graphics.drawable.Drawable() {
+
+    private val bgPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+        style = android.graphics.Paint.Style.FILL
+    }
+    private val strokePaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+        style = android.graphics.Paint.Style.STROKE
+    }
+    private val path = android.graphics.Path()
+
+    override fun draw(canvas: android.graphics.Canvas) {
+        val b = bounds
+        if (b.width() <= 0 || b.height() <= 0) return
+
+        bgPaint.color = backgroundColor
+        strokePaint.color = strokeColor
+        strokePaint.strokeWidth = strokeWidth
+
+        path.reset()
+        val cy = b.exactCenterY()
+        val halfStroke = strokeWidth / 2f
+        val cr = cornerRadius.coerceAtMost((b.height() - strokeWidth) / 2f)
+
+        if (isLeft) {
+            // Chat head is on the left; pointer tail on left edge pointing left
+            val l = b.left.toFloat() + tailWidth + halfStroke
+            val r = b.right.toFloat() - halfStroke
+            val t = b.top.toFloat() + halfStroke
+            val bot = b.bottom.toFloat() - halfStroke
+
+            path.moveTo(l + cr, t)
+            path.lineTo(r - cr, t)
+            path.arcTo(android.graphics.RectF(r - 2 * cr, t, r, t + 2 * cr), 270f, 90f, false)
+            path.lineTo(r, bot - cr)
+            path.arcTo(android.graphics.RectF(r - 2 * cr, bot - 2 * cr, r, bot), 0f, 90f, false)
+            path.lineTo(l + cr, bot)
+            path.arcTo(android.graphics.RectF(l, bot - 2 * cr, l + 2 * cr, bot), 90f, 90f, false)
+            path.lineTo(l, cy + tailHeight / 2f)
+            path.lineTo(b.left.toFloat() + halfStroke, cy) // Pointer tip docked to avatar
+            path.lineTo(l, cy - tailHeight / 2f)
+            path.lineTo(l, t + cr)
+            path.arcTo(android.graphics.RectF(l, t, l + 2 * cr, t + 2 * cr), 180f, 90f, false)
+            path.close()
+        } else {
+            // Chat head is on the right; pointer tail on right edge pointing right
+            val l = b.left.toFloat() + halfStroke
+            val r = b.right.toFloat() - tailWidth - halfStroke
+            val t = b.top.toFloat() + halfStroke
+            val bot = b.bottom.toFloat() - halfStroke
+
+            path.moveTo(l + cr, t)
+            path.lineTo(r - cr, t)
+            path.arcTo(android.graphics.RectF(r - 2 * cr, t, r, t + 2 * cr), 270f, 90f, false)
+            path.lineTo(r, cy - tailHeight / 2f)
+            path.lineTo(b.right.toFloat() - halfStroke, cy) // Pointer tip docked to avatar
+            path.lineTo(r, cy + tailHeight / 2f)
+            path.lineTo(r, bot - cr)
+            path.arcTo(android.graphics.RectF(r - 2 * cr, bot - 2 * cr, r, bot), 0f, 90f, false)
+            path.lineTo(l + cr, bot)
+            path.arcTo(android.graphics.RectF(l, bot - 2 * cr, l + 2 * cr, bot), 90f, 90f, false)
+            path.lineTo(l, t + cr)
+            path.arcTo(android.graphics.RectF(l, t, l + 2 * cr, t + 2 * cr), 180f, 90f, false)
+            path.close()
+        }
+
+        canvas.drawPath(path, bgPaint)
+        if (strokeWidth > 0f) {
+            canvas.drawPath(path, strokePaint)
+        }
+    }
+
+    override fun setAlpha(alpha: Int) {
+        bgPaint.alpha = alpha
+        strokePaint.alpha = alpha
+        invalidateSelf()
+    }
+
+    override fun setColorFilter(colorFilter: android.graphics.ColorFilter?) {
+        bgPaint.colorFilter = colorFilter
+        strokePaint.colorFilter = colorFilter
+        invalidateSelf()
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun getOpacity(): Int = android.graphics.PixelFormat.TRANSLUCENT
+}
+
+class MessengerBubbleNotificationView(context: Context) : FrameLayout(context) {
+
+    private val contentLayout = android.widget.LinearLayout(context).apply {
+        orientation = android.widget.LinearLayout.VERTICAL
+    }
+
+    private val headerTextView = TextView(context).apply {
+        textSize = 11.5f
+        typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.BOLD)
+        text = "Ayva"
+        maxLines = 1
+        ellipsize = android.text.TextUtils.TruncateAt.END
+    }
+
+    private val bodyTextView = TextView(context).apply {
+        textSize = 13.5f
+        typeface = android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.NORMAL)
+        maxLines = 2
+        ellipsize = android.text.TextUtils.TruncateAt.END
+    }
+
+    init {
+        elevation = 14f * resources.displayMetrics.density
+        clipChildren = false
+        clipToPadding = false
+
+        contentLayout.addView(headerTextView)
+        contentLayout.addView(bodyTextView)
+        addView(contentLayout)
+    }
+
+    fun bind(text: String, isLeft: Boolean, isDark: Boolean) {
+        val density = resources.displayMetrics.density
+        bodyTextView.text = text
+
+        val bgColor = if (isDark) {
+            android.graphics.Color.parseColor("#1E293B") // Solid 100% opaque Slate 800
+        } else {
+            android.graphics.Color.parseColor("#FFFFFF") // Solid 100% opaque crisp white
+        }
+
+        val strokeColor = if (isDark) {
+            android.graphics.Color.parseColor("#334155") // Slate 700 border
+        } else {
+            android.graphics.Color.parseColor("#E2E8F0") // Slate 200 border
+        }
+
+        val headerColor = if (isDark) {
+            android.graphics.Color.parseColor("#38BDF8") // Sky blue accent
+        } else {
+            android.graphics.Color.parseColor("#0284C7")
+        }
+
+        val textColor = if (isDark) {
+            android.graphics.Color.parseColor("#F8FAFC") // High contrast text
+        } else {
+            android.graphics.Color.parseColor("#0F172A")
+        }
+
+        headerTextView.setTextColor(headerColor)
+        bodyTextView.setTextColor(textColor)
+
+        val tailW = 8f * density
+        val tailH = 12f * density
+        val radius = 16f * density
+        val sWidth = 1.2f * density
+
+        background = MessengerCalloutDrawable(
+            isLeft = isLeft,
+            backgroundColor = bgColor,
+            strokeColor = strokeColor,
+            strokeWidth = sWidth,
+            cornerRadius = radius,
+            tailWidth = tailW,
+            tailHeight = tailH
+        )
+
+        val padLeft = ((if (isLeft) 18 else 12) * density).toInt()
+        val padRight = ((if (isLeft) 12 else 18) * density).toInt()
+        val padTop = (8 * density).toInt()
+        val padBottom = (8 * density).toInt()
+
+        contentLayout.setPadding(padLeft, padTop, padRight, padBottom)
+    }
+}
+

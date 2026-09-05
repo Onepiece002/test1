@@ -60,7 +60,7 @@ fun FullscreenDrillView(
     val context = LocalContext.current
     val isDark = isSystemInDarkTheme()
 
-    val parsedQuestions = remember(activeSession.preGeneratedQuestions, allQuestions) {
+    val parsedQuestions = remember(activeSession.preGeneratedQuestions.toList(), allQuestions) {
         if (activeSession.preGeneratedQuestions.isNotEmpty()) {
             activeSession.preGeneratedQuestions.mapIndexed { idx, json ->
                 ChatMessage(
@@ -77,7 +77,13 @@ fun FullscreenDrillView(
     }
 
     val questionsList = parsedQuestions
-    var questionIndex by remember(questionsList.size) { mutableIntStateOf(activeSession.highestSeenIndex.coerceIn(0, (questionsList.size - 1).coerceAtLeast(0))) }
+    var questionIndex by remember(questionsList.size) { mutableStateOf(activeSession.highestSeenIndex.coerceIn(0, (questionsList.size - 1).coerceAtLeast(0))) }
+
+    LaunchedEffect(questionsList.size) {
+        if (activeSession.targetQuestions <= 0 && questionsList.size > 1) {
+            questionIndex = (questionsList.size - 1).coerceAtLeast(0)
+        }
+    }
 
     LaunchedEffect(questionIndex) {
         if (questionIndex > activeSession.highestSeenIndex) {
@@ -96,7 +102,7 @@ fun FullscreenDrillView(
     var correctIndex by remember(currentQuestionMessage.id) { mutableStateOf(0) }
     var explanation by remember(currentQuestionMessage.id) { mutableStateOf("") }
     var isBookmarked by remember(currentQuestionMessage.id) { mutableStateOf(false) }
-    var timeOnQuestionSec by remember(currentQuestionMessage.id) { mutableIntStateOf(0) }
+    var timeOnQuestionSec by remember(currentQuestionMessage.id) { mutableStateOf(0) }
     var showGridDialog by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
 

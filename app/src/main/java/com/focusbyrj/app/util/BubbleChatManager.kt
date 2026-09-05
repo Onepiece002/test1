@@ -45,15 +45,36 @@ data class PersistedChatMessage(
     val isDailyQuests: Boolean = false,
     val isMorningBrief: Boolean = false,
     val isEveningBrief: Boolean = false,
-    val isStreakFreezeSkipped: Boolean = false
-)
+    val isStreakFreezeSkipped: Boolean = false,
+    val isVocabBrief: Boolean = false,
+    val vocabJson: String? = null
+) {
+    /**
+     * Determines if this message is a persistent/valuable learning or status card
+     * that should stay visible for the full 10-minute inactivity window.
+     */
+    val isImportantCard: Boolean
+        get() = isDrillSummary || isAptitudeProfile || isStreakPrompt || 
+                isDailyQuests || isMorningBrief || isEveningBrief || 
+                isStreakFreezeSkipped || (isTaskSummary && !taskSummaryJson.isNullOrBlank()) ||
+                id.startsWith("drill_summary_") || id.startsWith("morning_") || 
+                id.startsWith("evening_") || id.startsWith("streak_prompt_")
+
+    /**
+     * Ephemeral messages are quick commands, casual talk, setting toggles, task additions,
+     * and short-lived bot confirmations that should auto-clear after 2 minutes.
+     */
+    val isEphemeral: Boolean
+        get() = !isImportantCard && !isArithmetic
+}
 
 object BubbleChatManager {
     private const val PREFS_NAME = "bubble_chat_prefs"
     private const val KEY_MESSAGES = "chat_messages_json"
     private const val KEY_UNREAD_COUNT = "unread_message_count"
     private const val KEY_LAST_ACTIVITY = "last_chat_activity_timestamp"
-    private const val INACTIVITY_TIMEOUT_MS = 10 * 60 * 1000L // 10 minutes
+    private const val INACTIVITY_TIMEOUT_MS = 10 * 60 * 1000L // 10 minutes for important cards/summaries
+    private const val EPHEMERAL_TIMEOUT_MS = 2 * 60 * 1000L  // 2 minutes for casual commands & talk confirmations
 
     const val ACTION_UNREAD_COUNT_CHANGED = "com.focusbyrj.app.UNREAD_COUNT_CHANGED"
     const val ACTION_MESSAGES_CHANGED = "com.focusbyrj.app.CHAT_MESSAGES_CHANGED"
@@ -103,15 +124,63 @@ object BubbleChatManager {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val lastActivity = prefs.getLong(KEY_LAST_ACTIVITY, 0L)
         if (lastActivity == 0L) return false
-        if (getUnreadCount(context) > 0) return false
         return (System.currentTimeMillis() - lastActivity) > INACTIVITY_TIMEOUT_MS
     }
 
+    /**
+     * Periodically cleans up the chat stream based on message tier:
+     * 1. Ephemeral commands/replies (e.g., "set soft lock to 30s", "added task") expire after 2 minutes.
+     * 2. High-value learning / summary / brief cards remain intact for 10 minutes of inactivity.
+     * 3. Completely clears history if 10 minutes have elapsed without unread alerts.
+     */
     fun checkAndClearIfInactive(context: Context): Boolean {
-        if (isInactiveTimeout(context)) {
-            clearMessages(context)
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val lastActivity = prefs.getLong(KEY_LAST_ACTIVITY, 0L)
+        val now = System.currentTimeMillis()
+
+        val allMessages = getMessages(context)
+        if (allMessages.isEmpty()) return false
+
+        val unreadCount = getUnreadCount(context)
+
+        // 1. Check for global 10-minute inactivity
+        val isExpired10Min = lastActivity > 0L && (now - lastActivity) > INACTIVITY_TIMEOUT_MS
+        if (isExpired10Min) {
+            if (unreadCount > 0) {
+                // Keep only unread alerts (e.g. morning brief arrived while away)
+                val unreadMessages = allMessages.takeLast(unreadCount)
+                if (unreadMessages.size < allMessages.size) {
+                    saveMessages(context, unreadMessages, updateActivityTimestamp = false)
+                    return true
+                }
+            } else {
+                // Clear all read items
+                clearMessages(context)
+                return true
+            }
+        }
+
+        // 2. Fine-grained 2-minute expiration for ephemeral chats (commands, talk, task additions)
+        // Keeps all drill summaries, briefs, aptitude profiles, quests, and active questions safe!
+        val filtered = allMessages.filter { msg ->
+            if (msg.isEphemeral) {
+                val age = now - msg.timestamp
+                age < EPHEMERAL_TIMEOUT_MS
+            } else {
+                // Retain important cards & learning material
+                true
+            }
+        }
+
+        if (filtered.size < allMessages.size) {
+            if (filtered.isEmpty()) {
+                clearMessages(context)
+            } else {
+                saveMessages(context, filtered, updateActivityTimestamp = false)
+            }
             return true
         }
+
         return false
     }
 
@@ -144,7 +213,9 @@ object BubbleChatManager {
                         isDailyQuests = obj.optBoolean("isDailyQuests", false),
                         isMorningBrief = obj.optBoolean("isMorningBrief", false) || obj.optString("id", "").startsWith("morning_"),
                         isEveningBrief = obj.optBoolean("isEveningBrief", false) || obj.optString("id", "").startsWith("evening_"),
-                        isStreakFreezeSkipped = obj.optBoolean("isStreakFreezeSkipped", false) || obj.optString("id", "").startsWith("angry_freeze_")
+                        isStreakFreezeSkipped = obj.optBoolean("isStreakFreezeSkipped", false) || obj.optString("id", "").startsWith("angry_freeze_"),
+                        isVocabBrief = obj.optBoolean("isVocabBrief", false),
+                        vocabJson = if (obj.has("vocabJson") && !obj.isNull("vocabJson")) obj.optString("vocabJson", null) else null
                     )
                 )
             }
@@ -153,7 +224,7 @@ object BubbleChatManager {
         return list
     }
 
-    fun saveMessages(context: Context, messages: List<PersistedChatMessage>) {
+    fun saveMessages(context: Context, messages: List<PersistedChatMessage>, updateActivityTimestamp: Boolean = true) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         try {
             val jsonArray = JSONArray()
@@ -181,22 +252,25 @@ object BubbleChatManager {
                     put("isMorningBrief", msg.isMorningBrief)
                     put("isEveningBrief", msg.isEveningBrief)
                     put("isStreakFreezeSkipped", msg.isStreakFreezeSkipped)
+                    put("isVocabBrief", msg.isVocabBrief)
+                    put("vocabJson", msg.vocabJson)
                 }
                 jsonArray.put(obj)
             }
-            prefs.edit()
-                .putString(KEY_MESSAGES, jsonArray.toString())
-                .putLong(KEY_LAST_ACTIVITY, System.currentTimeMillis())
-                .apply()
+            val editor = prefs.edit().putString(KEY_MESSAGES, jsonArray.toString())
+            if (updateActivityTimestamp) {
+                editor.putLong(KEY_LAST_ACTIVITY, System.currentTimeMillis())
+            }
+            editor.apply()
             _messagesFlow.value = trimmed
             context.sendBroadcast(Intent(ACTION_MESSAGES_CHANGED))
         } catch (_: Exception) {}
     }
 
-    fun addMessage(context: Context, message: PersistedChatMessage, incrementBadge: Boolean = false) {
+    fun addMessage(context: Context, message: PersistedChatMessage, incrementBadge: Boolean = false, updateActivity: Boolean = !incrementBadge) {
         val current = getMessages(context).toMutableList()
         current.add(message)
-        saveMessages(context, current)
+        saveMessages(context, current, updateActivityTimestamp = updateActivity)
         if (incrementBadge) {
             incrementUnread(context)
         }

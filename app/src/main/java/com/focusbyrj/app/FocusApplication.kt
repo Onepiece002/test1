@@ -68,6 +68,18 @@ class FocusApplication : Application() {
         .build() 
     }
     
+    val vocabDatabase by lazy {
+        Room.databaseBuilder(
+            this,
+            com.focusbyrj.app.data.VocabDatabase::class.java,
+            "vocab.db"
+        )
+        .createFromAsset("vocab.db")
+        .addMigrations(com.focusbyrj.app.data.VocabDatabase.MIGRATION_1_2)
+        .build()
+    }
+    
     val repository by lazy { AppRepository(database.appRestrictionDao(), database.scheduleDao()) }
     val taskRepository by lazy { TaskRepository(database.taskDao()) }
+    val vocabRepository by lazy { com.focusbyrj.app.data.VocabRepository(vocabDatabase.vocabDao()) }
 }

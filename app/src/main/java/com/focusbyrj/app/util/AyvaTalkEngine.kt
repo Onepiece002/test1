@@ -425,7 +425,7 @@ object AyvaTalkEngine {
             val actions = listOf(
                 TalkAction.AskQuery("/summary", "📊 Today's Summary"),
                 TalkAction.AskQuery("streak", "⚡ Streak Status"),
-                TalkAction.AskQuery("/drill", "🧮 Math Drill"),
+                TalkAction.AskQuery("/drill", "⚡ Math Drill"),
                 TalkAction.AskQuery("vacation mode", "🏖️ Vacation Mode")
             )
             return TalkResponse(
@@ -680,7 +680,7 @@ object AyvaTalkEngine {
                             actions.add(TalkAction.AskQuery("/tasks", "⚡ View Overdue"))
                         }
                         actions.add(TalkAction.AskQuery("/breathe", "🫁 Guided Breathing"))
-                        actions.add(TalkAction.AskQuery("/drill", "🧮 Mind Warm-Up"))
+                        actions.add(TalkAction.AskQuery("/drill", "⚡ Mind Warm-Up"))
                         actions.add(TalkAction.AskQuery("/screentime", "📱 Screen Time"))
 
                         recordTurn(cleanQuery, "advice")
@@ -754,7 +754,7 @@ object AyvaTalkEngine {
                         val actions = listOf(
                             TalkAction.AskQuery("/advice", "💡 Focus Advice"),
                             TalkAction.AskQuery("/tasks", "📋 My Tasks"),
-                            TalkAction.AskQuery("/drill", "🧮 Math Drill")
+                            TalkAction.AskQuery("/drill", "⚡ Math Drill")
                         )
                         recordTurn(cleanQuery, "breathe")
                         return TalkResponse(
@@ -847,7 +847,7 @@ object AyvaTalkEngine {
                             TalkAction.AskQuery("/advice", "💡 Focus Advice"),
                             TalkAction.AskQuery("/tasks", "📋 My Tasks"),
                             TalkAction.AskQuery("/breathe", "🫁 1-Min Breathe"),
-                            TalkAction.AskQuery("/drill", "🧮 Mind Drill")
+                            TalkAction.AskQuery("/drill", "⚡ Mind Drill")
                         )
 
                         recordTurn(cleanQuery, "status")
@@ -875,7 +875,7 @@ object AyvaTalkEngine {
                             actions.add(TalkAction.DirectPrefUpdate("vacation_mode", "boolean", "true", "❄️ Freeze", "Freeze Streak (Vacation)", "🏖️"))
                         }
                         actions.add(TalkAction.AskQuery("/profile", "🏆 View Profile"))
-                        actions.add(TalkAction.AskQuery("/drill", "🧮 Math Drill"))
+                        actions.add(TalkAction.AskQuery("/drill", "⚡ Math Drill"))
                         return TalkResponse(streakText, actions, "vacation_mode", serializeActionsJson("vacation_mode", actions))
                     }
 

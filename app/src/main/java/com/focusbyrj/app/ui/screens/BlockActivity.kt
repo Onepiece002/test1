@@ -260,7 +260,7 @@ fun BlockScreenContent(
             .getInt("soft_unlock_duration", 5)
     }
 
-    var timeLeft by remember { mutableIntStateOf(if (isHardMode) 0 else totalSoftLockSeconds) }
+    var timeLeft by remember { mutableStateOf(if (isHardMode) 0 else totalSoftLockSeconds) }
 
     LaunchedEffect(isHardMode) {
         if (!isHardMode) {

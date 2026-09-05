@@ -1073,8 +1073,8 @@ fun EditRestrictionBottomSheet(
     val coroutineScope = rememberCoroutineScope()
     var selectedMode by remember { mutableStateOf(app.mode) }
     var restrictionMode by remember { mutableStateOf(if (app.restrictionMode.isNotBlank()) app.restrictionMode else "SIMPLE") }
-    var timeLimitMinutes by remember { mutableIntStateOf(if (app.timeLimitMinutes > 0) app.timeLimitMinutes else 15) }
-    var clickLimitCount by remember { mutableIntStateOf(if (app.clickLimitCount > 0) app.clickLimitCount else 5) }
+    var timeLimitMinutes by remember { mutableStateOf(if (app.timeLimitMinutes > 0) app.timeLimitMinutes else 15) }
+    var clickLimitCount by remember { mutableStateOf(if (app.clickLimitCount > 0) app.clickLimitCount else 5) }
     var customQuote by remember { mutableStateOf(app.customQuote) }
     var isShieldActive by remember { mutableStateOf(app.isRestricted) }
     val context = LocalContext.current

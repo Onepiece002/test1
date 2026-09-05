@@ -54,7 +54,7 @@ fun TodosScreen(
     onOpenAddHandled: (() -> Unit)? = null
 ) {
     val tasks by viewModel.allTasks.collectAsStateWithLifecycle()
-    var selectedTab by remember { mutableIntStateOf(0) }
+    var selectedTab by remember { mutableStateOf(0) }
     val tabs = listOf("Today", "Upcoming", "All", "Occasions")
     
     var showAddDialog by remember { mutableStateOf(initialOpenAdd) }
@@ -68,7 +68,7 @@ fun TodosScreen(
     val coroutineScope = rememberCoroutineScope()
     
     var pendingDeleteTask by remember { mutableStateOf<Task?>(null) }
-    var deleteCountdown by remember { mutableIntStateOf(4) }
+    var deleteCountdown by remember { mutableStateOf(4) }
     
     LaunchedEffect(pendingDeleteTask) {
         if (pendingDeleteTask != null) {

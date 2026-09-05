@@ -324,8 +324,8 @@ fun CreateRoutineScreen(
         ) 
     } 
     var restrictionMode by remember { mutableStateOf(scheduleToEdit?.restrictionMode ?: "SIMPLE") }
-    var timeLimitMinutes by remember { mutableIntStateOf(if (scheduleToEdit?.timeLimitMinutes != null && scheduleToEdit.timeLimitMinutes > 0) scheduleToEdit.timeLimitMinutes else 15) }
-    var clickLimitCount by remember { mutableIntStateOf(if (scheduleToEdit?.clickLimitCount != null && scheduleToEdit.clickLimitCount > 0) scheduleToEdit.clickLimitCount.coerceIn(1, 20) else 5) }
+    var timeLimitMinutes by remember { mutableStateOf(if (scheduleToEdit?.timeLimitMinutes != null && scheduleToEdit.timeLimitMinutes > 0) scheduleToEdit.timeLimitMinutes else 15) }
+    var clickLimitCount by remember { mutableStateOf(if (scheduleToEdit?.clickLimitCount != null && scheduleToEdit.clickLimitCount > 0) scheduleToEdit.clickLimitCount.coerceIn(1, 20) else 5) }
     var mode by remember { mutableStateOf(scheduleToEdit?.mode ?: "HARD") }
     var appModes by remember { 
         mutableStateOf(

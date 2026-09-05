@@ -144,11 +144,11 @@ fun AddRestrictionScreen(
     var searchQuery by remember { mutableStateOf("") }
     var appModes by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var restrictionMode by remember { mutableStateOf("SIMPLE") }
-    var timeLimitMinutes by remember { mutableIntStateOf(15) }
-    var clickLimitCount by remember { mutableIntStateOf(5) }
+    var timeLimitMinutes by remember { mutableStateOf(15) }
+    var clickLimitCount by remember { mutableStateOf(5) }
     var customQuote by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(true) }
-    var currentStep by remember { mutableIntStateOf(1) } 
+    var currentStep by remember { mutableStateOf(1) } 
     var showCustomCategoryEditor by remember { mutableStateOf(false) }
     var editingCustomCategory by remember { mutableStateOf<CustomCategory?>(null) }
     var customCategories by remember { mutableStateOf<List<CustomCategory>>(CustomCategoryManager.getCategories(context)) }

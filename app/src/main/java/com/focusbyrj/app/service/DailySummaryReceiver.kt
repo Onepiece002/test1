@@ -160,8 +160,21 @@ class DailySummaryReceiver : BroadcastReceiver() {
     }
 
     private suspend fun handleMorningSummary(context: Context, app: FocusApplication) {
+        val now = System.currentTimeMillis()
+        val startOfDay = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        val endOfDay = startOfDay + 86400000L - 1
+
         val tasks = app.taskRepository.allTasks.firstOrNull() ?: emptyList()
         val pendingTasks = tasks.filter { !it.isCompleted }
+
+        // Filter ONLY tasks that are actionable today (no due date, due today, or overdue from previous days)
+        val todaysTasks = pendingTasks.filter { it.dueDate == null || (it.dueDate in startOfDay..endOfDay) || it.dueDate < startOfDay }
+        val futureTasks = pendingTasks.filter { it.dueDate != null && it.dueDate > endOfDay }
 
         val quote = com.focusbyrj.app.util.SummaryQuotes.getNextMorningQuote(context)
 
@@ -172,21 +185,30 @@ class DailySummaryReceiver : BroadcastReceiver() {
         val sb = StringBuilder()
         sb.append(com.focusbyrj.app.util.AyvaDialogueEngine.getSummaryGreeting(context, false, hour, dayOfWeek)).append("\n\n")
 
-        if (pendingTasks.isEmpty()) {
+        if (todaysTasks.isEmpty()) {
             sb.append("📋 *Today's Agenda*: ${com.focusbyrj.app.util.AyvaDialogueEngine.getEmptyDayMessage(context)}\n_Type a task in chat if you want to put something on my radar!_\n")
+            val nextTask = futureTasks.minByOrNull { it.dueDate!! }
+            if (nextTask != null) {
+                sb.append("\n🗓️ *Up Next On The Horizon*: *${nextTask.title}* _(${com.focusbyrj.app.util.SmartDateParser.formatDueDate(nextTask.dueDate)})_\n")
+            }
         } else {
-            val sortedPending = pendingTasks.sortedWith(compareByDescending<com.focusbyrj.app.data.Task> { it.isPriority }.thenBy { it.dueDate ?: Long.MAX_VALUE })
-            sb.append("📋 *All Active Tasks (${sortedPending.size})*:\n")
+            val sortedPending = todaysTasks.sortedWith(compareByDescending<com.focusbyrj.app.data.Task> { it.isPriority }.thenBy { it.dueDate ?: Long.MAX_VALUE })
+            sb.append("📋 *Today's Agenda (${sortedPending.size})*:\n")
             sortedPending.forEachIndexed { index, task ->
                 val prio = if (task.isPriority) "🔥 " else ""
                 val dueStr = if (task.dueDate != null) " _(Due: ${com.focusbyrj.app.util.SmartDateParser.formatDueDate(task.dueDate)})_" else ""
                 sb.append("${index + 1}. $prio${task.title}$dueStr\n")
             }
+
+            val nextTask = futureTasks.minByOrNull { it.dueDate!! }
+            if (nextTask != null) {
+                sb.append("\n🗓️ *Up Next On The Horizon*: *${nextTask.title}* _(${com.focusbyrj.app.util.SmartDateParser.formatDueDate(nextTask.dueDate)})_\n")
+            }
         }
 
         sb.append("\n💡 _\"$quote\"_")
 
-        if (pendingTasks.isNotEmpty()) {
+        if (todaysTasks.isNotEmpty()) {
             sb.append("\n\n").append(com.focusbyrj.app.util.AyvaDialogueEngine.getReschedulePrompt(context))
         }
 
@@ -203,9 +225,23 @@ class DailySummaryReceiver : BroadcastReceiver() {
     }
 
     private suspend fun handleEveningSummary(context: Context, app: FocusApplication) {
+        val now = System.currentTimeMillis()
+        val startOfDay = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        val endOfDay = startOfDay + 86400000L - 1
+
         val tasks = app.taskRepository.allTasks.firstOrNull() ?: emptyList()
-        val completedToday = tasks.filter { it.isCompleted }
+        val completedToday = tasks.filter { it.isCompleted && (it.completedAt == null || it.completedAt >= startOfDay) }
         val pendingTasks = tasks.filter { !it.isCompleted }
+
+        // Carried forward tasks are ONLY unfinished tasks meant for today or overdue from past days.
+        // Far away / future tasks due after today are NOT carried forward!
+        val carriedForwardTasks = pendingTasks.filter { it.dueDate == null || (it.dueDate in startOfDay..endOfDay) || it.dueDate < startOfDay }
+        val futureTasks = pendingTasks.filter { it.dueDate != null && it.dueDate > endOfDay }
 
         val cal = Calendar.getInstance()
         val hour = cal.get(Calendar.HOUR_OF_DAY)
@@ -215,10 +251,10 @@ class DailySummaryReceiver : BroadcastReceiver() {
         sb.append(com.focusbyrj.app.util.AyvaDialogueEngine.getSummaryGreeting(context, false, hour, dayOfWeek)).append("\n\n")
 
         sb.append("✅ *Completed Tasks*: ${completedToday.size}\n")
-        sb.append("⏳ *Remaining Tasks*: ${pendingTasks.size}\n\n")
+        sb.append("⏳ *Carried Forward to Tomorrow*: ${carriedForwardTasks.size}\n\n")
 
-        if (pendingTasks.isNotEmpty()) {
-            val sortedPending = pendingTasks.sortedWith(compareByDescending<com.focusbyrj.app.data.Task> { it.isPriority }.thenBy { it.dueDate ?: Long.MAX_VALUE })
+        if (carriedForwardTasks.isNotEmpty()) {
+            val sortedPending = carriedForwardTasks.sortedWith(compareByDescending<com.focusbyrj.app.data.Task> { it.isPriority }.thenBy { it.dueDate ?: Long.MAX_VALUE })
             sb.append("📋 *Carried Forward to Tomorrow (${sortedPending.size})*:\n")
             sortedPending.forEachIndexed { index, task ->
                 val prio = if (task.isPriority) "🔥 " else ""
@@ -229,10 +265,15 @@ class DailySummaryReceiver : BroadcastReceiver() {
             sb.append("🎉 *Flawless execution! You crushed every single task today.*\n")
         }
 
+        val nextTask = futureTasks.minByOrNull { it.dueDate!! }
+        if (nextTask != null) {
+            sb.append("\n🗓️ *Up Next On The Horizon*: *${nextTask.title}* _(${com.focusbyrj.app.util.SmartDateParser.formatDueDate(nextTask.dueDate)})_\n")
+        }
+
         val quote = com.focusbyrj.app.util.SummaryQuotes.getNextEveningQuote(context)
         sb.append("\n💡 _\"$quote\"_")
 
-        if (pendingTasks.isNotEmpty()) {
+        if (carriedForwardTasks.isNotEmpty()) {
             sb.append("\n\n").append(com.focusbyrj.app.util.AyvaDialogueEngine.getReschedulePrompt(context))
         }
 

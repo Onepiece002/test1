@@ -73,7 +73,7 @@ import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -220,7 +220,7 @@ fun TaskReminderPopupScreen(
     // Date & Time pickers for custom snooze
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
-    var customSelectedTimestamp by remember { mutableLongStateOf(task.dueDate ?: System.currentTimeMillis()) }
+    var customSelectedTimestamp by remember { mutableStateOf(task.dueDate ?: System.currentTimeMillis()) }
 
     val context = androidx.compose.ui.platform.LocalContext.current
 

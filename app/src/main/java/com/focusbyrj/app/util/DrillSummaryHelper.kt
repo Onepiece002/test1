@@ -70,7 +70,9 @@ object DrillSummaryHelper {
         val timeFormatted = "$mins:${secs.toString().padStart(2, '0')}"
 
         val questionsArray = org.json.JSONArray()
+        val recordedNums = mutableSetOf<Int>()
         session.questionRecords.forEach { qRec ->
+            recordedNums.add(qRec.questionNumber)
             val qObj = JSONObject().apply {
                 put("qNum", qRec.questionNumber)
                 put("title", qRec.title)
@@ -84,6 +86,29 @@ object DrillSummaryHelper {
                 put("explanation", qRec.explanation)
             }
             questionsArray.put(qObj)
+        }
+
+        // Include any remaining unattempted pre-generated questions so Solutions has the complete question paper
+        if (session.preGeneratedQuestions.isNotEmpty()) {
+            session.preGeneratedQuestions.forEachIndexed { idx, qJson ->
+                val qNum = idx + 1
+                if (!recordedNums.contains(qNum)) {
+                    try {
+                        val qObj = JSONObject(qJson)
+                        val fullObj = JSONObject().apply {
+                            put("qNum", qNum)
+                            put("title", qObj.optString("title", if (session.isBlitz) "⚡ Speed Blitz" else "Arithmetic Drill"))
+                            put("questionText", qObj.optString("questionText", ""))
+                            put("options", qObj.optJSONArray("options") ?: org.json.JSONArray())
+                            put("correctIndex", qObj.optInt("correctIndex", 0))
+                            put("userSelectedIndex", -1)
+                            put("status", "unattempted")
+                            put("explanation", qObj.optString("explanation", "Step-by-step mathematical breakdown and shortcut analysis."))
+                        }
+                        questionsArray.put(fullObj)
+                    } catch (_: Exception) {}
+                }
+            }
         }
 
         val json = JSONObject().apply {

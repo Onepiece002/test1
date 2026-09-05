@@ -5,6 +5,10 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -26,6 +30,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.json.JSONObject
 import com.focusbyrj.app.ui.components.*
+import com.airbnb.lottie.compose.LottieAnimation
+import com.airbnb.lottie.compose.LottieCompositionSpec
+import com.airbnb.lottie.compose.LottieConstants
+import com.airbnb.lottie.compose.animateLottieCompositionAsState
+import com.airbnb.lottie.compose.rememberLottieComposition
 
 @Composable
 fun FullscreenDrillSummaryView(
@@ -90,7 +99,7 @@ fun FullscreenDrillSummaryView(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(horizontal = 20.dp)
-                        .padding(top = 100.dp, bottom = 100.dp),
+                        .padding(top = 80.dp, bottom = 100.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -130,6 +139,23 @@ fun FullscreenDrillSummaryView(
                             ),
                             color = Color(0xFFCBD5E1),
                             textAlign = TextAlign.Center
+                        )
+                    }
+                    
+                    // Cat Animation
+                    Box(
+                        modifier = Modifier.weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        val composition by rememberLottieComposition(LottieCompositionSpec.Asset("cat_flying.lottie"))
+                        val progress by animateLottieCompositionAsState(
+                            composition = composition,
+                            iterations = LottieConstants.IterateForever
+                        )
+                        LottieAnimation(
+                            composition = composition,
+                            progress = { progress },
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp)
                         )
                     }
 
@@ -329,10 +355,10 @@ fun FullscreenDrillSummaryView(
                         )
                     }
 
-                    // Middle Celebratory Card
+                    // Middle Celebratory Card (Streak)
                     Surface(
                         shape = RoundedCornerShape(22.dp),
-                        color = Color(0xFF1A2B32),
+                        color = Color(0xFF131F24),
                         border = BorderStroke(2.dp, Color(0xFF28414D)),
                         modifier = Modifier
                             .fillMaxWidth()
@@ -342,49 +368,139 @@ fun FullscreenDrillSummaryView(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = 20.dp, horizontal = 16.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(56.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFFFFC800).copy(alpha = 0.18f)),
-                                contentAlignment = Alignment.Center
+                            // Top Row: Current vs Longest
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                DuolingoBoltIcon(
-                                    modifier = Modifier.size(32.dp),
-                                    color = Color(0xFFFFC800)
-                                )
+                                // Current Streak
+                                Column {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = "🔥",
+                                            fontSize = 24.sp,
+                                            modifier = Modifier.padding(end = 4.dp)
+                                        )
+                                        Text(
+                                            text = "${currentStreak.coerceAtLeast(1)} Days",
+                                            style = MaterialTheme.typography.titleLarge.copy(
+                                                fontWeight = FontWeight.Black,
+                                                fontSize = 22.sp
+                                            ),
+                                            color = Color(0xFFFF9600)
+                                        )
+                                    }
+                                    Text(
+                                        text = "Current Streak",
+                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, fontSize = 13.sp),
+                                        color = Color(0xFF8699A6),
+                                        modifier = Modifier.padding(start = 28.dp)
+                                    )
+                                }
+                                
+                                // Longest Streak
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        DuolingoBoltIcon(
+                                            modifier = Modifier.size(24.dp).padding(end = 4.dp),
+                                            color = Color(0xFFFFC800)
+                                        )
+                                        Text(
+                                            text = "${Math.max(currentStreak, 1)} Days", // Assume longest is at least current for display
+                                            style = MaterialTheme.typography.titleLarge.copy(
+                                                fontWeight = FontWeight.Black,
+                                                fontSize = 22.sp
+                                            ),
+                                            color = Color(0xFFFFC800)
+                                        )
+                                    }
+                                    Text(
+                                        text = "Longest Streak",
+                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, fontSize = 13.sp),
+                                        color = Color(0xFF8699A6),
+                                        modifier = Modifier.padding(end = 4.dp)
+                                    )
+                                }
                             }
 
-                            Text(
-                                text = "+$xp XP Added to Total",
-                                style = MaterialTheme.typography.titleLarge.copy(
-                                    fontWeight = FontWeight.Black,
-                                    fontSize = 21.sp,
-                                    letterSpacing = 0.4.sp
-                                ),
-                                color = Color(0xFFFFC800)
-                            )
-
-                            Surface(
-                                shape = RoundedCornerShape(10.dp),
-                                color = Color(0xFF131F24),
-                                border = BorderStroke(1.dp, Color(0xFF20343D))
+                            // Middle Row: Daily Streak Bonus
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
-                                    verticalAlignment = Alignment.CenterVertically
+                                Text(
+                                    text = "Daily Streak Bonus",
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 17.sp
+                                    ),
+                                    color = Color.White
+                                )
+                                
+                                val currentCycleDay = if (currentStreak == 0) 1 else ((currentStreak - 1) % 7) + 1
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = Color(0xFF3B2000), 
+                                    border = BorderStroke(1.dp, Color(0xFF8C4C00))
                                 ) {
                                     Text(
-                                        text = "Level $level  •  $title",
-                                        style = MaterialTheme.typography.labelMedium.copy(
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 13.5.sp
-                                        ),
-                                        color = Color(0xFF1CB0F6)
+                                        text = "+${streakBonusPercent.coerceAtLeast(5)}% XP (Day $currentCycleDay/7)",
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                        color = Color(0xFFFF9600),
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
                                     )
+                                }
+                            }
+                            
+                            // Bottom Row: 7 circles
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                val currentCycleDay = if (currentStreak == 0) 1 else ((currentStreak - 1) % 7) + 1
+                                for (i in 1..7) {
+                                    val isActive = i <= currentCycleDay
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(36.dp)
+                                                .clip(CircleShape)
+                                                .border(2.dp, if (isActive) Color(0xFFFF9600) else Color(0xFF4B606D), CircleShape),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            if (isActive) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(26.dp)
+                                                        .clip(CircleShape)
+                                                        .background(Color(0xFFFF9600)),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    androidx.compose.material3.Icon(
+                                                        imageVector = Icons.Filled.Check,
+                                                        contentDescription = "Done",
+                                                        tint = Color.White,
+                                                        modifier = Modifier.size(18.dp)
+                                                    )
+                                                }
+                                            } else {
+                                                Text(
+                                                    text = i.toString(),
+                                                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Black),
+                                                    color = Color(0xFF4B606D)
+                                                )
+                                            }
+                                        }
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Text(
+                                            text = "D$i",
+                                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Black),
+                                            color = if (isActive) Color(0xFFFF9600) else Color(0xFF4B606D)
+                                        )
+                                    }
                                 }
                             }
                         }

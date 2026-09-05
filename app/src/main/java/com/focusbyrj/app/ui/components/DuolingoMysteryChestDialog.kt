@@ -110,7 +110,7 @@ fun DuolingoMysteryChestDialog(
     val economyProfile by FocusEconomyManager.profileFlow.collectAsState()
 
     var currentRarity by remember { mutableStateOf(initialRarity) }
-    var chancesLeft by remember { mutableIntStateOf(3) } // 3 -> 2 -> 1 -> 0 (Opening)
+    var chancesLeft by remember { mutableStateOf(3) } // 3 -> 2 -> 1 -> 0 (Opening)
     var isUpgrading by remember { mutableStateOf(false) }
     var isRevealed by remember { mutableStateOf(false) }
     var upgradeSuccessNotice by remember { mutableStateOf(false) }
