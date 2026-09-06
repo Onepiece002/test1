@@ -132,7 +132,7 @@ fun VocabBriefContent(
                         contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                     )
                 ) {
-                    Text(if (isLearnMoreSession) "Next" else "Learn More", fontSize = (fontSizeSp * 0.9f).sp, fontWeight = FontWeight.Bold)
+                    Text(if (isLearnMoreSession) "Next" else "More words", fontSize = (fontSizeSp * 0.9f).sp, fontWeight = FontWeight.Bold)
                 }
 
                 Button(

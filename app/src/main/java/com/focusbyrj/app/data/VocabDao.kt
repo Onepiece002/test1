@@ -7,10 +7,10 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface VocabDao {
-    @Query("SELECT * FROM idioms WHERE learned_at IS NULL AND is_mastered = 0 ORDER BY repetition_ssc DESC LIMIT :limit")
+    @Query("SELECT * FROM idioms WHERE learned_at IS NULL AND is_mastered = 0 ORDER BY is_top_200 DESC, repetition_ssc DESC LIMIT :limit")
     suspend fun getUnlearnedIdioms(limit: Int): List<Idiom>
 
-    @Query("SELECT * FROM ows WHERE learned_at IS NULL AND is_mastered = 0 ORDER BY repetition_ssc DESC LIMIT :limit")
+    @Query("SELECT * FROM ows WHERE learned_at IS NULL AND is_mastered = 0 ORDER BY is_top_200 DESC, repetition_ssc DESC LIMIT :limit")
     suspend fun getUnlearnedOws(limit: Int): List<Ows>
 
     @Query("SELECT * FROM idioms WHERE learned_at IS NOT NULL")

@@ -203,55 +203,52 @@ fun DuolingoMysteryChestDialog(
                     ChestRarity.COMMON -> {
                         // Common: 2X EXP potion for 15 mins + 1000 gold
                         xpEarned = 0
-                        goldEarned = 1000
+                        goldEarned = 50
                         AptitudeManager.activateXpBoost(durationMinutes = 15, multiplier = 2.0f)
                     }
                     ChestRarity.RARE -> {
                         // Rare: 1000 xp or 5% current xp (whichever higher) and 10,000 gold
-                        xpEarned = maxOf(1000, (currentTotalXp * 0.05f).toInt())
-                        goldEarned = 10000
+                        xpEarned = maxOf(100, (currentTotalXp * 0.02f).toInt())
+                        goldEarned = 250
                         // 10% chance for streak freeze
                         if (Random.nextFloat() < 0.10f) {
                             if (currentFreezes < 3) {
                                 AptitudeManager.addStreakFreezes(1)
                                 freezeAwarded = true
                             } else {
-                                bonusGold = 1000
+                                bonusGold = 100
                             }
                         }
                     }
                     ChestRarity.EPIC -> {
                         // Epic: 10% xp or 2000 xp (whichever higher) and 50,000 gold + streak freeze
-                        xpEarned = maxOf(2000, (currentTotalXp * 0.10f).toInt())
-                        goldEarned = 50000
+                        xpEarned = maxOf(250, (currentTotalXp * 0.05f).toInt())
+                        goldEarned = 1000
                         if (currentFreezes < 3) {
                             AptitudeManager.addStreakFreezes(1)
                             freezeAwarded = true
                         } else {
-                            bonusGold = 2000
+                            bonusGold = 250
                         }
                     }
                     ChestRarity.LEGENDARY -> {
                         // Legendary jackpot: 20% xp or 5000 xp + 100,000 gold + 2X boost + freeze
-                        xpEarned = maxOf(5000, (currentTotalXp * 0.20f).toInt())
-                        goldEarned = 100000
+                        xpEarned = maxOf(1000, (currentTotalXp * 0.10f).toInt())
+                        goldEarned = 5000
                         AptitudeManager.activateXpBoost(durationMinutes = 30, multiplier = 2.0f)
                         if (currentFreezes < 3) {
                             AptitudeManager.addStreakFreezes(1)
                             freezeAwarded = true
                         } else {
-                            bonusGold = 5000
+                            bonusGold = 500
                         }
                     }
                 }
 
                 val finalGold = goldEarned + bonusGold
 
-                // Save to economy
-                if (xpEarned > 0) {
-                    AptitudeManager.addAptitudeXp(xpEarned)
-                }
-                FocusEconomyManager.addRewards(baseXp = xpEarned, baseGold = finalGold)
+                // Save EXACT rewards to pending so UI matches the earned amount
+                FocusEconomyManager.addExactRewards(exactXp = xpEarned, exactGold = finalGold)
 
                 // Complete in quest manager
                 DailyQuestManager.claimMysteryChest()
@@ -458,7 +455,7 @@ fun DuolingoMysteryChestDialog(
                 }
             } else {
                 // ==================== REWARD REVEAL PHASE ====================
-                val reward = claimedReward ?: MysteryReward(xp = 1000, gold = 10000, streakFreezeAwarded = false)
+                val reward = claimedReward ?: MysteryReward(xp = 0, gold = 50, streakFreezeAwarded = false)
                 val isCommonPotion = currentRarity == ChestRarity.COMMON
 
                 Column(

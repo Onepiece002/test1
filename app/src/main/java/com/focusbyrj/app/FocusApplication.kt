@@ -76,6 +76,7 @@ class FocusApplication : Application() {
         )
         .createFromAsset("vocab.db")
         .addMigrations(com.focusbyrj.app.data.VocabDatabase.MIGRATION_1_2)
+        .fallbackToDestructiveMigration()
         .build()
     }
     

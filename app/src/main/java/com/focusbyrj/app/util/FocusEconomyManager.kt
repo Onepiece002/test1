@@ -278,6 +278,19 @@ object FocusEconomyManager {
         }
     }
     
+    fun addExactRewards(exactXp: Int, exactGold: Int) {
+        prefs?.let { p ->
+            val pXp = _profileFlow.value.pendingXp
+            val pGold = _profileFlow.value.pendingGold
+            
+            p.edit()
+                .putInt("pending_xp", pXp + exactXp)
+                .putInt("pending_gold", pGold + exactGold)
+                .apply()
+            loadProfile()
+        }
+    }
+    
     fun addRewards(baseXp: Int, baseGold: Int) {
         prefs?.let { p ->
             val currentLevel = _profileFlow.value.level

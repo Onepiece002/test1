@@ -1,4 +1,9 @@
-package com.focusbyrj.app.data
+import re
+
+with open("app/src/main/java/com/focusbyrj/app/data/VocabEntities.kt", "r") as f:
+    content = f.read()
+
+new_content = """package com.focusbyrj.app.data
 
 import androidx.room.ColumnInfo
 import androidx.room.Entity
@@ -47,3 +52,7 @@ data class Ows(
     @ColumnInfo(name = "is_bookmarked", defaultValue = "0") val isBookmarked: Int? = 0,
     @ColumnInfo(name = "learned_at") val learnedAt: Long? = null
 )
+"""
+
+with open("app/src/main/java/com/focusbyrj/app/data/VocabEntities.kt", "w") as f:
+    f.write(new_content)
