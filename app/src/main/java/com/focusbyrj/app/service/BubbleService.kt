@@ -516,14 +516,8 @@ class BubbleService : Service() {
         // When unread messages are cleared, dismiss any preview pill
         dismissPreviewPill(animated = true)
 
-        // Secondary priority: Overdue or urgent pending tasks (Amber)
-        if (latestOverdueCount > 0) {
-            (bv.background as? GradientDrawable)?.setColor(android.graphics.Color.parseColor("#F59E0B")) // Warm Amber
-            bv.text = if (latestOverdueCount > 99) "99+" else latestOverdueCount.toString()
-            bv.visibility = View.VISIBLE
-        } else {
-            bv.visibility = View.GONE
-        }
+        // Hide badge when there are no unread chat messages
+        bv.visibility = View.GONE
     }
 
     private fun updateBadgePosition(isLeft: Boolean) {

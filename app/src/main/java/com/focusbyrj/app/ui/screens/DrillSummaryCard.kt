@@ -68,8 +68,6 @@ fun DrillSummaryCard(
     var isBlitz by remember { mutableStateOf(false) }
     var elapsedSeconds by remember { mutableStateOf(0) }
     var timeFormatted by remember { mutableStateOf("1:41") }
-    var divisionTitle by remember { mutableStateOf("") }
-    var divisionIcon by remember { mutableStateOf("") }
     var weeklyXp by remember { mutableStateOf(0) }
     var freezeNotice by remember { mutableStateOf("") }
     
@@ -137,8 +135,6 @@ fun DrillSummaryCard(
             isBlitz = obj.optBoolean("isBlitz", false)
             elapsedSeconds = obj.optInt("elapsedSeconds", 45)
             timeFormatted = obj.optString("timeFormatted", "${elapsedSeconds / 60}:${(elapsedSeconds % 60).toString().padStart(2, '0')}")
-            divisionTitle = obj.optString("divisionTitle", "")
-            divisionIcon = obj.optString("divisionIcon", "")
             weeklyXp = obj.optInt("weeklyXp", 0)
             freezeNotice = obj.optString("freezeNotice", "")
         } catch (_: Exception) {}

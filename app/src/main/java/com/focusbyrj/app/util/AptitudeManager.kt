@@ -245,7 +245,7 @@ object AptitudeManager {
         }
     }
 
-    fun startWager(goldStake: Int = 50): Boolean {
+    fun startWager(goldStake: Int = 5000): Boolean {
         val p = prefs ?: return false
         val isWagerActive = p.getBoolean(KEY_WAGER_ACTIVE, false)
         if (isWagerActive) return false
@@ -408,8 +408,8 @@ object AptitudeManager {
                 wagerDays += 1
                 prefs?.edit()?.putString(KEY_WAGER_LAST_DATE, today)?.apply()
                 if (wagerDays >= 7) {
-                    // Wager completed! Double reward: 100 gold + 100 XP
-                    FocusEconomyManager.addRewards(baseXp = 100, baseGold = 100)
+                    // Wager completed! Double reward: 10,000 gold + 100 XP
+                    FocusEconomyManager.addRewards(baseXp = 100, baseGold = 10000)
                     wagerActive = false
                     wagerDays = 0
                 }
@@ -504,14 +504,6 @@ object AptitudeManager {
 
         val streakBonusPercent = minOf(currentStreak, 7) * 5
 
-        // Division Tier calculations
-        val (divTitle, divTier, divIcon, nextTierXp) = when {
-            weeklyXp >= 800 -> Quadruple("Diamond Topper", 4, "💎", 800)
-            weeklyXp >= 400 -> Quadruple("Gold Officer", 3, "🥇", 800)
-            weeklyXp >= 150 -> Quadruple("Silver Scholar", 2, "🥈", 400)
-            else -> Quadruple("Bronze Aspirant", 1, "🥉", 150)
-        }
-
         return AptitudeProfile(
             xp = xp,
             level = level,
@@ -529,16 +521,10 @@ object AptitudeManager {
             streakFreezesCount = streakFreezes,
             freezeUsedNotice = freezeUsedNotice,
             weeklyXp = weeklyXp,
-            divisionTier = divTier,
-            divisionTitle = divTitle,
-            divisionIcon = divIcon,
-            divisionNextTierXp = nextTierXp,
             isWagerActive = isWagerActive,
             wagerDaysCompleted = wagerDays,
             isXpBoostActive = isXpBoostActive,
             xpBoostRemainingMinutes = xpBoostRemainingMins
         )
     }
-
-    private data class Quadruple<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
 }

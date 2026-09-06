@@ -453,8 +453,15 @@ fun ChatInterface() {
             QuickActionCommand("💬 /talk", "/talk "),
             QuickActionCommand("📋 /tasks", "/tasks "),
             QuickActionCommand("🧹 /clear", "/clear"),
+            QuickActionCommand("👤 /profile", "/profile"),
             QuickActionCommand("⚡ /blitz", "/blitz"),
-            QuickActionCommand("⚡ /drill", "/drill easy 10")
+            QuickActionCommand("⚡ /drill", "/drill easy 10"),
+            QuickActionCommand("📊 /summary", "/summary"),
+            QuickActionCommand("🎯 /quests", "/quests"),
+            QuickActionCommand("💰 /wager", "/wager"),
+            QuickActionCommand("🛡️ /freeze", "/freeze"),
+            QuickActionCommand("🗓️ /reschedule", "/reschedule "),
+            QuickActionCommand("❓ /help", "/help")
         )
     }
 
@@ -806,9 +813,9 @@ fun ChatInterface() {
                             "/wager" -> {
                                 val prof = com.focusbyrj.app.util.AptitudeManager.profileFlow.value
                                 val text = if (prof.isWagerActive) {
-                                    "💰 7-Day Wager Active: Day ${prof.wagerDaysCompleted}/7 completed!\n\nMaintain your practice streak to win 100 Gold Coins and 100 XP!"
+                                    "💰 7-Day Wager Active: Day ${prof.wagerDaysCompleted}/7 completed!\n\nMaintain your practice streak to win 10,000 Gold Coins and 100 XP!"
                                 } else {
-                                    "💰 7-Day Learning Wager\n\nStake 50 Gold Coins from your wallet. Practice 7 days in a row to double your coins (100 🪙 + 100 XP)!\n\nOpen `/profile` to enter the wager."
+                                    "💰 7-Day Learning Wager\n\nStake 5,000 Gold Coins from your wallet. Practice 7 days in a row to double your coins (10,000 🪙 + 100 XP)!\n\nOpen `/profile` to enter the wager."
                                 }
                                 val response = ChatMessage(
                                     id = java.util.UUID.randomUUID().toString(),
@@ -1875,8 +1882,9 @@ fun ChatInterface() {
                                     if (catTapCount >= 3) {
                                         catTapCount = 0
                                         catActionInvocationCount += 1
-                                        val pool = listOf("cat_action.lottie", "cat_error.lottie")
-                                        currentCatActionAsset = pool[(catActionInvocationCount - 1) % pool.size]
+                                        // 1 out of 100 times (1% chance) show error cat, remaining 99% show action cat
+                                        val isError = kotlin.random.Random.nextInt(100) == 0
+                                        currentCatActionAsset = if (isError) "cat_error.lottie" else "cat_action.lottie"
                                         isCatActionPlaying = true
                                     }
                                 }
@@ -3430,6 +3438,8 @@ fun CatActionLottieView(
         iterations = LottieConstants.IterateForever
     )
 
+    val startTime = remember { System.currentTimeMillis() }
+
     val targetSize = when (assetName) {
         "cat_error.lottie" -> 250.dp
         "cat_angry.lottie" -> 195.dp
@@ -3444,7 +3454,12 @@ fun CatActionLottieView(
             .clickable(
                 interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
                 indication = null
-            ) { onDismiss() },
+            ) {
+                // Ignore taps within the first 2 seconds (2000ms) to prevent accidental muscle-memory cancels
+                if (System.currentTimeMillis() - startTime >= 2000L) {
+                    onDismiss()
+                }
+            },
         contentAlignment = Alignment.BottomCenter
     ) {
         LottieAnimation(

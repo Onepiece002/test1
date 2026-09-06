@@ -133,8 +133,6 @@ object DrillSummaryHelper {
             put("isBlitz", session.isBlitz)
             put("elapsedSeconds", elapsedSeconds)
             put("timeFormatted", timeFormatted)
-            put("divisionTitle", profileNow.divisionTitle)
-            put("divisionIcon", profileNow.divisionIcon)
             put("weeklyXp", profileNow.weeklyXp)
             put("freezeNotice", profileNow.freezeUsedNotice ?: "")
             put("questions", questionsArray)
