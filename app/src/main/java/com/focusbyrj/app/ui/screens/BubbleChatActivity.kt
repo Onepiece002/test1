@@ -400,19 +400,7 @@ fun ChatInterface() {
     var activeDrillSession by remember { mutableStateOf<DrillSession?>(null) }
     var showDrillSummaryMessage by remember { mutableStateOf<ChatMessage?>(null) }
     var showSolutionsJson by remember { mutableStateOf<String?>(null) }
-    var pendingMysteryBoxOpen by remember { mutableStateOf(false) }
     var showMysteryChestDialog by remember { mutableStateOf(false) }
-
-    LaunchedEffect(showDrillSummaryMessage, showSolutionsJson, activeDrillSession, pendingMysteryBoxOpen) {
-        if (showDrillSummaryMessage == null && showSolutionsJson == null && activeDrillSession == null && pendingMysteryBoxOpen) {
-            val questState = com.focusbyrj.app.util.DailyQuestManager.stateFlow.value
-            if (questState.isEarlyBirdAvailable || questState.isNightOwlAvailable) {
-                delay(350)
-                showMysteryChestDialog = true
-            }
-            pendingMysteryBoxOpen = false
-        }
-    }
 
     LaunchedEffect(activeDrillSession?.isBlitz) {
         if (activeDrillSession?.isBlitz == true) {
@@ -445,9 +433,6 @@ fun ChatInterface() {
                     BubbleChatManager.saveMessages(context, messages.map { it.toPersistedChatMessage() })
                     showDrillSummaryMessage = summaryMsg
                     activeDrillSession = null
-                    if (hasMysteryBox) {
-                        pendingMysteryBoxOpen = true
-                    }
                     break
                 }
             }
@@ -1494,9 +1479,6 @@ fun ChatInterface() {
                 BubbleChatManager.saveMessages(context, messages.map { it.toPersistedChatMessage() })
                 showDrillSummaryMessage = summaryMsg
                 activeDrillSession = null
-                if (hasMysteryBox) {
-                    pendingMysteryBoxOpen = true
-                }
             } else {
                 val diffEnum = when (session.difficulty) {
                     "medium" -> com.focusbyrj.app.util.ArithmeticDifficulty.MEDIUM
@@ -1596,9 +1578,6 @@ fun ChatInterface() {
             BubbleChatManager.saveMessages(context, messages.map { it.toPersistedChatMessage() })
             showDrillSummaryMessage = summaryMsg
             activeDrillSession = null
-            if (hasMysteryBox) {
-                pendingMysteryBoxOpen = true
-            }
         }
         Unit
     }

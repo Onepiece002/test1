@@ -242,12 +242,12 @@ fun DrillComboStreakCapsule(
         enter = fadeIn() + slideInVertically(initialOffsetY = { -10 }),
         exit = fadeOut() + slideOutVertically(targetOffsetY = { -10 })
     ) {
-        val (comboLabel, boostLabel, streakColor, streakBevelColor, streakIcon) = when {
-            combo >= 8 -> Quintuple("GODLIKE STREAK", "2.0x XP ACTIVE", duolingoPurple, duolingoPurpleBevel, "⚡")
-            combo >= 5 -> Quintuple("ON FIRE (x$combo)", "1.5x XP ACTIVE", duolingoRed, duolingoRedBevel, "🔥")
-            combo >= 3 -> Quintuple("STREAK x$combo", "+50 XP BONUS", duolingoOrange, duolingoOrangeBevel, "🔥")
-            combo == 2 -> Quintuple("STREAK x$combo", "+40 XP", duolingoYellow, duolingoYellowBevel, "⚡")
-            else -> Quintuple("STREAK x1", "+40 XP", duolingoBlue, duolingoBlueBevel, "🎯")
+        val (comboLabel, boostLabel, accentColor, streakIcon) = when {
+            combo >= 8 -> Quadruple("GODLIKE STREAK", "2.0x XP", Color(0xFFA855F7), "⚡")
+            combo >= 5 -> Quadruple("ON FIRE (x$combo)", "1.5x XP", Color(0xFFFF5252), "🔥")
+            combo >= 3 -> Quadruple("STREAK x$combo", "+50 XP", Color(0xFFFF9800), "🔥")
+            combo == 2 -> Quadruple("STREAK x2", "+40 XP", Color(0xFFFFC107), "⚡")
+            else -> Quadruple("STREAK x1", "+40 XP", Color(0xFF3B82F6), "🎯")
         }
 
         Box(
@@ -259,60 +259,67 @@ fun DrillComboStreakCapsule(
             Surface(
                 modifier = Modifier
                     .wrapContentWidth()
-                    .scale(if (combo >= 3) pulseScale else 1f)
-                    .height(38.dp),
-                shape = RoundedCornerShape(19.dp),
-                color = streakBevelColor
+                    .scale(if (combo >= 3) ((pulseScale - 1f) * 0.4f + 1f) else 1f)
+                    .height(32.dp),
+                shape = RoundedCornerShape(16.dp),
+                color = if (isDark) Color(0xEE1E2228) else Color(0xEEF8FAFC),
+                border = BorderStroke(1.dp, if (isDark) Color(0x22FFFFFF) else Color(0x15000000)),
+                shadowElevation = 2.dp
             ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(bottom = 3.dp)
-                        .clip(RoundedCornerShape(17.dp))
-                        .background(if (isDark) cardDarkBg else Color.White)
-                        .border(BorderStroke(2.dp, streakColor), RoundedCornerShape(17.dp))
-                        .padding(horizontal = 14.dp, vertical = 4.dp),
-                    contentAlignment = Alignment.Center
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
+                    // Small Icon Tag
+                    Box(
+                        modifier = Modifier
+                            .size(20.dp)
+                            .clip(CircleShape)
+                            .background(accentColor.copy(alpha = 0.18f)),
+                        contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = streakIcon,
-                            fontSize = 13.sp
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = comboLabel,
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.Black,
-                                fontSize = 12.sp,
-                                letterSpacing = 0.5.sp
-                            ),
-                            color = streakColor
-                        )
-
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Box(
-                            modifier = Modifier
-                                .size(3.5.dp)
-                                .clip(CircleShape)
-                                .background(streakColor.copy(alpha = 0.7f))
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-
-                        Text(
-                            text = if (isBlitz) "$boostLabel • +30s" else boostLabel,
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.Black,
-                                fontSize = 11.5.sp
-                            ),
-                            color = streakColor
+                            fontSize = 11.sp
                         )
                     }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Text(
+                        text = comboLabel,
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
+                            letterSpacing = 0.6.sp
+                        ),
+                        color = if (isDark) Color(0xFFF1F5F9) else Color(0xFF0F172A)
+                    )
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Box(
+                        modifier = Modifier
+                            .size(3.dp)
+                            .clip(CircleShape)
+                            .background(if (isDark) Color(0x66FFFFFF) else Color(0x40000000))
+                    )
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Text(
+                        text = if (isBlitz) "$boostLabel • +30s" else boostLabel,
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 11.5.sp
+                        ),
+                        color = accentColor
+                    )
                 }
             }
         }
     }
 }
+
+private data class Quadruple<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)

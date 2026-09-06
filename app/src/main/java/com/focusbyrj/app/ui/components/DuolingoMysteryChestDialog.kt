@@ -119,6 +119,7 @@ fun DuolingoMysteryChestDialog(
     // Tap bounce physics
     val tapScale = remember { Animatable(1f) }
     val chestWobble = remember { Animatable(0f) }
+    val lidOpenAnim = remember { Animatable(0f) }
 
     // Floating stars animation
     val infiniteTransition = rememberInfiniteTransition(label = "stars_ambient")
@@ -188,9 +189,13 @@ fun DuolingoMysteryChestDialog(
             chancesLeft = nextChances
 
             if (nextChances == 0) {
-                // Chest opens!
-                delay(300)
+                // Chest opening animation!
                 GamificationHaptics.playCelebration(context)
+                lidOpenAnim.animateTo(
+                    targetValue = 1f,
+                    animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing)
+                )
+                delay(350)
 
                 val currentTotalXp = maxOf(0, AptitudeManager.profileFlow.value.xp)
                 var xpEarned = 0
@@ -391,6 +396,7 @@ fun DuolingoMysteryChestDialog(
                         DuolingoChest3DGraphic(
                             rarity = currentRarity,
                             wobbleDegrees = chestWobble.value,
+                            lidOpenRatio = lidOpenAnim.value,
                             modifier = Modifier.size(220.dp)
                         )
                     }
@@ -592,12 +598,16 @@ fun DuolingoMysteryChestDialog(
 
                             Spacer(modifier = Modifier.height(32.dp))
 
-                            // 3D Gold Coins Pile Graphic
-                            DuolingoGoldCoinsPileGraphic(
-                                modifier = Modifier
-                                    .size(220.dp)
-                                    .scale(ambientPulse * 0.95f + 0.05f)
-                            )
+                            // 3D Opened Chest overflowing with Gold Coins
+                            Box(
+                                contentAlignment = Alignment.Center
+                            ) {
+                                DuolingoChest3DGraphic(
+                                    rarity = currentRarity,
+                                    lidOpenRatio = 1f,
+                                    modifier = Modifier.size(200.dp)
+                                )
+                            }
                         }
                     }
 
@@ -678,13 +688,22 @@ private fun ChanceDotItem(
     }
 }
 
+private data class ChestThemeColors(
+    val woodPrimary: Color,
+    val woodSecondary: Color,
+    val metalPrimary: Color,
+    val metalHighlight: Color,
+    val accentGem: Color
+)
+
 /**
  * Custom 3D Vector Chest Graphic matching Duolingo's aesthetic.
  */
 @Composable
-private fun DuolingoChest3DGraphic(
+fun DuolingoChest3DGraphic(
     rarity: ChestRarity,
     wobbleDegrees: Float = 0f,
+    lidOpenRatio: Float = 0f,
     modifier: Modifier = Modifier
 ) {
     Canvas(
@@ -695,93 +714,284 @@ private fun DuolingoChest3DGraphic(
         val w = size.width
         val h = size.height
 
-        val bodyPrimary = when (rarity) {
-            ChestRarity.COMMON -> Color(0xFF42A5F5)
-            ChestRarity.RARE -> Color(0xFF0288D1)
-            ChestRarity.EPIC -> Color(0xFF8E24AA)
-            ChestRarity.LEGENDARY -> Color(0xFFE65100)
-        }
-        val bodySecondary = when (rarity) {
-            ChestRarity.COMMON -> Color(0xFF1E88E5)
-            ChestRarity.RARE -> Color(0xFF01579B)
-            ChestRarity.EPIC -> Color(0xFF4A148C)
-            ChestRarity.LEGENDARY -> Color(0xFFBF360C)
-        }
-        val goldMain = Color(0xFFFFB300)
-
         // 1. Base Shadow on ground
         drawOval(
-            color = Color(0x33000000),
-            topLeft = Offset(w * 0.12f, h * 0.78f),
-            size = Size(w * 0.76f, h * 0.18f)
+            color = Color(0x40000000),
+            topLeft = Offset(w * 0.10f, h * 0.78f),
+            size = Size(w * 0.80f, h * 0.18f)
         )
 
-        // 2. Chest Lower Body
-        val bodyRect = Path().apply {
-            moveTo(w * 0.22f, h * 0.44f)
-            lineTo(w * 0.78f, h * 0.44f)
-            lineTo(w * 0.74f, h * 0.80f)
-            lineTo(w * 0.26f, h * 0.80f)
+        // Tones based on Rarity (Rich wood & metallic tones)
+        val colors = when (rarity) {
+            ChestRarity.COMMON -> ChestThemeColors(
+                woodPrimary = Color(0xFF8B4513),
+                woodSecondary = Color(0xFF5C2C0C),
+                metalPrimary = Color(0xFFFFB300),
+                metalHighlight = Color(0xFFFFE082),
+                accentGem = Color(0xFF00E5FF)
+            )
+            ChestRarity.RARE -> ChestThemeColors(
+                woodPrimary = Color(0xFF1565C0),
+                woodSecondary = Color(0xFF0D47A1),
+                metalPrimary = Color(0xFFFFB300),
+                metalHighlight = Color(0xFFFFE082),
+                accentGem = Color(0xFF80D8FF)
+            )
+            ChestRarity.EPIC -> ChestThemeColors(
+                woodPrimary = Color(0xFF6A1B9A),
+                woodSecondary = Color(0xFF4A148C),
+                metalPrimary = Color(0xFFFFB300),
+                metalHighlight = Color(0xFFFFE082),
+                accentGem = Color(0xFFE040FB)
+            )
+            ChestRarity.LEGENDARY -> ChestThemeColors(
+                woodPrimary = Color(0xFFE65100),
+                woodSecondary = Color(0xFFBF360C),
+                metalPrimary = Color(0xFFFFD54F),
+                metalHighlight = Color(0xFFFFF59D),
+                accentGem = Color(0xFFFFD700)
+            )
+        }
+        val woodPrimary = colors.woodPrimary
+        val woodSecondary = colors.woodSecondary
+        val metalPrimary = colors.metalPrimary
+        val metalHighlight = colors.metalHighlight
+        val accentGem = colors.accentGem
+
+        val metalShadow = Color(0xFFB45309)
+        val darkGroove = Color(0x38000000)
+
+        // -------------------------------------------------------------
+        // 2. INNER CAVITY & LIGHT BEAM (Visible when lidOpenRatio > 0f)
+        // -------------------------------------------------------------
+        if (lidOpenRatio > 0f) {
+            // Dark interior cavity at top of chest body
+            val cavityPath = Path().apply {
+                moveTo(w * 0.16f, h * 0.44f)
+                lineTo(w * 0.84f, h * 0.44f)
+                lineTo(w * 0.80f, h * 0.52f)
+                lineTo(w * 0.20f, h * 0.52f)
+                close()
+            }
+            drawPath(cavityPath, color = Color(0xFF140A00))
+
+            // Radial Sunburst Light Beam bursting out from cavity
+            val beamPath = Path().apply {
+                moveTo(w * 0.22f, h * 0.46f)
+                lineTo(w * 0.05f - 0.25f * w * lidOpenRatio, h * 0.0f)
+                lineTo(w * 0.95f + 0.25f * w * lidOpenRatio, h * 0.0f)
+                lineTo(w * 0.78f, h * 0.46f)
+                close()
+            }
+            drawPath(
+                path = beamPath,
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        Color(0xFFFFF176).copy(alpha = (0.85f * lidOpenRatio).coerceIn(0f, 1f)),
+                        Color(0xFFFFB300).copy(alpha = (0.50f * lidOpenRatio).coerceIn(0f, 1f)),
+                        Color.Transparent
+                    ),
+                    startY = 0f,
+                    endY = h * 0.46f
+                )
+            )
+
+            // Gold Treasure / Coins peeking out inside cavity
+            draw3DGoldCoin(Offset(w * 0.38f, h * 0.45f), w * 0.06f)
+            draw3DGoldCoin(Offset(w * 0.50f, h * 0.43f), w * 0.07f)
+            draw3DGoldCoin(Offset(w * 0.62f, h * 0.45f), w * 0.06f)
+        }
+
+        // -------------------------------------------------------------
+        // 3. CHEST LOWER BODY (Box with 3D plank grooves & metal straps)
+        // -------------------------------------------------------------
+        val bodyPath = Path().apply {
+            moveTo(w * 0.16f, h * 0.44f)
+            lineTo(w * 0.84f, h * 0.44f)
+            lineTo(w * 0.80f, h * 0.80f)
+            lineTo(w * 0.20f, h * 0.80f)
             close()
         }
         drawPath(
-            path = bodyRect,
+            path = bodyPath,
             brush = Brush.verticalGradient(
-                listOf(bodyPrimary, bodySecondary),
+                colors = listOf(woodPrimary, woodSecondary),
                 startY = h * 0.44f,
                 endY = h * 0.80f
             )
         )
 
-        // Lower body bottom trim (Gold)
-        val bottomTrim = Path().apply {
-            moveTo(w * 0.24f, h * 0.74f)
-            lineTo(w * 0.76f, h * 0.74f)
-            lineTo(w * 0.73f, h * 0.82f)
-            lineTo(w * 0.27f, h * 0.82f)
-            close()
-        }
-        drawPath(path = bottomTrim, color = goldMain)
+        // Horizontal Wooden Plank Grooves
+        val plankY1 = h * 0.55f
+        val plankY2 = h * 0.67f
+        drawLine(darkGroove, Offset(w * 0.17f, plankY1), Offset(w * 0.83f, plankY1), strokeWidth = 2.dp.toPx())
+        drawLine(darkGroove, Offset(w * 0.18f, plankY2), Offset(w * 0.82f, plankY2), strokeWidth = 2.dp.toPx())
 
-        // 3. Chest Upper Lid
-        val lidPath = Path().apply {
-            moveTo(w * 0.15f, h * 0.44f)
-            cubicTo(
-                w * 0.16f, h * 0.24f,
-                w * 0.84f, h * 0.24f,
-                w * 0.85f, h * 0.44f
-            )
-            lineTo(w * 0.85f, h * 0.48f)
-            lineTo(w * 0.15f, h * 0.48f)
+        // Bottom Base Gold Trim Bar
+        val bottomTrimPath = Path().apply {
+            moveTo(w * 0.19f, h * 0.74f)
+            lineTo(w * 0.81f, h * 0.74f)
+            lineTo(w * 0.79f, h * 0.81f)
+            lineTo(w * 0.21f, h * 0.81f)
             close()
         }
         drawPath(
-            path = lidPath,
+            path = bottomTrimPath,
             brush = Brush.verticalGradient(
-                listOf(bodyPrimary, bodySecondary),
-                startY = h * 0.24f,
-                endY = h * 0.48f
+                listOf(metalHighlight, metalPrimary, metalShadow),
+                startY = h * 0.74f,
+                endY = h * 0.81f
             )
         )
 
-        // Center Gold Lock Emblem
-        val lockSize = w * 0.18f
-        val lockCenter = Offset(w * 0.50f, h * 0.50f)
-        drawCircle(
-            color = Color(0xFFFFB300),
-            radius = lockSize * 0.5f,
-            center = lockCenter
+        // Vertical Metallic Reinforcement Straps (Left & Right)
+        val leftStrapPath = Path().apply {
+            moveTo(w * 0.25f, h * 0.44f)
+            lineTo(w * 0.35f, h * 0.44f)
+            lineTo(w * 0.34f, h * 0.75f)
+            lineTo(w * 0.26f, h * 0.75f)
+            close()
+        }
+        val rightStrapPath = Path().apply {
+            moveTo(w * 0.65f, h * 0.44f)
+            lineTo(w * 0.75f, h * 0.44f)
+            lineTo(w * 0.74f, h * 0.75f)
+            lineTo(w * 0.66f, h * 0.75f)
+            close()
+        }
+        val strapBrush = Brush.horizontalGradient(
+            listOf(metalHighlight, metalPrimary, metalShadow),
+            startX = w * 0.25f, endX = w * 0.35f
         )
+        drawPath(leftStrapPath, brush = strapBrush)
+        drawPath(rightStrapPath, brush = strapBrush)
+
+        // 3D Rivets/Studs on Body Straps
+        fun drawRivet(center: Offset) {
+            drawCircle(Color(0xFF3E2723), radius = 3.5.dp.toPx(), center = Offset(center.x + 1, center.y + 1))
+            drawCircle(metalHighlight, radius = 3.dp.toPx(), center = center)
+            drawCircle(metalPrimary, radius = 2.dp.toPx(), center = Offset(center.x - 0.5f, center.y - 0.5f))
+        }
+
+        drawRivet(Offset(w * 0.30f, h * 0.50f))
+        drawRivet(Offset(w * 0.30f, h * 0.61f))
+        drawRivet(Offset(w * 0.30f, h * 0.71f))
+
+        drawRivet(Offset(w * 0.70f, h * 0.50f))
+        drawRivet(Offset(w * 0.70f, h * 0.61f))
+        drawRivet(Offset(w * 0.70f, h * 0.71f))
+
+        // Gold Corner Brackets at Bottom Left & Right
+        val cornerLeft = Path().apply {
+            moveTo(w * 0.18f, h * 0.70f)
+            lineTo(w * 0.26f, h * 0.70f)
+            lineTo(w * 0.26f, h * 0.81f)
+            lineTo(w * 0.21f, h * 0.81f)
+            close()
+        }
+        val cornerRight = Path().apply {
+            moveTo(w * 0.82f, h * 0.70f)
+            lineTo(w * 0.74f, h * 0.70f)
+            lineTo(w * 0.74f, h * 0.81f)
+            lineTo(w * 0.79f, h * 0.81f)
+            close()
+        }
+        drawPath(cornerLeft, color = metalPrimary)
+        drawPath(cornerRight, color = metalPrimary)
+
+        // Lower Keyhole Lock Plate on Chest Body
+        val lockPlateCenter = Offset(w * 0.50f, h * 0.50f)
+        val lockRadius = w * 0.08f
+        drawCircle(metalShadow, radius = lockRadius * 1.1f, center = Offset(lockPlateCenter.x + 1, lockPlateCenter.y + 1))
         drawCircle(
-            color = Color(0xFFFFD54F),
-            radius = lockSize * 0.35f,
-            center = Offset(lockCenter.x - 2, lockCenter.y - 2)
+            brush = Brush.radialGradient(listOf(metalHighlight, metalPrimary, metalShadow), center = lockPlateCenter, radius = lockRadius),
+            radius = lockRadius,
+            center = lockPlateCenter
         )
-        drawCircle(
-            color = Color(0xFF3E2723),
-            radius = lockSize * 0.18f,
-            center = lockCenter
+        // Center Gem / Jewel
+        drawCircle(accentGem, radius = lockRadius * 0.55f, center = lockPlateCenter)
+        drawCircle(Color.White, radius = lockRadius * 0.20f, center = Offset(lockPlateCenter.x - 2, lockPlateCenter.y - 2))
+        // Keyhole Slot
+        drawCircle(Color(0xFF211300), radius = lockRadius * 0.18f, center = Offset(lockPlateCenter.x, lockPlateCenter.y + 2))
+
+        // -------------------------------------------------------------
+        // 4. CHEST LID (Curved 3D Barrel Vault, rotates up when open)
+        // -------------------------------------------------------------
+        val lidPivotY = h * 0.44f
+        val lidYOffset = -h * 0.26f * lidOpenRatio
+        val lidScaleY = 1f - 0.55f * lidOpenRatio
+
+        val lidYTop = lidPivotY + (h * 0.20f - lidPivotY) * lidScaleY + lidYOffset
+        val lidYBottom = lidPivotY + (h * 0.45f - lidPivotY) * lidScaleY + lidYOffset
+
+        val lidPath = Path().apply {
+            moveTo(w * 0.12f, lidYBottom)
+            cubicTo(
+                w * 0.14f, lidYTop,
+                w * 0.86f, lidYTop,
+                w * 0.88f, lidYBottom
+            )
+            lineTo(w * 0.88f, lidYBottom + 8.dp.toPx() * lidScaleY)
+            lineTo(w * 0.12f, lidYBottom + 8.dp.toPx() * lidScaleY)
+            close()
+        }
+
+        drawPath(
+            path = lidPath,
+            brush = Brush.verticalGradient(
+                colors = listOf(woodPrimary, woodSecondary),
+                startY = lidYTop,
+                endY = lidYBottom
+            )
         )
+
+        // Lid Plank Line
+        val lidPlankY = lidYTop + (lidYBottom - lidYTop) * 0.5f
+        drawLine(darkGroove, Offset(w * 0.16f, lidPlankY), Offset(w * 0.84f, lidPlankY), strokeWidth = 2.dp.toPx())
+
+        // Lid Vertical Metal Straps
+        val lidLeftStrap = Path().apply {
+            moveTo(w * 0.24f, lidYBottom)
+            cubicTo(w * 0.25f, lidYTop, w * 0.35f, lidYTop, w * 0.36f, lidYBottom)
+            close()
+        }
+        val lidRightStrap = Path().apply {
+            moveTo(w * 0.64f, lidYBottom)
+            cubicTo(w * 0.65f, lidYTop, w * 0.75f, lidYTop, w * 0.76f, lidYBottom)
+            close()
+        }
+        drawPath(lidLeftStrap, brush = strapBrush)
+        drawPath(lidRightStrap, brush = strapBrush)
+
+        // Lid Bottom Gold Rim Strap
+        val lidBottomRim = Path().apply {
+            moveTo(w * 0.12f, lidYBottom - 2.dp.toPx())
+            lineTo(w * 0.88f, lidYBottom - 2.dp.toPx())
+            lineTo(w * 0.88f, lidYBottom + 7.dp.toPx() * lidScaleY)
+            lineTo(w * 0.12f, lidYBottom + 7.dp.toPx() * lidScaleY)
+            close()
+        }
+        drawPath(lidBottomRim, color = metalPrimary)
+
+        // Lid Latch Clasp (Unhooks upward as lid opens)
+        val claspCenterY = lidYBottom + 4.dp.toPx()
+        val claspWidth = w * 0.12f
+        val claspHeight = 18.dp.toPx() * lidScaleY
+        drawRoundRect(
+            brush = Brush.verticalGradient(listOf(metalHighlight, metalPrimary, metalShadow)),
+            topLeft = Offset(w * 0.50f - claspWidth * 0.5f, claspCenterY - 6.dp.toPx() * lidScaleY),
+            size = Size(claspWidth, claspHeight),
+            cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx())
+        )
+        drawCircle(metalShadow, radius = 3.dp.toPx(), center = Offset(w * 0.50f, claspCenterY))
+
+        // Sparkles shooting out if open
+        if (lidOpenRatio > 0.3f) {
+            val sparkColor = Color(0xFFFFD54F)
+            drawSparkleStar(Offset(w * 0.25f, h * 0.20f - 0.2f * h * lidOpenRatio), 12.dp.toPx() * lidOpenRatio, sparkColor)
+            drawSparkleStar(Offset(w * 0.75f, h * 0.18f - 0.2f * h * lidOpenRatio), 14.dp.toPx() * lidOpenRatio, Color.White)
+            drawSparkleStar(Offset(w * 0.50f, h * 0.10f - 0.25f * h * lidOpenRatio), 16.dp.toPx() * lidOpenRatio, sparkColor)
+        }
     }
 }
 
