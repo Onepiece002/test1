@@ -12,6 +12,8 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -40,6 +42,7 @@ fun DrillSummaryCard(
     fontSizeSp: Float,
     onMessageUpdate: ((ChatMessage) -> Unit)? = null,
     onViewSolutions: ((String) -> Unit)? = null,
+    onDismiss: (() -> Unit)? = null,
     hideActions: Boolean = false,
     externalClaimTrigger: Int = 0,
     onClaimStateChanged: ((Int) -> Unit)? = null
@@ -210,6 +213,36 @@ fun DrillSummaryCard(
                             modifier = Modifier.fillMaxWidth(),
                             verticalArrangement = Arrangement.spacedBy(14.dp)
                         ) {
+                            // Header Row with Title and Close / Dismiss Button
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = if (isBlitz) "⚡ SPEED BLITZ SUMMARY" else "ARITHMETIC DRILL SUMMARY",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 11.sp,
+                                        letterSpacing = 0.8.sp
+                                    ),
+                                    color = Color(0xFF839EAB)
+                                )
+                                if (onDismiss != null) {
+                                    IconButton(
+                                        onClick = onDismiss,
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Close,
+                                            contentDescription = "Dismiss Drill Summary",
+                                            tint = Color(0xFF839EAB),
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
+                            }
+
                             // Row of 3 Duolingo Stat Boxes
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -432,6 +465,23 @@ fun DrillSummaryCard(
                                                 onViewSolutions?.invoke(json)
                                             }
                                         )
+                                    }
+
+                                    if (onDismiss != null) {
+                                        TextButton(
+                                            onClick = onDismiss,
+                                            modifier = Modifier.fillMaxWidth().height(36.dp)
+                                        ) {
+                                            Text(
+                                                text = "DISMISS",
+                                                style = MaterialTheme.typography.labelMedium.copy(
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 12.sp,
+                                                    letterSpacing = 0.8.sp
+                                                ),
+                                                color = Color(0xFF839EAB)
+                                            )
+                                        }
                                     }
                                 }
                             }

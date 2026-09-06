@@ -2,6 +2,9 @@ package com.focusbyrj.app.service
 
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -24,6 +27,8 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.TextView
+import android.widget.Toast
+import androidx.core.app.NotificationCompat
 import androidx.dynamicanimation.animation.FloatPropertyCompat
 import androidx.dynamicanimation.animation.SpringAnimation
 import androidx.dynamicanimation.animation.SpringForce
@@ -48,6 +53,7 @@ class BubbleService : Service() {
     private var glowRingView: View? = null
     private var closeView: View? = null
     private var layoutParams: WindowManager.LayoutParams? = null
+    private var closeLayoutParams: WindowManager.LayoutParams? = null
 
     // Message Preview Pill (Facebook Messenger style preview merged to bubble)
     private var previewPillView: View? = null
@@ -69,6 +75,16 @@ class BubbleService : Service() {
     private var peekAnimator: android.animation.ValueAnimator? = null
     private var springXAnim: SpringAnimation? = null
 
+    // Snooze and Auto-hide on permission dialog states
+    private var isHiddenForPermission = false
+    private var isBubbleAdded = false
+    private var isCloseViewAdded = false
+    private val snoozeHandler = Handler(Looper.getMainLooper())
+    private val snoozeExpiredRunnable = Runnable {
+        clearSnooze(this@BubbleService)
+        resumeBubble()
+    }
+
     private var taskObserverJob: Job? = null
     private var latestOverdueCount: Int = 0
     private val serviceScope = CoroutineScope(Dispatchers.Main + Job())
@@ -82,12 +98,40 @@ class BubbleService : Service() {
     }
 
     companion object {
+        @Volatile
+        var isRunning = false
         var isChatOpen = false
         const val ACTION_SETTINGS_CHANGED = "com.focusbyrj.app.BUBBLE_SETTINGS_CHANGED"
+        const val ACTION_HIDE_FOR_PERMISSION = "com.focusbyrj.app.HIDE_FOR_PERMISSION"
+        const val ACTION_RESTORE_FROM_PERMISSION = "com.focusbyrj.app.RESTORE_FROM_PERMISSION"
+        const val ACTION_SNOOZE_BUBBLE = "com.focusbyrj.app.SNOOZE_BUBBLE"
+        const val ACTION_RESUME_BUBBLE = "com.focusbyrj.app.RESUME_BUBBLE"
+
+        const val PREFS_KEY_SNOOZED_UNTIL = "bubble_snoozed_until"
+        const val DEFAULT_SNOOZE_DURATION_MS = 10 * 60 * 1000L // 10 minutes
+
+        fun isSnoozed(context: Context): Boolean {
+            val prefs = context.getSharedPreferences("bubble_prefs", Context.MODE_PRIVATE)
+            val snoozedUntil = prefs.getLong(PREFS_KEY_SNOOZED_UNTIL, 0L)
+            return System.currentTimeMillis() < snoozedUntil
+        }
+
+        fun snooze(context: Context, durationMs: Long = DEFAULT_SNOOZE_DURATION_MS) {
+            val prefs = context.getSharedPreferences("bubble_prefs", Context.MODE_PRIVATE)
+            prefs.edit().putLong(PREFS_KEY_SNOOZED_UNTIL, System.currentTimeMillis() + durationMs).apply()
+        }
+
+        fun clearSnooze(context: Context) {
+            val prefs = context.getSharedPreferences("bubble_prefs", Context.MODE_PRIVATE)
+            prefs.edit().remove(PREFS_KEY_SNOOZED_UNTIL).apply()
+        }
         
-        fun startIfEnabled(context: Context) {
+        fun startIfEnabled(context: Context, ignoreSnooze: Boolean = false) {
             val prefs = context.getSharedPreferences("bubble_prefs", Context.MODE_PRIVATE)
             if (prefs.getBoolean("bubble_enabled", false) && android.provider.Settings.canDrawOverlays(context)) {
+                if (!ignoreSnooze && isSnoozed(context)) {
+                    return
+                }
                 val intent = Intent(context, BubbleService::class.java)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     context.startForegroundService(intent)
@@ -103,15 +147,19 @@ class BubbleService : Service() {
             when (intent?.action) {
                 "com.focusbyrj.app.CHAT_CLOSED" -> {
                     isChatOpen = false
+                    addBubbleToWindowManager()
                     bubbleView?.visibility = android.view.View.VISIBLE
                     layoutParams?.x = lastX
                     layoutParams?.y = lastY
-                    windowManager.updateViewLayout(bubbleView, layoutParams)
+                    bubbleView?.let { bv ->
+                        try { windowManager.updateViewLayout(bv, layoutParams) } catch (_: Exception) {}
+                    }
                     resetHideTimer()
                     updateBadgeCount()
                 }
                 "com.focusbyrj.app.CHAT_OPENED" -> {
                     isChatOpen = true
+                    addBubbleToWindowManager()
                     bubbleView?.visibility = android.view.View.VISIBLE
                     hideHandler.removeCallbacks(hideRunnable)
                     dismissPreviewPill(animated = false)
@@ -120,14 +168,29 @@ class BubbleService : Service() {
                     lastY = layoutParams?.y ?: 0
                     layoutParams?.x = (16 * resources.displayMetrics.density).toInt()
                     layoutParams?.y = (48 * resources.displayMetrics.density).toInt()
-                    windowManager.updateViewLayout(bubbleView, layoutParams)
+                    bubbleView?.let { bv ->
+                        try { windowManager.updateViewLayout(bv, layoutParams) } catch (_: Exception) {}
+                    }
                     updateBadgeCount(0)
                 }
                 "com.focusbyrj.app.HIDE_BUBBLE" -> {
-                    bubbleView?.visibility = android.view.View.GONE
+                    removeBubbleFromWindowManager()
                 }
                 "com.focusbyrj.app.SHOW_BUBBLE" -> {
-                    bubbleView?.visibility = android.view.View.VISIBLE
+                    clearSnooze(this@BubbleService)
+                    addBubbleToWindowManager()
+                }
+                ACTION_HIDE_FOR_PERMISSION -> {
+                    hideForPermission()
+                }
+                ACTION_RESTORE_FROM_PERMISSION -> {
+                    restoreFromPermission()
+                }
+                ACTION_SNOOZE_BUBBLE -> {
+                    snoozeBubble()
+                }
+                ACTION_RESUME_BUBBLE -> {
+                    resumeBubble()
                 }
                 BubbleChatManager.ACTION_UNREAD_COUNT_CHANGED -> {
                     updateBadgeCount()
@@ -136,7 +199,8 @@ class BubbleService : Service() {
                     applyBubbleStyleSettings()
                 }
                 Intent.ACTION_USER_PRESENT, Intent.ACTION_SCREEN_ON -> {
-                    if (!isChatOpen) {
+                    if (!isChatOpen && !isSnoozed(this@BubbleService) && !isHiddenForPermission) {
+                        addBubbleToWindowManager()
                         unpeekBubble(animate = false)
                         resetHideTimer()
                     }
@@ -149,19 +213,30 @@ class BubbleService : Service() {
 
     @SuppressLint("UnspecifiedRegisterReceiverFlag")
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        when (intent?.action) {
+            ACTION_SNOOZE_BUBBLE -> snoozeBubble()
+            ACTION_RESUME_BUBBLE -> resumeBubble()
+            ACTION_HIDE_FOR_PERMISSION -> hideForPermission()
+            ACTION_RESTORE_FROM_PERMISSION -> restoreFromPermission()
+        }
         return START_STICKY
     }
     
     override fun onCreate() {
         super.onCreate()
+        isRunning = true
         
-        startForegroundNotification()
+        updateNotification()
 
         val filter = IntentFilter().apply {
             addAction("com.focusbyrj.app.CHAT_CLOSED")
             addAction("com.focusbyrj.app.CHAT_OPENED")
             addAction("com.focusbyrj.app.HIDE_BUBBLE")
             addAction("com.focusbyrj.app.SHOW_BUBBLE")
+            addAction(ACTION_HIDE_FOR_PERMISSION)
+            addAction(ACTION_RESTORE_FROM_PERMISSION)
+            addAction(ACTION_SNOOZE_BUBBLE)
+            addAction(ACTION_RESUME_BUBBLE)
             addAction(BubbleChatManager.ACTION_UNREAD_COUNT_CHANGED)
             addAction(ACTION_SETTINGS_CHANGED)
             addAction(Intent.ACTION_USER_PRESENT)
@@ -179,6 +254,118 @@ class BubbleService : Service() {
         setupBubble()
         startObservingTasks()
         resetHideTimer()
+    }
+
+    private fun showCloseView() {
+        val cv = closeView ?: return
+        val clp = closeLayoutParams ?: return
+        if (!isCloseViewAdded && cv.windowToken == null && !cv.isAttachedToWindow) {
+            try {
+                cv.visibility = View.VISIBLE
+                cv.scaleX = 1.0f
+                cv.scaleY = 1.0f
+                cv.alpha = 1.0f
+                (cv.background as? GradientDrawable)?.setColor(android.graphics.Color.parseColor("#88000000"))
+                windowManager.addView(cv, clp)
+                isCloseViewAdded = true
+            } catch (_: Exception) {}
+        } else {
+            cv.visibility = View.VISIBLE
+        }
+    }
+
+    private fun hideCloseView() {
+        val cv = closeView ?: return
+        try {
+            cv.visibility = View.GONE
+            if (isCloseViewAdded || cv.windowToken != null || cv.isAttachedToWindow) {
+                windowManager.removeView(cv)
+            }
+        } catch (_: Exception) {
+        } finally {
+            isCloseViewAdded = false
+        }
+    }
+
+    @Synchronized
+    private fun removeBubbleFromWindowManager() {
+        dismissPreviewPill(animated = false)
+        hideCloseView()
+        try {
+            bubbleView?.let { bv ->
+                if (isBubbleAdded || bv.windowToken != null || bv.isAttachedToWindow) {
+                    windowManager.removeView(bv)
+                }
+            }
+        } catch (_: Exception) {
+        } finally {
+            isBubbleAdded = false
+        }
+    }
+
+    @Synchronized
+    private fun addBubbleToWindowManager() {
+        if (isBubbleAdded) return
+        if (isSnoozed(this)) return
+        if (isHiddenForPermission) return
+        val prefs = getSharedPreferences("bubble_prefs", Context.MODE_PRIVATE)
+        if (!prefs.getBoolean("bubble_enabled", false)) return
+        if (!android.provider.Settings.canDrawOverlays(this)) return
+        val hideInLandscape = prefs.getBoolean("hide_in_landscape", true)
+        if (hideInLandscape && isLandscapeMode()) return
+
+        try {
+            bubbleView?.let { bv ->
+                val lp = layoutParams ?: return
+                if (!isBubbleAdded && bv.windowToken == null && !bv.isAttachedToWindow) {
+                    bv.visibility = View.VISIBLE
+                    bv.scaleX = 1f
+                    bv.scaleY = 1f
+                    bv.alpha = 1f
+                    windowManager.addView(bv, lp)
+                    isBubbleAdded = true
+                    updateBadgeCount()
+                    resetHideTimer()
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("BubbleService", "Error adding bubble view", e)
+        }
+    }
+
+    private fun hideForPermission() {
+        if (isHiddenForPermission) return
+        isHiddenForPermission = true
+        removeBubbleFromWindowManager()
+    }
+
+    private fun restoreFromPermission() {
+        if (!isHiddenForPermission) return
+        isHiddenForPermission = false
+        if (!isSnoozed(this)) {
+            addBubbleToWindowManager()
+        }
+    }
+
+    fun snoozeBubble(durationMs: Long = DEFAULT_SNOOZE_DURATION_MS) {
+        snooze(this, durationMs)
+        snoozeHandler.removeCallbacks(snoozeExpiredRunnable)
+        snoozeHandler.postDelayed(snoozeExpiredRunnable, durationMs)
+        removeBubbleFromWindowManager()
+        updateNotification()
+        try {
+            Toast.makeText(this, "Ayva snoozed for 10 min. Tap notification to resume.", Toast.LENGTH_SHORT).show()
+        } catch (_: Exception) {}
+    }
+
+    fun resumeBubble() {
+        clearSnooze(this)
+        snoozeHandler.removeCallbacks(snoozeExpiredRunnable)
+        addBubbleToWindowManager()
+        updateNotification()
+        try {
+            Toast.makeText(this, "Ayva resumed.", Toast.LENGTH_SHORT).show()
+        } catch (_: Exception) {}
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
@@ -217,14 +404,14 @@ class BubbleService : Service() {
 
         if (hideInLandscape && isLandscape) {
             hideHandler.removeCallbacks(hideRunnable)
-            bubbleView?.visibility = View.GONE
+            removeBubbleFromWindowManager()
             if (isChatOpen) {
                 sendBroadcast(Intent("com.focusbyrj.app.CLOSE_CHAT").setPackage(packageName))
             }
         } else {
             val isEnabled = prefs.getBoolean("bubble_enabled", false)
-            if (isEnabled) {
-                bubbleView?.visibility = View.VISIBLE
+            if (isEnabled && !isSnoozed(this) && !isHiddenForPermission) {
+                addBubbleToWindowManager()
                 if (isPeeking) {
                     peekBubble(force = true)
                 } else {
@@ -359,6 +546,7 @@ class BubbleService : Service() {
             x = 0
             y = (40 * resources.displayMetrics.density).toInt()
         }
+        this.closeLayoutParams = closeLayoutParams
 
         var initialX = 0
         var initialY = 0
@@ -382,7 +570,7 @@ class BubbleService : Service() {
                     initialTouchX = event.rawX
                     initialTouchY = event.rawY
                     isMoved = false
-                    closeView?.visibility = View.VISIBLE
+                    showCloseView()
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
@@ -424,7 +612,7 @@ class BubbleService : Service() {
                     true
                 }
                 MotionEvent.ACTION_UP -> {
-                    closeView?.visibility = View.GONE
+                    hideCloseView()
                     (closeView?.background as? GradientDrawable)?.setColor(android.graphics.Color.parseColor("#88000000"))
                     closeView?.scaleX = 1.0f
                     closeView?.scaleY = 1.0f
@@ -473,17 +661,22 @@ class BubbleService : Service() {
                     }
                     true
                 }
+                MotionEvent.ACTION_CANCEL -> {
+                    hideCloseView()
+                    (closeView?.background as? GradientDrawable)?.setColor(android.graphics.Color.parseColor("#88000000"))
+                    closeView?.scaleX = 1.0f
+                    closeView?.scaleY = 1.0f
+                    true
+                }
                 else -> false
             }
         }
 
         try {
-            windowManager.addView(closeView, closeLayoutParams)
-            windowManager.addView(bubbleView, layoutParams)
-            updateLandscapeVisibility()
+            updateLandscapeVisibility(force = true)
             updateBadgeCount()
         } catch (e: Exception) {
-            android.util.Log.e("BubbleService", "Error adding bubble view", e)
+            android.util.Log.e("BubbleService", "Error setting up bubble view", e)
         }
     }
 
@@ -675,11 +868,11 @@ class BubbleService : Service() {
     private fun applyBubbleStyleSettings() {
         val prefs = getSharedPreferences("bubble_prefs", Context.MODE_PRIVATE)
         val isEnabled = prefs.getBoolean("bubble_enabled", false)
-        if (!isEnabled) {
-            bubbleView?.visibility = View.GONE
+        if (!isEnabled || isSnoozed(this) || isHiddenForPermission) {
+            removeBubbleFromWindowManager()
             return
         } else {
-            bubbleView?.visibility = View.VISIBLE
+            addBubbleToWindowManager()
         }
 
         val accentColorStr = prefs.getString("bubble_accent_color", "#4ADE80") ?: "#4ADE80"
@@ -879,12 +1072,14 @@ class BubbleService : Service() {
 
     private fun dismissBubbleWithAnimation() {
         dismissPreviewPill(animated = true)
-        // Smoothly animate trash bin and bubble scaling down before stopping service
         closeView?.animate()
             ?.scaleX(0f)
             ?.scaleY(0f)
             ?.alpha(0f)
             ?.setDuration(180)
+            ?.withEndAction {
+                hideCloseView()
+            }
             ?.start()
 
         bubbleView?.animate()
@@ -893,12 +1088,13 @@ class BubbleService : Service() {
             ?.alpha(0f)
             ?.setDuration(200)
             ?.withEndAction {
-                stopSelf()
+                snoozeBubble()
             }
             ?.start()
     }
 
     private fun openChatWindow() {
+        clearSnooze(this)
         dismissPreviewPill(animated = false)
         BubbleChatManager.clearUnread(this)
         updateBadgeCount(0)
@@ -910,6 +1106,7 @@ class BubbleService : Service() {
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
+        if (isSnoozed(this)) return
         // Ensure the service restarts if the app task was swiped away from recent apps
         val restartServiceIntent = Intent(applicationContext, BubbleService::class.java).also {
             it.setPackage(packageName)
@@ -919,36 +1116,64 @@ class BubbleService : Service() {
         alarmService?.set(android.app.AlarmManager.ELAPSED_REALTIME, android.os.SystemClock.elapsedRealtime() + 1000, restartServicePendingIntent)
     }
 
-    private fun startForegroundNotification() {
+    private fun updateNotification() {
         val channelId = "ayva_bubble_fg_channel"
         val channelName = "Ayva Floating Bubble"
-        
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val manager = getSystemService(android.app.NotificationManager::class.java)
-            val channel = android.app.NotificationChannel(
+            val channel = NotificationChannel(
                 channelId,
                 channelName,
-                android.app.NotificationManager.IMPORTANCE_MIN
+                NotificationManager.IMPORTANCE_MIN
             ).apply {
                 description = "Keeps Ayva floating bubble active across all apps"
                 setShowBadge(false)
             }
-            manager?.createNotificationChannel(channel)
+            notificationManager.createNotificationChannel(channel)
         }
 
-        val intent = Intent(this, com.focusbyrj.app.MainActivity::class.java)
-        val pendingIntent = android.app.PendingIntent.getActivity(this, 0, intent, android.app.PendingIntent.FLAG_IMMUTABLE)
+        val mainIntent = Intent(this, com.focusbyrj.app.MainActivity::class.java)
+        val mainPendingIntent = PendingIntent.getActivity(this, 0, mainIntent, PendingIntent.FLAG_IMMUTABLE)
 
-        val notification = androidx.core.app.NotificationCompat.Builder(this, channelId)
-            .setContentTitle("Ayva is active")
-            .setContentText("Tap to open Focus by RJ")
+        val isSnoozedCurrently = isSnoozed(this)
+
+        val builder = NotificationCompat.Builder(this, channelId)
             .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentIntent(pendingIntent)
+            .setContentIntent(mainPendingIntent)
             .setOngoing(true)
-            .setPriority(androidx.core.app.NotificationCompat.PRIORITY_MIN)
+            .setPriority(NotificationCompat.PRIORITY_MIN)
             .setSilent(true)
-            .build()
 
+        if (isSnoozedCurrently) {
+            builder.setContentTitle("Ayva is snoozed (10m)")
+                .setContentText("Tap Resume to show the floating bubble again")
+
+            val resumeIntent = Intent(this, BubbleService::class.java).apply {
+                action = ACTION_RESUME_BUBBLE
+            }
+            val resumePendingIntent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                PendingIntent.getForegroundService(this, 101, resumeIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+            } else {
+                PendingIntent.getService(this, 101, resumeIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+            }
+            builder.addAction(android.R.drawable.ic_media_play, "Resume", resumePendingIntent)
+        } else {
+            builder.setContentTitle("Ayva is active")
+                .setContentText("Tap to open Focus by RJ")
+
+            val snoozeIntent = Intent(this, BubbleService::class.java).apply {
+                action = ACTION_SNOOZE_BUBBLE
+            }
+            val snoozePendingIntent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                PendingIntent.getForegroundService(this, 102, snoozeIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+            } else {
+                PendingIntent.getService(this, 102, snoozeIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+            }
+            builder.addAction(android.R.drawable.ic_lock_idle_alarm, "Snooze (10m)", snoozePendingIntent)
+        }
+
+        val notification = builder.build()
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 startForeground(2001, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
@@ -962,11 +1187,13 @@ class BubbleService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        isRunning = false
         taskObserverJob?.cancel()
         springXAnim?.cancel()
         hideHandler.removeCallbacks(hideRunnable)
+        snoozeHandler.removeCallbacks(snoozeExpiredRunnable)
         previewDismissHandler.removeCallbacks(previewDismissRunnable)
-        unregisterReceiver(receiver)
+        kotlin.runCatching { unregisterReceiver(receiver) }
         try {
             displayManager.unregisterDisplayListener(displayListener)
         } catch (_: Exception) {}
@@ -974,10 +1201,20 @@ class BubbleService : Service() {
             try { windowManager.removeView(it) } catch (e: Exception) {}
         }
         bubbleView?.let {
-            try { windowManager.removeView(it) } catch (e: Exception) {}
+            try {
+                if (isBubbleAdded || it.windowToken != null || it.isAttachedToWindow) {
+                    windowManager.removeView(it)
+                }
+            } catch (e: Exception) {}
+            isBubbleAdded = false
         }
         closeView?.let {
-            try { windowManager.removeView(it) } catch (e: Exception) {}
+            try {
+                if (isCloseViewAdded || it.windowToken != null || it.isAttachedToWindow) {
+                    windowManager.removeView(it)
+                }
+            } catch (e: Exception) {}
+            isCloseViewAdded = false
         }
     }
 }

@@ -32,6 +32,7 @@ class BootReceiver : BroadcastReceiver() {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED || intent.action == Intent.ACTION_MY_PACKAGE_REPLACED) {
             val pendingResult = goAsync()
             FocusBlockerService.startService(context)
+            com.focusbyrj.app.service.BubbleService.clearSnooze(context)
             com.focusbyrj.app.service.BubbleService.startIfEnabled(context)
             DailySummaryReceiver.scheduleDailySummaries(context)
             AptitudeReminderReceiver.scheduleRandomDrillReminders(context)

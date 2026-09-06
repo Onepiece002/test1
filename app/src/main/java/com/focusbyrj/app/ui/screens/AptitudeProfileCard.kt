@@ -179,7 +179,7 @@ fun AptitudeProfileCard() {
                         Text("🔥", fontSize = 18.sp)
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = "${profile.currentStreak.coerceAtLeast(1)}d Streak",
+                            text = "${profile.currentStreak}d Streak",
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black, fontSize = 14.sp),
                             color = Color(0xFFFF9600)
                         )
@@ -197,12 +197,13 @@ fun AptitudeProfileCard() {
                     }
 
                     val currentCycleDay = if (profile.currentStreak == 0) 1 else ((profile.currentStreak - 1) % 7) + 1
+                    val bonusText = if (profile.currentStreak == 0) "Daily Drill" else "+${profile.streakBonusPercent}% XP"
                     Surface(
                         shape = RoundedCornerShape(6.dp),
                         color = Color(0xFFFF9600).copy(alpha = 0.15f)
                     ) {
                         Text(
-                            text = "+${profile.streakBonusPercent.coerceAtLeast(5)}% XP",
+                            text = bonusText,
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black, fontSize = 11.sp),
                             color = Color(0xFFFF9600),
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)

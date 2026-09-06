@@ -525,6 +525,19 @@ fun ProfileStatItem(icon: ImageVector, value: String, label: String, color: Colo
 
 @Composable
 fun OverviewTab(stats: com.focusbyrj.app.util.FocusStats, heatmapTheme: com.focusbyrj.app.util.HeatmapTheme, profile: UserProfile) {
+    val streakSource by com.focusbyrj.app.util.StreakManager.streakSourceFlow.collectAsState()
+    val drillProfile by com.focusbyrj.app.util.AptitudeManager.profileFlow.collectAsState()
+
+    val (activeCurrentStreak, activeLongestStreak) = when (streakSource) {
+        com.focusbyrj.app.util.StreakSource.DRILL -> drillProfile.currentStreak to drillProfile.longestStreak
+        com.focusbyrj.app.util.StreakSource.FOCUS -> stats.currentStreak to maxOf(stats.longestStreak, profile.longestStreak)
+    }
+
+    val streakHeaderTitle = when (streakSource) {
+        com.focusbyrj.app.util.StreakSource.DRILL -> "Streaks (Drills)"
+        com.focusbyrj.app.util.StreakSource.FOCUS -> "Streaks (Focus)"
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -536,7 +549,14 @@ fun OverviewTab(stats: com.focusbyrj.app.util.FocusStats, heatmapTheme: com.focu
         DailyQuestsCard()
 
         Spacer(modifier = Modifier.height(16.dp))
-        com.focusbyrj.app.ui.components.HeatmapAndStreaksWidget(dailyUsage = stats.dailyFocusMinutes, theme = heatmapTheme, profile = profile)
+        com.focusbyrj.app.ui.components.HeatmapAndStreaksWidget(
+            dailyUsage = stats.dailyFocusMinutes,
+            theme = heatmapTheme,
+            profile = profile,
+            currentStreak = activeCurrentStreak,
+            longestStreak = activeLongestStreak,
+            streakTypeLabel = streakHeaderTitle
+        )
         
         Spacer(modifier = Modifier.height(32.dp))
         StatsGrid(profile = profile)

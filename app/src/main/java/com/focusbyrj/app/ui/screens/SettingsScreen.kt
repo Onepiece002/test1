@@ -120,10 +120,14 @@ fun SettingsScreen(navController: NavController) {
     val currentOverlayThemeMode by AppThemeManager.overlayThemeModeFlow.collectAsState()
     val currentHeatmapTheme by FocusStatsManager.themeFlow.collectAsState()
     val currentAppIconId by AppIconManager.currentIconFlow.collectAsState()
+    val currentStreakSource by com.focusbyrj.app.util.StreakManager.streakSourceFlow.collectAsState()
+    val drillProfileForStreak by com.focusbyrj.app.util.AptitudeManager.profileFlow.collectAsState()
+    val focusStatsForStreak by com.focusbyrj.app.util.FocusStatsManager.statsFlow.collectAsState()
 
     var showAppThemeSheet by remember { mutableStateOf(false) }
     var showHeatmapThemeSheet by remember { mutableStateOf(false) }
     var showAppIconSheet by remember { mutableStateOf(false) }
+    var showStreakSourceSheet by remember { mutableStateOf(false) }
     var showAppThemeModeDropdown by remember { mutableStateOf(false) }
     var showOverlayThemeModeDropdown by remember { mutableStateOf(false) }
 
@@ -271,6 +275,49 @@ fun SettingsScreen(navController: NavController) {
                                 )
                             }
                             Spacer(modifier = Modifier.width(4.dp))
+                            Icon(
+                                imageVector = Icons.Filled.ChevronRight,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                )
+
+                HorizontalDivider(
+                    modifier = Modifier.padding(start = 54.dp, end = 6.dp),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+                )
+
+                // Streak Display Source Row
+                SettingsNavigationRow(
+                    icon = Icons.Filled.Whatshot,
+                    iconTint = Color(0xFFFF9600),
+                    title = "Streak Source",
+                    subtitle = currentStreakSource.title,
+                    onClick = { showStreakSourceSheet = true },
+                    trailing = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            val activeVal = when (currentStreakSource) {
+                                com.focusbyrj.app.util.StreakSource.DRILL -> drillProfileForStreak.currentStreak
+                                com.focusbyrj.app.util.StreakSource.FOCUS -> focusStatsForStreak.currentStreak
+                            }
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = Color(0xFFFF9600).copy(alpha = 0.15f)
+                            ) {
+                                Text(
+                                    text = "🔥 ${activeVal}d",
+                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = Color(0xFFFF9600),
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(2.dp))
                             Icon(
                                 imageVector = Icons.Filled.ChevronRight,
                                 contentDescription = null,
@@ -744,6 +791,142 @@ fun SettingsScreen(navController: NavController) {
                                             .background(bg)
                                     )
                                 }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // --- STREAK DISPLAY SOURCE MODAL SHEET ---
+    if (showStreakSourceSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showStreakSourceSheet = false },
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .padding(bottom = 36.dp)
+            ) {
+                Text(
+                    text = "Choose Streak Source",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Select which streak is highlighted across the top bar and activity widgets",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    com.focusbyrj.app.util.StreakSource.entries.forEach { source ->
+                        val isSelected = currentStreakSource == source
+                        val streakValue = when (source) {
+                            com.focusbyrj.app.util.StreakSource.DRILL -> drillProfileForStreak.currentStreak
+                            com.focusbyrj.app.util.StreakSource.FOCUS -> focusStatsForStreak.currentStreak
+                        }
+                        val longestValue = when (source) {
+                            com.focusbyrj.app.util.StreakSource.DRILL -> drillProfileForStreak.longestStreak
+                            com.focusbyrj.app.util.StreakSource.FOCUS -> focusStatsForStreak.longestStreak
+                        }
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(
+                                    if (isSelected) Color(0xFFFF9600).copy(alpha = 0.12f)
+                                    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                )
+                                .border(
+                                    width = 1.dp,
+                                    color = if (isSelected) Color(0xFFFF9600) else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                                    shape = RoundedCornerShape(16.dp)
+                                )
+                                .clickable {
+                                    com.focusbyrj.app.util.StreakManager.setStreakSource(context, source)
+                                    showStreakSourceSheet = false
+                                }
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(38.dp)
+                                        .clip(CircleShape)
+                                        .background(
+                                            if (isSelected) Color(0xFFFF9600).copy(alpha = 0.2f)
+                                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(source.iconEmoji, fontSize = 18.sp)
+                                }
+                                Spacer(modifier = Modifier.width(14.dp))
+                                Column {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = source.title,
+                                            style = MaterialTheme.typography.bodyMedium.copy(
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                            ),
+                                            color = if (isSelected) Color(0xFFFF9600) else MaterialTheme.colorScheme.onSurface
+                                        )
+                                        if (source == com.focusbyrj.app.util.StreakSource.DRILL) {
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Surface(
+                                                shape = RoundedCornerShape(4.dp),
+                                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                                            ) {
+                                                Text(
+                                                    text = "Default",
+                                                    style = MaterialTheme.typography.labelSmall.copy(
+                                                        fontSize = 9.5.sp,
+                                                        fontWeight = FontWeight.Bold
+                                                    ),
+                                                    color = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = source.subtitle,
+                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                        lineHeight = 14.sp
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(
+                                    text = "${streakValue}d",
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = if (isSelected) Color(0xFFFF9600) else MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Best: ${longestValue}d",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                )
                             }
                         }
                     }

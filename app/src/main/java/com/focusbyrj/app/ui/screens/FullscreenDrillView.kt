@@ -102,6 +102,8 @@ fun FullscreenDrillView(
     var correctIndex by remember(currentQuestionMessage.id) { mutableStateOf(0) }
     var explanation by remember(currentQuestionMessage.id) { mutableStateOf("") }
     var isBookmarked by remember(currentQuestionMessage.id) { mutableStateOf(false) }
+    var vocabType by remember(currentQuestionMessage.id) { mutableStateOf<String?>(null) }
+    var vocabId by remember(currentQuestionMessage.id) { mutableStateOf<Int?>(null) }
     var timeOnQuestionSec by remember(currentQuestionMessage.id) { mutableStateOf(0) }
     var showGridDialog by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
@@ -121,6 +123,8 @@ fun FullscreenDrillView(
                 options = list
                 correctIndex = obj.optInt("correctIndex", 0)
                 explanation = obj.optString("explanation", "")
+                vocabType = if (obj.has("vocabType")) obj.optString("vocabType") else null
+                vocabId = if (obj.has("vocabId")) obj.optInt("vocabId") else null
             } catch (e: Exception) {
                 // Ignore parse errors
             }
@@ -615,7 +619,9 @@ fun FullscreenDrillView(
                                     correctIndex = correctIndex,
                                     userSelectedIndex = optIndex,
                                     status = if (isCorrectAnswer) "correct" else "wrong",
-                                    explanation = explanation
+                                    explanation = explanation,
+                                    vocabType = vocabType,
+                                    vocabId = vocabId
                                 )
                                 activeSession.attemptedIndices.add(questionIndex)
                                 onAnswerSubmitted(isCorrectAnswer, qRecord)

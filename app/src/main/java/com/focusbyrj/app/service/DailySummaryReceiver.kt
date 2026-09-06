@@ -72,16 +72,13 @@ class DailySummaryReceiver : BroadcastReceiver() {
 
             val pendingIntent = PendingIntent.getBroadcast(context, requestCode, intent, flags)
 
-            // Intent to open app when alarm triggers
-            val showIntent = Intent(context, com.focusbyrj.app.MainActivity::class.java).apply {
-                this.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            }
-            val showPendingIntent = PendingIntent.getActivity(context, requestCode + 100, showIntent, flags)
-
             try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    val alarmClockInfo = AlarmManager.AlarmClockInfo(triggerTime, showPendingIntent)
-                    alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    if (alarmManager.canScheduleExactAlarms()) {
+                        alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerTime, pendingIntent)
+                    } else {
+                        alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerTime, pendingIntent)
+                    }
                 } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                     alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerTime, pendingIntent)
                 } else {
@@ -163,33 +160,34 @@ class DailySummaryReceiver : BroadcastReceiver() {
         val vocabRepo = app.vocabRepository
         val newIdiom = vocabRepo.getNextIdiomToLearn()
         val newOws = vocabRepo.getNextOwsToLearn()
-        val revIdiom = vocabRepo.getLastLearnedIdiom()
-        val revOws = vocabRepo.getLastLearnedOws()
-        
-        if (newIdiom != null) vocabRepo.markIdiomLearned(newIdiom)
-        if (newOws != null) vocabRepo.markOwsLearned(newOws)
+        val revIdiom = vocabRepo.getRevisionIdiom(excludeId = newIdiom?.id)
+        val revOws = vocabRepo.getRevisionOws(excludeId = newOws?.id)
         
         val vocabObj = org.json.JSONObject()
         if (newIdiom != null) {
             vocabObj.put("idiom", org.json.JSONObject().apply {
+                put("id", newIdiom.id ?: -1)
                 put("idiom", newIdiom.idiom)
                 put("meaning", newIdiom.meaning)
             })
         }
         if (newOws != null) {
             vocabObj.put("ows", org.json.JSONObject().apply {
+                put("id", newOws.id ?: -1)
                 put("term", newOws.term)
                 put("definition", newOws.definition)
             })
         }
         if (revIdiom != null) {
             vocabObj.put("rev_idiom", org.json.JSONObject().apply {
+                put("id", revIdiom.id ?: -1)
                 put("idiom", revIdiom.idiom)
                 put("meaning", revIdiom.meaning)
             })
         }
         if (revOws != null) {
             vocabObj.put("rev_ows", org.json.JSONObject().apply {
+                put("id", revOws.id ?: -1)
                 put("term", revOws.term)
                 put("definition", revOws.definition)
             })
@@ -212,33 +210,34 @@ class DailySummaryReceiver : BroadcastReceiver() {
         val vocabRepo = app.vocabRepository
         val newIdiom = vocabRepo.getNextIdiomToLearn()
         val newOws = vocabRepo.getNextOwsToLearn()
-        val revIdiom = vocabRepo.getLastLearnedIdiom()
-        val revOws = vocabRepo.getLastLearnedOws()
-        
-        if (newIdiom != null) vocabRepo.markIdiomLearned(newIdiom)
-        if (newOws != null) vocabRepo.markOwsLearned(newOws)
+        val revIdiom = vocabRepo.getRevisionIdiom(excludeId = newIdiom?.id)
+        val revOws = vocabRepo.getRevisionOws(excludeId = newOws?.id)
         
         val vocabObj = org.json.JSONObject()
         if (newIdiom != null) {
             vocabObj.put("idiom", org.json.JSONObject().apply {
+                put("id", newIdiom.id ?: -1)
                 put("idiom", newIdiom.idiom)
                 put("meaning", newIdiom.meaning)
             })
         }
         if (newOws != null) {
             vocabObj.put("ows", org.json.JSONObject().apply {
+                put("id", newOws.id ?: -1)
                 put("term", newOws.term)
                 put("definition", newOws.definition)
             })
         }
         if (revIdiom != null) {
             vocabObj.put("rev_idiom", org.json.JSONObject().apply {
+                put("id", revIdiom.id ?: -1)
                 put("idiom", revIdiom.idiom)
                 put("meaning", revIdiom.meaning)
             })
         }
         if (revOws != null) {
             vocabObj.put("rev_ows", org.json.JSONObject().apply {
+                put("id", revOws.id ?: -1)
                 put("term", revOws.term)
                 put("definition", revOws.definition)
             })

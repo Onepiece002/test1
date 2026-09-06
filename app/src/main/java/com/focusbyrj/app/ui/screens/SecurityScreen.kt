@@ -70,16 +70,6 @@ fun SecurityScreen(navController: NavController) {
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
-    
-    LaunchedEffect(Unit) {
-        while (true) {
-            hasUsageStats = PermissionUtils.hasUsageStatsPermission(context)
-            hasOverlay = PermissionUtils.hasOverlayPermission(context)
-            isBatteryUnrestricted = PermissionUtils.isIgnoringBatteryOptimizations(context)
-            hasNotifications = PermissionUtils.hasNotificationPermission(context)
-            kotlinx.coroutines.delay(1000)
-        }
-    }
 
     Column(
         modifier = Modifier

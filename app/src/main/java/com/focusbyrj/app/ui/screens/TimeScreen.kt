@@ -30,6 +30,8 @@ import com.focusbyrj.app.ui.theme.SurfaceDark
 import com.focusbyrj.app.ui.theme.SurfaceVariantDark
 import com.focusbyrj.app.util.AppUsageData
 import com.focusbyrj.app.util.UsageStatsHelper
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @Composable
 fun TimeScreen() {
@@ -40,7 +42,9 @@ fun TimeScreen() {
 
     LaunchedEffect(hasPermission) {
         if (hasPermission) {
-            val stats = UsageStatsHelper.getTodayUsageStats(context).filter { it.timeInForegroundMs > 60_000 }
+            val stats = withContext(Dispatchers.IO) {
+                UsageStatsHelper.getTodayUsageStats(context).filter { it.timeInForegroundMs > 60_000 }
+            }
             usageStats = stats
             totalTimeMs = stats.sumOf { it.timeInForegroundMs }
         }

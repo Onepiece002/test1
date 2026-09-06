@@ -81,6 +81,7 @@ fun BubbleSettingsScreen(navController: NavController) {
     var hiddenAmount by remember { mutableStateOf(prefs.getInt("bubble_hidden_amount", 60)) }
     var glowIntensity by remember { mutableStateOf(prefs.getInt("bubble_glow_intensity", 65)) }
     var accentColorHex by remember { mutableStateOf(prefs.getString("bubble_accent_color", "#4ADE80") ?: "#4ADE80") }
+    var isCurrentlySnoozed by remember { mutableStateOf(BubbleService.isSnoozed(context)) }
 
     fun notifyService() {
         try {
@@ -147,14 +148,56 @@ fun BubbleSettingsScreen(navController: NavController) {
                                 isBubbleEnabled = it 
                                 prefs.edit().putBoolean("bubble_enabled", it).apply()
                                 
-                                val intent = Intent(context, BubbleService::class.java)
                                 if (it) {
-                                    context.startService(intent)
+                                    BubbleService.clearSnooze(context)
+                                    BubbleService.startIfEnabled(context, ignoreSnooze = true)
+                                    isCurrentlySnoozed = false
                                 } else {
+                                    val intent = Intent(context, BubbleService::class.java)
                                     context.stopService(intent)
                                 }
                             }
                         )
+                        if (isCurrentlySnoozed && isBubbleEnabled) {
+                            Surface(
+                                color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 6.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "Bubble is currently snoozed",
+                                            style = MaterialTheme.typography.labelLarge,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = MaterialTheme.colorScheme.onTertiaryContainer
+                                        )
+                                        Text(
+                                            text = "Tap Resume to show the floating bubble now",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.8f)
+                                        )
+                                    }
+                                    TextButton(
+                                        onClick = {
+                                            BubbleService.clearSnooze(context)
+                                            context.sendBroadcast(Intent(BubbleService.ACTION_RESUME_BUBBLE).setPackage(context.packageName))
+                                            isCurrentlySnoozed = false
+                                        }
+                                    ) {
+                                        Text("Resume")
+                                    }
+                                }
+                            }
+                        }
                         HorizontalDivider(
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
                             modifier = Modifier.padding(start = 54.dp, end = 6.dp)
@@ -598,6 +641,33 @@ fun BubbleSettingsScreen(navController: NavController) {
                         }
                     )
                 }
+
+                // --- VOCABULARY RETENTION & SPACED REPETITION ---
+                SettingsSectionHeader(title = "VOCABULARY RETENTION & SPACED REPETITION")
+                var vocabStats by remember { mutableStateOf<com.focusbyrj.app.data.VocabStats?>(null) }
+                LaunchedEffect(Unit) {
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        val repo = (context.applicationContext as? com.focusbyrj.app.FocusApplication)?.vocabRepository
+                        vocabStats = repo?.getStats()
+                    }
+                }
+                VocabRetentionHubCard(
+                    stats = vocabStats,
+                    onLaunchQuiz = {
+                        val intent = Intent(context, BubbleChatActivity::class.java).apply {
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                            putExtra("prefill_query", "/vocab_quiz")
+                        }
+                        context.startActivity(intent)
+                    },
+                    onLearnMore = {
+                        val intent = Intent(context, BubbleChatActivity::class.java).apply {
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                            putExtra("prefill_query", "/vocab learn_more")
+                        }
+                        context.startActivity(intent)
+                    }
+                )
 
                 Spacer(modifier = Modifier.height(24.dp))
             }
@@ -1250,5 +1320,258 @@ private fun AccentColorDropdownRow(
         }
     }
 }
+
+@Composable
+fun VocabRetentionHubCard(
+    stats: com.focusbyrj.app.data.VocabStats?,
+    onLaunchQuiz: () -> Unit,
+    onLearnMore: () -> Unit
+) {
+    val totalLearned = stats?.totalLearned ?: 0
+    val totalMastered = stats?.totalMastered ?: 0
+    val pendingReview = stats?.pendingReview ?: 0
+    val masteryProgress = if (totalLearned > 0) totalMastered.toFloat() / totalLearned else 0f
+    val masteryPercent = (masteryProgress * 100).toInt()
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp, vertical = 6.dp),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.School,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Column {
+                        Text(
+                            text = "Spaced Repetition Hub",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Interval retention & mastery system",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                ) {
+                    Text(
+                        text = "SRS ACTIVE",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.ExtraBold),
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            }
+
+            // Mastery Progress Indicator
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Mastery Level",
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "$masteryPercent% ($totalMastered of $totalLearned mastered)",
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                LinearProgressIndicator(
+                    progress = { masteryProgress },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(8.dp)
+                        .clip(RoundedCornerShape(4.dp)),
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+                )
+            }
+
+            // Stat Cards Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Learned Card
+                Surface(
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(10.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "$totalLearned",
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Learned",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                // Mastered Card
+                Surface(
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(10.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "$totalMastered",
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = "Mastered",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                // Review Queue Card
+                Surface(
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(10.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "$pendingReview",
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                            color = if (pendingReview > 0) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "In Queue",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            // SRS Logic details
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f)
+            ) {
+                Column(
+                    modifier = Modifier.padding(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = "• Words are only marked learned when you view them in brief cards or chat.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "• Revision words follow a spaced repetition queue (Leitner interval cycles).",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "• Quizzes promote words to Mastered or cycle missed words back to the top of review.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            // Quick actions
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Button(
+                    onClick = onLaunchQuiz,
+                    modifier = Modifier.weight(1.2f),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Quiz,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Take Vocab Quiz",
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                }
+
+                OutlinedButton(
+                    onClick = onLearnMore,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Add,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Learn Words",
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                }
+            }
+        }
+    }
+}
+
 
 

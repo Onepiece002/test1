@@ -57,17 +57,12 @@ object TaskReminderHelper {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
 
-            val showIntent = Intent(context, com.focusbyrj.app.MainActivity::class.java)
-            val showPendingIntent = PendingIntent.getActivity(
-                context,
-                task.id.toInt(),
-                showIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-            
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                val alarmClockInfo = AlarmManager.AlarmClockInfo(triggerTime, showPendingIntent)
-                alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                if (alarmManager.canScheduleExactAlarms()) {
+                    alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerTime, pendingIntent)
+                } else {
+                    alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerTime, pendingIntent)
+                }
             } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerTime, pendingIntent)
             } else {

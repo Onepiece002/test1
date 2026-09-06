@@ -25,6 +25,7 @@ fun VocabBriefContent(
     onLearnMoreClick: () -> Unit,
     onQuizClick: () -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     var showButtons by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
@@ -45,6 +46,25 @@ fun VocabBriefContent(
     val revIdiomObj = jsonObj.optJSONObject("rev_idiom")
     val revOwsObj = jsonObj.optJSONObject("rev_ows")
 
+    // Confirm words learned and cycle revision items when the user actually views this card
+    LaunchedEffect(vocabJson) {
+        val idiomId = idiomObj?.optInt("id", -1)?.takeIf { it > 0 }
+        val owsId = owsObj?.optInt("id", -1)?.takeIf { it > 0 }
+        val revIdiomId = revIdiomObj?.optInt("id", -1)?.takeIf { it > 0 }
+        val revOwsId = revOwsObj?.optInt("id", -1)?.takeIf { it > 0 }
+
+        if (idiomId != null || owsId != null || revIdiomId != null || revOwsId != null) {
+            val app = context.applicationContext as? com.focusbyrj.app.FocusApplication
+            app?.vocabRepository?.let { repo ->
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    if (idiomId != null) repo.markIdiomLearned(idiomId)
+                    if (owsId != null) repo.markOwsLearned(owsId)
+                    repo.touchRevision(revIdiomId, revOwsId)
+                }
+            }
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -53,7 +73,7 @@ fun VocabBriefContent(
     ) {
         if (revIdiomObj != null || revOwsObj != null) {
             Text(
-                text = "Revision from last night:",
+                text = "🔄 Spaced Review (Retention Queue):",
                 style = MaterialTheme.typography.labelMedium.copy(
                     fontSize = (fontSizeSp * 0.85f).sp,
                     fontWeight = FontWeight.Bold,
@@ -85,7 +105,7 @@ fun VocabBriefContent(
         }
 
         Text(
-            text = "New for today:",
+            text = "✨ Today's New Words:",
             style = MaterialTheme.typography.labelMedium.copy(
                 fontSize = (fontSizeSp * 0.85f).sp,
                 fontWeight = FontWeight.Bold,

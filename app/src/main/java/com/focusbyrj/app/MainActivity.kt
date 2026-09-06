@@ -239,6 +239,12 @@ fun MainAppScreen(
     val isSessionActive by viewModel.isSessionActive.collectAsStateWithLifecycle()
     val economyProfile by FocusEconomyManager.profileFlow.collectAsStateWithLifecycle()
     val focusStats by FocusStatsManager.statsFlow.collectAsStateWithLifecycle()
+    val drillProfile by com.focusbyrj.app.util.AptitudeManager.profileFlow.collectAsStateWithLifecycle()
+    val streakSource by com.focusbyrj.app.util.StreakManager.streakSourceFlow.collectAsStateWithLifecycle()
+    val activeStreakDays = when (streakSource) {
+        com.focusbyrj.app.util.StreakSource.DRILL -> drillProfile.currentStreak
+        com.focusbyrj.app.util.StreakSource.FOCUS -> focusStats.currentStreak
+    }
     val context = LocalContext.current
 
     val prefs = remember { context.getSharedPreferences("focus_app_prefs", Context.MODE_PRIVATE) }
@@ -801,7 +807,7 @@ fun MainAppScreen(
                                     Text("🔥", fontSize = 12.sp)
                                     Spacer(modifier = Modifier.width(3.dp))
                                     Text(
-                                        text = "${focusStats.currentStreak}d",
+                                        text = "${activeStreakDays}d",
                                         style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                                         color = MaterialTheme.colorScheme.onSurface
                                     )

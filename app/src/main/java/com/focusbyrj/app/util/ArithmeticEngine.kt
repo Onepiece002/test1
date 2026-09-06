@@ -1001,7 +1001,7 @@ object ArithmeticEngine {
      * Since relation between A and C is unknown, one of (<, =, >) must be true.
      */
     private fun generateEitherOrInequality(difficulty: ArithmeticDifficulty): ArithmeticQuestion {
-        val chars = listOf("P", "Q", "R", "S", "T", "U").shuffled()
+        val chars = listOf("P", "Q", "R", "S", "T", "U", "V", "W").shuffled()
         val isOppositeSymbolCase = (difficulty == ArithmeticDifficulty.HARD && Random.nextBoolean())
 
         val statementText: String
@@ -1016,11 +1016,10 @@ object ArithmeticEngine {
             val symStrict = if (isGreater) ">" else "<"
             val e1 = chars[0]; val e2 = chars[1]; val e3 = chars[2]; val e4 = chars[3]
 
-            if (difficulty == ArithmeticDifficulty.HARD) {
-                // Multi-statement
-                statementText = "$e1 $sym1 $e2, $e2 = $e3, $e3 $sym1 $e4"
-            } else {
-                statementText = "$e1 $sym1 $e2 = $e3 $sym1 $e4"
+            statementText = when (difficulty) {
+                ArithmeticDifficulty.HARD -> "$e1 $sym1 $e2, $e2 = $e3, $e3 $sym1 $e4"
+                ArithmeticDifficulty.MEDIUM -> "$e1 $sym1 $e2 = $e3; $e3 $sym1 $e4"
+                else -> "$e1 $sym1 $e2 = $e3 $sym1 $e4"
             }
 
             c1Text = "I. $e1 $symStrict $e4"
@@ -1031,13 +1030,16 @@ object ArithmeticEngine {
                 1. Combining statements gives: $e1 $sym1 $e4 ($e1 is ${if (isGreater) "greater than or equal to" else "less than or equal to"} $e4).
                 2. Conclusion I: $e1 $symStrict $e4 (Alone not definitely true).
                 3. Conclusion II: $e1 = $e4 (Alone not definitely true).
-                4. Since both share the same elements and together cover all possibilities of '$sym1', **Either Conclusion I or II is true**.
+                4. Since both conclusions share the same elements ($e1 and $e4) and together cover both possibilities of '$sym1', **Either Conclusion I or II is true**.
             """.trimIndent()
         } else {
             // Case 2: Opposite symbols (No relation between elements)
             val e1 = chars[0]; val e2 = chars[1]; val e3 = chars[2]; val e4 = chars[3]
-            statementText = "$e1 > $e2 = $e3 < $e4"
-            // Between e1 and e4 there is opposite sign (> and <), so relation cannot be determined
+            statementText = when (difficulty) {
+                ArithmeticDifficulty.HARD -> "$e1 > $e2, $e2 = $e3, $e3 < $e4"
+                ArithmeticDifficulty.MEDIUM -> "$e1 > $e2 = $e3; $e3 < $e4"
+                else -> "$e1 > $e2 = $e3 < $e4"
+            }
             c1Text = "I. $e1 > $e4"
             c2Text = "II. $e1 ≤ $e4"
 
@@ -1045,7 +1047,7 @@ object ArithmeticEngine {
                 💡 **Either-Or Rule 2 (Three-Symbol Complementary Pair):**
                 1. Between $e1 and $e4, the signs are opposite ($e1 > $e2 and $e3 < $e4).
                 2. Therefore, no definite relationship can be established between $e1 and $e4.
-                3. The possibilities are: $e1 > $e4, $e1 < $e4, or $e1 = $e4.
+                3. The three possible relations are: $e1 > $e4, $e1 < $e4, or $e1 = $e4.
                 4. Conclusion I ($e1 > $e4) and Conclusion II ($e1 ≤ $e4) together cover all 3 possible relations (>, <, =).
                 5. Hence, **Either Conclusion I or II is true**.
             """.trimIndent()
@@ -1062,106 +1064,215 @@ object ArithmeticEngine {
 
     private fun generateStandardInequality(difficulty: ArithmeticDifficulty, targetOutcome: Int): ArithmeticQuestion {
         // TargetOutcome: 0 -> Only I, 1 -> Only II, 3 -> Neither, 4 -> Both
-        val letters = listOf("A", "B", "C", "D", "E", "F", "G").shuffled()
-
-        // Create a chain of 5 elements: e0, e1, e2, e3, e4
+        val letters = listOf("A", "B", "C", "D", "E", "F", "G", "H", "K", "M", "N", "P", "R", "S", "T").shuffled()
         val e0 = letters[0]; val e1 = letters[1]; val e2 = letters[2]; val e3 = letters[3]; val e4 = letters[4]
 
-        // Decide relations:
-        // We will construct statements and verify truth values of two conclusions
-        // Conclusion 1 will test (e0, e2) or (e0, e3)
-        // Conclusion 2 will test (e1, e4) or (e2, e4)
-
-        // Build relations:
-        // Types of operators: ">", ">=", "=", "<", "<="
-        val op1 = if (Random.nextBoolean()) ">" else "≥"
-        val op2 = if (Random.nextBoolean()) "=" else op1
-        val op3 = if (targetOutcome == 3 && Random.nextBoolean()) "<" else if (Random.nextBoolean()) ">" else "≥"
-        val op4 = if (Random.nextBoolean()) "=" else "≥"
-
-        var stmtDisplay = if (difficulty == ArithmeticDifficulty.EASY) {
-            "$e0 $op1 $e1 $op2 $e2 $op3 $e3 $op4 $e4"
-        } else if (difficulty == ArithmeticDifficulty.MEDIUM) {
-            // Split into 2 statements sharing a common pivot
-            "$e0 $op1 $e1 $op2 $e2; $e2 $op3 $e3 $op4 $e4"
-        } else {
-            // Split into 3 statements (PO Level)
-            "$e0 $op1 $e1; $e2 $op2 $e1; $e2 $op3 $e3 $op4 $e4"
-        }
-
-        // Determine true statements:
-        val (c1, c1True) = when (targetOutcome) {
-            0, 4 -> Pair("I. $e0 > $e2", true)
-            1, 3 -> Pair("I. $e0 < $e2", false)
-            else -> Pair("I. $e0 > $e2", true)
-        }
-
-        val (c2, c2True) = when (targetOutcome) {
-            1, 4 -> Pair("II. $e1 ≥ $e4", true)
-            0, 3 -> Pair("II. $e1 < $e4", false)
-            else -> Pair("II. $e1 ≥ $e4", true)
-        }
-
-        // Adjust statements to match truth accurately
+        val pattern = Random.nextInt(3)
+        val c1: String
+        val c2: String
         val finalStatements: String
         val finalExpl: String
-        if (targetOutcome == 4) { // Both true
-            finalStatements = if (difficulty == ArithmeticDifficulty.HARD) {
-                "$e0 > $e1, $e1 = $e2, $e2 ≥ $e3, $e3 = $e4"
-            } else if (difficulty == ArithmeticDifficulty.MEDIUM) {
-                "$e0 > $e1 = $e2; $e2 ≥ $e3 = $e4"
-            } else {
-                "$e0 > $e1 = $e2 ≥ $e3 = $e4"
+
+        when (targetOutcome) {
+            4 -> { // Both true
+                when (pattern) {
+                    0 -> {
+                        c1 = "I. $e0 > $e2"
+                        c2 = "II. $e1 ≥ $e4"
+                        finalStatements = when (difficulty) {
+                            ArithmeticDifficulty.HARD -> "$e0 > $e1, $e1 = $e2, $e2 ≥ $e3, $e3 = $e4"
+                            ArithmeticDifficulty.MEDIUM -> "$e0 > $e1 = $e2; $e2 ≥ $e3 = $e4"
+                            else -> "$e0 > $e1 = $e2 ≥ $e3 = $e4"
+                        }
+                        finalExpl = """
+                            💡 **Both Conclusions Follow:**
+                            • Statement combined: $e0 > $e1 = $e2 ≥ $e3 = $e4
+                            • Conclusion I ($e0 > $e2): From $e0 > $e1 = $e2, strict '>' dominates '=' ➔ $e0 > $e2 is **True**.
+                            • Conclusion II ($e1 ≥ $e4): From $e1 = $e2 ≥ $e3 = $e4, the relations '=' and '≥' give $e1 ≥ $e4 ➔ **True**.
+                            Hence, **Both Conclusions I and II are true**.
+                        """.trimIndent()
+                    }
+                    1 -> {
+                        c1 = "I. $e0 ≥ $e2"
+                        c2 = "II. $e1 > $e4"
+                        finalStatements = when (difficulty) {
+                            ArithmeticDifficulty.HARD -> "$e0 ≥ $e1, $e1 = $e2, $e2 > $e3, $e3 ≥ $e4"
+                            ArithmeticDifficulty.MEDIUM -> "$e0 ≥ $e1 = $e2; $e2 > $e3 ≥ $e4"
+                            else -> "$e0 ≥ $e1 = $e2 > $e3 ≥ $e4"
+                        }
+                        finalExpl = """
+                            💡 **Both Conclusions Follow:**
+                            • Statement combined: $e0 ≥ $e1 = $e2 > $e3 ≥ $e4
+                            • Conclusion I ($e0 ≥ $e2): From $e0 ≥ $e1 = $e2 ➔ $e0 ≥ $e2 is **True**.
+                            • Conclusion II ($e1 > $e4): From $e1 = $e2 > $e3 ≥ $e4, strict '>' dominates '≥' ➔ $e1 > $e4 is **True**.
+                            Hence, **Both Conclusions I and II are true**.
+                        """.trimIndent()
+                    }
+                    else -> {
+                        c1 = "I. $e0 > $e3"
+                        c2 = "II. $e1 > $e4"
+                        finalStatements = when (difficulty) {
+                            ArithmeticDifficulty.HARD -> "$e0 = $e1, $e1 > $e2, $e2 = $e3, $e3 > $e4"
+                            ArithmeticDifficulty.MEDIUM -> "$e0 = $e1 > $e2; $e2 = $e3 > $e4"
+                            else -> "$e0 = $e1 > $e2 = $e3 > $e4"
+                        }
+                        finalExpl = """
+                            💡 **Both Conclusions Follow:**
+                            • Statement combined: $e0 = $e1 > $e2 = $e3 > $e4
+                            • Conclusion I ($e0 > $e3): From $e0 = $e1 > $e2 = $e3 ➔ $e0 > $e3 is **True**.
+                            • Conclusion II ($e1 > $e4): From $e1 > $e2 = $e3 > $e4 ➔ $e1 > $e4 is **True**.
+                            Hence, **Both Conclusions I and II are true**.
+                        """.trimIndent()
+                    }
+                }
             }
-            finalExpl = """
-                💡 **Both Conclusions Follow:**
-                From statement: $e0 > $e1 = $e2 ≥ $e3 = $e4
-                • Conclusion I ($e0 > $e2): Since $e0 > $e1 = $e2 ➔ $e0 > $e2 (True).
-                • Conclusion II ($e1 ≥ $e4): Since $e1 = $e2 ≥ $e3 = $e4 ➔ $e1 ≥ $e4 (True).
-                Hence, **Both Conclusions I and II are true**.
-            """.trimIndent()
-        } else if (targetOutcome == 0) { // Only I true
-            finalStatements = if (difficulty == ArithmeticDifficulty.HARD) {
-                "$e0 > $e1, $e1 = $e2, $e2 < $e3, $e3 ≤ $e4"
-            } else if (difficulty == ArithmeticDifficulty.MEDIUM) {
-                "$e0 > $e1 = $e2; $e2 < $e3 ≤ $e4"
-            } else {
-                "$e0 > $e1 = $e2 < $e3 ≤ $e4"
+            0 -> { // Only I true
+                when (pattern) {
+                    0 -> {
+                        c1 = "I. $e0 > $e2"
+                        c2 = "II. $e1 ≥ $e4"
+                        finalStatements = when (difficulty) {
+                            ArithmeticDifficulty.HARD -> "$e0 > $e1, $e1 = $e2, $e2 < $e3, $e3 ≤ $e4"
+                            ArithmeticDifficulty.MEDIUM -> "$e0 > $e1 = $e2; $e2 < $e3 ≤ $e4"
+                            else -> "$e0 > $e1 = $e2 < $e3 ≤ $e4"
+                        }
+                        finalExpl = """
+                            💡 **Only Conclusion I Follows:**
+                            • Conclusion I ($e0 > $e2): From $e0 > $e1 = $e2, strict '>' dominates '=' ➔ $e0 > $e2 is **True**.
+                            • Conclusion II ($e1 ≥ $e4): From $e1 = $e2 < $e3 ≤ $e4, we obtain $e1 < $e4. Therefore, $e1 ≥ $e4 is definitely **False**.
+                            Hence, **Only Conclusion I is true**.
+                        """.trimIndent()
+                    }
+                    1 -> {
+                        c1 = "I. $e0 > $e3"
+                        c2 = "II. $e2 ≥ $e4"
+                        finalStatements = when (difficulty) {
+                            ArithmeticDifficulty.HARD -> "$e0 ≥ $e1, $e1 > $e2, $e2 = $e3, $e3 < $e4"
+                            ArithmeticDifficulty.MEDIUM -> "$e0 ≥ $e1 > $e2; $e2 = $e3 < $e4"
+                            else -> "$e0 ≥ $e1 > $e2 = $e3 < $e4"
+                        }
+                        finalExpl = """
+                            💡 **Only Conclusion I Follows:**
+                            • Conclusion I ($e0 > $e3): From $e0 ≥ $e1 > $e2 = $e3, strict '>' dominates '≥' and '=' ➔ $e0 > $e3 is **True**.
+                            • Conclusion II ($e2 ≥ $e4): From $e2 = $e3 < $e4, we obtain $e2 < $e4. Therefore, $e2 ≥ $e4 is definitely **False**.
+                            Hence, **Only Conclusion I is true**.
+                        """.trimIndent()
+                    }
+                    else -> {
+                        c1 = "I. $e1 > $e3"
+                        c2 = "II. $e0 < $e4"
+                        finalStatements = when (difficulty) {
+                            ArithmeticDifficulty.HARD -> "$e0 = $e1, $e1 > $e2, $e2 ≥ $e3, $e3 < $e4"
+                            ArithmeticDifficulty.MEDIUM -> "$e0 = $e1 > $e2; $e2 ≥ $e3 < $e4"
+                            else -> "$e0 = $e1 > $e2 ≥ $e3 < $e4"
+                        }
+                        finalExpl = """
+                            💡 **Only Conclusion I Follows:**
+                            • Conclusion I ($e1 > $e3): From $e1 > $e2 ≥ $e3, strict '>' dominates '≥' ➔ $e1 > $e3 is **True**.
+                            • Conclusion II ($e0 < $e4): Between $e0 and $e4, the signs flip ($e1 > $e2 and $e3 < $e4), so no definite relation can be established ➔ **False**.
+                            Hence, **Only Conclusion I is true**.
+                        """.trimIndent()
+                    }
+                }
             }
-            finalExpl = """
-                💡 **Only Conclusion I Follows:**
-                • Conclusion I ($e0 > $e2): $e0 > $e1 = $e2 ➔ $e0 > $e2 (True).
-                • Conclusion II ($e1 ≥ $e4): Between $e1 and $e4, the sign flips ($e2 < $e3), so $e1 ≥ $e4 cannot be true.
-                Hence, **Only Conclusion I is true**.
-            """.trimIndent()
-        } else if (targetOutcome == 1) { // Only II true
-            finalStatements = if (difficulty == ArithmeticDifficulty.HARD) {
-                "$e0 < $e1, $e1 ≥ $e2, $e2 = $e3, $e3 ≥ $e4"
-            } else if (difficulty == ArithmeticDifficulty.MEDIUM) {
-                "$e0 < $e1 ≥ $e2; $e2 = $e3 ≥ $e4"
-            } else {
-                "$e0 < $e1 ≥ $e2 = $e3 ≥ $e4"
+            1 -> { // Only II true
+                when (pattern) {
+                    0 -> {
+                        c1 = "I. $e0 > $e2"
+                        c2 = "II. $e1 ≥ $e4"
+                        finalStatements = when (difficulty) {
+                            ArithmeticDifficulty.HARD -> "$e0 < $e1, $e1 ≥ $e2, $e2 = $e3, $e3 ≥ $e4"
+                            ArithmeticDifficulty.MEDIUM -> "$e0 < $e1 ≥ $e2; $e2 = $e3 ≥ $e4"
+                            else -> "$e0 < $e1 ≥ $e2 = $e3 ≥ $e4"
+                        }
+                        finalExpl = """
+                            💡 **Only Conclusion II Follows:**
+                            • Conclusion I ($e0 > $e2): Between $e0 and $e2 ($e0 < $e1 ≥ $e2), opposite symbols ('<' and '≥') exist. No definite relation can be established ➔ **False**.
+                            • Conclusion II ($e1 ≥ $e4): From $e1 ≥ $e2 = $e3 ≥ $e4, combining relations gives $e1 ≥ $e4 ➔ **True**.
+                            Hence, **Only Conclusion II is true**.
+                        """.trimIndent()
+                    }
+                    1 -> {
+                        c1 = "I. $e1 > $e3"
+                        c2 = "II. $e2 > $e4"
+                        finalStatements = when (difficulty) {
+                            ArithmeticDifficulty.HARD -> "$e0 ≤ $e1, $e1 < $e2, $e2 = $e3, $e3 > $e4"
+                            ArithmeticDifficulty.MEDIUM -> "$e0 ≤ $e1 < $e2; $e2 = $e3 > $e4"
+                            else -> "$e0 ≤ $e1 < $e2 = $e3 > $e4"
+                        }
+                        finalExpl = """
+                            💡 **Only Conclusion II Follows:**
+                            • Conclusion I ($e1 > $e3): From $e1 < $e2 = $e3, we obtain $e1 < $e3. Therefore, $e1 > $e3 is definitely **False**.
+                            • Conclusion II ($e2 > $e4): From $e2 = $e3 > $e4, combining relations gives $e2 > $e4 ➔ **True**.
+                            Hence, **Only Conclusion II is true**.
+                        """.trimIndent()
+                    }
+                    else -> {
+                        c1 = "I. $e0 > $e2"
+                        c2 = "II. $e2 ≥ $e4"
+                        finalStatements = when (difficulty) {
+                            ArithmeticDifficulty.HARD -> "$e0 > $e1, $e1 < $e2, $e2 = $e3, $e3 ≥ $e4"
+                            ArithmeticDifficulty.MEDIUM -> "$e0 > $e1 < $e2; $e2 = $e3 ≥ $e4"
+                            else -> "$e0 > $e1 < $e2 = $e3 ≥ $e4"
+                        }
+                        finalExpl = """
+                            💡 **Only Conclusion II Follows:**
+                            • Conclusion I ($e0 > $e2): Between $e0 and $e2 ($e0 > $e1 < $e2), opposite signs ('>' and '<') exist. No relationship can be established ➔ **False**.
+                            • Conclusion II ($e2 ≥ $e4): From $e2 = $e3 ≥ $e4, we obtain $e2 ≥ $e4 ➔ **True**.
+                            Hence, **Only Conclusion II is true**.
+                        """.trimIndent()
+                    }
+                }
             }
-            finalExpl = """
-                💡 **Only Conclusion II Follows:**
-                • Conclusion I ($e0 > $e2): Between $e0 and $e2, opposite symbols (< and ≥) exist. Thus $e0 > $e2 is false.
-                • Conclusion II ($e1 ≥ $e4): $e1 ≥ $e2 = $e3 ≥ $e4 ➔ $e1 ≥ $e4 (True).
-                Hence, **Only Conclusion II is true**.
-            """.trimIndent()
-        } else { // Neither true (3)
-            finalStatements = if (difficulty == ArithmeticDifficulty.HARD) {
-                "$e0 < $e1, $e1 > $e2, $e2 < $e3, $e3 > $e4"
-            } else if (difficulty == ArithmeticDifficulty.MEDIUM) {
-                "$e0 < $e1 > $e2; $e2 < $e3 > $e4"
-            } else {
-                "$e0 < $e1 > $e2 < $e3 > $e4"
+            else -> { // Neither true (3)
+                when (pattern) {
+                    0 -> {
+                        c1 = "I. $e0 > $e2"
+                        c2 = "II. $e1 < $e4"
+                        finalStatements = when (difficulty) {
+                            ArithmeticDifficulty.HARD -> "$e0 < $e1, $e1 > $e2, $e2 < $e3, $e3 > $e4"
+                            ArithmeticDifficulty.MEDIUM -> "$e0 < $e1 > $e2; $e2 < $e3 > $e4"
+                            else -> "$e0 < $e1 > $e2 < $e3 > $e4"
+                        }
+                        finalExpl = """
+                            💡 **Neither Conclusion Follows:**
+                            • Conclusion I ($e0 > $e2): Between $e0 and $e2 ($e0 < $e1 > $e2), signs are opposite ('<' and '>'), so no relation can be established ➔ **False**.
+                            • Conclusion II ($e1 < $e4): Between $e1 and $e4 ($e1 > $e2 < $e3 > $e4), signs are opposite, so no relation can be established ➔ **False**.
+                            Hence, **Neither Conclusion I nor II is true**.
+                        """.trimIndent()
+                    }
+                    1 -> {
+                        c1 = "I. $e0 < $e2"
+                        c2 = "II. $e1 > $e4"
+                        finalStatements = when (difficulty) {
+                            ArithmeticDifficulty.HARD -> "$e0 > $e1, $e1 < $e2, $e2 > $e3, $e3 < $e4"
+                            ArithmeticDifficulty.MEDIUM -> "$e0 > $e1 < $e2; $e2 > $e3 < $e4"
+                            else -> "$e0 > $e1 < $e2 > $e3 < $e4"
+                        }
+                        finalExpl = """
+                            💡 **Neither Conclusion Follows:**
+                            • Conclusion I ($e0 < $e2): Between $e0 and $e2 ($e0 > $e1 < $e2), signs are opposite ('>' and '<'), so no relation can be established ➔ **False**.
+                            • Conclusion II ($e1 > $e4): Between $e1 and $e4 ($e1 < $e2 > $e3 < $e4), signs are opposite, so no relation can be established ➔ **False**.
+                            Hence, **Neither Conclusion I nor II is true**.
+                        """.trimIndent()
+                    }
+                    else -> {
+                        c1 = "I. $e0 > $e2"
+                        c2 = "II. $e2 ≤ $e4"
+                        finalStatements = when (difficulty) {
+                            ArithmeticDifficulty.HARD -> "$e0 ≥ $e1, $e1 < $e2, $e2 ≤ $e3, $e3 > $e4"
+                            ArithmeticDifficulty.MEDIUM -> "$e0 ≥ $e1 < $e2; $e2 ≤ $e3 > $e4"
+                            else -> "$e0 ≥ $e1 < $e2 ≤ $e3 > $e4"
+                        }
+                        finalExpl = """
+                            💡 **Neither Conclusion Follows:**
+                            • Conclusion I ($e0 > $e2): Between $e0 and $e2 ($e0 ≥ $e1 < $e2), signs are opposite ('≥' and '<'), so no relation can be established ➔ **False**.
+                            • Conclusion II ($e2 ≤ $e4): Between $e2 and $e4 ($e2 ≤ $e3 > $e4), signs are opposite ('≤' and '>'), so no relation can be established ➔ **False**.
+                            Hence, **Neither Conclusion I nor II is true**.
+                        """.trimIndent()
+                    }
+                }
             }
-            finalExpl = """
-                💡 **Neither Conclusion Follows:**
-                • Conclusion I ($e0 > $e2): Signs are opposite (< and >), so relationship cannot be established (False).
-                • Conclusion II ($e1 < $e4): Signs are opposite between $e1 and $e4, so relationship cannot be established (False).
-                Hence, **Neither Conclusion I nor II is true**.
-            """.trimIndent()
         }
 
         return ArithmeticQuestion(

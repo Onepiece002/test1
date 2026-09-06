@@ -159,21 +159,21 @@ object FocusStatsManager {
 
     fun addFocusSessionTime(context: Context, seconds: Long) {
         if (seconds <= 0) return
-        addDailyActivity(context, seconds * 1000L)
+        addDailyActivity(context, seconds * 1000L, triggerFullRefresh = true)
     }
 
     fun addRoutineActivity(context: Context, minutes: Long = 15L) {
         if (minutes <= 0) return
-        addDailyActivity(context, minutes * 60 * 1000L)
+        addDailyActivity(context, minutes * 60 * 1000L, triggerFullRefresh = false)
     }
 
     fun addAppRestrictionActivity(context: Context, count: Int = 1) {
         if (count <= 0) return
         // Give 10 minutes of activity score per app restricted
-        addDailyActivity(context, count * 10 * 60 * 1000L)
+        addDailyActivity(context, count * 10 * 60 * 1000L, triggerFullRefresh = true)
     }
 
-    private fun addDailyActivity(context: Context, deltaMs: Long) {
+    private fun addDailyActivity(context: Context, deltaMs: Long, triggerFullRefresh: Boolean = true) {
         if (deltaMs <= 0) return
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val cal = Calendar.getInstance()
@@ -182,7 +182,16 @@ object FocusStatsManager {
         val newMs = currentMs + deltaMs
         prefs.edit().putLong(key, newMs).apply()
 
-        refreshStats(context)
+        if (triggerFullRefresh) {
+            refreshStats(context)
+        } else {
+            // Lightweight update for periodic background routine ticks: update today's minutes without 30-day recalculation loop
+            val currentStats = _statsFlow.value
+            val todayDayOfYear = cal.get(Calendar.DAY_OF_YEAR)
+            val updatedMap = currentStats.dailyFocusMinutes.toMutableMap()
+            updatedMap[todayDayOfYear] = newMs
+            _statsFlow.value = currentStats.copy(dailyFocusMinutes = updatedMap)
+        }
     }
 
     fun refreshStats(context: Context) {

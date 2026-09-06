@@ -22,7 +22,10 @@ import java.util.Calendar
 fun HeatmapAndStreaksWidget(
     dailyUsage: Map<Int, Long>,
     theme: HeatmapTheme,
-    profile: UserProfile
+    profile: UserProfile,
+    currentStreak: Int = profile.currentStreak,
+    longestStreak: Int = profile.longestStreak,
+    streakTypeLabel: String = "Streaks"
 ) {
     Box(
         modifier = Modifier
@@ -82,7 +85,7 @@ fun HeatmapAndStreaksWidget(
             
             // RIGHT HALF: Streaks
             Column(modifier = Modifier.weight(1f)) {
-                Text("Streaks", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+                Text(streakTypeLabel, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
                 Spacer(modifier = Modifier.height(12.dp))
                 
                 Column(
@@ -99,7 +102,7 @@ fun HeatmapAndStreaksWidget(
                         contentAlignment = Alignment.Center
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("${profile.currentStreak}", style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary)
+                            Text("$currentStreak", style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary)
                             Text("Current Streak", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
@@ -114,7 +117,7 @@ fun HeatmapAndStreaksWidget(
                         contentAlignment = Alignment.Center
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("${profile.longestStreak}", style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary)
+                            Text("$longestStreak", style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary)
                             Text("Longest Streak", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }

@@ -124,4 +124,51 @@ class DrillCrashTest {
         composeTestRule.onAllNodes(hasText("1.", substring = true))[1].performClick()
         composeTestRule.waitForIdle()
     }
+
+    @Test
+    fun testDrillSummaryInactivityExpiration() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        BubbleChatManager.clearMessages(context)
+
+        val session = createDrillSessionWithQuestions("easy", 10)
+        session.correct = 8
+        session.total = 10
+        val summaryMsg = DrillSummaryHelper.generateSummaryMessage(session)
+
+        // Save summary with a timestamp from 11 minutes ago
+        val elevenMinutesAgo = System.currentTimeMillis() - (11 * 60 * 1000L)
+        val oldSummaryMsg = summaryMsg.copy(timestamp = elevenMinutesAgo)
+        BubbleChatManager.saveMessages(context, listOf(oldSummaryMsg.toPersistedChatMessage()), updateActivityTimestamp = false)
+
+        // Check if messages exist
+        assertEquals(1, BubbleChatManager.getMessages(context).size)
+
+        // Run cleanup
+        val cleaned = BubbleChatManager.checkAndClearIfInactive(context)
+        assertTrue(cleaned)
+        assertEquals(0, BubbleChatManager.getMessages(context).size)
+    }
+
+    @Test
+    fun testDrillSummaryCardDismissal() {
+        val session = createDrillSessionWithQuestions("easy", 10)
+        session.correct = 10
+        session.total = 10
+        val summaryMsg = DrillSummaryHelper.generateSummaryMessage(session)
+
+        var dismissed = false
+        composeTestRule.setContent {
+            DrillSummaryCard(
+                message = summaryMsg,
+                fontSizeSp = 15f,
+                onDismiss = { dismissed = true }
+            )
+        }
+        composeTestRule.waitForIdle()
+
+        // Find dismiss button
+        composeTestRule.onNodeWithContentDescription("Dismiss Drill Summary").performClick()
+        composeTestRule.waitForIdle()
+        assertTrue(dismissed)
+    }
 }

@@ -106,7 +106,9 @@ data class QuestionRecord(
     val correctIndex: Int,
     val userSelectedIndex: Int?,
     val status: String,
-    val explanation: String
+    val explanation: String,
+    val vocabType: String? = null,
+    val vocabId: Int? = null
 )
 
 data class DrillSession(
@@ -148,6 +150,7 @@ data class ChatMessage(
     val talkActionJson: String? = null,
     val pendingActionJson: String? = null,
     val isDailyQuests: Boolean = false,
+    val isMysteryBox: Boolean = false,
     val isMorningBrief: Boolean = false,
     val isEveningBrief: Boolean = false,
     val isStreakFreezeSkipped: Boolean = false,
@@ -174,6 +177,7 @@ fun PersistedChatMessage.toChatMessage(): ChatMessage {
         talkActionJson = talkActionJson,
         pendingActionJson = pendingActionJson,
         isDailyQuests = isDailyQuests,
+        isMysteryBox = isMysteryBox || id.startsWith("mystery_box_"),
         isMorningBrief = isMorningBrief || id.startsWith("morning_"),
         isEveningBrief = isEveningBrief || id.startsWith("evening_"),
         isStreakFreezeSkipped = isStreakFreezeSkipped || id.startsWith("angry_freeze_"),
@@ -201,6 +205,7 @@ fun ChatMessage.toPersistedChatMessage(): PersistedChatMessage {
         talkActionJson = talkActionJson,
         pendingActionJson = pendingActionJson,
         isDailyQuests = isDailyQuests,
+        isMysteryBox = isMysteryBox,
         isMorningBrief = isMorningBrief,
         isEveningBrief = isEveningBrief,
         isStreakFreezeSkipped = isStreakFreezeSkipped,
@@ -336,6 +341,8 @@ class BubbleChatActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        com.focusbyrj.app.service.BubbleService.clearSnooze(this)
+        com.focusbyrj.app.util.BubbleChatManager.checkAndClearIfInactive(this)
         com.focusbyrj.app.util.BubbleChatManager.updateLastActivityTime(this)
         sendBroadcast(Intent("com.focusbyrj.app.CHAT_OPENED"))
     }
@@ -390,6 +397,19 @@ fun ChatInterface() {
     var activeDrillSession by remember { mutableStateOf<DrillSession?>(null) }
     var showDrillSummaryMessage by remember { mutableStateOf<ChatMessage?>(null) }
     var showSolutionsJson by remember { mutableStateOf<String?>(null) }
+    var pendingMysteryBoxOpen by remember { mutableStateOf(false) }
+    var showMysteryChestDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(showDrillSummaryMessage, showSolutionsJson, activeDrillSession, pendingMysteryBoxOpen) {
+        if (showDrillSummaryMessage == null && showSolutionsJson == null && activeDrillSession == null && pendingMysteryBoxOpen) {
+            val questState = com.focusbyrj.app.util.DailyQuestManager.stateFlow.value
+            if (questState.isEarlyBirdAvailable || questState.isNightOwlAvailable) {
+                delay(350)
+                showMysteryChestDialog = true
+            }
+            pendingMysteryBoxOpen = false
+        }
+    }
 
     LaunchedEffect(activeDrillSession?.isBlitz) {
         if (activeDrillSession?.isBlitz == true) {
@@ -402,10 +422,29 @@ fun ChatInterface() {
                     session.blitzSecondsRemaining = 0
                     com.focusbyrj.app.util.GamificationHaptics.playCelebration(context)
                     val summaryMsg = com.focusbyrj.app.util.DrillSummaryHelper.generateSummaryMessage(session)
-                    messages = messages.filter { !it.isArithmetic } + summaryMsg
+                    val questState = com.focusbyrj.app.util.DailyQuestManager.stateFlow.value
+                    val hasMysteryBox = questState.isEarlyBirdAvailable || questState.isNightOwlAvailable
+                    val boxMsg = if (hasMysteryBox) {
+                        ChatMessage(
+                            id = "mystery_box_${System.currentTimeMillis()}",
+                            text = "Daily Mystery Box Unlocked",
+                            isUser = false,
+                            isMysteryBox = true
+                        )
+                    } else null
+
+                    val newMsgs = if (boxMsg != null) {
+                        messages.filter { !it.isArithmetic } + summaryMsg + boxMsg
+                    } else {
+                        messages.filter { !it.isArithmetic } + summaryMsg
+                    }
+                    messages = newMsgs
                     BubbleChatManager.saveMessages(context, messages.map { it.toPersistedChatMessage() })
                     showDrillSummaryMessage = summaryMsg
                     activeDrillSession = null
+                    if (hasMysteryBox) {
+                        pendingMysteryBoxOpen = true
+                    }
                     break
                 }
             }
@@ -1118,23 +1157,22 @@ fun ChatInterface() {
                             }
                             "/vocab" -> {
                                 val sub = parts.getOrNull(1)
+                                val vocabRepo = (context.applicationContext as com.focusbyrj.app.FocusApplication).vocabRepository
                                 if (sub == "learn_more") {
-                                    val vocabRepo = (context.applicationContext as com.focusbyrj.app.FocusApplication).vocabRepository
                                     val newIdiom = vocabRepo.getNextIdiomToLearn()
                                     val newOws = vocabRepo.getNextOwsToLearn()
-                                    
-                                    if (newIdiom != null) vocabRepo.markIdiomLearned(newIdiom)
-                                    if (newOws != null) vocabRepo.markOwsLearned(newOws)
                                     
                                     val vocabObj = org.json.JSONObject()
                                     if (newIdiom != null) {
                                         vocabObj.put("idiom", org.json.JSONObject().apply {
+                                            put("id", newIdiom.id ?: -1)
                                             put("idiom", newIdiom.idiom)
                                             put("meaning", newIdiom.meaning)
                                         })
                                     }
                                     if (newOws != null) {
                                         vocabObj.put("ows", org.json.JSONObject().apply {
+                                            put("id", newOws.id ?: -1)
                                             put("term", newOws.term)
                                             put("definition", newOws.definition)
                                         })
@@ -1150,13 +1188,42 @@ fun ChatInterface() {
                                     withContext(Dispatchers.Main) {
                                         messages = messages + summaryResponse
                                     }
+                                } else if (sub == "stats") {
+                                    val stats = vocabRepo.getStats()
+                                    val statsText = buildString {
+                                        append("📚 **Vocabulary Retention Stats**\n\n")
+                                        append("• Total Learned: ${stats.totalLearned} words (${stats.learnedIdioms} Idioms, ${stats.learnedOws} OWS)\n")
+                                        append("• Mastered in Quizzes: ${stats.totalMastered} words (${stats.masteredIdioms} Idioms, ${stats.masteredOws} OWS)\n")
+                                        append("• Spaced Review Queue: ${stats.pendingReview} words awaiting mastery\n\n")
+                                        if (stats.pendingReview > 0) {
+                                            append("💡 Take a quiz (`/vocab_quiz`) to test your memory and master these words!")
+                                        } else {
+                                            append("🌟 Great job! All your learned words are currently mastered.")
+                                        }
+                                    }
+                                    val statsResponse = ChatMessage(
+                                        id = "vocab_stats_${System.currentTimeMillis()}",
+                                        text = statsText,
+                                        isUser = false
+                                    )
+                                    withContext(Dispatchers.Main) {
+                                        messages = messages + statsResponse
+                                    }
+                                } else {
+                                    val helpResponse = ChatMessage(
+                                        id = "vocab_help_${System.currentTimeMillis()}",
+                                        text = "📖 **Vocabulary Engine**\n\nAvailable commands:\n• `/vocab stats` - View learning & mastery progress\n• `/vocab learn_more` - Discover new idioms and one-word substitutions\n• `/vocab_quiz` - Start an adaptive quiz on your learned words",
+                                        isUser = false
+                                    )
+                                    withContext(Dispatchers.Main) {
+                                        messages = messages + helpResponse
+                                    }
                                 }
                                 return@launch
                             }
                             "/vocab_quiz" -> {
                                 val vocabRepo = (context.applicationContext as com.focusbyrj.app.FocusApplication).vocabRepository
-                                val learnedIdioms = vocabRepo.getAllLearnedIdioms().shuffled().take(10)
-                                val learnedOws = vocabRepo.getAllLearnedOws().shuffled().take(10)
+                                val (learnedIdioms, learnedOws) = vocabRepo.getQuizWords()
                                 
                                 val quizList = mutableListOf<org.json.JSONObject>()
                                 
@@ -1169,6 +1236,8 @@ fun ChatInterface() {
                                     val correctIndex = options.indexOf(idiom.meaning)
                                     quizList.add(org.json.JSONObject().apply {
                                         put("title", "Idioms")
+                                        put("vocabType", "idiom")
+                                        put("vocabId", idiom.id ?: -1)
                                         put("questionText", "What does '${idiom.idiom}' mean?")
                                         val arr = org.json.JSONArray()
                                         options.forEach { arr.put(it) }
@@ -1187,6 +1256,8 @@ fun ChatInterface() {
                                     val correctIndex = options.indexOf(ows.term)
                                     quizList.add(org.json.JSONObject().apply {
                                         put("title", "One Word Substitution")
+                                        put("vocabType", "ows")
+                                        put("vocabId", ows.id ?: -1)
                                         put("questionText", "Find the word for: '${ows.definition}'")
                                         val arr = org.json.JSONArray()
                                         options.forEach { arr.put(it) }
@@ -1202,7 +1273,7 @@ fun ChatInterface() {
                                 if (finalQuestions.isEmpty()) {
                                     val summaryResponse = ChatMessage(
                                         id = "vocab_empty_${System.currentTimeMillis()}",
-                                        text = "You haven't learned any vocabulary yet! Let's learn some words first.",
+                                        text = "You haven't learned any vocabulary yet! Let's learn some words first with `/vocab learn_more`.",
                                         isUser = false
                                     )
                                     withContext(Dispatchers.Main) { messages = messages + summaryResponse }
@@ -1418,10 +1489,29 @@ fun ChatInterface() {
         activeDrillSession?.let { session ->
             if (!session.isBlitz && session.targetQuestions != -1 && session.total >= session.targetQuestions) {
                 val summaryMsg = com.focusbyrj.app.util.DrillSummaryHelper.generateSummaryMessage(session)
-                messages = messages.filter { !it.isArithmetic } + summaryMsg
+                val questState = com.focusbyrj.app.util.DailyQuestManager.stateFlow.value
+                val hasMysteryBox = questState.isEarlyBirdAvailable || questState.isNightOwlAvailable
+                val boxMsg = if (hasMysteryBox) {
+                    ChatMessage(
+                        id = "mystery_box_${System.currentTimeMillis()}",
+                        text = "Daily Mystery Box Unlocked",
+                        isUser = false,
+                        isMysteryBox = true
+                    )
+                } else null
+
+                val newMsgs = if (boxMsg != null) {
+                    messages.filter { !it.isArithmetic } + summaryMsg + boxMsg
+                } else {
+                    messages.filter { !it.isArithmetic } + summaryMsg
+                }
+                messages = newMsgs
                 BubbleChatManager.saveMessages(context, messages.map { it.toPersistedChatMessage() })
                 showDrillSummaryMessage = summaryMsg
                 activeDrillSession = null
+                if (hasMysteryBox) {
+                    pendingMysteryBoxOpen = true
+                }
             } else {
                 val diffEnum = when (session.difficulty) {
                     "medium" -> com.focusbyrj.app.util.ArithmeticDifficulty.MEDIUM
@@ -1459,6 +1549,12 @@ fun ChatInterface() {
         activeDrillSession?.let { session ->
             session.questionRecords.add(qRecord)
             session.total++
+            if (session.difficulty == "vocab" && qRecord.vocabId != null && qRecord.vocabId > 0 && !qRecord.vocabType.isNullOrBlank()) {
+                coroutineScope.launch(Dispatchers.IO) {
+                    val vocabRepo = (context.applicationContext as com.focusbyrj.app.FocusApplication).vocabRepository
+                    vocabRepo.recordQuizResult(qRecord.vocabType, qRecord.vocabId, isCorrect)
+                }
+            }
             if (isCorrect) {
                 session.correct++
                 session.combo++
@@ -1495,10 +1591,29 @@ fun ChatInterface() {
     val handleDrillEnd: () -> Unit = {
         activeDrillSession?.let { session ->
             val summaryMsg = com.focusbyrj.app.util.DrillSummaryHelper.generateSummaryMessage(session)
-            messages = messages.filter { !it.isArithmetic } + summaryMsg
+            val questState = com.focusbyrj.app.util.DailyQuestManager.stateFlow.value
+            val hasMysteryBox = questState.isEarlyBirdAvailable || questState.isNightOwlAvailable
+            val boxMsg = if (hasMysteryBox) {
+                ChatMessage(
+                    id = "mystery_box_${System.currentTimeMillis()}",
+                    text = "Daily Mystery Box Unlocked",
+                    isUser = false,
+                    isMysteryBox = true
+                )
+            } else null
+
+            val newMsgs = if (boxMsg != null) {
+                messages.filter { !it.isArithmetic } + summaryMsg + boxMsg
+            } else {
+                messages.filter { !it.isArithmetic } + summaryMsg
+            }
+            messages = newMsgs
             BubbleChatManager.saveMessages(context, messages.map { it.toPersistedChatMessage() })
             showDrillSummaryMessage = summaryMsg
             activeDrillSession = null
+            if (hasMysteryBox) {
+                pendingMysteryBoxOpen = true
+            }
         }
         Unit
     }
@@ -1747,6 +1862,22 @@ fun ChatInterface() {
                                 onViewSolutions = { json ->
                                     showSolutionsJson = json
                                 },
+                                onDismiss = {
+                                    val updatedList = messages.filter { it.id != msg.id }
+                                    if (updatedList.isEmpty()) {
+                                        val welcome = ChatMessage(
+                                            id = "welcome_${System.currentTimeMillis()}",
+                                            text = com.focusbyrj.app.util.AyvaDialogueEngine.getHelloWelcomeMessage(context),
+                                            isUser = false,
+                                            timestamp = System.currentTimeMillis()
+                                        )
+                                        messages = listOf(welcome)
+                                        BubbleChatManager.saveMessages(context, listOf(welcome.toPersistedChatMessage()), updateActivityTimestamp = false)
+                                    } else {
+                                        messages = updatedList
+                                        BubbleChatManager.saveMessages(context, updatedList.map { it.toPersistedChatMessage() }, updateActivityTimestamp = false)
+                                    }
+                                },
                                 onStartStreakDrill = {
                                     if (activeDrillSession == null) {
                                         val aptProfile = com.focusbyrj.app.util.AptitudeManager.profileFlow.value
@@ -1781,6 +1912,7 @@ fun ChatInterface() {
                                 },
                                 onDrillAnswer = handleDrillAnswer,
                                 onDrillEnd = handleDrillEnd,
+                                onOpenMysteryChest = { showMysteryChestDialog = true },
                             onRescheduleClick = {
                                 val rep = "/reschedule "
                                 inputTextFieldValue = TextFieldValue(
@@ -1882,9 +2014,13 @@ fun ChatInterface() {
                                     if (catTapCount >= 3) {
                                         catTapCount = 0
                                         catActionInvocationCount += 1
-                                        // 1 out of 100 times (1% chance) show error cat, remaining 99% show action cat
+                                        // 1 out of 100 times (1% chance) show error cat, remaining times randomly pick between cat action and cat dance
                                         val isError = kotlin.random.Random.nextInt(100) == 0
-                                        currentCatActionAsset = if (isError) "cat_error.lottie" else "cat_action.lottie"
+                                        currentCatActionAsset = if (isError) {
+                                            "cat_error.lottie"
+                                        } else {
+                                            if (kotlin.random.Random.nextBoolean()) "cat_action.lottie" else "cat_dance.lottie"
+                                        }
                                         isCatActionPlaying = true
                                     }
                                 }
@@ -2148,6 +2284,16 @@ fun ChatInterface() {
                 onDismiss = { showFontSizeDialog = false }
             )
         }
+
+        if (showMysteryChestDialog) {
+            com.focusbyrj.app.ui.components.DuolingoMysteryChestDialog(
+                initialRarity = com.focusbyrj.app.ui.components.ChestRarity.COMMON,
+                onDismiss = { showMysteryChestDialog = false },
+                onClaimed = {
+                    showMysteryChestDialog = false
+                }
+            )
+        }
     }
 }
 }
@@ -2311,7 +2457,9 @@ fun ChatBubble(
     onNavigateSummary: (() -> Unit)? = null,
     onQueryClick: ((String) -> Unit)? = null,
     onMessageUpdate: (ChatMessage) -> Unit = {},
-    onViewSolutions: ((String) -> Unit)? = null
+    onViewSolutions: ((String) -> Unit)? = null,
+    onOpenMysteryChest: (() -> Unit)? = null,
+    onDismiss: (() -> Unit)? = null
 ) {
     if (message.isStreakPrompt) {
         StreakPromptCard(
@@ -2323,12 +2471,21 @@ fun ChatBubble(
         )
         return
     }
+    if (message.isMysteryBox) {
+        com.focusbyrj.app.ui.components.MysteryBoxChatCard(
+            onOpenBox = {
+                onOpenMysteryChest?.invoke()
+            }
+        )
+        return
+    }
     if (message.isDrillSummary) {
         DrillSummaryCard(
             message = message, 
             fontSizeSp = fontSizeSp,
             onMessageUpdate = onMessageUpdate,
-            onViewSolutions = onViewSolutions
+            onViewSolutions = onViewSolutions,
+            onDismiss = onDismiss
         )
         return
     }
@@ -3443,6 +3600,7 @@ fun CatActionLottieView(
     val targetSize = when (assetName) {
         "cat_error.lottie" -> 250.dp
         "cat_angry.lottie" -> 195.dp
+        "cat_dance.lottie", "cat_dancing.lottie" -> 185.dp
         else -> 175.dp
     }
     val contentScale = if (assetName == "cat_error.lottie") 1.3f else 1.0f

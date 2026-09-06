@@ -43,6 +43,7 @@ data class PersistedChatMessage(
     val talkActionJson: String? = null,
     val pendingActionJson: String? = null,
     val isDailyQuests: Boolean = false,
+    val isMysteryBox: Boolean = false,
     val isMorningBrief: Boolean = false,
     val isEveningBrief: Boolean = false,
     val isStreakFreezeSkipped: Boolean = false,
@@ -55,10 +56,10 @@ data class PersistedChatMessage(
      */
     val isImportantCard: Boolean
         get() = isDrillSummary || isAptitudeProfile || isStreakPrompt || 
-                isDailyQuests || isMorningBrief || isEveningBrief || 
+                isDailyQuests || isMysteryBox || isMorningBrief || isEveningBrief || 
                 isStreakFreezeSkipped || (isTaskSummary && !taskSummaryJson.isNullOrBlank()) ||
                 id.startsWith("drill_summary_") || id.startsWith("morning_") || 
-                id.startsWith("evening_") || id.startsWith("streak_prompt_")
+                id.startsWith("evening_") || id.startsWith("streak_prompt_") || id.startsWith("mystery_box_")
 
     /**
      * Ephemeral messages are quick commands, casual talk, setting toggles, task additions,
@@ -160,15 +161,20 @@ object BubbleChatManager {
             }
         }
 
-        // 2. Fine-grained 2-minute expiration for ephemeral chats (commands, talk, task additions)
-        // Keeps all drill summaries, briefs, aptitude profiles, quests, and active questions safe!
+        // 2. Fine-grained expiration:
+        // - Ephemeral chats (commands, talk, task additions) expire after 2 minutes.
+        // - Completed drill summaries and stale arithmetic questions expire after 10 minutes.
+        // - Other cards (briefs, quests, streak prompts) retain up to 24 hours.
         val filtered = allMessages.filter { msg ->
+            val age = now - msg.timestamp
             if (msg.isEphemeral) {
-                val age = now - msg.timestamp
                 age < EPHEMERAL_TIMEOUT_MS
+            } else if (msg.isDrillSummary || msg.id.startsWith("drill_summary_")) {
+                age < INACTIVITY_TIMEOUT_MS
+            } else if (msg.isArithmetic) {
+                age < INACTIVITY_TIMEOUT_MS
             } else {
-                // Retain important cards & learning material
-                true
+                age < 24 * 60 * 60 * 1000L
             }
         }
 
@@ -182,6 +188,18 @@ object BubbleChatManager {
         }
 
         return false
+    }
+
+    fun deleteMessage(context: Context, id: String) {
+        val current = getMessages(context).toMutableList()
+        val removed = current.removeAll { it.id == id }
+        if (removed) {
+            if (current.isEmpty()) {
+                clearMessages(context)
+            } else {
+                saveMessages(context, current, updateActivityTimestamp = false)
+            }
+        }
     }
 
     fun getMessages(context: Context): List<PersistedChatMessage> {
@@ -211,6 +229,7 @@ object BubbleChatManager {
                         talkActionJson = if (obj.has("talkActionJson") && !obj.isNull("talkActionJson")) obj.optString("talkActionJson", null) else null,
                         pendingActionJson = if (obj.has("pendingActionJson") && !obj.isNull("pendingActionJson")) obj.optString("pendingActionJson", null) else null,
                         isDailyQuests = obj.optBoolean("isDailyQuests", false),
+                        isMysteryBox = obj.optBoolean("isMysteryBox", false),
                         isMorningBrief = obj.optBoolean("isMorningBrief", false) || obj.optString("id", "").startsWith("morning_"),
                         isEveningBrief = obj.optBoolean("isEveningBrief", false) || obj.optString("id", "").startsWith("evening_"),
                         isStreakFreezeSkipped = obj.optBoolean("isStreakFreezeSkipped", false) || obj.optString("id", "").startsWith("angry_freeze_"),
@@ -249,6 +268,7 @@ object BubbleChatManager {
                     put("talkActionJson", msg.talkActionJson)
                     put("pendingActionJson", msg.pendingActionJson)
                     put("isDailyQuests", msg.isDailyQuests)
+                    put("isMysteryBox", msg.isMysteryBox)
                     put("isMorningBrief", msg.isMorningBrief)
                     put("isEveningBrief", msg.isEveningBrief)
                     put("isStreakFreezeSkipped", msg.isStreakFreezeSkipped)

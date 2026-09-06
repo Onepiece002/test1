@@ -28,6 +28,7 @@ import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.focusbyrj.app.R
+import com.focusbyrj.app.data.AppRestriction
 import com.focusbyrj.app.data.FocusDatabase
 import com.focusbyrj.app.util.FocusQuotes
 import com.focusbyrj.app.util.TemporaryUnlockManager
@@ -103,6 +104,7 @@ class FocusBlockerService : Service() {
         registerReceiver(screenReceiver, filter)
 
         startForegroundServiceNotification()
+        startRestrictionMonitorLoop()
         startRoutineMonitorLoop()
         startAppMonitoringLoop()
     }
@@ -167,12 +169,113 @@ class FocusBlockerService : Service() {
                 kotlin.runCatching {
                     val currentPackage = getForegroundPackage()
                     if (!currentPackage.isNullOrBlank()) {
+                        checkPermissionDialogState(currentPackage)
                         checkAndBlockApp(currentPackage)
+                    } else if (isPermissionDialogInForeground) {
+                        checkPermissionDialogState("")
                     }
                 }
                 delay(350L)
             }
         }
+    }
+
+    private var isPermissionDialogInForeground = false
+
+    private fun isPermissionOrInstallerPackage(packageName: String?): Boolean {
+        if (packageName.isNullOrBlank()) return false
+        val lower = packageName.lowercase()
+        return lower == "com.google.android.permissioncontroller" ||
+               lower == "com.android.permissioncontroller" ||
+               lower == "com.android.packageinstaller" ||
+               lower == "com.google.android.packageinstaller" ||
+               lower == "com.samsung.android.permissioncontroller" ||
+               lower == "com.samsung.android.packageinstaller" ||
+               lower == "com.oplus.securitypermission" ||
+               lower == "com.coloros.safecenter" ||
+               lower == "com.miui.securitycenter" ||
+               lower == "com.lbe.security.miui" ||
+               lower.endsWith(".permissioncontroller") ||
+               lower.endsWith(".packageinstaller") ||
+               lower.contains(".permissioncontroller") ||
+               lower.contains(".packageinstaller")
+    }
+
+    private fun checkPermissionDialogState(currentPackage: String) {
+        val isPermission = isPermissionOrInstallerPackage(currentPackage)
+        if (isPermission != isPermissionDialogInForeground) {
+            isPermissionDialogInForeground = isPermission
+            val action = if (isPermission) {
+                BubbleService.ACTION_HIDE_FOR_PERMISSION
+            } else {
+                BubbleService.ACTION_RESTORE_FROM_PERMISSION
+            }
+            sendBroadcast(Intent(action).setPackage(packageName))
+        }
+    }
+
+    data class ActiveRoutineRule(
+        val scheduleName: String,
+        val restrictionMode: String,
+        val timeLimitMinutes: Int,
+        val clickLimitCount: Int,
+        val appMode: String
+    )
+
+    @Volatile
+    private var activeRoutineRules = mapOf<String, ActiveRoutineRule>()
+
+    @Volatile
+    private var cachedRestrictions = mapOf<String, AppRestriction>()
+
+    private var lastTrackedPackage: String? = null
+    private var lastUsageQueryTime: Long = 0L
+    private var cachedUsageMinutes: Int = 0
+    private var cachedLaunchCount: Int = 0
+
+    private fun startRestrictionMonitorLoop() {
+        scope.launch {
+            db.appRestrictionDao().getAllRestrictions().collect { list ->
+                cachedRestrictions = list.associateBy { it.packageName }
+            }
+        }
+    }
+
+    private fun getTrackedUsageMinutes(packageName: String, timeLimitMinutes: Int): Int {
+        val now = System.currentTimeMillis()
+        val isPackageSwitch = (packageName != lastTrackedPackage)
+        val timeSinceLastQuery = now - lastUsageQueryTime
+
+        // If package switched or user is nearing limit (<= 1 min remaining), query with higher frequency (2s)
+        // Otherwise, re-query every 5s while using the app to save battery and prevent event loop churn
+        val queryThreshold = if (isPackageSwitch) {
+            0L
+        } else if (timeLimitMinutes > 0 && (timeLimitMinutes - cachedUsageMinutes) <= 1) {
+            2000L
+        } else {
+            5000L
+        }
+
+        if (timeSinceLastQuery >= queryThreshold || isPackageSwitch) {
+            cachedUsageMinutes = com.focusbyrj.app.util.UsageStatsHelper.getTodayUsageMinutesForPackage(applicationContext, packageName)
+            lastUsageQueryTime = now
+            if (isPackageSwitch) {
+                lastTrackedPackage = packageName
+                cachedLaunchCount = com.focusbyrj.app.util.UsageStatsHelper.getTodayLaunchCountForPackage(applicationContext, packageName)
+            }
+        }
+        return cachedUsageMinutes
+    }
+
+    private fun getTrackedLaunchCount(packageName: String): Int {
+        val isPackageSwitch = (packageName != lastTrackedPackage)
+        if (isPackageSwitch || lastUsageQueryTime == 0L) {
+            cachedLaunchCount = com.focusbyrj.app.util.UsageStatsHelper.getTodayLaunchCountForPackage(applicationContext, packageName)
+            lastTrackedPackage = packageName
+            lastUsageQueryTime = System.currentTimeMillis()
+            cachedUsageMinutes = com.focusbyrj.app.util.UsageStatsHelper.getTodayUsageMinutesForPackage(applicationContext, packageName)
+        }
+        return cachedLaunchCount
     }
 
     private var activeRoutines = mutableMapOf<String, com.focusbyrj.app.data.FocusSchedule>()
@@ -249,6 +352,30 @@ class FocusBlockerService : Service() {
         
         activeRoutines.clear()
         activeRoutines.putAll(currentlyActive)
+
+        // Pre-parse routine block rules for O(1) instantaneous package matching without string allocations
+        val newRules = mutableMapOf<String, ActiveRoutineRule>()
+        for (schedule in currentlyActive.values) {
+            val appsStr = schedule.appsToBlock
+            if (appsStr.isBlank()) continue
+            val entries = appsStr.split(",")
+            for (entry in entries) {
+                val trimmed = entry.trim()
+                if (trimmed.isEmpty()) continue
+                val parts = trimmed.split("|")
+                val pkg = parts[0].trim()
+                if (pkg.isEmpty()) continue
+                val mode = if (parts.size > 1 && parts[1].isNotBlank()) parts[1].trim() else schedule.mode
+                newRules[pkg] = ActiveRoutineRule(
+                    scheduleName = schedule.name,
+                    restrictionMode = schedule.restrictionMode,
+                    timeLimitMinutes = schedule.timeLimitMinutes,
+                    clickLimitCount = schedule.clickLimitCount,
+                    appMode = mode
+                )
+            }
+        }
+        activeRoutineRules = newRules
     }
 
     private fun sendRoutineNotification(title: String, message: String) {
@@ -294,6 +421,7 @@ class FocusBlockerService : Service() {
         if (packageName.isBlank()) return true
         if (packageName == applicationContext.packageName || packageName == "com.focusbyrj.app") return true
         if (packageName == "com.android.settings" || packageName == "com.android.systemui" || packageName == "android") return true
+        if (isPermissionOrInstallerPackage(packageName)) return true
         
         refreshHomePackages()
         if (homePackages.contains(packageName)) return true
@@ -367,13 +495,9 @@ class FocusBlockerService : Service() {
             try {
                 val bubblePrefs = getSharedPreferences("bubble_prefs", Context.MODE_PRIVATE)
                 val isBubbleEnabled = bubblePrefs.getBoolean("bubble_enabled", false)
-                if (isBubbleEnabled && android.provider.Settings.canDrawOverlays(this)) {
-                    val manager = getSystemService(Context.ACTIVITY_SERVICE) as? android.app.ActivityManager
-                    @Suppress("DEPRECATION")
-                    val isServiceRunning = manager?.getRunningServices(30)?.any {
-                        it.service.className == BubbleService::class.java.name
-                    } ?: false
-                    if (!isServiceRunning) {
+                val isSnoozed = BubbleService.isSnoozed(this)
+                if (isBubbleEnabled && !isSnoozed && android.provider.Settings.canDrawOverlays(this)) {
+                    if (!BubbleService.isRunning) {
                         val bubbleIntent = Intent(this, BubbleService::class.java)
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                             startForegroundService(bubbleIntent)
@@ -386,6 +510,7 @@ class FocusBlockerService : Service() {
         }
 
         if (isIgnoredPackage(packageName)) {
+            lastTrackedPackage = null
             android.os.Handler(android.os.Looper.getMainLooper()).post {
                 BlockOverlayManager.hideOverlay(this)
             }
@@ -407,12 +532,12 @@ class FocusBlockerService : Service() {
         var blockQuote = ""
         var blockMode = "HARD"
 
-        val restriction = db.appRestrictionDao().getRestriction(packageName)
+        val restriction = cachedRestrictions[packageName] ?: db.appRestrictionDao().getRestriction(packageName)
         if (restriction != null && restriction.isRestricted) {
             when (restriction.restrictionMode) {
                 "TIME_LIMIT" -> {
                     if (restriction.timeLimitMinutes > 0) {
-                        val usageMins = com.focusbyrj.app.util.UsageStatsHelper.getTodayUsageMinutesForPackage(applicationContext, packageName)
+                        val usageMins = getTrackedUsageMinutes(packageName, restriction.timeLimitMinutes)
                         if (usageMins >= restriction.timeLimitMinutes) {
                             shouldBlock = true
                             blockQuote = FocusQuotes.getQuoteOrDefault(restriction.customQuote)
@@ -422,7 +547,7 @@ class FocusBlockerService : Service() {
                 }
                 "CLICK_LIMIT" -> {
                     if (restriction.clickLimitCount > 0) {
-                        val launches = com.focusbyrj.app.util.UsageStatsHelper.getTodayLaunchCountForPackage(applicationContext, packageName)
+                        val launches = getTrackedLaunchCount(packageName)
                         if (launches > restriction.clickLimitCount) {
                             shouldBlock = true
                             blockQuote = FocusQuotes.getQuoteOrDefault(restriction.customQuote)
@@ -439,49 +564,33 @@ class FocusBlockerService : Service() {
         }
 
         if (!shouldBlock) {
-            for (schedule in activeRoutines.values) {
-                var matched = false
-                var appMode = schedule.mode
-                for (entry in schedule.appsToBlock.split(",").filter { it.isNotBlank() }) {
-                    val parts = entry.split("|")
-                    if (parts[0] == packageName) {
-                        matched = true
-                        if (parts.size > 1) {
-                            appMode = parts[1]
+            val routineRule = activeRoutineRules[packageName]
+            if (routineRule != null) {
+                when (routineRule.restrictionMode) {
+                    "TIME_LIMIT" -> {
+                        if (routineRule.timeLimitMinutes > 0) {
+                            val usageMins = getTrackedUsageMinutes(packageName, routineRule.timeLimitMinutes)
+                            if (usageMins >= routineRule.timeLimitMinutes) {
+                                shouldBlock = true
+                                blockQuote = "Routine '${routineRule.scheduleName}' time limit exceeded."
+                                blockMode = routineRule.appMode
+                            }
                         }
-                        break
                     }
-                }
-                if (matched) {
-                    when (schedule.restrictionMode) {
-                        "TIME_LIMIT" -> {
-                            if (schedule.timeLimitMinutes > 0) {
-                                val usageMins = com.focusbyrj.app.util.UsageStatsHelper.getTodayUsageMinutesForPackage(applicationContext, packageName)
-                                if (usageMins >= schedule.timeLimitMinutes) {
-                                    shouldBlock = true
-                                    blockQuote = "Routine '${schedule.name}' time limit exceeded."
-                                    blockMode = appMode
-                                    break
-                                }
+                    "CLICK_LIMIT" -> {
+                        if (routineRule.clickLimitCount > 0) {
+                            val launches = getTrackedLaunchCount(packageName)
+                            if (launches > routineRule.clickLimitCount) {
+                                shouldBlock = true
+                                blockQuote = "Routine '${routineRule.scheduleName}' open limit exceeded."
+                                blockMode = routineRule.appMode
                             }
                         }
-                        "CLICK_LIMIT" -> {
-                            if (schedule.clickLimitCount > 0) {
-                                val launches = com.focusbyrj.app.util.UsageStatsHelper.getTodayLaunchCountForPackage(applicationContext, packageName)
-                                if (launches > schedule.clickLimitCount) {
-                                    shouldBlock = true
-                                    blockQuote = "Routine '${schedule.name}' open limit exceeded."
-                                    blockMode = appMode
-                                    break
-                                }
-                            }
-                        }
-                        else -> {
-                            shouldBlock = true
-                            blockQuote = "Routine '${schedule.name}' is active."
-                            blockMode = appMode
-                            break
-                        }
+                    }
+                    else -> {
+                        shouldBlock = true
+                        blockQuote = "Routine '${routineRule.scheduleName}' is active."
+                        blockMode = routineRule.appMode
                     }
                 }
             }
@@ -543,6 +652,8 @@ class FocusBlockerService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        lastTrackedPackage = null
+        lastUsageQueryTime = 0L
         val prefs = applicationContext.getSharedPreferences("focus_prefs", Context.MODE_PRIVATE)
         prefs.edit().putBoolean("isSessionActive", false).apply()
         com.focusbyrj.app.util.DndHelper.setDndMode(applicationContext, false)

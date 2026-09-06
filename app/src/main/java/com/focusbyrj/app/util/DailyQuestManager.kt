@@ -187,6 +187,26 @@ object DailyQuestManager {
     }
     
     fun claimMysteryChest(): MysteryReward? {
+        val state = _stateFlow.value
+        if (state.isEarlyBirdAvailable) {
+            markMorningChestClaimed()
+        } else if (state.isNightOwlAvailable) {
+            markEveningChestClaimed()
+        } else {
+            val cal = Calendar.getInstance()
+            val hour = cal.get(Calendar.HOUR_OF_DAY)
+            if (hour in 6..17) {
+                markMorningChestClaimed()
+            } else {
+                markEveningChestClaimed()
+            }
+        }
         return null
+    }
+
+    fun isAnyChestAvailable(): Boolean {
+        refreshState()
+        val s = _stateFlow.value
+        return s.isEarlyBirdAvailable || s.isNightOwlAvailable
     }
 }
