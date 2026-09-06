@@ -15,8 +15,8 @@ android {
     multiDexEnabled = true
     minSdk = 24
     targetSdk = 35
-    versionCode = 49
-    versionName = "1.4.9"
+    versionCode = 50
+    versionName = "1.5.0"
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
@@ -118,6 +118,9 @@ dependencies {
 
   // Lottie Animation
   implementation("com.airbnb.android:lottie-compose:6.4.0")
+
+  // Rive Animation Runtime
+  implementation("app.rive:rive-android:10.0.1")
 
   // Testing
   testImplementation(libs.junit)

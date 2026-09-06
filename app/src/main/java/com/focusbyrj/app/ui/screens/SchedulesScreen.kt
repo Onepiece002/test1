@@ -210,37 +210,47 @@ fun RoutineCard(
                         )
                     }
 
-                    Column {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                schedule.name, 
-                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 17.sp), 
-                                color = if (schedule.isEnabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                            )
-                            if (!schedule.isEnabled) {
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Surface(
-                                    shape = RoundedCornerShape(6.dp),
-                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
-                                ) {
-                                    Text(
-                                        text = "PAUSED",
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 9.sp),
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-                        }
-                    }
+                    Text(
+                        text = schedule.name, 
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 17.sp), 
+                        color = if (schedule.isEnabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Switch(
-                        checked = schedule.isEnabled,
-                        onCheckedChange = { onToggle(it) },
-                        modifier = Modifier.padding(end = 2.dp)
-                    )
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Switch(
+                            checked = schedule.isEnabled,
+                            onCheckedChange = { onToggle(it) },
+                            modifier = Modifier.padding(end = 2.dp)
+                        )
+                        if (!schedule.isEnabled) {
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+                                modifier = Modifier.padding(top = 2.dp, end = 2.dp)
+                            ) {
+                                Text(
+                                    text = "PAUSED",
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 8.sp,
+                                        letterSpacing = 0.4.sp
+                                    ),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
+                            }
+                        }
+                    }
                     IconButton(onClick = onEdit) {
                         Icon(Icons.Filled.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
                     }

@@ -41,6 +41,12 @@ class FocusApplication : Application() {
         com.focusbyrj.app.util.StreakManager.init(this)
         com.focusbyrj.app.data.drill.DrillSessionRepository.init(this)
 
+        try {
+            app.rive.runtime.kotlin.core.Rive.init(this, app.rive.runtime.kotlin.core.RendererType.Canvas)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
         // Warm up Ayva knowledge base in background IO thread for instant 0ms responses
         CoroutineScope(Dispatchers.IO).launch {
             com.focusbyrj.app.util.AyvaTalkEngine.warmUp(this@FocusApplication)

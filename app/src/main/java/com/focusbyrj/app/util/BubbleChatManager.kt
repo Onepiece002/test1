@@ -30,6 +30,7 @@ data class PersistedChatMessage(
     val text: String,
     val isUser: Boolean,
     val timestamp: Long = System.currentTimeMillis(),
+    val firstViewedTimestamp: Long = 0L,
     val isArithmetic: Boolean = false,
     val arithmeticJson: String? = null,
     val isDrillSummary: Boolean = false,
@@ -130,10 +131,31 @@ object BubbleChatManager {
     }
 
     /**
+     * Marks all unviewed messages as viewed now when the user opens the chat window.
+     */
+    fun markAllAsViewed(context: Context) {
+        val now = System.currentTimeMillis()
+        val allMessages = getMessages(context)
+        var modified = false
+        val updated = allMessages.map { msg ->
+            if (msg.firstViewedTimestamp == 0L) {
+                modified = true
+                msg.copy(firstViewedTimestamp = now)
+            } else {
+                msg
+            }
+        }
+        if (modified) {
+            saveMessages(context, updated, updateActivityTimestamp = true)
+        }
+    }
+
+    /**
      * Periodically cleans up the chat stream based on message tier:
-     * 1. Ephemeral commands/replies (e.g., "set soft lock to 30s", "added task") expire after 2 minutes.
-     * 2. High-value learning / summary / brief cards remain intact for 10 minutes of inactivity.
-     * 3. Completely clears history if 10 minutes have elapsed without unread alerts.
+     * - Messages that have never been opened/viewed in the chat window NEVER disappear.
+     * - Once opened/viewed, morning brief, evening brief, practice alerts, and drill summaries
+     *   disappear only after 10 minutes of inactivity with no action taken.
+     * - Ephemeral commands & talk replies expire after 2 minutes of being viewed.
      */
     fun checkAndClearIfInactive(context: Context): Boolean {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -143,39 +165,22 @@ object BubbleChatManager {
         val allMessages = getMessages(context)
         if (allMessages.isEmpty()) return false
 
-        val unreadCount = getUnreadCount(context)
-
-        // 1. Check for global 10-minute inactivity
-        val isExpired10Min = lastActivity > 0L && (now - lastActivity) > INACTIVITY_TIMEOUT_MS
-        if (isExpired10Min) {
-            if (unreadCount > 0) {
-                // Keep only unread alerts (e.g. morning brief arrived while away)
-                val unreadMessages = allMessages.takeLast(unreadCount)
-                if (unreadMessages.size < allMessages.size) {
-                    saveMessages(context, unreadMessages, updateActivityTimestamp = false)
-                    return true
-                }
-            } else {
-                // Clear all read items
-                clearMessages(context)
-                return true
-            }
-        }
-
-        // 2. Fine-grained expiration:
-        // - Ephemeral chats (commands, talk, task additions) expire after 2 minutes.
-        // - Completed drill summaries and stale arithmetic questions expire after 10 minutes.
-        // - Other cards (briefs, quests, streak prompts) retain up to 24 hours.
         val filtered = allMessages.filter { msg ->
-            val age = now - msg.timestamp
+            // Unread / unviewed messages NEVER expire before the user opens the chat window to view them!
+            if (msg.firstViewedTimestamp == 0L) {
+                return@filter true
+            }
+
+            val timeSinceViewed = now - msg.firstViewedTimestamp
+
             if (msg.isEphemeral) {
-                age < EPHEMERAL_TIMEOUT_MS
-            } else if (msg.isDrillSummary || msg.id.startsWith("drill_summary_")) {
-                age < INACTIVITY_TIMEOUT_MS
-            } else if (msg.isArithmetic) {
-                age < INACTIVITY_TIMEOUT_MS
+                timeSinceViewed < EPHEMERAL_TIMEOUT_MS
+            } else if (msg.isImportantCard || msg.isDrillSummary || msg.isArithmetic || 
+                       msg.isMorningBrief || msg.isEveningBrief || msg.isStreakPrompt) {
+                // Must be within 10 minutes of opening/viewing
+                timeSinceViewed < INACTIVITY_TIMEOUT_MS
             } else {
-                age < 24 * 60 * 60 * 1000L
+                timeSinceViewed < 24 * 60 * 60 * 1000L
             }
         }
 
@@ -217,6 +222,7 @@ object BubbleChatManager {
                         text = obj.optString("text", ""),
                         isUser = obj.optBoolean("isUser", false),
                         timestamp = obj.optLong("timestamp", System.currentTimeMillis()),
+                        firstViewedTimestamp = obj.optLong("firstViewedTimestamp", 0L),
                         isArithmetic = obj.optBoolean("isArithmetic", false),
                         arithmeticJson = if (obj.has("arithmeticJson") && !obj.isNull("arithmeticJson")) obj.optString("arithmeticJson", null) else null,
                         isDrillSummary = obj.optBoolean("isDrillSummary", false),
@@ -257,6 +263,7 @@ object BubbleChatManager {
                     put("text", msg.text)
                     put("isUser", msg.isUser)
                     put("timestamp", msg.timestamp)
+                    put("firstViewedTimestamp", msg.firstViewedTimestamp)
                     put("isArithmetic", msg.isArithmetic)
                     put("arithmeticJson", msg.arithmeticJson)
                     put("isDrillSummary", msg.isDrillSummary)

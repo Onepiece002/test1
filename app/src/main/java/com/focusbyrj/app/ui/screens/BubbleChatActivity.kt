@@ -137,6 +137,7 @@ data class ChatMessage(
     val text: String, 
     val isUser: Boolean, 
     val timestamp: Long = System.currentTimeMillis(),
+    val firstViewedTimestamp: Long = 0L,
     val isArithmetic: Boolean = false,
     val arithmeticJson: String? = null,
     val isDrillSummary: Boolean = false,
@@ -156,7 +157,8 @@ data class ChatMessage(
     val isStreakFreezeSkipped: Boolean = false,
     val isVocabBrief: Boolean = false,
     val isVocabHub: Boolean = false,
-    val vocabJson: String? = null
+    val vocabJson: String? = null,
+    val isWelcome: Boolean = false
 )
 
 fun PersistedChatMessage.toChatMessage(): ChatMessage {
@@ -165,6 +167,7 @@ fun PersistedChatMessage.toChatMessage(): ChatMessage {
         text = text,
         isUser = isUser,
         timestamp = timestamp,
+        firstViewedTimestamp = firstViewedTimestamp,
         isArithmetic = isArithmetic,
         arithmeticJson = arithmeticJson,
         isDrillSummary = isDrillSummary,
@@ -184,7 +187,8 @@ fun PersistedChatMessage.toChatMessage(): ChatMessage {
         isStreakFreezeSkipped = isStreakFreezeSkipped || id.startsWith("angry_freeze_"),
         isVocabBrief = isVocabBrief,
         isVocabHub = isVocabHub || id.startsWith("vocab_hub_"),
-        vocabJson = vocabJson
+        vocabJson = vocabJson,
+        isWelcome = id.startsWith("welcome_")
     )
 }
 
@@ -194,6 +198,7 @@ fun ChatMessage.toPersistedChatMessage(): PersistedChatMessage {
         text = text,
         isUser = isUser,
         timestamp = timestamp,
+        firstViewedTimestamp = firstViewedTimestamp,
         isArithmetic = isArithmetic,
         arithmeticJson = arithmeticJson,
         isDrillSummary = isDrillSummary,
@@ -345,6 +350,7 @@ class BubbleChatActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         com.focusbyrj.app.service.BubbleService.clearSnooze(this)
+        com.focusbyrj.app.util.BubbleChatManager.markAllAsViewed(this)
         com.focusbyrj.app.util.BubbleChatManager.checkAndClearIfInactive(this)
         com.focusbyrj.app.util.BubbleChatManager.updateLastActivityTime(this)
         sendBroadcast(Intent("com.focusbyrj.app.CHAT_OPENED"))
@@ -376,6 +382,7 @@ fun ChatInterface() {
     val prefs = remember { context.getSharedPreferences("bubble_prefs", android.content.Context.MODE_PRIVATE) }
     
     var messages by remember { 
+        BubbleChatManager.markAllAsViewed(context)
         BubbleChatManager.checkAndClearIfInactive(context)
         val stored = BubbleChatManager.getMessages(context)
         val initialList = if (stored.isEmpty()) {
@@ -445,7 +452,7 @@ fun ChatInterface() {
     var isPersistent by remember { mutableStateOf(false) }
 
     var lastInteractionTimestamp by remember { mutableStateOf(System.currentTimeMillis()) }
-    var showCatForWelcome by remember { mutableStateOf(true) }
+    var showCatForWelcome by remember { mutableStateOf(false) }
     var showCatForInactivity by remember { mutableStateOf(false) }
     var isCatActionPlaying by remember { mutableStateOf(false) }
     var catActionInvocationCount by remember { mutableStateOf(0) }
@@ -528,6 +535,7 @@ fun ChatInterface() {
     DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                BubbleChatManager.markAllAsViewed(context)
                 BubbleChatManager.clearUnread(context)
                 BubbleChatManager.updateLastActivityTime(context)
                 val stored = BubbleChatManager.getMessages(context)
@@ -573,6 +581,7 @@ fun ChatInterface() {
     var lastSummaryTasks by remember { mutableStateOf<List<com.focusbyrj.app.data.Task>>(emptyList()) }
     
     LaunchedEffect(Unit) {
+        BubbleChatManager.markAllAsViewed(context)
         BubbleChatManager.clearUnread(context)
         BubbleChatManager.updateLastActivityTime(context)
     }
@@ -1983,7 +1992,8 @@ fun ChatInterface() {
                                         currentCatActionAsset = if (isError) {
                                             "cat_error.lottie"
                                         } else {
-                                            if (kotlin.random.Random.nextBoolean()) "cat_action.lottie" else "cat_dance.lottie"
+                                            val actionPool = listOf("cat_action.lottie", "cat_dance.lottie", "cat_dancing.lottie")
+                                            actionPool.random()
                                         }
                                         isCatActionPlaying = true
                                     }
@@ -2480,6 +2490,7 @@ fun ChatBubble(
 
     val isMorning = message.isMorningBrief || message.id.startsWith("morning_")
     val isEvening = message.isEveningBrief || message.id.startsWith("evening_")
+    val isWelcome = !message.isUser && (message.isWelcome || message.id.startsWith("welcome_"))
 
     if (message.isTaskSummary && !message.isUser && !isMorning && !isEvening) {
         TaskSummaryCard(
@@ -2521,7 +2532,9 @@ fun ChatBubble(
                 Spacer(modifier = Modifier.width(8.dp))
             }
             
-            val maxBubbleWidth = if (isMorning || isEvening) (310 + (fontSizeSp - 15f) * 10f).coerceIn(310f, 360f).dp else (280 + (fontSizeSp - 15f) * 10f).coerceIn(280f, 350f).dp
+            val maxBubbleWidth = if (isWelcome) (330 + (fontSizeSp - 15f) * 10f).coerceIn(330f, 380f).dp
+                else if (isMorning || isEvening) (310 + (fontSizeSp - 15f) * 10f).coerceIn(310f, 360f).dp 
+                else (280 + (fontSizeSp - 15f) * 10f).coerceIn(280f, 350f).dp
             androidx.compose.material3.Surface(
                 modifier = Modifier.widthIn(max = maxBubbleWidth),
                 shape = RoundedCornerShape(
@@ -2561,11 +2574,12 @@ fun ChatBubble(
                                     .padding(bottom = 10.dp)
                             )
                         } else if (isEvening && !message.isUser) {
-                            EveningBriefLottieHeader(
+                            EveningBriefHeader(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(135.dp)
-                                    .padding(bottom = 10.dp)
+                                    .padding(bottom = 10.dp),
+                                messageId = message.id
                             )
                         } else if (message.isStreakFreezeSkipped && !message.isUser) {
                             CatAngryLottieHeader(
@@ -2584,6 +2598,26 @@ fun ChatBubble(
                                 letterSpacing = 0.2.sp
                             )
                         )
+
+                        if (isWelcome) {
+                            Spacer(modifier = Modifier.height(14.dp))
+                            androidx.compose.material3.Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(260.dp),
+                                shape = RoundedCornerShape(18.dp),
+                                color = androidx.compose.material3.MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                                border = androidx.compose.foundation.BorderStroke(
+                                    1.dp,
+                                    androidx.compose.material3.MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)
+                                )
+                            ) {
+                                com.focusbyrj.app.ui.components.CatMagicRiveView(
+                                    modifier = Modifier.fillMaxSize(),
+                                    messageId = message.id
+                                )
+                            }
+                        }
                         
                         if (message.isVocabBrief && message.vocabJson != null) {
                             val isLearnMoreSession = !message.isMorningBrief && !message.isEveningBrief
@@ -3638,6 +3672,101 @@ fun MorningBriefLottieHeader(
             composition = composition,
             progress = { progress },
             modifier = Modifier.fillMaxSize()
+        )
+    }
+}
+
+@Composable
+fun EveningBriefHeader(
+    modifier: Modifier = Modifier,
+    messageId: String? = null
+) {
+    val showRive = remember(messageId) { kotlin.random.Random.nextBoolean() }
+    if (showRive) {
+        EveningBriefRiveHeader(modifier = modifier)
+    } else {
+        EveningBriefLottieHeader(modifier = modifier)
+    }
+}
+
+@Composable
+fun EveningBriefRiveHeader(
+    modifier: Modifier = Modifier
+) {
+    var riveViewRef: app.rive.runtime.kotlin.RiveAnimationView? = null
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomStart = 10.dp, bottomEnd = 10.dp))
+            .background(
+                androidx.compose.ui.graphics.Brush.verticalGradient(
+                    colors = listOf(
+                        androidx.compose.material3.MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.35f),
+                        androidx.compose.material3.MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
+                    )
+                )
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        androidx.compose.ui.viewinterop.AndroidView(
+            modifier = Modifier.fillMaxSize(),
+            factory = { ctx ->
+                try {
+                    app.rive.runtime.kotlin.RiveAnimationView.Builder(ctx)
+                        .setRendererType(app.rive.runtime.kotlin.core.RendererType.Canvas)
+                        .setFit(app.rive.runtime.kotlin.core.Fit.CONTAIN)
+                        .setAlignment(app.rive.runtime.kotlin.core.Alignment.CENTER)
+                        .setAutoplay(true)
+                        .setLoop(app.rive.runtime.kotlin.core.Loop.LOOP)
+                        .build().apply {
+                            riveViewRef = this
+                            layoutParams = android.view.ViewGroup.LayoutParams(
+                                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                                android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                            )
+                            fit = app.rive.runtime.kotlin.core.Fit.CONTAIN
+                            alignment = app.rive.runtime.kotlin.core.Alignment.CENTER
+
+                            try {
+                                val candidateAssets = listOf("cat_nighteyes.riv", "cat_googlyeyes.riv", "cat_magic.riv")
+                                for (asset in candidateAssets) {
+                                    try {
+                                        val bytes = ctx.assets.open(asset).readBytes()
+                                        setRiveBytes(
+                                            bytes = bytes,
+                                            autoplay = true,
+                                            fit = app.rive.runtime.kotlin.core.Fit.CONTAIN,
+                                            alignment = app.rive.runtime.kotlin.core.Alignment.CENTER,
+                                            loop = app.rive.runtime.kotlin.core.Loop.LOOP
+                                        )
+                                        break
+                                    } catch (_: Throwable) {}
+                                }
+                            } catch (e: Throwable) {}
+                        }
+                } catch (t: Throwable) {
+                    android.view.View(ctx)
+                }
+            },
+            update = { view ->
+                if (view is app.rive.runtime.kotlin.RiveAnimationView) {
+                    riveViewRef = view
+                    try {
+                        if (!view.isPlaying) {
+                            view.play(loop = app.rive.runtime.kotlin.core.Loop.LOOP)
+                        }
+                    } catch (e: Throwable) {}
+                }
+            },
+            onRelease = { view ->
+                if (view is app.rive.runtime.kotlin.RiveAnimationView) {
+                    try {
+                        view.pause()
+                        view.stop()
+                    } catch (e: Throwable) {}
+                }
+            }
         )
     }
 }

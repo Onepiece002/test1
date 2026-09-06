@@ -137,7 +137,10 @@ class DrillCrashTest {
 
         // Save summary with a timestamp from 11 minutes ago
         val elevenMinutesAgo = System.currentTimeMillis() - (11 * 60 * 1000L)
-        val oldSummaryMsg = summaryMsg.copy(timestamp = elevenMinutesAgo)
+        val oldSummaryMsg = summaryMsg.copy(
+            timestamp = elevenMinutesAgo,
+            firstViewedTimestamp = elevenMinutesAgo
+        )
         BubbleChatManager.saveMessages(context, listOf(oldSummaryMsg.toPersistedChatMessage()), updateActivityTimestamp = false)
 
         // Check if messages exist
@@ -170,5 +173,36 @@ class DrillCrashTest {
         composeTestRule.onNodeWithContentDescription("Dismiss Drill Summary").performClick()
         composeTestRule.waitForIdle()
         assertTrue(dismissed)
+    }
+
+    @Test
+    fun testAlertDoesNotExpireBeforeChatOpened() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        BubbleChatManager.clearMessages(context)
+
+        val morningAlert = PersistedChatMessage(
+            id = "morning_test",
+            text = "Good morning! Here is your plan.",
+            isUser = false,
+            timestamp = System.currentTimeMillis() - (60 * 60 * 1000L), // 1 hour ago
+            firstViewedTimestamp = 0L, // Never opened/viewed
+            isMorningBrief = true
+        )
+        BubbleChatManager.saveMessages(context, listOf(morningAlert), updateActivityTimestamp = false)
+
+        // Run cleanup - should NOT clear because chat was not opened
+        val cleaned = BubbleChatManager.checkAndClearIfInactive(context)
+        assertFalse(cleaned)
+        assertEquals(1, BubbleChatManager.getMessages(context).size)
+
+        // User opens the chat window now
+        BubbleChatManager.markAllAsViewed(context)
+        val viewedMsg = BubbleChatManager.getMessages(context).first()
+        assertTrue(viewedMsg.firstViewedTimestamp > 0L)
+
+        // Right after viewing, cleanup should still keep it
+        val cleanedAfterOpen = BubbleChatManager.checkAndClearIfInactive(context)
+        assertFalse(cleanedAfterOpen)
+        assertEquals(1, BubbleChatManager.getMessages(context).size)
     }
 }
