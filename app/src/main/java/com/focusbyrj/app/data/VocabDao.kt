@@ -12,10 +12,10 @@ interface VocabDao {
     @Query("SELECT * FROM ows WHERE learned_at IS NULL AND is_mastered = 0 ORDER BY is_top_200 DESC, repetition_ssc DESC LIMIT :limit")
     suspend fun getUnlearnedOws(limit: Int): List<Ows>
 
-    @Query("SELECT * FROM idioms WHERE learned_at IS NOT NULL")
+    @Query("SELECT * FROM idioms WHERE learned_at IS NOT NULL ORDER BY learned_at DESC")
     suspend fun getAllLearnedIdioms(): List<Idiom>
 
-    @Query("SELECT * FROM ows WHERE learned_at IS NOT NULL")
+    @Query("SELECT * FROM ows WHERE learned_at IS NOT NULL ORDER BY learned_at DESC")
     suspend fun getAllLearnedOws(): List<Ows>
 
     // Spaced repetition review queries (Leitner queue: oldest unreviewed word first, unmastered prioritized)

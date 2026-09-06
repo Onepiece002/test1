@@ -155,6 +155,7 @@ data class ChatMessage(
     val isEveningBrief: Boolean = false,
     val isStreakFreezeSkipped: Boolean = false,
     val isVocabBrief: Boolean = false,
+    val isVocabHub: Boolean = false,
     val vocabJson: String? = null
 )
 
@@ -182,6 +183,7 @@ fun PersistedChatMessage.toChatMessage(): ChatMessage {
         isEveningBrief = isEveningBrief || id.startsWith("evening_"),
         isStreakFreezeSkipped = isStreakFreezeSkipped || id.startsWith("angry_freeze_"),
         isVocabBrief = isVocabBrief,
+        isVocabHub = isVocabHub || id.startsWith("vocab_hub_"),
         vocabJson = vocabJson
     )
 }
@@ -210,6 +212,7 @@ fun ChatMessage.toPersistedChatMessage(): PersistedChatMessage {
         isEveningBrief = isEveningBrief,
         isStreakFreezeSkipped = isStreakFreezeSkipped,
         isVocabBrief = isVocabBrief,
+        isVocabHub = isVocabHub,
         vocabJson = vocabJson
     )
 }
@@ -493,6 +496,7 @@ fun ChatInterface() {
             QuickActionCommand("📋 /tasks", "/tasks "),
             QuickActionCommand("🧹 /clear", "/clear"),
             QuickActionCommand("👤 /profile", "/profile"),
+            QuickActionCommand("📚 /vocab", "/vocab"),
             QuickActionCommand("⚡ /blitz", "/blitz"),
             QuickActionCommand("⚡ /drill", "/drill easy 10"),
             QuickActionCommand("📊 /summary", "/summary"),
@@ -1156,9 +1160,9 @@ fun ChatInterface() {
                                 return@launch
                             }
                             "/vocab" -> {
-                                val sub = parts.getOrNull(1)
+                                val sub = parts.getOrNull(1)?.lowercase()?.trim()
                                 val vocabRepo = (context.applicationContext as com.focusbyrj.app.FocusApplication).vocabRepository
-                                if (sub == "learn_more") {
+                                if (sub == "learn_more" || sub == "learn") {
                                     val newIdiom = vocabRepo.getNextIdiomToLearn()
                                     val newOws = vocabRepo.getNextOwsToLearn()
                                     
@@ -1188,35 +1192,16 @@ fun ChatInterface() {
                                     withContext(Dispatchers.Main) {
                                         messages = messages + summaryResponse
                                     }
-                                } else if (sub == "stats") {
-                                    val stats = vocabRepo.getStats()
-                                    val statsText = buildString {
-                                        append("📚 **Vocabulary Retention Stats**\n\n")
-                                        append("• Total Learned: ${stats.totalLearned} words (${stats.learnedIdioms} Idioms, ${stats.learnedOws} OWS)\n")
-                                        append("• Mastered in Quizzes: ${stats.totalMastered} words (${stats.masteredIdioms} Idioms, ${stats.masteredOws} OWS)\n")
-                                        append("• Spaced Review Queue: ${stats.pendingReview} words awaiting mastery\n\n")
-                                        if (stats.pendingReview > 0) {
-                                            append("💡 Take a quiz (`/vocab_quiz`) to test your memory and master these words!")
-                                        } else {
-                                            append("🌟 Great job! All your learned words are currently mastered.")
-                                        }
-                                    }
-                                    val statsResponse = ChatMessage(
-                                        id = "vocab_stats_${System.currentTimeMillis()}",
-                                        text = statsText,
-                                        isUser = false
-                                    )
-                                    withContext(Dispatchers.Main) {
-                                        messages = messages + statsResponse
-                                    }
                                 } else {
-                                    val helpResponse = ChatMessage(
-                                        id = "vocab_help_${System.currentTimeMillis()}",
-                                        text = "📖 **Vocabulary Engine**\n\nAvailable commands:\n• `/vocab stats` - View learning & mastery progress\n• `/vocab learn_more` - Discover new idioms and one-word substitutions\n• `/vocab_quiz` - Start an adaptive quiz on your learned words",
-                                        isUser = false
+                                    // Default /vocab, /vocab stats, /srs, /retention shows the Spaced Repetition Hub card
+                                    val hubResponse = ChatMessage(
+                                        id = "vocab_hub_${System.currentTimeMillis()}",
+                                        text = "Spaced Repetition Hub",
+                                        isUser = false,
+                                        isVocabHub = true
                                     )
                                     withContext(Dispatchers.Main) {
-                                        messages = messages + helpResponse
+                                        messages = messages + hubResponse
                                     }
                                 }
                                 return@launch
@@ -2495,6 +2480,22 @@ fun ChatBubble(
     }
     if (message.isDailyQuests) {
         DailyQuestsCard()
+        return
+    }
+    if (message.isVocabHub) {
+        var vocabStats by remember { mutableStateOf<com.focusbyrj.app.data.VocabStats?>(null) }
+        val context = androidx.compose.ui.platform.LocalContext.current
+        LaunchedEffect(message.id) {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                val repo = (context.applicationContext as? com.focusbyrj.app.FocusApplication)?.vocabRepository
+                vocabStats = repo?.getStats()
+            }
+        }
+        com.focusbyrj.app.ui.components.VocabRetentionHubChatCard(
+            stats = vocabStats,
+            onLaunchQuiz = { onQueryClick?.invoke("/vocab_quiz") },
+            onLearnMore = { onQueryClick?.invoke("/vocab learn_more") }
+        )
         return
     }
 

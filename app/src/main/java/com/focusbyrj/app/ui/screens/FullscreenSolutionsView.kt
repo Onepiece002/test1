@@ -2,16 +2,12 @@ package com.focusbyrj.app.ui.screens
 
 import android.content.Context
 import androidx.compose.animation.*
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
@@ -21,6 +17,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material3.*
@@ -30,32 +27,24 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.focusbyrj.app.data.drill.DrillQuestionResult
+import com.focusbyrj.app.data.drill.DrillSessionRepository
+import com.focusbyrj.app.data.drill.DrillSummary
+import com.focusbyrj.app.ui.screens.drill.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
-import kotlin.math.roundToInt
-
-data class SolutionQuestionItem(
-    val qNum: Int,
-    val title: String,
-    val direction: String = "",
-    val questionText: String,
-    val options: List<String>,
-    val correctIndex: Int,
-    val userSelectedIndex: Int, // -1 if not attempted
-    val status: String, // "correct", "wrong", "unattempted"
-    val explanation: String,
-    val timeTakenSec: Int = 24,
-    val accuracyPct: Int = 80,
-    val positiveMarks: Double = 1.0,
-    val negativeMarks: Double = 0.25
-)
 
 enum class FilterTab {
     ALL, INCORRECT, CORRECT, OVERTIME, UNATTEMPTED
+}
+
+enum class SolutionSortOrder {
+    DEFAULT, ALPHABETICAL, TIME_TAKEN, ACCURACY
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -87,113 +76,68 @@ fun FullscreenSolutionsView(
     val timerRed = Color(0xFFFF5252)
 
     var examTitle by remember { mutableStateOf("Arithmetic & Speed Drill") }
-    val questionsList = remember(summaryJson) { mutableStateListOf<SolutionQuestionItem>() }
+    val questionsList = remember(summaryJson) { mutableStateListOf<DrillQuestionResult>() }
     val bookmarkedQuestions = remember { mutableStateMapOf<Int, Boolean>() }
 
     // Screen State
     var showFilterOverview by remember { mutableStateOf(false) }
     var selectedFilterTab by remember { mutableStateOf(FilterTab.ALL) }
+    var sortOrder by remember { mutableStateOf(SolutionSortOrder.DEFAULT) }
+    var showSortMenu by remember { mutableStateOf(false) }
     var selectedQuestionIndex by remember { mutableStateOf(0) }
     var isReattemptMode by remember { mutableStateOf(false) }
     val reattemptUserAnswers = remember { mutableStateMapOf<Int, Int>() } // qNum -> selectedOptIndex
 
+    // Load data: Try repository first (low memory, no JSON string parsing), then fallback to JSON
     LaunchedEffect(summaryJson) {
         questionsList.clear()
-        try {
-            val obj = JSONObject(summaryJson)
-            val isBlitz = obj.optBoolean("isBlitz", false)
-            val categoryTitle = obj.optString("title", "Arithmetic & Speed Drill")
-            examTitle = if (isBlitz) "⚡ Speed Blitz Review" else "$categoryTitle Solutions"
+        withContext(Dispatchers.IO) {
+            var loadedSummary: DrillSummary? = null
+            // Check if summaryJson is a sessionId
+            if (summaryJson.isNotBlank() && !summaryJson.startsWith("{")) {
+                loadedSummary = DrillSessionRepository.getSummary(summaryJson)
+            }
+            if (loadedSummary == null && summaryJson.isNotBlank()) {
+                loadedSummary = DrillSummary.fromJson(summaryJson)
+            }
 
-            val totalQuestions = obj.optInt("total", 0)
-            val correctQuestions = obj.optInt("correct", 0)
-            val elapsedSeconds = obj.optInt("elapsedSeconds", 60)
-
-            val qArr = obj.optJSONArray("questions")
-            if (qArr != null && qArr.length() > 0) {
-                val count = qArr.length()
-                val avgSec = (elapsedSeconds / count.coerceAtLeast(1)).coerceAtLeast(5)
-                for (i in 0 until count) {
-                    val qObj = qArr.getJSONObject(i)
-                    val optsArr = qObj.optJSONArray("options")
-                    val opts = mutableListOf<String>()
-                    if (optsArr != null) {
-                        for (j in 0 until optsArr.length()) {
-                            opts.add(optsArr.getString(j))
+            withContext(Dispatchers.Main) {
+                if (loadedSummary != null && loadedSummary.questions.isNotEmpty()) {
+                    examTitle = if (loadedSummary.isBlitz) "⚡ Speed Blitz Review" else "${loadedSummary.title} Solutions"
+                    questionsList.addAll(loadedSummary.questions)
+                } else {
+                    // Fallback to legacy parsing if needed
+                    try {
+                        val obj = JSONObject(summaryJson)
+                        val isBlitz = obj.optBoolean("isBlitz", false)
+                        val categoryTitle = obj.optString("title", "Arithmetic & Speed Drill")
+                        examTitle = if (isBlitz) "⚡ Speed Blitz Review" else "$categoryTitle Solutions"
+                        val qArr = obj.optJSONArray("questions")
+                        if (qArr != null && qArr.length() > 0) {
+                            for (i in 0 until qArr.length()) {
+                                questionsList.add(DrillQuestionResult.fromJson(qArr.getJSONObject(i), 20, i))
+                            }
                         }
-                    }
-                    val status = qObj.optString("status", "unattempted")
-                    val estimatedSec = when (i % 3) {
-                        0 -> (avgSec * 1.4).toInt()
-                        1 -> (avgSec * 0.7).toInt().coerceAtLeast(4)
-                        else -> avgSec
-                    }
-                    val accuracy = when (status) {
-                        "correct" -> 75 + (i * 3) % 20
-                        "wrong" -> 45 + (i * 7) % 35
-                        else -> 50 + (i * 5) % 30
-                    }.coerceIn(35, 95)
-
-                    val item = SolutionQuestionItem(
-                        qNum = qObj.optInt("qNum", i + 1),
-                        title = qObj.optString("title", "Arithmetic Drill"),
-                        direction = if (i == 0) "Read the arithmetic problem carefully and select the single correct option based on fundamental principles." else "",
-                        questionText = qObj.optString("questionText", ""),
-                        options = opts,
-                        correctIndex = qObj.optInt("correctIndex", 0),
-                        userSelectedIndex = qObj.optInt("userSelectedIndex", -1),
-                        status = status,
-                        explanation = qObj.optString("explanation", "Step-by-step mathematical breakdown and shortcut analysis."),
-                        timeTakenSec = estimatedSec,
-                        accuracyPct = accuracy,
-                        positiveMarks = 1.0,
-                        negativeMarks = 0.25
-                    )
-                    questionsList.add(item)
-                }
-            } else {
-                // Fallback demo questions if array was empty
-                val totalCount = if (totalQuestions > 0) totalQuestions else 5
-                for (i in 1..totalCount) {
-                    val isCorr = i <= correctQuestions
-                    questionsList.add(
-                        SolutionQuestionItem(
-                            qNum = i,
-                            title = "Arithmetic Drill",
-                            direction = if (i == 1) "Solve following problem using optimal arithmetic formulas." else "",
-                            questionText = "Sample Problem $i: Find the evaluated result of the required calculation.",
-                            options = listOf("None", "Two", "One", "Three", "More than three"),
-                            correctIndex = 0,
-                            userSelectedIndex = if (isCorr) 0 else 1,
-                            status = if (isCorr) "correct" else "wrong",
-                            explanation = "Step 1: Expand terms.\nStep 2: Simplify equation.\nHence, the correct option is Option 1.",
-                            timeTakenSec = 15 + (i * 8),
-                            accuracyPct = 78,
-                            positiveMarks = 1.0,
-                            negativeMarks = 0.25
-                        )
-                    )
+                    } catch (_: Exception) {}
                 }
             }
-        } catch (_: Exception) {}
+        }
     }
 
-    val totalCount = questionsList.size.coerceAtLeast(1)
+    val totalCount = questionsList.size
     val correctCount = questionsList.count { it.status == "correct" }
     val incorrectCount = questionsList.count { it.status == "wrong" }
     val unattemptedCount = questionsList.count { it.status == "unattempted" }
     val overtimeCount = questionsList.count { it.timeTakenSec > 35 }
 
-    val currentQuestion = questionsList.getOrNull(selectedQuestionIndex) ?: questionsList.firstOrNull()
+    val currentQuestion = questionsList.getOrNull(selectedQuestionIndex)
+    val stripListState = rememberLazyListState()
     val scrollState = rememberScrollState()
 
-    // Question number strip list state
-    val stripListState = rememberLazyListState()
     LaunchedEffect(selectedQuestionIndex) {
-        if (selectedQuestionIndex in 0 until questionsList.size) {
-            stripListState.animateScrollToItem(
-                (selectedQuestionIndex - 2).coerceAtLeast(0)
-            )
+        if (questionsList.isNotEmpty() && selectedQuestionIndex in questionsList.indices) {
+            stripListState.animateScrollToItem(selectedQuestionIndex)
+            scrollState.scrollTo(0)
         }
     }
 
@@ -206,7 +150,7 @@ fun FullscreenSolutionsView(
     ) {
         if (showFilterOverview) {
             // =========================================================================
-            // SCREEN 2: ALL QUESTIONS / FILTER OVERVIEW LIST (Exact match to Screenshot 2)
+            // SCREEN 2: ALL QUESTIONS / FILTER OVERVIEW LIST
             // =========================================================================
             Column(
                 modifier = Modifier
@@ -293,11 +237,13 @@ fun FullscreenSolutionsView(
                     )
                 }
 
-                // Section Title & Question Count
-                Column(
+                // Section Header Row: Title & Sort Button
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         text = "QUANTITATIVE & REASONING",
@@ -308,18 +254,94 @@ fun FullscreenSolutionsView(
                         ),
                         color = textPrimary
                     )
+
+                    // Sort Icon & Dropdown Menu
+                    Box {
+                        IconButton(
+                            onClick = { showSortMenu = true },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.Sort,
+                                contentDescription = "Sort Questions",
+                                tint = if (sortOrder != SolutionSortOrder.DEFAULT) activeBlue else textSecondary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+
+                        DropdownMenu(
+                            expanded = showSortMenu,
+                            onDismissRequest = { showSortMenu = false },
+                            modifier = Modifier.background(cardBackground)
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Default (Question #)", color = textPrimary) },
+                                onClick = {
+                                    sortOrder = SolutionSortOrder.DEFAULT
+                                    showSortMenu = false
+                                },
+                                leadingIcon = {
+                                    if (sortOrder == SolutionSortOrder.DEFAULT) {
+                                        Icon(Icons.Filled.Check, contentDescription = null, tint = activeBlue)
+                                    }
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Alphabetical (A-Z)", color = textPrimary) },
+                                onClick = {
+                                    sortOrder = SolutionSortOrder.ALPHABETICAL
+                                    showSortMenu = false
+                                },
+                                leadingIcon = {
+                                    if (sortOrder == SolutionSortOrder.ALPHABETICAL) {
+                                        Icon(Icons.Filled.Check, contentDescription = null, tint = activeBlue)
+                                    }
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Time Taken (Slowest First)", color = textPrimary) },
+                                onClick = {
+                                    sortOrder = SolutionSortOrder.TIME_TAKEN
+                                    showSortMenu = false
+                                },
+                                leadingIcon = {
+                                    if (sortOrder == SolutionSortOrder.TIME_TAKEN) {
+                                        Icon(Icons.Filled.Check, contentDescription = null, tint = activeBlue)
+                                    }
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Accuracy (Hardest First)", color = textPrimary) },
+                                onClick = {
+                                    sortOrder = SolutionSortOrder.ACCURACY
+                                    showSortMenu = false
+                                },
+                                leadingIcon = {
+                                    if (sortOrder == SolutionSortOrder.ACCURACY) {
+                                        Icon(Icons.Filled.Check, contentDescription = null, tint = activeBlue)
+                                    }
+                                }
+                            )
+                        }
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // Filtered List of Question Cards
-                val filteredQuestions = remember(selectedFilterTab, questionsList) {
-                    when (selectedFilterTab) {
+                // Filtered and Sorted List of Question Cards
+                val filteredQuestions = remember(selectedFilterTab, sortOrder, questionsList) {
+                    val list = when (selectedFilterTab) {
                         FilterTab.ALL -> questionsList.mapIndexed { idx, item -> Pair(idx, item) }
                         FilterTab.INCORRECT -> questionsList.mapIndexed { idx, item -> Pair(idx, item) }.filter { it.second.status == "wrong" }
                         FilterTab.CORRECT -> questionsList.mapIndexed { idx, item -> Pair(idx, item) }.filter { it.second.status == "correct" }
                         FilterTab.OVERTIME -> questionsList.mapIndexed { idx, item -> Pair(idx, item) }.filter { it.second.timeTakenSec > 35 }
                         FilterTab.UNATTEMPTED -> questionsList.mapIndexed { idx, item -> Pair(idx, item) }.filter { it.second.status == "unattempted" }
+                    }
+                    when (sortOrder) {
+                        SolutionSortOrder.DEFAULT -> list
+                        SolutionSortOrder.ALPHABETICAL -> list.sortedBy { it.second.questionText }
+                        SolutionSortOrder.TIME_TAKEN -> list.sortedByDescending { it.second.timeTakenSec }
+                        SolutionSortOrder.ACCURACY -> list.sortedBy { it.second.accuracyPct }
                     }
                 }
 
@@ -354,12 +376,10 @@ fun FullscreenSolutionsView(
                             Column(
                                 modifier = Modifier.padding(14.dp)
                             ) {
-                                // Top row: Number circle + Timer + Bookmark
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    // Number Badge Circle
                                     Box(
                                         modifier = Modifier
                                             .size(24.dp)
@@ -377,7 +397,6 @@ fun FullscreenSolutionsView(
 
                                     Spacer(modifier = Modifier.width(10.dp))
 
-                                    // Stopwatch Icon & Time
                                     Icon(
                                         imageVector = Icons.Default.Timer,
                                         contentDescription = null,
@@ -393,7 +412,6 @@ fun FullscreenSolutionsView(
 
                                     Spacer(modifier = Modifier.weight(1f))
 
-                                     // Bookmark Icon
                                     IconButton(
                                         onClick = {
                                             if (isBookmarked) bookmarkedQuestions.remove(qItem.qNum)
@@ -412,7 +430,6 @@ fun FullscreenSolutionsView(
 
                                 Spacer(modifier = Modifier.height(10.dp))
 
-                                // Question snippet
                                 Text(
                                     text = qItem.questionText.ifEmpty { "Problem #${qItem.qNum}" },
                                     style = MaterialTheme.typography.bodyMedium.copy(
@@ -465,170 +482,37 @@ fun FullscreenSolutionsView(
             }
         } else {
             // =========================================================================
-            // SCREEN 1: DETAILED SOLUTION QUESTION VIEW (Exact match to Screenshot 1)
+            // SCREEN 1: DETAILED SOLUTION QUESTION VIEW
             // =========================================================================
             Column(
                 modifier = Modifier.fillMaxSize()
             ) {
-                // 1. TOP APP BAR
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(darkSurface)
-                        .padding(horizontal = 8.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(onClick = onClose) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = textPrimary
-                        )
-                    }
+                // Modular Top App Bar
+                SolutionsTopBar(
+                    onBack = onClose,
+                    onOpenOverview = { showFilterOverview = true },
+                    textPrimary = textPrimary,
+                    darkSurface = darkSurface,
+                    activeBlue = activeBlue
+                )
 
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(horizontal = 4.dp)
-                    ) {
-                        Text(
-                            text = examTitle,
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp
-                            ),
-                            color = textPrimary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.clickable { showFilterOverview = true }
-                        ) {
-                            Text(
-                                text = "All Sections",
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
-                                color = activeBlue
-                            )
-                            Icon(
-                                imageVector = Icons.Default.KeyboardArrowDown,
-                                contentDescription = null,
-                                tint = activeBlue,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                    }
-
-                    // Right icons: Language/Translate + Menu
-                    Surface(
-                        shape = RoundedCornerShape(6.dp),
-                        color = Color(0xFF2C323B),
-                        modifier = Modifier.padding(end = 4.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.MenuBook,
-                                contentDescription = "Language",
-                                tint = textPrimary,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(3.dp))
-                            Text("E/अ", color = textPrimary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-
-                    IconButton(onClick = { showFilterOverview = true }) {
-                        Icon(
-                            imageVector = Icons.Default.Menu,
-                            contentDescription = "Menu",
-                            tint = textPrimary
-                        )
-                    }
-                }
-
-                // 2. QUESTION NUMBER STRIP (Horizontal Scrollable + Filters Pill pinned at right)
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(darkSurface)
-                        .padding(vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    LazyRow(
-                        state = stripListState,
-                        modifier = Modifier.weight(1f),
-                        contentPadding = PaddingValues(horizontal = 12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        itemsIndexed(questionsList) { index, item ->
-                            val isSelected = index == selectedQuestionIndex
-                            val statusColor = when (item.status) {
-                                "correct" -> correctGreen
-                                "wrong" -> wrongRed
-                                else -> unattemptedGrey
-                            }
-
-                            Box(
-                                modifier = Modifier
-                                    .size(34.dp)
-                                    .clip(CircleShape)
-                                    .background(statusColor)
-                                    .then(
-                                        if (isSelected) {
-                                            Modifier.border(2.dp, Color.White, CircleShape)
-                                        } else Modifier
-                                    )
-                                    .clickable {
-                                        selectedQuestionIndex = index
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = "${item.qNum}",
-                                    color = Color.White,
-                                    fontWeight = if (isSelected) FontWeight.Black else FontWeight.Bold,
-                                    fontSize = 13.sp
-                                )
-                            }
-                        }
-                    }
-
-                    // Pinned "Filters" Button on the right
-                    Surface(
-                        onClick = { showFilterOverview = true },
-                        shape = RoundedCornerShape(8.dp),
-                        color = Color(0xFF262C34),
-                        modifier = Modifier
-                            .padding(end = 12.dp)
-                            .height(34.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.FilterList,
-                                contentDescription = "Filters",
-                                tint = textPrimary,
-                                modifier = Modifier.size(15.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "Filters",
-                                color = textPrimary,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp
-                            )
-                        }
-                    }
-                }
+                // Modular Question Number Strip
+                SolutionsQuestionNumberStrip(
+                    questionsList = questionsList,
+                    selectedIndex = selectedQuestionIndex,
+                    stripListState = stripListState,
+                    onSelectIndex = { selectedQuestionIndex = it },
+                    onOpenFilters = { showFilterOverview = true },
+                    darkSurface = darkSurface,
+                    correctGreen = correctGreen,
+                    wrongRed = wrongRed,
+                    unattemptedGrey = unattemptedGrey,
+                    textPrimary = textPrimary
+                )
 
                 HorizontalDivider(color = cardStrokeColor, thickness = 1.dp)
 
-                // 3. MAIN SCROLLABLE QUESTION BODY
+                // Main Scrollable Question Body
                 if (currentQuestion != null) {
                     Column(
                         modifier = Modifier
@@ -637,275 +521,40 @@ fun FullscreenSolutionsView(
                             .verticalScroll(scrollState)
                             .padding(horizontal = 16.dp, vertical = 12.dp)
                     ) {
-                        val isBookmarked = bookmarkedQuestions[currentQuestion.qNum] == true
-                        val statusColor = when (currentQuestion.status) {
-                            "correct" -> correctGreen
-                            "wrong" -> wrongRed
-                            else -> unattemptedGrey
-                        }
-
-                        // Question Header Row: Number Badge + Time Taken + Marks + Warning/Bookmark
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // Badge
-                            Box(
-                                modifier = Modifier
-                                    .size(26.dp)
-                                    .clip(CircleShape)
-                                    .background(statusColor),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = "${currentQuestion.qNum}",
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 13.sp
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.width(8.dp))
-
-                            // Timer + Time formatted
-                            Icon(
-                                imageVector = Icons.Default.Timer,
-                                contentDescription = null,
-                                tint = if (currentQuestion.status == "wrong" || currentQuestion.timeTakenSec > 35) timerRed else textSecondary,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = formatSecondsToMinutesSec(currentQuestion.timeTakenSec),
-                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
-                                color = if (currentQuestion.status == "wrong" || currentQuestion.timeTakenSec > 35) timerRed else textSecondary
-                            )
-
-                            Spacer(modifier = Modifier.width(14.dp))
-
-                            // Marks: +1.0  -0.25
-                            Text(
-                                text = "+${currentQuestion.positiveMarks}",
-                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                                color = correctGreen
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "-${currentQuestion.negativeMarks}",
-                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Normal),
-                                color = textSecondary
-                            )
-
-                            Spacer(modifier = Modifier.weight(1f))
-
-                            // Report Warning Icon
-                            IconButton(
-                                onClick = {},
-                                modifier = Modifier.size(24.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.WarningAmber,
-                                    contentDescription = "Report",
-                                    tint = textSecondary,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.width(12.dp))
-
-                            // Bookmark Icon
-                            IconButton(
-                                onClick = {
-                                    if (isBookmarked) bookmarkedQuestions.remove(currentQuestion.qNum)
-                                    else bookmarkedQuestions[currentQuestion.qNum] = true
-                                },
-                                modifier = Modifier.size(24.dp)
-                            ) {
-                                Icon(
-                                    imageVector = if (isBookmarked) Icons.Default.Bookmark else Icons.Outlined.BookmarkBorder,
-                                    contentDescription = "Bookmark",
-                                    tint = if (isBookmarked) activeBlue else textSecondary,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                        // Direction (if present)
-                        if (currentQuestion.direction.isNotEmpty()) {
-                            Text(
-                                text = "Direction: ${currentQuestion.direction}",
-                                style = MaterialTheme.typography.bodyMedium.copy(
-                                    fontWeight = FontWeight.Medium,
-                                    lineHeight = 22.sp
-                                ),
-                                color = textSecondary
-                            )
-                            Spacer(modifier = Modifier.height(10.dp))
-                        }
-
-                        // Question Prompt
-                        Text(
-                            text = currentQuestion.questionText,
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Normal,
-                                lineHeight = 24.sp,
-                                fontSize = 16.sp
-                            ),
-                            color = textPrimary
+                        // Modular Solution Card Item (Question prompt and options)
+                        SolutionCardItem(
+                            question = currentQuestion,
+                            isReattemptMode = isReattemptMode,
+                            reattemptSelectedOption = reattemptUserAnswers[currentQuestion.qNum],
+                            onSelectReattemptOption = { optIdx ->
+                                reattemptUserAnswers[currentQuestion.qNum] = optIdx
+                            },
+                            cardBackground = cardBackground,
+                            textPrimary = textPrimary,
+                            textSecondary = textSecondary,
+                            correctGreen = correctGreen,
+                            wrongRed = wrongRed,
+                            unattemptedGrey = unattemptedGrey,
+                            timerRed = timerRed,
+                            activeBlue = activeBlue
                         )
 
-                        Spacer(modifier = Modifier.height(20.dp))
-
-                        // Options List (1. 2. 3. 4. 5.)
-                        val currentReattemptChoice = reattemptUserAnswers[currentQuestion.qNum]
-
-                        currentQuestion.options.forEachIndexed { optIndex, optText ->
-                            val isCorrectOption = optIndex == currentQuestion.correctIndex
-                            val isUserChosen = optIndex == currentQuestion.userSelectedIndex
-
-                            // Highlighting Logic
-                            val (optBorderColor, optBgColor, optNumberColor) = if (isReattemptMode) {
-                                val isSelectedInReattempt = currentReattemptChoice == optIndex
-                                if (isSelectedInReattempt) {
-                                    Triple(activeBlue, activeBlue.copy(alpha = 0.12f), activeBlue)
-                                } else {
-                                    Triple(Color.Transparent, cardBackground, textSecondary)
-                                }
-                            } else {
-                                when {
-                                    isCorrectOption -> Triple(
-                                        correctGreen,
-                                        correctGreen.copy(alpha = 0.12f),
-                                        correctGreen
-                                    )
-                                    isUserChosen && !isCorrectOption -> Triple(
-                                        wrongRed,
-                                        wrongRed.copy(alpha = 0.12f),
-                                        wrongRed
-                                    )
-                                    else -> Triple(Color.Transparent, cardBackground, textSecondary)
-                                }
-                            }
-
-                            Surface(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 5.dp)
-                                    .clickable(enabled = isReattemptMode) {
-                                        reattemptUserAnswers[currentQuestion.qNum] = optIndex
-                                    },
-                                shape = RoundedCornerShape(10.dp),
-                                color = optBgColor,
-                                border = if (optBorderColor != Color.Transparent) BorderStroke(1.5.dp, optBorderColor) else null
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 14.dp, vertical = 14.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    // Option index prefix e.g. "1. ", "2. "
-                                    Text(
-                                        text = "${optIndex + 1}.",
-                                        style = MaterialTheme.typography.bodyMedium.copy(
-                                            fontStyle = FontStyle.Italic,
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 15.sp
-                                        ),
-                                        color = optNumberColor
-                                    )
-
-                                    Spacer(modifier = Modifier.width(14.dp))
-
-                                    // Option text
-                                    Text(
-                                        text = optText,
-                                        style = MaterialTheme.typography.bodyMedium.copy(
-                                            fontSize = 15.sp,
-                                            fontWeight = FontWeight.Normal
-                                        ),
-                                        color = textPrimary,
-                                        modifier = Modifier.weight(1f)
-                                    )
-
-                                    // Trailing status indicator in non-reattempt mode
-                                    if (!isReattemptMode) {
-                                        if (isCorrectOption) {
-                                            Icon(
-                                                imageVector = Icons.Default.CheckCircle,
-                                                contentDescription = "Correct",
-                                                tint = correctGreen,
-                                                modifier = Modifier.size(20.dp)
-                                            )
-                                        } else if (isUserChosen) {
-                                            Icon(
-                                                imageVector = Icons.Default.Cancel,
-                                                contentDescription = "Incorrect",
-                                                tint = wrongRed,
-                                                modifier = Modifier.size(20.dp)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        // Detailed Solution & Explanation Section (Shown when not in reattempt mode)
+                        // Modular Explanation Section
                         if (!isReattemptMode) {
-                            Spacer(modifier = Modifier.height(24.dp))
-
-                            Surface(
-                                shape = RoundedCornerShape(14.dp),
-                                color = cardBackground,
-                                border = BorderStroke(1.dp, cardStrokeColor),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(16.dp)
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Lightbulb,
-                                            contentDescription = null,
-                                            tint = activeBlue,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text(
-                                            text = "Solution & Detailed Explanation",
-                                            style = MaterialTheme.typography.titleSmall.copy(
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 14.sp
-                                            ),
-                                            color = textPrimary
-                                        )
-                                    }
-
-                                    Spacer(modifier = Modifier.height(10.dp))
-                                    HorizontalDivider(color = cardStrokeColor)
-                                    Spacer(modifier = Modifier.height(10.dp))
-
-                                    Text(
-                                        text = currentQuestion.explanation,
-                                        style = MaterialTheme.typography.bodyMedium.copy(
-                                            lineHeight = 22.sp,
-                                            fontSize = 14.sp
-                                        ),
-                                        color = textPrimary.copy(alpha = 0.9f)
-                                    )
-                                }
-                            }
+                            ExplanationSection(
+                                explanation = currentQuestion.explanation,
+                                cardBackground = cardBackground,
+                                cardStrokeColor = cardStrokeColor,
+                                textPrimary = textPrimary,
+                                activeBlue = activeBlue
+                            )
                         }
 
                         Spacer(modifier = Modifier.height(80.dp))
                     }
                 }
 
-                // 4. BOTTOM BAR: Reattempt Mode Toggle + Next Floating Arrow Button
+                // Bottom Bar: Reattempt Mode Toggle + Previous/Next Navigation Buttons
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     color = darkSurface,
@@ -950,9 +599,7 @@ fun FullscreenSolutionsView(
                         ) {
                             if (selectedQuestionIndex > 0) {
                                 IconButton(
-                                    onClick = {
-                                        selectedQuestionIndex--
-                                    },
+                                    onClick = { selectedQuestionIndex-- },
                                     modifier = Modifier
                                         .size(44.dp)
                                         .background(cardBackground, CircleShape)
@@ -966,7 +613,6 @@ fun FullscreenSolutionsView(
                                 }
                             }
 
-                            // Circular Blue Forward Button
                             IconButton(
                                 onClick = {
                                     if (selectedQuestionIndex < questionsList.size - 1) {
@@ -992,47 +638,4 @@ fun FullscreenSolutionsView(
             }
         }
     }
-}
-
-@Composable
-private fun FilterTabPill(
-    text: String,
-    isSelected: Boolean,
-    activeColor: Color,
-    onClick: () -> Unit
-) {
-    Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(20.dp),
-        color = if (isSelected) activeColor else Color(0xFF262C34),
-        modifier = Modifier.height(36.dp)
-    ) {
-        Box(
-            modifier = Modifier.padding(horizontal = 16.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = text,
-                color = if (isSelected) Color.White else Color(0xFFADB5BD),
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                fontSize = 13.sp
-            )
-        }
-    }
-}
-
-private fun formatSecondsToMinutesSec(seconds: Int): String {
-    val mins = seconds / 60
-    val secs = seconds % 60
-    return if (mins > 0) {
-        "${mins}min ${secs}sec"
-    } else {
-        "${secs}sec"
-    }
-}
-
-private fun formatSecondsToMmSs(seconds: Int): String {
-    val mins = seconds / 60
-    val secs = seconds % 60
-    return "${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}"
 }

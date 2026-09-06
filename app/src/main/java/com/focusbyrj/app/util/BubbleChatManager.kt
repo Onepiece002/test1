@@ -48,6 +48,7 @@ data class PersistedChatMessage(
     val isEveningBrief: Boolean = false,
     val isStreakFreezeSkipped: Boolean = false,
     val isVocabBrief: Boolean = false,
+    val isVocabHub: Boolean = false,
     val vocabJson: String? = null
 ) {
     /**
@@ -57,9 +58,9 @@ data class PersistedChatMessage(
     val isImportantCard: Boolean
         get() = isDrillSummary || isAptitudeProfile || isStreakPrompt || 
                 isDailyQuests || isMysteryBox || isMorningBrief || isEveningBrief || 
-                isStreakFreezeSkipped || (isTaskSummary && !taskSummaryJson.isNullOrBlank()) ||
+                isStreakFreezeSkipped || isVocabHub || (isTaskSummary && !taskSummaryJson.isNullOrBlank()) ||
                 id.startsWith("drill_summary_") || id.startsWith("morning_") || 
-                id.startsWith("evening_") || id.startsWith("streak_prompt_") || id.startsWith("mystery_box_")
+                id.startsWith("evening_") || id.startsWith("streak_prompt_") || id.startsWith("mystery_box_") || id.startsWith("vocab_hub_")
 
     /**
      * Ephemeral messages are quick commands, casual talk, setting toggles, task additions,
@@ -234,6 +235,7 @@ object BubbleChatManager {
                         isEveningBrief = obj.optBoolean("isEveningBrief", false) || obj.optString("id", "").startsWith("evening_"),
                         isStreakFreezeSkipped = obj.optBoolean("isStreakFreezeSkipped", false) || obj.optString("id", "").startsWith("angry_freeze_"),
                         isVocabBrief = obj.optBoolean("isVocabBrief", false),
+                        isVocabHub = obj.optBoolean("isVocabHub", false) || obj.optString("id", "").startsWith("vocab_hub_"),
                         vocabJson = if (obj.has("vocabJson") && !obj.isNull("vocabJson")) obj.optString("vocabJson", null) else null
                     )
                 )
@@ -273,6 +275,7 @@ object BubbleChatManager {
                     put("isEveningBrief", msg.isEveningBrief)
                     put("isStreakFreezeSkipped", msg.isStreakFreezeSkipped)
                     put("isVocabBrief", msg.isVocabBrief)
+                    put("isVocabHub", msg.isVocabHub)
                     put("vocabJson", msg.vocabJson)
                 }
                 jsonArray.put(obj)

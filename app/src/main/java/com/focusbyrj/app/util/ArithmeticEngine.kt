@@ -29,29 +29,38 @@ object ArithmeticEngine {
     fun generateQuestion(difficulty: ArithmeticDifficulty): ArithmeticQuestion {
         return when (difficulty) {
             ArithmeticDifficulty.EASY -> {
-                when (Random.nextInt(4)) {
+                when (Random.nextInt(7)) {
                     0 -> generateSpeedMath(difficulty)
                     1 -> generateSimplification(difficulty)
                     2 -> generateNumberSeries(difficulty)
+                    3 -> generateDivisibilityAndRemainders(difficulty)
+                    4 -> generateFractionBODMAS(difficulty)
+                    5 -> generateRatioAndProportion(difficulty)
                     else -> generateInequality(difficulty)
                 }
             }
             ArithmeticDifficulty.MEDIUM -> {
-                when (Random.nextInt(5)) {
+                when (Random.nextInt(8)) {
                     0 -> generateSpeedMath(difficulty)
                     1 -> generateSimplification(difficulty)
                     2 -> generateNumberSeries(difficulty)
                     3 -> generateQuadratic(difficulty)
+                    4 -> generateDivisibilityAndRemainders(difficulty)
+                    5 -> generateFractionBODMAS(difficulty)
+                    6 -> generateRatioAndProportion(difficulty)
                     else -> generateInequality(difficulty)
                 }
             }
             ArithmeticDifficulty.HARD -> {
-                when (Random.nextInt(5)) {
+                when (Random.nextInt(8)) {
                     0 -> generateApproximation() // PO Core: Approximations
                     1 -> generateSimplification(difficulty)
                     2 -> generateNumberSeries(difficulty) // Includes Wrong Number Series & Hard Patterns
                     3 -> generateQuadratic(difficulty) // Real PO-level quadratics
-                    else -> generateInequality(difficulty) // Tricky & Either-Or / Neither inequalities
+                    4 -> generateDivisibilityAndRemainders(difficulty)
+                    5 -> generateFractionBODMAS(difficulty)
+                    6 -> generateRatioAndProportion(difficulty)
+                    else -> generateInequality(difficulty)
                 }
             }
         }
@@ -1282,6 +1291,250 @@ object ArithmeticEngine {
             correctIndex = targetOutcome,
             explanation = finalExpl
         )
+    }
+
+    // =========================================================================
+    // 7. DIVISIBILITY RULES & REMAINDER THEOREMS
+    // =========================================================================
+    private fun generateDivisibilityAndRemainders(difficulty: ArithmeticDifficulty): ArithmeticQuestion {
+        return when (difficulty) {
+            ArithmeticDifficulty.EASY -> {
+                if (Random.nextBoolean()) {
+                    val d1 = Random.nextInt(1, 9)
+                    val d2 = Random.nextInt(0, 9)
+                    val d3 = Random.nextInt(0, 9)
+                    val d4 = Random.nextInt(0, 9)
+                    val currentSum = d1 + d2 + d3 + d4
+                    val targetMultiple = ((currentSum / 9) + 1) * 9
+                    val k = targetMultiple - currentSum
+                    val kVal = if (k == 9) 0 else k
+                    val questionStr = "If the 5-digit number ${d1}${d2}k${d3}${d4} is completely divisible by 9, what is the single-digit value of k?"
+                    val explanation = "💡 Divisibility rule of 9: Sum of digits must be a multiple of 9.\nSum = $d1 + $d2 + k + $d3 + $d4 = ${currentSum} + k.\nThe nearest multiple of 9 is $targetMultiple.\nTherefore, k = $targetMultiple - $currentSum = $kVal."
+
+                    buildQuestion(
+                        title = "Divisibility Rules (Multiple of 9)",
+                        question = questionStr,
+                        answer = kVal.toDouble(),
+                        distractorLogic = { ((it.toInt() + listOf(1, 2, 3, 4, 5).random()) % 10).toDouble() },
+                        explanation = explanation
+                    )
+                } else {
+                    val mod = listOf(7, 8, 9, 11).random()
+                    val q1 = Random.nextInt(4, 12)
+                    val q2 = Random.nextInt(5, 15)
+                    val r1 = Random.nextInt(1, mod)
+                    val r2 = Random.nextInt(1, mod)
+                    val numA = q1 * mod + r1
+                    val numB = q2 * mod + r2
+                    val ans = (r1 * r2) % mod
+                    val explanation = "💡 Remainder shortcut: Find individual remainders first.\n• $numA ÷ $mod leaves remainder $r1\n• $numB ÷ $mod leaves remainder $r2\nTotal Remainder = ($r1 × $r2) mod $mod = ${r1 * r2} mod $mod = $ans."
+
+                    buildQuestion(
+                        title = "Remainder Theorem (Product Shortcut)",
+                        question = "What is the remainder when ($numA × $numB) is divided by $mod?",
+                        answer = ans.toDouble(),
+                        distractorLogic = { ((it.toInt() + listOf(1, 2, 3, 4).random()) % mod).toDouble() },
+                        explanation = explanation
+                    )
+                }
+            }
+            ArithmeticDifficulty.MEDIUM -> {
+                if (Random.nextBoolean()) {
+                    val x = Random.nextInt(12, 28)
+                    val n = Random.nextInt(15, 80)
+                    val add = Random.nextInt(3, 15)
+                    val ans = (1 + add) % x
+                    val questionStr = "Find the remainder when (${x + 1}^$n + $add) is divided by $x."
+                    val explanation = "💡 Binomial Remainder shortcut: (${x}+1)^$n ≡ 1^$n = 1 (mod $x).\nSo remainder = (1 + $add) mod $x = ${1 + add} mod $x = $ans."
+
+                    buildQuestion(
+                        title = "Remainder Theorem (Binomial Form)",
+                        question = questionStr,
+                        answer = ans.toDouble(),
+                        distractorLogic = { ((it.toInt() + listOf(1, 2, 3, 4).random()) % x).toDouble() },
+                        explanation = explanation
+                    )
+                } else {
+                    val mod = 11
+                    val q1 = Random.nextInt(3, 9)
+                    val q2 = Random.nextInt(3, 9)
+                    val q3 = Random.nextInt(3, 9)
+                    val r1 = Random.nextInt(2, 8)
+                    val r2 = Random.nextInt(2, 8)
+                    val r3 = Random.nextInt(2, 8)
+                    val n1 = q1 * mod + r1
+                    val n2 = q2 * mod + r2
+                    val n3 = q3 * mod + r3
+                    val ans = (r1 * r2 * r3) % mod
+                    val explanation = "💡 Step-by-step remainder breakdown:\n1. $n1 mod 11 = $r1\n2. $n2 mod 11 = $r2\n3. $n3 mod 11 = $r3\nResult = ($r1 × $r2 × $r3) mod 11 = ${r1 * r2 * r3} mod 11 = $ans."
+
+                    buildQuestion(
+                        title = "Remainder Theorem (3-Factor Expansion)",
+                        question = "Find the remainder when ($n1 × $n2 × $n3) is divided by 11.",
+                        answer = ans.toDouble(),
+                        distractorLogic = { ((it.toInt() + listOf(1, 2, 3, 4).random()) % 11).toDouble() },
+                        explanation = explanation
+                    )
+                }
+            }
+            ArithmeticDifficulty.HARD -> {
+                val prime = listOf(7, 11, 13, 17).random()
+                val base = listOf(2, 3, 4, 5).filter { it % prime != 0 }.random()
+                val cycle = prime - 1
+                val r = Random.nextInt(1, 4)
+                val exponent = cycle * Random.nextInt(3, 12) + r
+                var ans = 1
+                for (i in 0 until r) {
+                    ans = (ans * base) % prime
+                }
+                val explanation = "💡 Fermat's Little Theorem:\nSince $prime is prime and gcd($base, $prime) = 1, by Fermat: $base^${cycle} ≡ 1 (mod $prime).\nDivide exponent: $exponent ÷ $cycle leaves remainder $r.\nTherefore, $base^$exponent ≡ $base^$r ≡ $ans (mod $prime)."
+
+                buildQuestion(
+                    title = "Fermat's Remainder Theorem",
+                    question = "What is the remainder when $base^$exponent is divided by $prime?",
+                    answer = ans.toDouble(),
+                    distractorLogic = { ((it.toInt() + listOf(1, 2, 3).random()) % prime).toDouble() },
+                    explanation = explanation
+                )
+            }
+        }
+    }
+
+    // =========================================================================
+    // 8. SIMPLIFICATION / BODMAS WITH FRACTIONS
+    // =========================================================================
+    private fun generateFractionBODMAS(difficulty: ArithmeticDifficulty): ArithmeticQuestion {
+        return when (difficulty) {
+            ArithmeticDifficulty.EASY -> {
+                val w1 = Random.nextInt(2, 6)
+                val w2 = Random.nextInt(3, 8)
+                val d = listOf(4, 6, 8).random()
+                val num1 = Random.nextInt(1, (d / 2).coerceAtLeast(2))
+                val num2 = Random.nextInt(1, (d / 2).coerceAtLeast(2))
+                val mult = d * Random.nextInt(2, 5)
+                val answer = (w1 + w2) * mult + (num1 + num2) * (mult / d)
+
+                buildQuestion(
+                    title = "Fraction Simplification (Mixed Numbers)",
+                    question = "($w1 $num1/$d + $w2 $num2/$d) × $mult = ?",
+                    answer = answer.toDouble(),
+                    distractorLogic = { it + listOf(-d * 2.0, -d.toDouble(), d.toDouble(), d * 2.0).random() },
+                    explanation = "💡 Fast Fraction Rule:\n1. Combine whole parts: $w1 + $w2 = ${w1 + w2}\n2. Combine fractional parts: ($num1 + $num2)/$d\n3. Multiply: (${w1 + w2}) × $mult + (${num1 + num2}) × ${mult / d} = $answer."
+                )
+            }
+            ArithmeticDifficulty.MEDIUM -> {
+                val denom = listOf(3, 4, 5, 6, 7).random()
+                val numer = Random.nextInt(1, denom)
+                val base = denom * Random.nextInt(8, 20)
+                val divNum = listOf(2, 3, 4, 5).random()
+                val ofResult = (base / denom) * numer
+                val divPart = ofResult / divNum
+                val addPart = Random.nextInt(10, 40)
+                val answer = divPart + addPart
+
+                buildQuestion(
+                    title = "BODMAS Fractions & 'Of' Precedence",
+                    question = "$numer/$denom of $base ÷ $divNum + $addPart = ?",
+                    answer = answer.toDouble(),
+                    distractorLogic = { it + listOf(-15.0, -10.0, 10.0, 15.0).random() },
+                    explanation = "💡 BODMAS Priority (B-O-D-M-A-S):\n1. 'Of' first: $numer/$denom of $base = ($base ÷ $denom) × $numer = $ofResult\n2. Division next: $ofResult ÷ $divNum = $divPart\n3. Addition last: $divPart + $addPart = $answer."
+                )
+            }
+            ArithmeticDifficulty.HARD -> {
+                val a = Random.nextInt(3, 8)
+                val b = Random.nextInt(2, 5)
+                val factor = listOf(12, 16, 24, 36).random()
+                val term1 = (factor * a) / b
+                val term2 = Random.nextInt(15, 50)
+                val answer = term1 - term2
+
+                buildQuestion(
+                    title = "Complex Fractional Simplification",
+                    question = "($factor ÷ $b/$a) - $term2 = ?",
+                    answer = answer.toDouble(),
+                    distractorLogic = { it + listOf(-20.0, -10.0, 10.0, 20.0, 30.0).random() },
+                    explanation = "💡 Division by a fraction means multiplying by its reciprocal:\n1. $factor ÷ ($b/$a) = $factor × ($a/$b) = ${factor / b} × $a = $term1\n2. Subtraction: $term1 - $term2 = $answer."
+                )
+            }
+        }
+    }
+
+    // =========================================================================
+    // 9. RATIO & PROPORTION SHORTCUTS
+    // =========================================================================
+    private fun generateRatioAndProportion(difficulty: ArithmeticDifficulty): ArithmeticQuestion {
+        return when (difficulty) {
+            ArithmeticDifficulty.EASY -> {
+                val rA = Random.nextInt(2, 6)
+                val rB1 = Random.nextInt(3, 7)
+                val multB = Random.nextInt(1, 3)
+                val rB2 = rB1 * multB
+                val rC = Random.nextInt(3, 8)
+                val eqA = rA * multB
+                val eqB = rB2
+                val eqC = rC
+                val sumParts = eqA + eqB + eqC
+                val unitVal = Random.nextInt(5, 25) * 10
+                val totalMoney = sumParts * unitVal
+                val targetAnswer = eqB * unitVal
+
+                buildQuestion(
+                    title = "Ratio Combining & Distribution",
+                    question = "A sum of ₹$totalMoney is divided among A, B, and C such that A : B = $rA : $rB1 and B : C = $rB2 : $rC. What is B's share?",
+                    answer = targetAnswer.toDouble(),
+                    distractorLogic = { it + listOf(-unitVal * 2.0, -unitVal.toDouble(), unitVal.toDouble(), unitVal * 2.0).random() },
+                    explanation = "💡 Ratio Combining Shortcut:\n• A : B = $rA : $rB1 = $eqA : $eqB\n• B : C = $rB2 : $rC = $eqB : $eqC\nCombined Ratio A : B : C = $eqA : $eqB : $eqC\nTotal parts = $eqA + $eqB + $eqC = $sumParts parts = ₹$totalMoney.\n1 part = ₹$unitVal.\nB's share ($eqB parts) = $eqB × ₹$unitVal = ₹$targetAnswer."
+                )
+            }
+            ArithmeticDifficulty.MEDIUM -> {
+                if (Random.nextBoolean()) {
+                    val rootA = Random.nextInt(3, 12)
+                    val rootB = Random.nextInt(4, 15)
+                    val a = rootA * rootA
+                    val b = rootB * rootB
+                    val meanProp = rootA * rootB
+
+                    buildQuestion(
+                        title = "Mean Proportional Shortcut",
+                        question = "Find the mean proportional between $a and $b.",
+                        answer = meanProp.toDouble(),
+                        distractorLogic = { it + listOf(-10.0, -5.0, 5.0, 10.0).random() },
+                        explanation = "💡 Mean Proportional Formula: x = √(a × b).\nHere, x = √($a × $b) = √$a × √$b = $rootA × $rootB = $meanProp."
+                    )
+                } else {
+                    val k = Random.nextInt(2, 6)
+                    val a = k * Random.nextInt(2, 5)
+                    val b = a * Random.nextInt(2, 4)
+                    val thirdProp = (b * b) / a
+
+                    buildQuestion(
+                        title = "Third Proportional Formula",
+                        question = "Find the third proportional to $a and $b.",
+                        answer = thirdProp.toDouble(),
+                        distractorLogic = { it + listOf(-b.toDouble(), b.toDouble(), (b * 2).toDouble()).random() },
+                        explanation = "💡 Third Proportional Formula: If a : b = b : x, then x = b² ÷ a.\nx = $b² ÷ $a = ${b * b} ÷ $a = $thirdProp."
+                    )
+                }
+            }
+            ArithmeticDifficulty.HARD -> {
+                val unit = Random.nextInt(10, 40) * 10
+                val p = 5
+                val q = 4
+                val r = 3
+                val s = 2
+                val savings = unit * 2
+                val xVal = savings / 2
+                val answerA = p * xVal
+
+                buildQuestion(
+                    title = "Income & Expenditure (Cross-Product Method)",
+                    question = "The ratio of monthly incomes of A and B is $p : $q and the ratio of their expenditures is $r : $s. If each saves ₹$savings per month, what is the monthly income of A?",
+                    answer = answerA.toDouble(),
+                    distractorLogic = { it + listOf(-xVal.toDouble(), xVal.toDouble(), xVal * 2.0).random() },
+                    explanation = "💡 Banking Cross-Multiplication Shortcut:\nIncome Ratio: $p : $q\nExpenditure Ratio: $r : $s\nSavings: ₹$savings each.\nCross-difference: (4 × $r) - (5 × $s) = ${4 * r} - ${5 * s} = 2 units.\n2 units = ₹$savings ➔ 1 unit = ₹$xVal.\nA's income = $p units = $p × ₹$xVal = ₹$answerA."
+                )
+            }
+        }
     }
 }
 

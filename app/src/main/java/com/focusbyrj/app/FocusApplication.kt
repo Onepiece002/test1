@@ -39,6 +39,7 @@ class FocusApplication : Application() {
         com.focusbyrj.app.util.BubbleChatManager.init(this)
         com.focusbyrj.app.util.AppIconManager.init(this)
         com.focusbyrj.app.util.StreakManager.init(this)
+        com.focusbyrj.app.data.drill.DrillSessionRepository.init(this)
 
         // Warm up Ayva knowledge base in background IO thread for instant 0ms responses
         CoroutineScope(Dispatchers.IO).launch {

@@ -41,6 +41,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.focusbyrj.app.ui.screens.drill.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.focusbyrj.app.util.DailyQuestManager
@@ -193,266 +194,22 @@ fun FullscreenDrillView(
                 .padding(horizontal = 18.dp, vertical = 10.dp)
         ) {
             // -------------------------------------------------------------
-            // TOP HUD: Close Button, Glossy Progress Bar & Blitz Timer / Q Count
+            // MODULAR TOP HUD & COMBO STREAK CAPSULE
             // -------------------------------------------------------------
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Exit Button
-                IconButton(
-                    onClick = onEndSession,
-                    modifier = Modifier.size(38.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Close,
-                        contentDescription = "Exit Drill",
-                        tint = if (isDark) Color(0xFF839EAB) else Color(0xFF64748B),
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
+            DrillTopBar(
+                activeSession = activeSession,
+                questionIndex = questionIndex,
+                onEndSession = onEndSession,
+                onOpenOverview = { showGridDialog = true },
+                isDark = isDark
+            )
 
-                Spacer(modifier = Modifier.width(6.dp))
-
-                // Duolingo Glossy Progress Bar (Fills up gradually as session progresses)
-                val progressFraction = if (activeSession.isBlitz) {
-                    val totalTime = 300f
-                    val elapsedSeconds = (300 - activeSession.blitzSecondsRemaining).coerceAtLeast(0)
-                    (elapsedSeconds.toFloat() / totalTime).coerceIn(0.03f, 1f)
-                } else {
-                    val target = if (activeSession.targetQuestions > 0) activeSession.targetQuestions else 10
-                    (activeSession.total.toFloat() / target.toFloat()).coerceIn(0.03f, 1f)
-                }
-
-                val animatedProgress by animateFloatAsState(
-                    targetValue = progressFraction,
-                    animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing),
-                    label = "drill_progress"
-                )
-
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(14.dp)
-                        .clip(RoundedCornerShape(7.dp))
-                        .background(if (isDark) Color(0xFF20343D) else Color(0xFFE5E5E5))
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxHeight()
-                            .fillMaxWidth(animatedProgress)
-                            .clip(RoundedCornerShape(7.dp))
-                            .background(
-                                if (activeSession.isBlitz) {
-                                    if (activeSession.blitzSecondsRemaining <= 30) duolingoRed
-                                    else duolingoYellow
-                                } else {
-                                    duolingoGreen
-                                }
-                            )
-                    ) {
-                        // Specular gloss shine on top half
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(4.5.dp)
-                                .padding(horizontal = 3.dp, vertical = 1.dp)
-                                .clip(RoundedCornerShape(2.dp))
-                                .background(Color.White.copy(alpha = 0.35f))
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.width(10.dp))
-
-                // Right HUD: Blitz Timer or Question Number Pill
-                if (activeSession.isBlitz) {
-                    val mins = activeSession.blitzSecondsRemaining / 60
-                    val secs = activeSession.blitzSecondsRemaining % 60
-                    val timerText = if (mins > 0) String.format("%d:%02d", mins, secs) else "${secs}s"
-                    val isUrgent = activeSession.blitzSecondsRemaining <= 30
-
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = if (isUrgent) duolingoRed.copy(alpha = 0.15f) else duolingoYellow.copy(alpha = 0.15f),
-                        border = BorderStroke(2.dp, if (isUrgent) duolingoRed else duolingoYellow)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp)
-                        ) {
-                            Icon(
-                                Icons.Filled.ElectricBolt,
-                                contentDescription = null,
-                                tint = if (isUrgent) duolingoRed else duolingoYellow,
-                                modifier = Modifier.size(15.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = timerText,
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black, fontSize = 12.5.sp),
-                                color = if (isUrgent) duolingoRed else duolingoYellow
-                            )
-                        }
-                    }
-                } else {
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = if (isDark) cardDarkBg else Color(0xFFF1F5F9),
-                        border = BorderStroke(2.dp, if (isDark) Color(0xFF20343D) else Color(0xFFCBD5E1))
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = if (activeSession.targetQuestions > 0) "${questionIndex + 1}/${activeSession.targetQuestions}" else "Q${questionIndex + 1}",
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black, fontSize = 12.5.sp),
-                                color = if (isDark) Color(0xFF839EAB) else Color(0xFF64748B),
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
-                            )
-                        }
-                    }
-                }
-            }
-
-            // -------------------------------------------------------------
-            // TOP IN-LINE ROW (In line with Chat Bubble Icon to the right)
-            // -------------------------------------------------------------
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 2.dp, bottom = 2.dp),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                if (activeSession.targetQuestions > 0) {
-                    Button(
-                        onClick = { showGridDialog = true },
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (isDark) Color(0xFF2B3A4A) else Color(0xFFE2E8F0),
-                            contentColor = if (isDark) Color(0xFFA0AEC0) else Color(0xFF475569)
-                        ),
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-                        modifier = Modifier.height(36.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.Menu,
-                            contentDescription = "Grid View",
-                            modifier = Modifier.size(16.dp).padding(end = 4.dp)
-                        )
-                        Text(
-                            text = "Overview",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.5.sp
-                            )
-                        )
-                    }
-                } else {
-                    Button(
-                        onClick = onEndSession,
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFEF5350),
-                            contentColor = Color.White
-                        ),
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-                        modifier = Modifier.height(36.dp)
-                    ) {
-                        Text(
-                            text = "End Session",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.5.sp
-                            )
-                        )
-                    }
-                }
-            }
-
-            // -------------------------------------------------------------
-            // DUOLINGO 3D COMBO STREAK CAPSULE
-            // -------------------------------------------------------------
-            AnimatedVisibility(
-                visible = activeSession.combo > 0,
-                enter = fadeIn() + slideInVertically(initialOffsetY = { -10 }),
-                exit = fadeOut() + slideOutVertically(targetOffsetY = { -10 })
-            ) {
-                val combo = activeSession.combo
-                val (comboLabel, boostLabel, streakColor, streakBevelColor, streakIcon) = when {
-                    combo >= 8 -> Quintuple("GODLIKE STREAK", "2.0x XP ACTIVE", duolingoPurple, duolingoPurpleBevel, "⚡")
-                    combo >= 5 -> Quintuple("ON FIRE (x$combo)", "1.5x XP ACTIVE", duolingoRed, duolingoRedBevel, "🔥")
-                    combo >= 3 -> Quintuple("STREAK x$combo", "+50 XP BONUS", duolingoOrange, duolingoOrangeBevel, "🔥")
-                    combo == 2 -> Quintuple("STREAK x$combo", "+40 XP", duolingoYellow, duolingoYellowBevel, "⚡")
-                    else -> Quintuple("STREAK x1", "+40 XP", duolingoBlue, duolingoBlueBevel, "🎯")
-                }
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Surface(
-                        modifier = Modifier
-                            .wrapContentWidth()
-                            .scale(if (combo >= 3) pulseScale else 1f)
-                            .height(38.dp),
-                        shape = RoundedCornerShape(19.dp),
-                        color = streakBevelColor // 3D Bottom shadow bevel
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(bottom = 3.dp)
-                                .clip(RoundedCornerShape(17.dp))
-                                .background(if (isDark) cardDarkBg else Color.White)
-                                .border(BorderStroke(2.dp, streakColor), RoundedCornerShape(17.dp))
-                                .padding(horizontal = 14.dp, vertical = 4.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                Text(
-                                    text = streakIcon,
-                                    fontSize = 13.sp
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = comboLabel,
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        fontWeight = FontWeight.Black,
-                                        fontSize = 12.sp,
-                                        letterSpacing = 0.5.sp
-                                    ),
-                                    color = streakColor
-                                )
-
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Box(
-                                    modifier = Modifier
-                                        .size(3.5.dp)
-                                        .clip(CircleShape)
-                                        .background(streakColor.copy(alpha = 0.7f))
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-
-                                Text(
-                                    text = if (activeSession.isBlitz) "$boostLabel • +30s" else boostLabel,
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        fontWeight = FontWeight.Black,
-                                        fontSize = 11.5.sp
-                                    ),
-                                    color = streakColor
-                                )
-                            }
-                        }
-                    }
-                }
-            }
+            DrillComboStreakCapsule(
+                combo = activeSession.combo,
+                pulseScale = pulseScale,
+                isBlitz = activeSession.isBlitz,
+                isDark = isDark
+            )
 
             // -------------------------------------------------------------
             // MAIN QUESTION & OPTIONS AREA (Solution Testbook Format)
@@ -525,34 +282,6 @@ fun FullscreenDrillView(
                     )
 
                     Spacer(modifier = Modifier.weight(1f))
-
-                    // Report Warning Icon
-                    IconButton(
-                        onClick = {},
-                        modifier = Modifier.size(24.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.WarningAmber,
-                            contentDescription = "Report",
-                            tint = textSecondary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.width(12.dp))
-
-                    // Bookmark Icon
-                    IconButton(
-                        onClick = { isBookmarked = !isBookmarked },
-                        modifier = Modifier.size(24.dp)
-                    ) {
-                        Icon(
-                            imageVector = if (isBookmarked) Icons.Default.Bookmark else Icons.Outlined.BookmarkBorder,
-                            contentDescription = "Bookmark",
-                            tint = if (isBookmarked) activeBlue else textSecondary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
                 }
 
                 Spacer(modifier = Modifier.height(14.dp))
@@ -750,233 +479,36 @@ fun FullscreenDrillView(
             // -------------------------------------------------------------
             // BOTTOM BAR: Prev & Next Navigation Buttons
             // -------------------------------------------------------------
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp, bottom = 4.dp),
-                shape = RoundedCornerShape(14.dp),
-                color = cardBackground,
-                border = BorderStroke(1.dp, cardStrokeColor)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    OutlinedButton(
-                        onClick = {
-                            if (questionIndex > 0) {
-                                questionIndex--
-                            }
-                        },
-                        enabled = questionIndex > 0,
-                        shape = RoundedCornerShape(10.dp),
-                        border = BorderStroke(1.dp, if (questionIndex > 0) cardStrokeColor else cardStrokeColor.copy(alpha = 0.3f)),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = if (questionIndex > 0) textPrimary else textSecondary.copy(alpha = 0.4f)
-                        ),
-                        modifier = Modifier.height(42.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Previous",
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "Prev",
-                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
-                        )
+            DrillBottomActionRow(
+                questionIndex = questionIndex,
+                totalQuestions = questionsList.size,
+                onPrevious = {
+                    if (questionIndex > 0) questionIndex--
+                },
+                onNext = {
+                    if (questionIndex < questionsList.size - 1) {
+                        questionIndex++
+                    } else {
+                        onNextQuestion?.invoke()
                     }
-
-                    Button(
-                        onClick = {
-                            if (questionIndex < questionsList.size - 1) {
-                                questionIndex++
-                            } else {
-                                onNextQuestion?.invoke()
-                            }
-                        },
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = activeBlue,
-                            contentColor = Color.White
-                        ),
-                        modifier = Modifier.height(42.dp)
-                    ) {
-                        Text(
-                            text = "Next",
-                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                            contentDescription = "Next",
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                }
-            }
+                },
+                cardBackground = cardBackground,
+                cardStrokeColor = cardStrokeColor,
+                textPrimary = textPrimary,
+                textSecondary = textSecondary,
+                activeBlue = activeBlue
+            )
         }
-        
-        GridNavigationDialog(
+
+        DrillQuestionPaletteModal(
             showDialog = showGridDialog,
             onDismiss = { showGridDialog = false },
             totalQuestions = if (activeSession.targetQuestions > 0) activeSession.targetQuestions else questionsList.size,
             highestSeenIndex = activeSession.highestSeenIndex,
             attemptedIndices = activeSession.attemptedIndices,
-            onQuestionSelected = { idx ->
-                questionIndex = idx
-            },
+            onQuestionSelected = { idx -> questionIndex = idx },
             onSubmitClick = onEndSession,
             isDark = isDark
-        )
-    }
-}
-
-private data class Quintuple<A, B, C, D, E>(
-    val first: A,
-    val second: B,
-    val third: C,
-    val fourth: D,
-    val fifth: E
-)
-
-@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
-@Composable
-fun GridNavigationDialog(
-    showDialog: Boolean,
-    onDismiss: () -> Unit,
-    totalQuestions: Int,
-    highestSeenIndex: Int,
-    attemptedIndices: Set<Int>,
-    onQuestionSelected: (Int) -> Unit,
-    onSubmitClick: () -> Unit,
-    isDark: Boolean
-) {
-    if (!showDialog) return
-
-    androidx.compose.material3.ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        containerColor = if (isDark) Color(0xFF1B1E23) else Color.White,
-        dragHandle = { androidx.compose.material3.BottomSheetDefaults.DragHandle() }
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .padding(bottom = 24.dp)
-        ) {
-            Text(
-                text = "Grid View",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                color = if (isDark) Color.White else Color.Black,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
-
-            // Legend
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                LegendItem("Attempted", Color(0xFF3B82F6), true, isDark)
-                LegendItem("Unattempted", Color(0xFF64748B), true, isDark)
-                LegendItem("Unseen", Color(0xFF64748B), false, isDark)
-            }
-
-            Text(
-                text = "Numerical Ability",
-                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                color = if (isDark) Color(0xFFA0AEC0) else Color(0xFF64748B),
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
-
-            androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
-                columns = androidx.compose.foundation.lazy.grid.GridCells.Adaptive(48.dp),
-                modifier = Modifier.fillMaxWidth().heightIn(max = 300.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(totalQuestions) { index ->
-                    val isAttempted = attemptedIndices.contains(index)
-                    val isUnseen = index > highestSeenIndex
-                    val isUnattempted = !isAttempted && !isUnseen
-
-                    val bgColor = when {
-                        isAttempted -> Color(0xFF3B82F6)
-                        isUnattempted -> if (isDark) Color(0xFF334155) else Color(0xFFE2E8F0)
-                        else -> Color.Transparent
-                    }
-                    val strokeColor = when {
-                        isAttempted -> Color.Transparent
-                        isUnattempted -> Color.Transparent
-                        else -> if (isDark) Color(0xFF475569) else Color(0xFFCBD5E1)
-                    }
-                    val textColor = when {
-                        isAttempted -> Color.White
-                        isUnattempted -> if (isDark) Color.White else Color.Black
-                        else -> if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .clip(CircleShape)
-                            .background(bgColor)
-                            .border(1.dp, strokeColor, CircleShape)
-                            .clickable {
-                                onQuestionSelected(index)
-                                onDismiss()
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = (index + 1).toString(),
-                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                            color = textColor
-                        )
-                    }
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            
-            Button(
-                onClick = { 
-                    onDismiss()
-                    onSubmitClick() 
-                },
-                modifier = Modifier.fillMaxWidth().height(50.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6)),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text(
-                    text = "SUBMIT TEST",
-                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, color = Color.White)
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun LegendItem(label: String, color: Color, filled: Boolean, isDark: Boolean) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            modifier = Modifier
-                .size(12.dp)
-                .clip(CircleShape)
-                .background(if (filled) color else Color.Transparent)
-                .border(1.dp, if (!filled) color else Color.Transparent, CircleShape)
-        )
-        Spacer(modifier = Modifier.width(6.dp))
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = if (isDark) Color(0xFFCBD5E1) else Color(0xFF475569)
         )
     }
 }
