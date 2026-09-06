@@ -212,6 +212,8 @@ class DailySummaryReceiver : BroadcastReceiver() {
         val vocabRepo = app.vocabRepository
         val newIdiom = vocabRepo.getNextIdiomToLearn()
         val newOws = vocabRepo.getNextOwsToLearn()
+        val revIdiom = vocabRepo.getLastLearnedIdiom()
+        val revOws = vocabRepo.getLastLearnedOws()
         
         if (newIdiom != null) vocabRepo.markIdiomLearned(newIdiom)
         if (newOws != null) vocabRepo.markOwsLearned(newOws)
@@ -227,6 +229,18 @@ class DailySummaryReceiver : BroadcastReceiver() {
             vocabObj.put("ows", org.json.JSONObject().apply {
                 put("term", newOws.term)
                 put("definition", newOws.definition)
+            })
+        }
+        if (revIdiom != null) {
+            vocabObj.put("rev_idiom", org.json.JSONObject().apply {
+                put("idiom", revIdiom.idiom)
+                put("meaning", revIdiom.meaning)
+            })
+        }
+        if (revOws != null) {
+            vocabObj.put("rev_ows", org.json.JSONObject().apply {
+                put("term", revOws.term)
+                put("definition", revOws.definition)
             })
         }
 

@@ -990,8 +990,8 @@ fun ChatInterface() {
                                     val vocabRepo = (context.applicationContext as com.focusbyrj.app.FocusApplication).vocabRepository
                                     val newIdiom = vocabRepo.getNextIdiomToLearn()
                                     val newOws = vocabRepo.getNextOwsToLearn()
-                                    val revIdiom = if (isMorningBriefQuery) vocabRepo.getLastLearnedIdiom() else null
-                                    val revOws = if (isMorningBriefQuery) vocabRepo.getLastLearnedOws() else null
+                                    val revIdiom = vocabRepo.getLastLearnedIdiom()
+                                    val revOws = vocabRepo.getLastLearnedOws()
                                     
                                     if (newIdiom != null) vocabRepo.markIdiomLearned(newIdiom)
                                     if (newOws != null) vocabRepo.markOwsLearned(newOws)
