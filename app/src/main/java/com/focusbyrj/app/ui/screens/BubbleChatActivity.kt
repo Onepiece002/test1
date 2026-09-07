@@ -2621,7 +2621,7 @@ fun ChatBubble(
                             androidx.compose.material3.Surface(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(260.dp),
+                                    .height(295.dp),
                                 shape = RoundedCornerShape(18.dp),
                                 color = androidx.compose.material3.MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
                                 border = androidx.compose.foundation.BorderStroke(
