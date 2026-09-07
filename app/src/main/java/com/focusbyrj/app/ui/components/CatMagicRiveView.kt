@@ -1,5 +1,9 @@
 package com.focusbyrj.app.ui.components
 
+import android.annotation.SuppressLint
+import android.graphics.PointF
+import android.graphics.RectF
+import android.view.MotionEvent
 import android.view.ViewGroup
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -11,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -31,24 +36,71 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import app.rive.runtime.kotlin.RiveAnimationView
 import app.rive.runtime.kotlin.core.Alignment as RiveAlignment
+import app.rive.runtime.kotlin.core.File as RiveFile
 import app.rive.runtime.kotlin.core.Fit
+import app.rive.runtime.kotlin.core.Helpers
 import app.rive.runtime.kotlin.core.Loop
+import app.rive.runtime.kotlin.core.StateMachineInstance
+import app.rive.runtime.kotlin.renderers.PointerEvents
 import com.focusbyrj.app.R
 
 data class RiveCatAsset(
     val assetName: String,
-    val displayName: String
+    val displayName: String,
+    val artboardName: String? = null,
+    val stateMachineName: String? = "State Machine 1"
 )
 
 val WELCOME_CAT_RIVE_ASSETS = listOf(
-    RiveCatAsset(assetName = "cat_magic.riv", displayName = "Magic Cat"),
-    RiveCatAsset(assetName = "cat_gold_fish.riv", displayName = "Goldfish Aquarium Cat"),
-    RiveCatAsset(assetName = "cat_googlyeyes.riv", displayName = "Googly Eyes Cat"),
-    RiveCatAsset(assetName = "cat_shiftyhead.riv", displayName = "Shifty Head Cat"),
-    RiveCatAsset(assetName = "cat_blunng.riv", displayName = "Blunng Cat"),
-    RiveCatAsset(assetName = "cat_wildfairy.riv", displayName = "Wild Fairy Cat")
+    RiveCatAsset(assetName = "cat_awesome_morning.riv", displayName = "Awesome Morning Cat", artboardName = "main cat", stateMachineName = "State Machine 1"),
+    RiveCatAsset(assetName = "cat_awesome_morning.riv", displayName = "Day & Night Cat Scene", artboardName = "Main", stateMachineName = "State Machine 1"),
+    RiveCatAsset(assetName = "cat_morning1.riv", displayName = "Morning Cat", stateMachineName = "State Machine 1"),
+    RiveCatAsset(assetName = "cat_blunng.riv", displayName = "Blunng Cat", stateMachineName = "State Machine 1"),
+    RiveCatAsset(assetName = "cat_luna.riv", displayName = "Luna Cat", stateMachineName = "State Machine 1"),
+    RiveCatAsset(assetName = "cat_gold_fish.riv", displayName = "Goldfish Aquarium Cat", stateMachineName = "State Machine 1"),
+    RiveCatAsset(assetName = "cat_googlyeyes.riv", displayName = "Googly Eyes Cat", stateMachineName = "State Machine 1"),
+    RiveCatAsset(assetName = "cat_wildfairy.riv", displayName = "Wild Fairy Cat", stateMachineName = null)
 )
 
+/**
+ * Metadata discovered from the loaded Rive file so we only manipulate inputs that actually exist.
+ */
+private class RiveInteractivityDescriptor {
+    val numberInputs = mutableListOf<String>()
+    val booleanInputs = mutableListOf<String>()
+    val triggerInputs = mutableListOf<String>()
+    val booleanStateMap = mutableMapOf<String, Boolean>()
+    val numberStateMap = mutableMapOf<String, Float>()
+    var activeStateMachineName: String? = null
+    var activeArtboardBounds: RectF? = null
+    var isResolved: Boolean = false
+
+    fun resolveStateMachine(view: RiveAnimationView): String? {
+        if (isResolved && activeStateMachineName != null) return activeStateMachineName
+        try {
+            val sm = view.controller.stateMachines.firstOrNull()
+            if (sm != null) {
+                activeStateMachineName = sm.name
+                activeArtboardBounds = view.controller.artboardBounds
+                numberInputs.clear()
+                booleanInputs.clear()
+                triggerInputs.clear()
+                for (input in sm.inputs) {
+                    when {
+                        input.isNumber -> if (!numberInputs.contains(input.name)) numberInputs.add(input.name)
+                        input.isBoolean -> if (!booleanInputs.contains(input.name)) booleanInputs.add(input.name)
+                        input.isTrigger -> if (!triggerInputs.contains(input.name)) triggerInputs.add(input.name)
+                    }
+                }
+                isResolved = true
+                return sm.name
+            }
+        } catch (_: Throwable) {}
+        return activeStateMachineName
+    }
+}
+
+@SuppressLint("ClickableViewAccessibility")
 @Composable
 fun CatWelcomeRiveView(
     modifier: Modifier = Modifier,
@@ -72,7 +124,7 @@ fun CatWelcomeRiveView(
         modifier = modifier,
         contentAlignment = Alignment.Center
     ) {
-        key(currentCat.assetName) {
+        key("${currentCat.assetName}_${currentCat.artboardName ?: "default"}") {
             AndroidView(
                 modifier = Modifier.fillMaxSize(),
                 factory = { ctx ->
@@ -92,23 +144,42 @@ fun CatWelcomeRiveView(
                             isClickable = true
                             isFocusable = true
 
+                            val descriptor = RiveInteractivityDescriptor()
+
                             var loaded = false
                             try {
                                 val bytes = ctx.assets.open(currentCat.assetName).readBytes()
                                 setRiveBytes(
                                     bytes = bytes,
+                                    artboardName = currentCat.artboardName,
+                                    stateMachineName = currentCat.stateMachineName,
                                     autoplay = true,
                                     fit = Fit.CONTAIN,
                                     alignment = RiveAlignment.CENTER
                                 )
-                                play()
                                 loaded = true
+
+                                // Discover active artboard & state machine inputs from controller
+                                try {
+                                    descriptor.activeArtboardBounds = controller.artboardBounds
+                                    val smInstance = controller.stateMachines.firstOrNull()
+                                    if (smInstance != null) {
+                                        descriptor.activeStateMachineName = smInstance.name
+                                        for (input in smInstance.inputs) {
+                                            when {
+                                                input.isNumber -> descriptor.numberInputs.add(input.name)
+                                                input.isBoolean -> descriptor.booleanInputs.add(input.name)
+                                                input.isTrigger -> descriptor.triggerInputs.add(input.name)
+                                            }
+                                        }
+                                    }
+                                } catch (_: Throwable) {}
                             } catch (ex: Throwable) {
                                 ex.printStackTrace()
                             }
 
                             if (!loaded) {
-                                val fallbackAssets = listOf("cat_magic.riv", "cat_gold_fish.riv", "cat_googlyeyes.riv", "cat_shiftyhead.riv", "cat_blunng.riv", "cat_wildfairy.riv")
+                                val fallbackAssets = listOf("cat_awesome_morning.riv", "cat_morning1.riv", "cat_blunng.riv", "cat_luna.riv", "cat_gold_fish.riv", "cat_googlyeyes.riv", "cat_wildfairy.riv")
                                 for (fallback in fallbackAssets) {
                                     try {
                                         val bytes = ctx.assets.open(fallback).readBytes()
@@ -124,31 +195,128 @@ fun CatWelcomeRiveView(
                                 }
                             }
 
-                            setOnClickListener {
-                                try {
-                                    val triggers = listOf(
-                                        "Tap", "tap", "Trigger", "trigger", "Click", "click",
-                                        "Press", "press", "Hit", "hit", "Action", "action",
-                                        "Meow", "meow", "Jump", "jump", "Blink", "blink",
-                                        "Happy", "happy", "interact", "Interact", "Touch", "touch"
-                                    )
-                                    val smNames = listOf("State Machine 1", "StateMachine", "Designer State Machine", "SM", "State Machine", "Motion", "Interactive")
-                                    var fired = false
-                                    for (sm in smNames) {
-                                        for (trig in triggers) {
-                                            try {
-                                                fireState(sm, trig)
-                                                fired = true
-                                            } catch (_: Throwable) {}
-                                        }
-                                    }
-                                    if (!fired && !isPlaying) {
-                                        play()
-                                    }
-                                } catch (e: Throwable) {
+                            // Touch tracking with full coordinate coverage across entire box
+                            var downX = 0f
+                            var downY = 0f
+                            val touchSlop = android.view.ViewConfiguration.get(ctx).scaledTouchSlop
+
+                            setOnTouchListener { v, event ->
+                                if (event == null) return@setOnTouchListener false
+                                val smName = descriptor.resolveStateMachine(this)
+                                val smInstance = controller.stateMachines.firstOrNull()
+
+                                val viewW = if (v.width > 0) v.width.toFloat() else 500f
+                                val viewH = if (v.height > 0) v.height.toFloat() else 500f
+                                val artBounds = descriptor.activeArtboardBounds ?: controller.artboardBounds ?: RectF(0f, 0f, 500f, 500f)
+                                val artW = if (artBounds.width() > 0f) artBounds.width() else 500f
+                                val artH = if (artBounds.height() > 0f) artBounds.height() else 500f
+
+                                val scale = minOf(viewW / artW, viewH / artH)
+                                val contentW = artW * scale
+                                val contentH = artH * scale
+                                val offsetX = (viewW - contentW) / 2f
+                                val offsetY = (viewH - contentH) / 2f
+                                val artX = (event.x - offsetX) / scale
+                                val artY = (event.y - offsetY) / scale
+
+                                if (smInstance != null) {
                                     try {
-                                        if (!isPlaying) play()
+                                        when (event.actionMasked) {
+                                            MotionEvent.ACTION_DOWN -> smInstance.pointerDown(artX, artY)
+                                            MotionEvent.ACTION_MOVE -> smInstance.pointerMove(artX, artY)
+                                            MotionEvent.ACTION_UP -> smInstance.pointerUp(artX, artY)
+                                        }
                                     } catch (_: Throwable) {}
+                                }
+
+                                try {
+                                    controller.targetBounds = RectF(0f, 0f, viewW, viewH)
+                                    when (event.actionMasked) {
+                                        MotionEvent.ACTION_DOWN -> controller.pointerEvent(PointerEvents.POINTER_DOWN, event.x, event.y)
+                                        MotionEvent.ACTION_MOVE -> controller.pointerEvent(PointerEvents.POINTER_MOVE, event.x, event.y)
+                                        MotionEvent.ACTION_UP -> controller.pointerEvent(PointerEvents.POINTER_UP, event.x, event.y)
+                                    }
+                                } catch (_: Throwable) {}
+
+                                when (event.actionMasked) {
+                                    MotionEvent.ACTION_DOWN -> {
+                                        v.parent?.requestDisallowInterceptTouchEvent(true)
+                                        downX = event.x
+                                        downY = event.y
+
+                                        // If file has tracking boolean (e.g. IsTracking)
+                                        if (smName != null) {
+                                            for (bInput in descriptor.booleanInputs) {
+                                                if (bInput.equals("IsTracking", ignoreCase = true) ||
+                                                    bInput.contains("track", ignoreCase = true) ||
+                                                    bInput.contains("hover", ignoreCase = true)) {
+                                                    try {
+                                                        setBooleanState(smName, bInput, true)
+                                                    } catch (_: Throwable) {}
+                                                }
+                                            }
+                                        }
+
+                                        // Apply artboard normalized coordinates for tracking
+                                        updateCoordinates(event.x, event.y, v.width, v.height, descriptor)
+                                        true
+                                    }
+                                    MotionEvent.ACTION_MOVE -> {
+                                        v.parent?.requestDisallowInterceptTouchEvent(true)
+
+                                        // Update continuous coordinate inputs (EYES X/Y, cursor, etc.)
+                                        updateCoordinates(event.x, event.y, v.width, v.height, descriptor)
+                                        true
+                                    }
+                                    MotionEvent.ACTION_UP -> {
+                                        v.parent?.requestDisallowInterceptTouchEvent(false)
+
+                                        val dx = kotlin.math.abs(event.x - downX)
+                                        val dy = kotlin.math.abs(event.y - downY)
+                                        val isTap = dx < touchSlop && dy < touchSlop
+
+                                        if (isTap) {
+                                            if (artX in 0f..180f && artY in 0f..120f) {
+                                                smInstance?.let { sm ->
+                                                    try {
+                                                        sm.pointerDown(64f, 42f)
+                                                        sm.pointerUp(64f, 42f)
+                                                    } catch (_: Throwable) {}
+                                                }
+                                            }
+                                            handleTap(smName, descriptor)
+                                        }
+
+                                        // Reset tracking boolean on release
+                                        if (smName != null) {
+                                            for (bInput in descriptor.booleanInputs) {
+                                                if (bInput.equals("IsTracking", ignoreCase = true) ||
+                                                    bInput.contains("track", ignoreCase = true) ||
+                                                    bInput.contains("hover", ignoreCase = true)) {
+                                                    try {
+                                                        setBooleanState(smName, bInput, false)
+                                                    } catch (_: Throwable) {}
+                                                }
+                                            }
+                                        }
+                                        true
+                                    }
+                                    MotionEvent.ACTION_CANCEL -> {
+                                        v.parent?.requestDisallowInterceptTouchEvent(false)
+                                        if (smName != null) {
+                                            for (bInput in descriptor.booleanInputs) {
+                                                if (bInput.equals("IsTracking", ignoreCase = true) ||
+                                                    bInput.contains("track", ignoreCase = true) ||
+                                                    bInput.contains("hover", ignoreCase = true)) {
+                                                    try {
+                                                        setBooleanState(smName, bInput, false)
+                                                    } catch (_: Throwable) {}
+                                                }
+                                            }
+                                        }
+                                        true
+                                    }
+                                    else -> false
                                 }
                             }
                         }
@@ -170,10 +338,27 @@ fun CatWelcomeRiveView(
                     if (view is RiveAnimationView) {
                         try {
                             view.pause()
-                            view.stop()
-                        } catch (e: Throwable) {}
+                        } catch (_: Throwable) {}
                     }
                 }
+            )
+        }
+
+        // Direct touch target overlay over the top-left toggle switch on Day & Night scene
+        if (currentCat.displayName.contains("Day & Night", ignoreCase = true)) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(start = 12.dp, top = 8.dp)
+                    .size(width = 84.dp, height = 54.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .clickable {
+                        riveViewRef?.let { rv ->
+                            val smInstance = rv.controller.stateMachines.firstOrNull()
+                            val smName = smInstance?.name ?: "State Machine 1"
+                            rv.toggleDayNightScene(smName)
+                        }
+                    }
             )
         }
 
@@ -181,34 +366,65 @@ fun CatWelcomeRiveView(
         Row(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 8.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(
-                    MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)
-                )
-                .clickable {
-                    currentCatIndex = (currentCatIndex + 1) % WELCOME_CAT_RIVE_ASSETS.size
-                }
-                .padding(horizontal = 10.dp, vertical = 4.dp),
+                .padding(bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
         ) {
-            Text(
-                text = "✨ ${currentCat.displayName}",
-                style = MaterialTheme.typography.labelSmall.copy(
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.primary
+            // Cat Companion badge
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.88f))
+                    .clickable {
+                        currentCatIndex = (currentCatIndex + 1) % WELCOME_CAT_RIVE_ASSETS.size
+                    }
+                    .padding(horizontal = 10.dp, vertical = 5.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "✨ ${currentCat.displayName}",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
                 )
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                text = "• Tap to switch",
-                style = MaterialTheme.typography.labelSmall.copy(
-                    fontSize = 10.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                Spacer(modifier = Modifier.width(5.dp))
+                Text(
+                    text = "• Switch Cat",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontSize = 10.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
+                    )
                 )
-            )
+            }
+
+            // Quick toggle button for Day & Night scene
+            if (currentCat.displayName.contains("Day & Night", ignoreCase = true)) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.9f))
+                        .clickable {
+                            riveViewRef?.let { rv ->
+                                val smInstance = rv.controller.stateMachines.firstOrNull()
+                                val smName = smInstance?.name ?: "State Machine 1"
+                                rv.toggleDayNightScene(smName)
+                            }
+                        }
+                        .padding(horizontal = 10.dp, vertical = 5.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "☀️/🌙 Day ↔ Night",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    )
+                }
+            }
         }
     }
 }
@@ -220,3 +436,145 @@ fun CatMagicRiveView(
 ) {
     CatWelcomeRiveView(modifier = modifier, messageId = messageId)
 }
+
+/**
+ * Calculates normalized coordinate positions across the view bounds and maps them
+ * to the discovered Rive number inputs (e.g. EYES X, EYES Y, mouseX, mouseY).
+ */
+private fun RiveAnimationView.updateCoordinates(
+    touchX: Float,
+    touchY: Float,
+    viewWidth: Int,
+    viewHeight: Int,
+    descriptor: RiveInteractivityDescriptor
+) {
+    val smName = descriptor.activeStateMachineName ?: descriptor.resolveStateMachine(this) ?: return
+    if (descriptor.numberInputs.isEmpty() || viewWidth <= 0 || viewHeight <= 0) return
+
+    val normX = (touchX / viewWidth.toFloat()).coerceIn(0f, 1f)
+    val normY = (touchY / viewHeight.toFloat()).coerceIn(0f, 1f)
+
+    val bounds = descriptor.activeArtboardBounds ?: try { controller.artboardBounds } catch (_: Throwable) { null }
+    val artboardWidth = bounds?.width()?.takeIf { it > 0f } ?: viewWidth.toFloat()
+    val artboardHeight = bounds?.height()?.takeIf { it > 0f } ?: viewHeight.toFloat()
+
+    val artboardX = normX * artboardWidth
+    val artboardY = normY * artboardHeight
+
+    for (numInput in descriptor.numberInputs) {
+        try {
+            val lower = numInput.lowercase()
+            when {
+                lower.contains("eye") && (lower.endsWith("x") || lower.contains(" x")) -> {
+                    // Coordinates scaled to 0..100% or artboard coordinate range
+                    setNumberState(smName, numInput, normX * 100f)
+                }
+                lower.contains("eye") && (lower.endsWith("y") || lower.contains(" y")) -> {
+                    setNumberState(smName, numInput, normY * 100f)
+                }
+                lower.contains("x") || lower.contains("posx") || lower.contains("cursor") -> {
+                    setNumberState(smName, numInput, artboardX)
+                }
+                lower.contains("y") || lower.contains("posy") -> {
+                    setNumberState(smName, numInput, artboardY)
+                }
+                else -> {
+                    // Unknown numeric input, do not guess to avoid crashing
+                }
+            }
+        } catch (_: Throwable) {}
+    }
+}
+
+/**
+ * Triggers the toggle on the Day & Night scene ("Main" artboard).
+ * Uses Rive's direct Artboard pointer methods (`pointerDown(64f, 42f)` and `pointerUp(64f, 42f)`)
+ * to activate Rive's internal Listener (Target 2 / 3) seamlessly, and also advances the frame.
+ */
+fun RiveAnimationView.toggleDayNightScene(smName: String?) {
+    try {
+        val smInstance = controller.stateMachines.firstOrNull() ?: return
+        
+        // Direct hit-test on all target positions of the switch button inside Rive artboard space
+        val coords = listOf(PointF(64f, 42f), PointF(86f, 42f), PointF(48f, 42f))
+        for (pt in coords) {
+            smInstance.pointerDown(pt.x, pt.y)
+            smInstance.pointerUp(pt.x, pt.y)
+        }
+
+        val w = if (width > 0) width.toFloat() else 500f
+        val h = if (height > 0) height.toFloat() else 500f
+        controller.targetBounds = RectF(0f, 0f, w, h)
+        controller.pointerEvent(PointerEvents.POINTER_DOWN, w * 0.128f, h * 0.084f)
+        controller.pointerEvent(PointerEvents.POINTER_UP, w * 0.128f, h * 0.084f)
+
+        if (!isPlaying) {
+            play()
+        }
+    } catch (_: Throwable) {}
+}
+
+/**
+ * Fires triggers or switches boolean states when user taps.
+ * Only touches inputs that are confirmed to exist on the active state machine,
+ * and also safely fires nested artboard inputs (e.g. Instance/cat clicked).
+ */
+private fun RiveAnimationView.handleTap(
+    smName: String?,
+    descriptor: RiveInteractivityDescriptor
+) {
+    if (smName != null) {
+        // Coordinated handler for Day & Night scene (cat_awesome_morning.riv / Main)
+        if (descriptor.numberInputs.isEmpty() && descriptor.booleanInputs.isEmpty()) {
+            toggleDayNightScene(smName)
+            return
+        }
+
+        // Fire any valid trigger inputs
+        for (trig in descriptor.triggerInputs) {
+            try {
+                fireState(smName, trig)
+            } catch (_: Throwable) {}
+        }
+
+        // Generic primary boolean toggle
+        val primaryBool = descriptor.booleanInputs.firstOrNull { 
+            it.equals("switch", ignoreCase = true) || it.equals("toggle", ignoreCase = true)
+        } ?: if (descriptor.booleanInputs.size == 1) descriptor.booleanInputs.firstOrNull() else null
+
+        if (primaryBool != null) {
+            try {
+                val smInstance = controller.stateMachines.firstOrNull()
+                val boolObj = smInstance?.inputs?.filterIsInstance<app.rive.runtime.kotlin.core.SMIBoolean>()?.firstOrNull {
+                    it.name.equals(primaryBool, ignoreCase = true)
+                }
+                if (boolObj != null) {
+                    val current = boolObj.value
+                    val next = !current
+                    descriptor.booleanStateMap[primaryBool] = next
+                    setBooleanState(smName, primaryBool, next)
+                }
+            } catch (_: Throwable) {}
+        }
+
+        // Safely cycle any interactive numeric inputs (e.g. bounce, jump, action)
+        for (numInput in descriptor.numberInputs) {
+            val lower = numInput.lowercase()
+            if (lower.contains("bounce") || lower.contains("jump") || lower.contains("action") || lower.contains("click")) {
+                try {
+                    val current = descriptor.numberStateMap[numInput] ?: 0f
+                    val next = if (current <= 0f) 1f else 0f
+                    descriptor.numberStateMap[numInput] = next
+                    setNumberState(smName, numInput, next)
+                } catch (_: Throwable) {}
+            }
+        }
+    }
+
+    try {
+        if (!isPlaying) {
+            play()
+        }
+    } catch (_: Throwable) {}
+}
+
