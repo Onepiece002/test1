@@ -33,7 +33,12 @@
 -keep class androidx.compose.material.icons.** { *; }
 -dontwarn androidx.compose.**
 
-# App Services, Receivers, and Overlay Management
+# Okio & OkHttp & javax.annotation
+-dontwarn javax.annotation.**
+-dontwarn okio.**
+-dontwarn okhttp3.**
+-dontwarn org.checkerframework.**
+
 -keep class com.focusbyrj.app.service.** { *; }
 -keep class com.focusbyrj.app.receiver.** { *; }
 -keep class com.focusbyrj.app.model.** { *; }
