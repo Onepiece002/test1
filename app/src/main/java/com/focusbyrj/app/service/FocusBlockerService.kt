@@ -92,6 +92,23 @@ class FocusBlockerService : Service() {
         }
     }
 
+    private val packageReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            val action = intent?.action
+            if (action == Intent.ACTION_PACKAGE_REMOVED || action == Intent.ACTION_PACKAGE_FULLY_REMOVED) {
+                val isReplacing = intent.getBooleanExtra(Intent.EXTRA_REPLACING, false)
+                if (!isReplacing) {
+                    val packageName = intent.data?.schemeSpecificPart
+                    if (!packageName.isNullOrBlank()) {
+                        scope.launch {
+                            (application as? com.focusbyrj.app.FocusApplication)?.repository?.removePackageFromAll(packageName)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
         db = (application as com.focusbyrj.app.FocusApplication).database
@@ -102,6 +119,17 @@ class FocusBlockerService : Service() {
             addAction(Intent.ACTION_USER_PRESENT)
         }
         registerReceiver(screenReceiver, filter)
+
+        val pkgFilter = android.content.IntentFilter().apply {
+            addAction(Intent.ACTION_PACKAGE_REMOVED)
+            addAction(Intent.ACTION_PACKAGE_FULLY_REMOVED)
+            addDataScheme("package")
+        }
+        registerReceiver(packageReceiver, pkgFilter)
+
+        scope.launch {
+            (application as? com.focusbyrj.app.FocusApplication)?.repository?.cleanUninstalledPackages(packageManager)
+        }
 
         startForegroundServiceNotification()
         startRestrictionMonitorLoop()
@@ -246,14 +274,13 @@ class FocusBlockerService : Service() {
         val isPackageSwitch = (packageName != lastTrackedPackage)
         val timeSinceLastQuery = now - lastUsageQueryTime
 
-        // If package switched or user is nearing limit (<= 1 min remaining), query with higher frequency (2s)
-        // Otherwise, re-query every 5s while using the app to save battery and prevent event loop churn
+        // If package switched or user is nearing/exceeding limit, query immediately or every 1s
         val queryThreshold = if (isPackageSwitch) {
             0L
-        } else if (timeLimitMinutes > 0 && (timeLimitMinutes - cachedUsageMinutes) <= 1) {
-            2000L
+        } else if (timeLimitMinutes > 0 && (cachedUsageMinutes >= timeLimitMinutes || (timeLimitMinutes - cachedUsageMinutes) <= 1)) {
+            1000L
         } else {
-            5000L
+            3000L
         }
 
         if (timeSinceLastQuery >= queryThreshold || isPackageSwitch) {
@@ -662,6 +689,7 @@ class FocusBlockerService : Service() {
             notificationManager?.cancel(NOTIFICATION_ID)
         }
         kotlin.runCatching { unregisterReceiver(screenReceiver) }
+        kotlin.runCatching { unregisterReceiver(packageReceiver) }
         job.cancel()
     }
 

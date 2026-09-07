@@ -61,4 +61,62 @@ class AppRepository(
     suspend fun deleteSchedule(schedule: FocusSchedule) {
         scheduleDao.deleteSchedule(schedule)
     }
+
+    suspend fun removePackageFromAll(packageName: String) {
+        try {
+            appRestrictionDao.deleteRestriction(packageName)
+            val schedules = scheduleDao.getAllSchedulesSync()
+            for (sched in schedules) {
+                val apps = sched.appsToBlock.split(",").filter { it.isNotBlank() }
+                val filtered = apps.filter { entry ->
+                    val pkg = entry.split("|")[0].trim()
+                    pkg.isNotEmpty() && pkg != packageName
+                }
+                if (filtered.size != apps.size) {
+                    scheduleDao.insertSchedule(sched.copy(appsToBlock = filtered.joinToString(",")))
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    suspend fun cleanUninstalledPackages(pm: android.content.pm.PackageManager) {
+        try {
+            val restrictions = appRestrictionDao.getAllRestrictionsSync()
+            val uninstalledRestrictions = restrictions.filter {
+                try {
+                    pm.getApplicationInfo(it.packageName, 0)
+                    false
+                } catch (e: Exception) {
+                    true
+                }
+            }
+            if (uninstalledRestrictions.isNotEmpty()) {
+                appRestrictionDao.deleteRestrictions(uninstalledRestrictions.map { it.packageName })
+            }
+
+            val schedules = scheduleDao.getAllSchedulesSync()
+            for (sched in schedules) {
+                val apps = sched.appsToBlock.split(",").filter { it.isNotBlank() }
+                val filtered = apps.filter { entry ->
+                    val pkg = entry.split("|")[0].trim()
+                    if (pkg.isEmpty()) false
+                    else {
+                        try {
+                            pm.getApplicationInfo(pkg, 0)
+                            true
+                        } catch (e: Exception) {
+                            false
+                        }
+                    }
+                }
+                if (filtered.size != apps.size) {
+                    scheduleDao.insertSchedule(sched.copy(appsToBlock = filtered.joinToString(",")))
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
 }

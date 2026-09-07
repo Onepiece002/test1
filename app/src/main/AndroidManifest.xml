@@ -229,6 +229,16 @@
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
+
+        <receiver
+            android:name=".service.PackageChangeReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.PACKAGE_REMOVED" />
+                <action android:name="android.intent.action.PACKAGE_FULLY_REMOVED" />
+                <data android:scheme="package" />
+            </intent-filter>
+        </receiver>
     
         <receiver android:name=".service.TaskReminderReceiver" android:exported="false" />
         <receiver android:name=".service.TaskActionReceiver" android:exported="false" />

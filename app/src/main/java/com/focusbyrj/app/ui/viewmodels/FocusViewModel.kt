@@ -9,6 +9,7 @@ import androidx.lifecycle.viewModelScope
 import com.focusbyrj.app.data.AppRepository
 import com.focusbyrj.app.data.AppRestriction
 import com.focusbyrj.app.data.FocusSchedule
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -54,6 +55,12 @@ class FocusViewModel(private val repository: AppRepository, application: Applica
     
     private val prefs = application.getSharedPreferences("focus_prefs", Context.MODE_PRIVATE)
 
+    init {
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.cleanUninstalledPackages(application.packageManager)
+        }
+    }
+
     private val minuteTicker = flow {
         while (true) {
             emit(Unit)
@@ -66,8 +73,15 @@ class FocusViewModel(private val repository: AppRepository, application: Applica
         repository.allSchedules,
         minuteTicker
     ) { rests, scheds, _ ->
-        val map = rests.associateBy { it.packageName }.toMutableMap()
         val pm = application.packageManager
+        val map = rests.filter {
+            try {
+                pm.getApplicationInfo(it.packageName, 0)
+                true
+            } catch (e: Exception) {
+                false
+            }
+        }.associateBy { it.packageName }.toMutableMap()
 
         val calendar = Calendar.getInstance()
         val currentDay = calendar.get(Calendar.DAY_OF_WEEK)
@@ -93,10 +107,15 @@ class FocusViewModel(private val repository: AppRepository, application: Applica
             val entries = s.appsToBlock.split(",").filter { it.isNotBlank() }
             for (entry in entries) {
                 val parts = entry.split("|")
-                val pkg = parts[0]
+                val pkg = parts[0].trim()
+                if (pkg.isEmpty()) continue
+
+                val appInfo = try { pm.getApplicationInfo(pkg, 0) } catch (e: Exception) { null }
+                if (appInfo == null) continue // Skip uninstalled apps from routine
+
                 val appMode = if (parts.size > 1) parts[1] else s.mode
                 if (!map.containsKey(pkg)) {
-                    val appName = try { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() } catch(e: Exception) { pkg }
+                    val appName = try { pm.getApplicationLabel(appInfo).toString() } catch(e: Exception) { pkg }
                     val newRest = AppRestriction(
                         packageName = pkg,
                         appName = appName,

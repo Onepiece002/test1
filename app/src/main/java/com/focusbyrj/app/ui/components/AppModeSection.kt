@@ -84,11 +84,12 @@ fun AppModeDropZone(
                 )
             }
         } else {
+            val validApps = apps.filter { it.packageName.isNotBlank() }
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                items(apps, key = { it.packageName }) { app ->
+                items(validApps, key = { it.packageName }) { app ->
                     val pm = context.packageManager
                     val icon = remember(app.packageName) { ImageUtils.getAppIcon(pm, app.packageName) }
                     
@@ -110,6 +111,13 @@ fun AppModeDropZone(
                                     bitmap = icon,
                                     contentDescription = null,
                                     modifier = Modifier.size(42.dp).clip(RoundedCornerShape(10.dp))
+                                )
+                            } else {
+                                Text(
+                                    text = app.appName.take(2).uppercase(),
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp
                                 )
                             }
                         }

@@ -2,24 +2,31 @@ package com.focusbyrj.app.ui.screens
 
 import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.foundation.Image
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 
 import com.focusbyrj.app.ui.theme.AccentViolet
 import com.focusbyrj.app.ui.theme.BorderGlass
@@ -31,22 +38,48 @@ import com.focusbyrj.app.ui.theme.SurfaceVariantDark
 import com.focusbyrj.app.util.AppUsageData
 import com.focusbyrj.app.util.UsageStatsHelper
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 @Composable
 fun TimeScreen() {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val hasPermission = remember { UsageStatsHelper.hasUsageStatsPermission(context) }
     var usageStats by remember { mutableStateOf<List<AppUsageData>>(emptyList()) }
     var totalTimeMs by remember { mutableStateOf(0L) }
+    var isRefreshing by remember { mutableStateOf(false) }
+    var refreshTrigger by remember { mutableStateOf(0L) }
 
-    LaunchedEffect(hasPermission) {
-        if (hasPermission) {
+    suspend fun loadStats() {
+        if (UsageStatsHelper.hasUsageStatsPermission(context)) {
             val stats = withContext(Dispatchers.IO) {
-                UsageStatsHelper.getTodayUsageStats(context).filter { it.timeInForegroundMs > 60_000 }
+                UsageStatsHelper.getTodayUsageStats(context)
+                    .filter { it.packageName != "android" && it.packageName != "com.android.systemui" && it.timeInForegroundMs >= 1000L }
             }
             usageStats = stats
             totalTimeMs = stats.sumOf { it.timeInForegroundMs }
+        }
+    }
+
+    // Auto-refresh periodically while looking at the screen
+    LaunchedEffect(hasPermission, refreshTrigger) {
+        while (true) {
+            loadStats()
+            delay(10_000L) // Refresh every 10 seconds for real-time live usage
+        }
+    }
+
+    // Refresh whenever user returns to the app / screen
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                refreshTrigger = System.currentTimeMillis()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
 
@@ -83,16 +116,41 @@ fun TimeScreen() {
         item {
             Spacer(modifier = Modifier.height(24.dp))
             
-            Text(
-                text = "Screen Time",
-                style = MaterialTheme.typography.displayLarge,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-            Text(
-                text = "Today's digital footprint",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Screen Time",
+                        style = MaterialTheme.typography.displayLarge,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                    Text(
+                        text = "Today's digital footprint",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                
+                IconButton(
+                    onClick = {
+                        refreshTrigger = System.currentTimeMillis()
+                    },
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = "Refresh screen time",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
             
             Spacer(modifier = Modifier.height(32.dp))
         }
@@ -186,7 +244,12 @@ fun TimeScreen() {
             val percentage = if (totalTimeMs > 0) stat.timeInForegroundMs.toFloat() / totalTimeMs else 0f
             val h = stat.timeInForegroundMs / (1000 * 60 * 60)
             val m = (stat.timeInForegroundMs / (1000 * 60)) % 60
-            val timeStr = if (h > 0) "${h}h ${m}m" else "${m}m"
+            val s = (stat.timeInForegroundMs / 1000) % 60
+            val timeStr = when {
+                h > 0 -> "${h}h ${m}m"
+                m > 0 -> "${m}m"
+                else -> "${s}s"
+            }
             
             val pm = context.packageManager
             val icon = remember(stat.packageName) { com.focusbyrj.app.util.ImageUtils.getAppIcon(pm, stat.packageName) }

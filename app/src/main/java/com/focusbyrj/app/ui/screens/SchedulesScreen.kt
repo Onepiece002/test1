@@ -305,7 +305,25 @@ fun RoutineCard(
                 }
             }
             Spacer(modifier = Modifier.height(12.dp))
-            val appCount = if (schedule.appsToBlock.isEmpty()) 0 else schedule.appsToBlock.split(",").size
+            val context = LocalContext.current
+            val pm = context.packageManager
+            val appCount = remember(schedule.appsToBlock) {
+                if (schedule.appsToBlock.isBlank()) 0
+                else {
+                    schedule.appsToBlock.split(",").count { entry ->
+                        val pkg = entry.split("|")[0].trim()
+                        if (pkg.isEmpty()) false
+                        else {
+                            try {
+                                pm.getApplicationInfo(pkg, 0)
+                                true
+                            } catch (e: Exception) {
+                                false
+                            }
+                        }
+                    }
+                }
+            }
             Text(
                 if (schedule.isEnabled) "🛡️ $appCount Apps Shielded" else "⏸️ $appCount Apps Shielded • Paused", 
                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium), 
@@ -323,6 +341,7 @@ fun CreateRoutineScreen(
     onSave: (String, Int, Int, Int, Int, String, String, String, String, Int, Int) -> Unit
 ) {
     val context = LocalContext.current
+    val pm = context.packageManager
     var name by remember { mutableStateOf(scheduleToEdit?.name ?: "Deep Focus") }
     var startHour by remember { mutableStateOf(scheduleToEdit?.startHour ?: 9) }
     var startMinute by remember { mutableStateOf(scheduleToEdit?.startMinute ?: 0) }
@@ -338,26 +357,45 @@ fun CreateRoutineScreen(
     var clickLimitCount by remember { mutableStateOf(if (scheduleToEdit?.clickLimitCount != null && scheduleToEdit.clickLimitCount > 0) scheduleToEdit.clickLimitCount.coerceIn(1, 20) else 5) }
     var mode by remember { mutableStateOf(scheduleToEdit?.mode ?: "HARD") }
     var appModes by remember { 
-        mutableStateOf(
-            scheduleToEdit?.appsToBlock?.split(",")?.mapNotNull { 
-                val parts = it.split("|")
-                if (parts.size > 1) parts[0] to parts[1] else null
-            }?.toMap() ?: emptyMap<String, String>()
-        ) 
+        val initialMap = scheduleToEdit?.appsToBlock?.split(",")?.mapNotNull { 
+            val parts = it.split("|")
+            if (parts.size > 1) parts[0].trim() to parts[1].trim() else null
+        }?.toMap() ?: emptyMap<String, String>()
+        
+        val validMap = initialMap.filter { (pkg, _) ->
+            try {
+                pm.getApplicationInfo(pkg, 0)
+                true
+            } catch (e: Exception) {
+                false
+            }
+        }
+        mutableStateOf(validMap)
     }
     var selectedApps by remember { 
-        mutableStateOf(
-            scheduleToEdit?.appsToBlock?.split(",")?.map { it.split("|")[0] }?.filter { it.isNotBlank() }?.toSet() ?: setOf<String>()
-        ) 
+        val initialPkgs = scheduleToEdit?.appsToBlock?.split(",")?.map { it.split("|")[0].trim() }?.filter { it.isNotBlank() } ?: emptyList()
+        val validPkgs = initialPkgs.filter { pkg ->
+            try {
+                pm.getApplicationInfo(pkg, 0)
+                true
+            } catch (e: Exception) {
+                false
+            }
+        }.toSet()
+        mutableStateOf(validPkgs)
     }
 
     var showAppSelector by remember { mutableStateOf(false) }
 
     val selectedInstalledApps = remember(selectedApps) {
-        val pm = context.packageManager
-        selectedApps.map { pkg ->
-            val name = try { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() } catch(e: Exception) { pkg }
-            InstalledApp(pkg, name, AppCategory.ALL)
+        selectedApps.mapNotNull { pkg ->
+            try {
+                val appInfo = pm.getApplicationInfo(pkg, 0)
+                val appName = pm.getApplicationLabel(appInfo).toString()
+                InstalledApp(pkg, appName, getCategoryForApp(appInfo, pkg))
+            } catch (e: Exception) {
+                null
+            }
         }
     }
 
@@ -516,7 +554,15 @@ fun CreateRoutineScreen(
                 Button(
                     onClick = {
                         val daysString = selectedDays.sorted().joinToString(",")
-                        val appsString = selectedApps.joinToString(",") { pkg ->
+                        val validSelectedApps = selectedApps.filter { pkg ->
+                            try {
+                                context.packageManager.getApplicationInfo(pkg, 0)
+                                true
+                            } catch (e: Exception) {
+                                false
+                            }
+                        }
+                        val appsString = validSelectedApps.joinToString(",") { pkg ->
                             "$pkg|${appModes[pkg] ?: mode}"
                         }
                         onSave(
@@ -656,7 +702,10 @@ fun MultiAppSelectorScreen(
         ) {
             IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onBackground) }
             Text("Select Apps", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground)
-            TextButton(onClick = { onSave(currentSelection) }) {
+            TextButton(onClick = { 
+                val validSelection = currentSelection.filter { pkg -> installedApps.any { it.packageName == pkg } }.toSet()
+                onSave(validSelection) 
+            }) {
                 Text("Done", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
             }
         }

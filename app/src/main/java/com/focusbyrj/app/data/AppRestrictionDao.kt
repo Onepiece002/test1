@@ -29,6 +29,9 @@ interface AppRestrictionDao {
     @Query("SELECT * FROM app_restrictions ORDER BY appName ASC")
     fun getAllRestrictions(): Flow<List<AppRestriction>>
 
+    @Query("SELECT * FROM app_restrictions")
+    suspend fun getAllRestrictionsSync(): List<AppRestriction>
+
     @Query("SELECT * FROM app_restrictions WHERE packageName = :packageName")
     suspend fun getRestriction(packageName: String): AppRestriction?
 

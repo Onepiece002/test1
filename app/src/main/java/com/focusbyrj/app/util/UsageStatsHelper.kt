@@ -58,8 +58,8 @@ object UsageStatsHelper {
         context.startActivity(intent)
     }
 
-    fun getTodayUsageStats(context: Context): List<AppUsageData> {
-        val usm = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+    fun getTodayUsageMap(context: Context): Map<String, Long> {
+        val usm = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager ?: return emptyMap()
         val calendar = Calendar.getInstance().apply {
             set(Calendar.HOUR_OF_DAY, 0)
             set(Calendar.MINUTE, 0)
@@ -70,35 +70,77 @@ object UsageStatsHelper {
         val endTime = System.currentTimeMillis()
 
         val usageMap = mutableMapOf<String, Long>()
-        val lastResumeMap = mutableMapOf<String, Long>()
 
+        // 1. Android OS System-level aggregated usage stats
         kotlin.runCatching {
-            val events = usm.queryEvents(startTime, endTime)
-            val event = android.app.usage.UsageEvents.Event()
-            while (events.hasNextEvent()) {
-                events.getNextEvent(event)
-                val pkg = event.packageName ?: continue
-                if (event.eventType == android.app.usage.UsageEvents.Event.ACTIVITY_RESUMED ||
-                    event.eventType == android.app.usage.UsageEvents.Event.MOVE_TO_FOREGROUND) {
-                    lastResumeMap[pkg] = event.timeStamp
-                } else if (event.eventType == android.app.usage.UsageEvents.Event.ACTIVITY_PAUSED ||
-                           event.eventType == android.app.usage.UsageEvents.Event.ACTIVITY_STOPPED) {
-                    val lastResumeTime = lastResumeMap[pkg] ?: 0L
-                    if (lastResumeTime > 0L) {
-                        val duration = event.timeStamp - lastResumeTime
-                        usageMap[pkg] = (usageMap[pkg] ?: 0L) + duration
-                        lastResumeMap[pkg] = 0L
-                    }
-                }
-            }
-            
-            for ((pkg, lastResumeTime) in lastResumeMap) {
-                if (lastResumeTime > 0L) {
-                    usageMap[pkg] = (usageMap[pkg] ?: 0L) + (endTime - lastResumeTime)
+            val aggregated = usm.queryAndAggregateUsageStats(startTime, endTime)
+            for ((pkg, stats) in aggregated) {
+                if (stats.totalTimeInForeground > 0L) {
+                    usageMap[pkg] = stats.totalTimeInForeground
                 }
             }
         }
 
+        // 2. High-precision chronological event delta reconstruction
+        kotlin.runCatching {
+            val events = usm.queryEvents(startTime, endTime)
+            val event = android.app.usage.UsageEvents.Event()
+            var currentForegroundPkg: String? = null
+            var currentForegroundStartTime = 0L
+            val eventUsageMap = mutableMapOf<String, Long>()
+
+            while (events.hasNextEvent()) {
+                events.getNextEvent(event)
+                val pkg = event.packageName ?: continue
+                val type = event.eventType
+                val time = event.timeStamp
+
+                when (type) {
+                    android.app.usage.UsageEvents.Event.ACTIVITY_RESUMED,
+                    android.app.usage.UsageEvents.Event.MOVE_TO_FOREGROUND -> {
+                        if (currentForegroundPkg != null && currentForegroundPkg != pkg) {
+                            if (currentForegroundStartTime > 0L && time >= currentForegroundStartTime) {
+                                val duration = time - currentForegroundStartTime
+                                eventUsageMap[currentForegroundPkg!!] = (eventUsageMap[currentForegroundPkg!!] ?: 0L) + duration
+                            }
+                            currentForegroundPkg = pkg
+                            currentForegroundStartTime = time
+                        } else if (currentForegroundPkg == null) {
+                            currentForegroundPkg = pkg
+                            currentForegroundStartTime = time
+                        }
+                    }
+                    android.app.usage.UsageEvents.Event.ACTIVITY_PAUSED,
+                    android.app.usage.UsageEvents.Event.ACTIVITY_STOPPED,
+                    android.app.usage.UsageEvents.Event.MOVE_TO_BACKGROUND -> {
+                        if (currentForegroundPkg == pkg) {
+                            if (currentForegroundStartTime > 0L && time >= currentForegroundStartTime) {
+                                val duration = time - currentForegroundStartTime
+                                eventUsageMap[pkg] = (eventUsageMap[pkg] ?: 0L) + duration
+                            }
+                            currentForegroundPkg = null
+                            currentForegroundStartTime = 0L
+                        }
+                    }
+                }
+            }
+
+            if (currentForegroundPkg != null && currentForegroundStartTime > 0L && endTime >= currentForegroundStartTime) {
+                val duration = endTime - currentForegroundStartTime
+                eventUsageMap[currentForegroundPkg!!] = (eventUsageMap[currentForegroundPkg!!] ?: 0L) + duration
+            }
+
+            for ((pkg, timeMs) in eventUsageMap) {
+                val currentMax = usageMap[pkg] ?: 0L
+                usageMap[pkg] = kotlin.math.max(currentMax, timeMs)
+            }
+        }
+
+        return usageMap
+    }
+
+    fun getTodayUsageStats(context: Context): List<AppUsageData> {
+        val usageMap = getTodayUsageMap(context)
         val pm = context.packageManager
         val resultMap = mutableMapOf<String, AppUsageData>()
         
@@ -152,51 +194,9 @@ object UsageStatsHelper {
     }
 
     fun getTodayUsageMinutesForPackage(context: Context, packageName: String): Int {
-        val usm = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager ?: return 0
-        val calendar = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }
-        val startTime = calendar.timeInMillis
-        val endTime = System.currentTimeMillis()
-
-        var usageStatsMs = 0L
-        kotlin.runCatching {
-            val stats = usm.queryUsageStats(
-                UsageStatsManager.INTERVAL_DAILY,
-                startTime,
-                endTime
-            ) ?: emptyList()
-            usageStatsMs = stats.filter { it.packageName == packageName }.sumOf { it.totalTimeInForeground }
-        }
-
-        var eventsMs = 0L
-        kotlin.runCatching {
-            val events = usm.queryEvents(startTime, endTime)
-            val event = android.app.usage.UsageEvents.Event()
-            var lastResumeTime = 0L
-            while (events.hasNextEvent()) {
-                events.getNextEvent(event)
-                if (event.packageName == packageName) {
-                    if (event.eventType == android.app.usage.UsageEvents.Event.ACTIVITY_RESUMED ||
-                        event.eventType == android.app.usage.UsageEvents.Event.MOVE_TO_FOREGROUND) {
-                        lastResumeTime = event.timeStamp
-                    } else if ((event.eventType == android.app.usage.UsageEvents.Event.ACTIVITY_PAUSED ||
-                                event.eventType == android.app.usage.UsageEvents.Event.ACTIVITY_STOPPED) && lastResumeTime > 0L) {
-                        eventsMs += (event.timeStamp - lastResumeTime)
-                        lastResumeTime = 0L
-                    }
-                }
-            }
-            if (lastResumeTime > 0L) {
-                eventsMs += (endTime - lastResumeTime)
-            }
-        }
-
-        val totalMs = kotlin.math.max(usageStatsMs, eventsMs)
-        return (totalMs / (1000 * 60)).toInt()
+        val usageMap = getTodayUsageMap(context)
+        val timeMs = usageMap[packageName] ?: 0L
+        return (timeMs / (1000 * 60)).toInt()
     }
 
     fun getTodayLaunchCountForPackage(context: Context, packageName: String): Int {
