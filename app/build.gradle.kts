@@ -15,8 +15,8 @@ android {
     multiDexEnabled = true
     minSdk = 24
     targetSdk = 35
-    versionCode = 50
-    versionName = "1.5.0"
+    versionCode = 51
+    versionName = "1.5.1"
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
@@ -40,7 +40,8 @@ android {
 
   buildTypes {
     release {
-      isMinifyEnabled = false
+      isMinifyEnabled = true
+      isShrinkResources = true
       isCrunchPngs = false
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       
@@ -50,6 +51,12 @@ android {
       }
     }
     debug { signingConfig = signingConfigs.getByName("debug") }
+  }
+
+  bundle {
+    language { enableSplit = true }
+    density { enableSplit = true }
+    abi { enableSplit = true }
   }
 
   compileOptions {
@@ -71,7 +78,19 @@ android {
 
   packaging {
     resources {
-      excludes += "kotlin-tooling-metadata.json"
+      excludes += listOf(
+        "kotlin-tooling-metadata.json",
+        "META-INF/*.version",
+        "META-INF/DEPENDENCIES",
+        "META-INF/LICENSE",
+        "META-INF/LICENSE.txt",
+        "META-INF/license.txt",
+        "META-INF/NOTICE",
+        "META-INF/NOTICE.txt",
+        "META-INF/notice.txt",
+        "META-INF/ASL2.0",
+        "META-INF/*.kotlin_module"
+      )
     }
   }
 }

@@ -1,21 +1,43 @@
 # Add project specific ProGuard rules here.
 # You can control the set of applied configuration files using the
 # proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+-keepattributes SourceFile,LineNumberTable,InnerClasses,EnclosingMethod,Signature,*Annotation*
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# Rive Runtime
+-keep class app.rive.runtime.kotlin.** { *; }
+-keep interface app.rive.runtime.kotlin.** { *; }
+-keepclassmembers class app.rive.runtime.kotlin.** { *; }
+-keep class * extends app.rive.runtime.kotlin.core.NativeObject { *; }
+-dontwarn app.rive.runtime.kotlin.**
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# Room Database
+-keep class * extends androidx.room.RoomDatabase
+-keep @androidx.room.Dao interface * { *; }
+-keep @androidx.room.Entity class * { *; }
+-keep class com.focusbyrj.app.data.** { *; }
+-dontwarn androidx.room.paging.**
+
+# Lottie Animation
+-keep class com.airbnb.lottie.** { *; }
+-dontwarn com.airbnb.lottie.**
+
+# Kotlin Coroutines
+-keepnames class kotlinx.coroutines.internal.MainDispatcherFactory {}
+-keepnames class kotlinx.coroutines.CoroutineExceptionHandler {}
+-keepclassmembers class kotlinx.coroutines.** {
+    volatile <fields>;
+}
+
+# Android & Compose Jetpack
+-keep class androidx.compose.material.icons.** { *; }
+-dontwarn androidx.compose.**
+
+# App Services, Receivers, and Overlay Management
+-keep class com.focusbyrj.app.service.** { *; }
+-keep class com.focusbyrj.app.receiver.** { *; }
+-keep class com.focusbyrj.app.model.** { *; }
+-keep class com.focusbyrj.app.ui.components.** { *; }
+-keep class com.focusbyrj.app.overlay.** { *; }
+-keep class com.focusbyrj.app.util.** { *; }
+

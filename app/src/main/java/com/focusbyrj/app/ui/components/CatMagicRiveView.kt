@@ -3,10 +3,22 @@ package com.focusbyrj.app.ui.components
 import android.view.ViewGroup
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -24,18 +36,17 @@ import app.rive.runtime.kotlin.core.Loop
 import com.focusbyrj.app.R
 
 data class RiveCatAsset(
-    val resId: Int,
     val assetName: String,
     val displayName: String
 )
 
 val WELCOME_CAT_RIVE_ASSETS = listOf(
-    RiveCatAsset(resId = R.raw.cat_magic, assetName = "cat_magic.riv", displayName = "Magic Cat"),
-    RiveCatAsset(resId = R.raw.cat_gold_fish, assetName = "cat_gold_fish.riv", displayName = "Goldfish Aquarium Cat"),
-    RiveCatAsset(resId = R.raw.cat_googlyeyes, assetName = "cat_googlyeyes.riv", displayName = "Googly Eyes Cat"),
-    RiveCatAsset(resId = R.raw.cat_shiftyhead, assetName = "cat_shiftyhead.riv", displayName = "Shifty Head Cat"),
-    RiveCatAsset(resId = R.raw.cat_blunng, assetName = "cat_blunng.riv", displayName = "Blunng Cat"),
-    RiveCatAsset(resId = R.raw.cat_wildfairy, assetName = "cat_wildfairy.riv", displayName = "Wild Fairy Cat")
+    RiveCatAsset(assetName = "cat_magic.riv", displayName = "Magic Cat"),
+    RiveCatAsset(assetName = "cat_gold_fish.riv", displayName = "Goldfish Aquarium Cat"),
+    RiveCatAsset(assetName = "cat_googlyeyes.riv", displayName = "Googly Eyes Cat"),
+    RiveCatAsset(assetName = "cat_shiftyhead.riv", displayName = "Shifty Head Cat"),
+    RiveCatAsset(assetName = "cat_blunng.riv", displayName = "Blunng Cat"),
+    RiveCatAsset(assetName = "cat_wildfairy.riv", displayName = "Wild Fairy Cat")
 )
 
 @Composable
@@ -45,7 +56,11 @@ fun CatWelcomeRiveView(
 ) {
     val initialIndex = remember(messageId) {
         if (WELCOME_CAT_RIVE_ASSETS.isNotEmpty()) {
-            kotlin.random.Random.nextInt(WELCOME_CAT_RIVE_ASSETS.size)
+            if (messageId != null) {
+                kotlin.math.abs(messageId.hashCode()) % WELCOME_CAT_RIVE_ASSETS.size
+            } else {
+                kotlin.random.Random.nextInt(WELCOME_CAT_RIVE_ASSETS.size)
+            }
         } else 0
     }
     var currentCatIndex by remember(messageId) { mutableIntStateOf(initialIndex) }
@@ -54,19 +69,7 @@ fun CatWelcomeRiveView(
     var riveViewRef: RiveAnimationView? = null
 
     Box(
-        modifier = modifier.clickable(
-            interactionSource = remember { MutableInteractionSource() },
-            indication = null
-        ) {
-            try {
-                riveViewRef?.let { view ->
-                    view.reset()
-                    view.play(loop = Loop.LOOP)
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        },
+        modifier = modifier,
         contentAlignment = Alignment.Center
     ) {
         key(currentCat.assetName) {
@@ -74,50 +77,81 @@ fun CatWelcomeRiveView(
                 modifier = Modifier.fillMaxSize(),
                 factory = { ctx ->
                     try {
-                        RiveAnimationView.Builder(ctx)
-                            .setRendererType(app.rive.runtime.kotlin.core.RendererType.Canvas)
-                            .setFit(Fit.CONTAIN)
-                            .setAlignment(RiveAlignment.CENTER)
-                            .setAutoplay(true)
-                            .setLoop(Loop.LOOP)
-                            .build().apply {
-                                riveViewRef = this
-                                layoutParams = ViewGroup.LayoutParams(
-                                    ViewGroup.LayoutParams.MATCH_PARENT,
-                                    ViewGroup.LayoutParams.MATCH_PARENT
+                        try {
+                            app.rive.runtime.kotlin.core.Rive.init(ctx.applicationContext)
+                        } catch (_: Throwable) {}
+
+                        RiveAnimationView(ctx).apply {
+                            riveViewRef = this
+                            layoutParams = ViewGroup.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                ViewGroup.LayoutParams.MATCH_PARENT
+                            )
+                            fit = Fit.CONTAIN
+                            alignment = RiveAlignment.CENTER
+                            isClickable = true
+                            isFocusable = true
+
+                            var loaded = false
+                            try {
+                                val bytes = ctx.assets.open(currentCat.assetName).readBytes()
+                                setRiveBytes(
+                                    bytes = bytes,
+                                    autoplay = true,
+                                    fit = Fit.CONTAIN,
+                                    alignment = RiveAlignment.CENTER
                                 )
-                                fit = Fit.CONTAIN
-                                alignment = RiveAlignment.CENTER
+                                play()
+                                loaded = true
+                            } catch (ex: Throwable) {
+                                ex.printStackTrace()
+                            }
 
-                                var loaded = false
-                                try {
-                                    setRiveResource(
-                                        resId = currentCat.resId,
-                                        autoplay = true,
-                                        fit = Fit.CONTAIN,
-                                        alignment = RiveAlignment.CENTER,
-                                        loop = Loop.LOOP
-                                    )
-                                    loaded = true
-                                } catch (e: Throwable) {
-                                    // Fallback to asset loading
-                                }
-
-                                if (!loaded) {
+                            if (!loaded) {
+                                val fallbackAssets = listOf("cat_magic.riv", "cat_gold_fish.riv", "cat_googlyeyes.riv", "cat_shiftyhead.riv", "cat_blunng.riv", "cat_wildfairy.riv")
+                                for (fallback in fallbackAssets) {
                                     try {
-                                        val bytes = ctx.assets.open(currentCat.assetName).readBytes()
+                                        val bytes = ctx.assets.open(fallback).readBytes()
                                         setRiveBytes(
                                             bytes = bytes,
                                             autoplay = true,
                                             fit = Fit.CONTAIN,
-                                            alignment = RiveAlignment.CENTER,
-                                            loop = Loop.LOOP
+                                            alignment = RiveAlignment.CENTER
                                         )
-                                    } catch (ex: Throwable) {
-                                        // Ignore
-                                    }
+                                        play()
+                                        break
+                                    } catch (_: Throwable) {}
                                 }
                             }
+
+                            setOnClickListener {
+                                try {
+                                    val triggers = listOf(
+                                        "Tap", "tap", "Trigger", "trigger", "Click", "click",
+                                        "Press", "press", "Hit", "hit", "Action", "action",
+                                        "Meow", "meow", "Jump", "jump", "Blink", "blink",
+                                        "Happy", "happy", "interact", "Interact", "Touch", "touch"
+                                    )
+                                    val smNames = listOf("State Machine 1", "StateMachine", "Designer State Machine", "SM", "State Machine", "Motion", "Interactive")
+                                    var fired = false
+                                    for (sm in smNames) {
+                                        for (trig in triggers) {
+                                            try {
+                                                fireState(sm, trig)
+                                                fired = true
+                                            } catch (_: Throwable) {}
+                                        }
+                                    }
+                                    if (!fired && !isPlaying) {
+                                        play()
+                                    }
+                                } catch (e: Throwable) {
+                                    try {
+                                        if (!isPlaying) play()
+                                    } catch (_: Throwable) {}
+                                }
+                            }
+                        }
                     } catch (t: Throwable) {
                         android.view.View(ctx)
                     }
@@ -127,7 +161,7 @@ fun CatWelcomeRiveView(
                         riveViewRef = view
                         try {
                             if (!view.isPlaying) {
-                                view.play(loop = Loop.LOOP)
+                                view.play()
                             }
                         } catch (e: Throwable) {}
                     }
@@ -140,6 +174,40 @@ fun CatWelcomeRiveView(
                         } catch (e: Throwable) {}
                     }
                 }
+            )
+        }
+
+        // Companion tag & switch badge
+        Row(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 8.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(
+                    MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)
+                )
+                .clickable {
+                    currentCatIndex = (currentCatIndex + 1) % WELCOME_CAT_RIVE_ASSETS.size
+                }
+                .padding(horizontal = 10.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = "✨ ${currentCat.displayName}",
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = "• Tap to switch",
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontSize = 10.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                )
             )
         }
     }

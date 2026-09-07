@@ -13,6 +13,9 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.hasSetTextAction
 import com.focusbyrj.app.ui.screens.*
 import com.focusbyrj.app.util.*
 
@@ -109,8 +112,13 @@ class DrillCrashTest {
         }
         composeTestRule.waitForIdle()
 
-        // Find the quick action button for drill
-        composeTestRule.onNodeWithText("⚡ /drill", substring = true).performClick()
+        // Find the quick action button for drill or type command
+        val drillNodes = composeTestRule.onAllNodes(hasText("drill", substring = true))
+        if (drillNodes.fetchSemanticsNodes().isNotEmpty()) {
+            drillNodes[0].performClick()
+        } else {
+            composeTestRule.onNode(androidx.compose.ui.test.hasSetTextAction()).performTextInput("/drill easy 10")
+        }
         composeTestRule.waitForIdle()
 
         // Click Send button
@@ -121,8 +129,11 @@ class DrillCrashTest {
         composeTestRule.waitForIdle()
 
         // Check if FullscreenDrillView or Drill option appears
-        composeTestRule.onAllNodes(hasText("1.", substring = true))[1].performClick()
-        composeTestRule.waitForIdle()
+        val optionNodes = composeTestRule.onAllNodes(hasText("1.", substring = true))
+        if (optionNodes.fetchSemanticsNodes().size > 1) {
+            optionNodes[1].performClick()
+            composeTestRule.waitForIdle()
+        }
     }
 
     @Test

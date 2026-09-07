@@ -188,7 +188,12 @@ fun PersistedChatMessage.toChatMessage(): ChatMessage {
         isVocabBrief = isVocabBrief,
         isVocabHub = isVocabHub || id.startsWith("vocab_hub_"),
         vocabJson = vocabJson,
-        isWelcome = id.startsWith("welcome_")
+        isWelcome = isWelcome || id.startsWith("welcome_") || 
+                    text.contains("Hey! Ayva is on deck", ignoreCase = true) ||
+                    text.contains("ready for action", ignoreCase = true) ||
+                    text.contains("Ayva here!", ignoreCase = true) ||
+                    text.contains("I'm Ayva", ignoreCase = true) ||
+                    text.contains("anti-procrastination", ignoreCase = true)
     )
 }
 
@@ -218,7 +223,8 @@ fun ChatMessage.toPersistedChatMessage(): PersistedChatMessage {
         isStreakFreezeSkipped = isStreakFreezeSkipped,
         isVocabBrief = isVocabBrief,
         isVocabHub = isVocabHub,
-        vocabJson = vocabJson
+        vocabJson = vocabJson,
+        isWelcome = isWelcome
     )
 }
 
@@ -2490,7 +2496,18 @@ fun ChatBubble(
 
     val isMorning = message.isMorningBrief || message.id.startsWith("morning_")
     val isEvening = message.isEveningBrief || message.id.startsWith("evening_")
-    val isWelcome = !message.isUser && (message.isWelcome || message.id.startsWith("welcome_"))
+    val isWelcome = !message.isUser && (
+        message.isWelcome || 
+        message.id.startsWith("welcome_") ||
+        message.text.contains("Hey! Ayva is on deck", ignoreCase = true) ||
+        message.text.contains("ready for action", ignoreCase = true) ||
+        message.text.contains("Ayva here!", ignoreCase = true) ||
+        message.text.contains("I'm Ayva", ignoreCase = true) ||
+        message.text.contains("Hey there! I'm Ayva", ignoreCase = true) ||
+        message.text.contains("anti-procrastination", ignoreCase = true) ||
+        message.text.contains("cognitive mastery", ignoreCase = true) ||
+        message.text.contains("focus & learning companion", ignoreCase = true)
+    )
 
     if (message.isTaskSummary && !message.isUser && !isMorning && !isEvening) {
         TaskSummaryCard(
@@ -3713,38 +3730,61 @@ fun EveningBriefRiveHeader(
             modifier = Modifier.fillMaxSize(),
             factory = { ctx ->
                 try {
-                    app.rive.runtime.kotlin.RiveAnimationView.Builder(ctx)
-                        .setRendererType(app.rive.runtime.kotlin.core.RendererType.Canvas)
-                        .setFit(app.rive.runtime.kotlin.core.Fit.CONTAIN)
-                        .setAlignment(app.rive.runtime.kotlin.core.Alignment.CENTER)
-                        .setAutoplay(true)
-                        .setLoop(app.rive.runtime.kotlin.core.Loop.LOOP)
-                        .build().apply {
-                            riveViewRef = this
-                            layoutParams = android.view.ViewGroup.LayoutParams(
-                                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                                android.view.ViewGroup.LayoutParams.MATCH_PARENT
-                            )
-                            fit = app.rive.runtime.kotlin.core.Fit.CONTAIN
-                            alignment = app.rive.runtime.kotlin.core.Alignment.CENTER
+                    app.rive.runtime.kotlin.RiveAnimationView(ctx).apply {
+                        riveViewRef = this
+                        layoutParams = android.view.ViewGroup.LayoutParams(
+                            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                            android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                        )
+                        fit = app.rive.runtime.kotlin.core.Fit.CONTAIN
+                        alignment = app.rive.runtime.kotlin.core.Alignment.CENTER
+                        isClickable = true
+                        isFocusable = true
 
+                        try {
+                            val candidateAssets = listOf("cat_nighteyes.riv", "cat_googlyeyes.riv", "cat_magic.riv")
+                            for (asset in candidateAssets) {
+                                try {
+                                    val bytes = ctx.assets.open(asset).readBytes()
+                                    setRiveBytes(
+                                        bytes = bytes,
+                                        autoplay = true,
+                                        fit = app.rive.runtime.kotlin.core.Fit.CONTAIN,
+                                        alignment = app.rive.runtime.kotlin.core.Alignment.CENTER
+                                    )
+                                    break
+                                } catch (_: Throwable) {}
+                            }
+                        } catch (e: Throwable) {}
+
+                        setOnClickListener {
                             try {
-                                val candidateAssets = listOf("cat_nighteyes.riv", "cat_googlyeyes.riv", "cat_magic.riv")
-                                for (asset in candidateAssets) {
-                                    try {
-                                        val bytes = ctx.assets.open(asset).readBytes()
-                                        setRiveBytes(
-                                            bytes = bytes,
-                                            autoplay = true,
-                                            fit = app.rive.runtime.kotlin.core.Fit.CONTAIN,
-                                            alignment = app.rive.runtime.kotlin.core.Alignment.CENTER,
-                                            loop = app.rive.runtime.kotlin.core.Loop.LOOP
-                                        )
-                                        break
-                                    } catch (_: Throwable) {}
+                                val triggers = listOf(
+                                    "Tap", "tap", "Trigger", "trigger", "Click", "click",
+                                    "Press", "press", "Hit", "hit", "Action", "action",
+                                    "Meow", "meow", "Jump", "jump", "Blink", "blink",
+                                    "Happy", "happy", "interact", "Interact", "Touch", "touch"
+                                )
+                                val smNames = listOf("State Machine 1", "StateMachine", "Designer State Machine", "SM", "State Machine", "Motion", "Interactive")
+                                var fired = false
+                                for (sm in smNames) {
+                                    for (trig in triggers) {
+                                        try {
+                                            fireState(sm, trig)
+                                            fired = true
+                                        } catch (_: Throwable) {}
+                                    }
                                 }
-                            } catch (e: Throwable) {}
+                                if (!fired && !isPlaying) {
+                                    play()
+                                }
+                            } catch (e: Throwable) {
+                                try {
+                                    if (!isPlaying) play()
+                                } catch (_: Throwable) {}
+                            }
                         }
+                    }
                 } catch (t: Throwable) {
                     android.view.View(ctx)
                 }
@@ -3754,7 +3794,7 @@ fun EveningBriefRiveHeader(
                     riveViewRef = view
                     try {
                         if (!view.isPlaying) {
-                            view.play(loop = app.rive.runtime.kotlin.core.Loop.LOOP)
+                            view.play()
                         }
                     } catch (e: Throwable) {}
                 }

@@ -42,9 +42,13 @@ class FocusApplication : Application() {
         com.focusbyrj.app.data.drill.DrillSessionRepository.init(this)
 
         try {
-            app.rive.runtime.kotlin.core.Rive.init(this, app.rive.runtime.kotlin.core.RendererType.Canvas)
-        } catch (e: Exception) {
-            e.printStackTrace()
+            app.rive.runtime.kotlin.core.Rive.init(this)
+        } catch (e: Throwable) {
+            try {
+                app.rive.runtime.kotlin.core.Rive.init(this, app.rive.runtime.kotlin.core.RendererType.Canvas)
+            } catch (ex: Throwable) {
+                ex.printStackTrace()
+            }
         }
 
         // Warm up Ayva knowledge base in background IO thread for instant 0ms responses
