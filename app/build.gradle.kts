@@ -107,6 +107,7 @@ dependencies {
   implementation(libs.androidx.dynamicanimation)
   implementation(libs.androidx.lifecycle.runtime.ktx)
   implementation("androidx.fragment:fragment-ktx:1.6.2")
+  implementation("androidx.appcompat:appcompat:1.6.1")
 
   // Compose
   implementation(platform(libs.androidx.compose.bom))
@@ -136,6 +137,7 @@ dependencies {
   implementation("androidx.palette:palette-ktx:1.0.0")
 
   // Lottie Animation
+  implementation("com.airbnb.android:lottie:6.4.0")
   implementation("com.airbnb.android:lottie-compose:6.4.0")
 
   // Rive Animation Runtime

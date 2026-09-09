@@ -55,6 +55,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Warning
@@ -144,6 +145,7 @@ class MainActivity : FragmentActivity() {
 
     lateinit var viewModel: FocusViewModel
     lateinit var taskViewModel: com.focusbyrj.app.ui.viewmodels.TaskViewModel
+    lateinit var habitViewModel: com.focusbyrj.app.ui.viewmodels.HabitViewModel
 
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
@@ -172,11 +174,17 @@ class MainActivity : FragmentActivity() {
         }
         taskViewModel = tvm
 
+        val hvm: com.focusbyrj.app.ui.viewmodels.HabitViewModel by viewModels {
+            com.focusbyrj.app.ui.viewmodels.HabitViewModelFactory(app.habitRepository, app)
+        }
+        habitViewModel = hvm
+
         kotlin.runCatching { FocusBlockerService.startService(this) }
         kotlin.runCatching { com.focusbyrj.app.service.BubbleService.startIfEnabled(this) }
         kotlin.runCatching { com.focusbyrj.app.service.DailySummaryReceiver.scheduleDailySummaries(this) }
         kotlin.runCatching { com.focusbyrj.app.service.AptitudeReminderReceiver.scheduleRandomDrillReminders(this) }
         kotlin.runCatching { com.focusbyrj.app.util.TaskReminderHelper.scheduleAllPendingReminders(this) }
+        kotlin.runCatching { com.focusbyrj.app.util.HabitAlarmScheduler.rescheduleAllHabits(this) }
 
         val navigateTo = intent?.getStringExtra("navigate_to")
         val openAddDialog = intent?.getBooleanExtra("open_add_dialog", false) ?: false
@@ -186,6 +194,7 @@ class MainActivity : FragmentActivity() {
                 MainAppScreen(
                     viewModel = viewModel, 
                     taskViewModel = taskViewModel,
+                    habitViewModel = habitViewModel,
                     initialNavigateTo = navigateTo,
                     initialOpenAdd = openAddDialog
                 )
@@ -199,6 +208,7 @@ class MainActivity : FragmentActivity() {
 fun MainAppScreen(
     viewModel: FocusViewModel, 
     taskViewModel: com.focusbyrj.app.ui.viewmodels.TaskViewModel,
+    habitViewModel: com.focusbyrj.app.ui.viewmodels.HabitViewModel,
     initialNavigateTo: String? = null,
     initialOpenAdd: Boolean = false
 ) {
@@ -606,6 +616,8 @@ fun MainAppScreen(
                                 }
                             }
                         )
+
+
                     }
 
                     Spacer(modifier = Modifier.height(18.dp))
@@ -668,7 +680,7 @@ fun MainAppScreen(
             modifier = Modifier.fillMaxSize(),
             containerColor = MaterialTheme.colorScheme.background,
             topBar = {
-                if (!isSessionActive) {
+                if (!isSessionActive && currentDestination?.route != Screen.Habits.route) {
                     TopAppBar(
                         title = {
                             AnimatedContent(
@@ -855,7 +867,8 @@ fun MainAppScreen(
                     Screen.Security.route,
                     Screen.Settings.route,
                     Screen.BubbleSettings.route,
-                    Screen.Subscription.route
+                    Screen.Subscription.route,
+                    Screen.Habits.route
                 )
                 if (currentDestination?.route !in hideBottomBarRoutes && !isSessionActive) {
                     FocusBottomBar(
@@ -904,10 +917,12 @@ fun MainAppScreen(
                     val schedules by viewModel.schedules.collectAsStateWithLifecycle()
                     val timeRemaining by viewModel.timeRemaining.collectAsStateWithLifecycle()
                     val initialTime by viewModel.initialTime.collectAsStateWithLifecycle()
+                    val habitsWithProgress by habitViewModel.habitsWithProgress.collectAsStateWithLifecycle()
 
                     DashboardScreen(
                         restrictions = restrictions,
                         schedules = schedules,
+                        habits = habitsWithProgress,
                         onToggle = { app -> viewModel.toggleRestriction(app) },
                         onDelete = { app -> viewModel.deleteRestriction(app) },
                         onUpdate = { app -> viewModel.updateRestriction(app) },
@@ -920,6 +935,14 @@ fun MainAppScreen(
                             navController.navigate(Screen.Schedules.route) {
                                 launchSingleTop = true
                             }
+                        },
+                        onOpenHabits = {
+                            navController.navigate(Screen.Habits.route) {
+                                launchSingleTop = true
+                            }
+                        },
+                        onHabitIncrement = { habit ->
+                            habitViewModel.incrementProgress(habit)
                         }
                     )
                 }
@@ -959,6 +982,13 @@ fun MainAppScreen(
                         taskViewModel, 
                         initialOpenAdd = initialOpenAdd || pendingOpenAdd,
                         onOpenAddHandled = { viewModel.clearOpenAddDialog() }
+                    )
+                }
+                composable(Screen.Habits.route) {
+                    com.focusbyrj.app.ui.screens.HabitsScreen(
+                        habitViewModel = habitViewModel,
+                        onBack = { navController.popBackStack() },
+                        initialOpenCreate = initialOpenAdd || pendingOpenAdd
                     )
                 }
             }

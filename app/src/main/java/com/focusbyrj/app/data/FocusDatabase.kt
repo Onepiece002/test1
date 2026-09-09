@@ -22,11 +22,12 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [AppRestriction::class, FocusSchedule::class, Task::class], version = 7, exportSchema = false)
+@Database(entities = [AppRestriction::class, FocusSchedule::class, Task::class, Habit::class, HabitLog::class], version = 8, exportSchema = false)
 abstract class FocusDatabase : RoomDatabase() {
     abstract fun appRestrictionDao(): AppRestrictionDao
     abstract fun scheduleDao(): ScheduleDao
     abstract fun taskDao(): TaskDao
+    abstract fun habitDao(): HabitDao
 
     companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -135,6 +136,55 @@ abstract class FocusDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 MIGRATION_1_6.migrate(db)
                 MIGRATION_6_7.migrate(db)
+            }
+        }
+
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `habits` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `title` TEXT NOT NULL,
+                        `description` TEXT NOT NULL DEFAULT '',
+                        `iconEmoji` TEXT NOT NULL DEFAULT '✨',
+                        `colorHex` TEXT NOT NULL DEFAULT '#3B82F6',
+                        `type` TEXT NOT NULL DEFAULT 'ONCE_DAILY',
+                        `targetPerDay` INTEGER NOT NULL DEFAULT 1,
+                        `intervalHours` INTEGER NOT NULL DEFAULT 3,
+                        `windowStartHour` INTEGER NOT NULL DEFAULT 8,
+                        `windowStartMinute` INTEGER NOT NULL DEFAULT 0,
+                        `windowEndHour` INTEGER NOT NULL DEFAULT 21,
+                        `windowEndMinute` INTEGER NOT NULL DEFAULT 0,
+                        `fixedReminderHour` INTEGER NOT NULL DEFAULT 9,
+                        `fixedReminderMinute` INTEGER NOT NULL DEFAULT 0,
+                        `isReminderEnabled` INTEGER NOT NULL DEFAULT 1,
+                        `reminderSound` TEXT NOT NULL DEFAULT 'ZEN',
+                        `createdAt` INTEGER NOT NULL DEFAULT 0,
+                        `isArchived` INTEGER NOT NULL DEFAULT 0
+                    )
+                """.trimIndent())
+
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `habit_logs` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `habitId` INTEGER NOT NULL,
+                        `date` TEXT NOT NULL,
+                        `completedCount` INTEGER NOT NULL DEFAULT 0,
+                        `targetCount` INTEGER NOT NULL DEFAULT 1,
+                        `lastCompletedTimestamp` INTEGER
+                    )
+                """.trimIndent())
+
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_habit_logs_habitId_date` ON `habit_logs` (`habitId`, `date`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_habit_logs_date` ON `habit_logs` (`date`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_habit_logs_habitId` ON `habit_logs` (`habitId`)")
+            }
+        }
+
+        val MIGRATION_1_8 = object : Migration(1, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                MIGRATION_1_7.migrate(db)
+                MIGRATION_7_8.migrate(db)
             }
         }
     }

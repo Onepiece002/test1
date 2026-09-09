@@ -20,6 +20,11 @@ import com.focusbyrj.app.FocusApplication
 
 
 class TaskReminderReceiver : BroadcastReceiver() {
+    companion object {
+        const val TASKS_GROUP_KEY = "com.focusbyrj.app.TASKS_GROUP"
+        const val TASKS_SUMMARY_ID = 999_902
+    }
+
     override fun onReceive(context: Context, intent: Intent) {
         val taskId = intent.getLongExtra("taskId", -1L)
         if (taskId == -1L) return
@@ -179,6 +184,8 @@ class TaskReminderReceiver : BroadcastReceiver() {
                         .setContentIntent(popupPendingIntent)
                         .setFullScreenIntent(popupPendingIntent, true)
                         .setAutoCancel(!isPersistent)
+                        .setGroup(TASKS_GROUP_KEY)
+                        .setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_CHILDREN)
                         .addAction(0, "Ignore", ignorePendingIntent)
                         .addAction(0, "Reschedule", reschedulePendingIntent)
                         .addAction(0, "Complete", completePendingIntent)
@@ -189,6 +196,17 @@ class TaskReminderReceiver : BroadcastReceiver() {
 
                     if (showNotification) {
                         notificationManager.notify(taskId.toInt(), builder.build())
+
+                        // Post clean tasks group summary for notification tray
+                        val summaryNotification = NotificationCompat.Builder(appContext, channelId)
+                            .setSmallIcon(R.mipmap.ic_launcher_round)
+                            .setStyle(NotificationCompat.InboxStyle().setSummaryText("Tasks & To-Dos"))
+                            .setGroup(TASKS_GROUP_KEY)
+                            .setGroupSummary(true)
+                            .setAutoCancel(true)
+                            .setPriority(NotificationCompat.PRIORITY_LOW)
+                            .build()
+                        notificationManager.notify(TASKS_SUMMARY_ID, summaryNotification)
                     }
 
                     if (showFloating) {

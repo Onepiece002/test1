@@ -148,15 +148,15 @@ class FocusBlockerService : Service() {
         }
 
         val channelId = "focus_guard_silent"
-        val channelName = "Focus Service Internal"
+        val channelName = "Focus Protection"
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 channelId,
                 channelName,
-                NotificationManager.IMPORTANCE_MIN
+                NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Background service keeper"
+                description = "Focus session & app blocker service"
                 setSound(null, null)
                 setShowBadge(false)
                 enableVibration(false)
@@ -166,9 +166,11 @@ class FocusBlockerService : Service() {
 
         val silentNotification = NotificationCompat.Builder(this, channelId)
             .setSmallIcon(R.mipmap.ic_launcher_round)
-            .setPriority(NotificationCompat.PRIORITY_MIN)
+            .setContentTitle("Focus Protection Active")
+            .setContentText("Focus session & app limits running")
+            .setPriority(NotificationCompat.PRIORITY_LOW)
             .setNotificationSilent()
-            .setOngoing(false)
+            .setOngoing(true)
             .build()
 
         kotlin.runCatching {
@@ -177,16 +179,6 @@ class FocusBlockerService : Service() {
             } else {
                 startForeground(NOTIFICATION_ID, silentNotification)
             }
-        }
-
-        kotlin.runCatching {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                stopForeground(STOP_FOREGROUND_REMOVE)
-            } else {
-                @Suppress("DEPRECATION")
-                stopForeground(true)
-            }
-            notificationManager.cancel(NOTIFICATION_ID)
         }
     }
 
@@ -651,27 +643,7 @@ class FocusBlockerService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_UPDATE_NOTIFICATION) {
-            val prefs = applicationContext.getSharedPreferences("focus_prefs", Context.MODE_PRIVATE)
-            val notifyEnabled = prefs.getBoolean("routine_notifications", true)
-            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            if (!notifyEnabled) {
-                kotlin.runCatching {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                        stopForeground(STOP_FOREGROUND_REMOVE)
-                    } else {
-                        @Suppress("DEPRECATION")
-                        stopForeground(true)
-                    }
-                    notificationManager.cancel(NOTIFICATION_ID)
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        notificationManager.deleteNotificationChannel("routine_alerts")
-                    }
-                }
-            } else {
-                startForegroundServiceNotification()
-            }
-        }
+        startForegroundServiceNotification()
         return START_STICKY
     }
 
@@ -685,6 +657,12 @@ class FocusBlockerService : Service() {
         prefs.edit().putBoolean("isSessionActive", false).apply()
         com.focusbyrj.app.util.DndHelper.setDndMode(applicationContext, false)
         kotlin.runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                stopForeground(STOP_FOREGROUND_REMOVE)
+            } else {
+                @Suppress("DEPRECATION")
+                stopForeground(true)
+            }
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
             notificationManager?.cancel(NOTIFICATION_ID)
         }

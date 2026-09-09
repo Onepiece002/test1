@@ -49,6 +49,30 @@ object TaskReminderOverlayManager {
         isPersistent: Boolean,
         openRescheduleInitially: Boolean = false
     ) {
+        UnifiedOverlayCoordinator.enqueueTask(
+            context = context,
+            taskId = taskId,
+            taskTitle = taskTitle,
+            taskDetails = taskDetails,
+            taskDueDate = taskDueDate,
+            taskTypeStr = taskTypeStr,
+            taskRecurrenceStr = taskRecurrenceStr,
+            isPersistent = isPersistent,
+            openRescheduleInitially = openRescheduleInitially
+        )
+    }
+
+    internal fun showReminderOverlayDirect(
+        context: Context,
+        taskId: Long,
+        taskTitle: String,
+        taskDetails: String,
+        taskDueDate: Long,
+        taskTypeStr: String,
+        taskRecurrenceStr: String,
+        isPersistent: Boolean,
+        openRescheduleInitially: Boolean = false
+    ) {
         val appContext = context.applicationContext ?: context
         Handler(Looper.getMainLooper()).post {
             try {
@@ -720,8 +744,10 @@ object TaskReminderOverlayManager {
     }
 
     private fun hideOverlayDirect() {
+        var appContext: Context? = null
         try {
             if (overlayView != null && windowManager != null) {
+                appContext = overlayView?.context?.applicationContext
                 // Hide keyboard before removing the view to prevent ImeBackDispatcher errors
                 val imm = overlayView?.context?.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
                 imm?.hideSoftInputFromWindow(overlayView?.windowToken, 0)
@@ -734,6 +760,7 @@ object TaskReminderOverlayManager {
             overlayView = null
             currentTaskId = -1L
             isShowing = false
+            appContext?.let { UnifiedOverlayCoordinator.onOverlayDismissed(it) }
         }
     }
 

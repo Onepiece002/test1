@@ -27,7 +27,8 @@ data class UserProfile(
     val pendingGold: Int = 0,
     val lifetimeFocusMins: Int = 0,
     val lifetimeResists: Int = 0,
-    val lifetimeTasksCompleted: Int = 0
+    val lifetimeTasksCompleted: Int = 0,
+    val streakFreezes: Int = 1
 ) {
     fun xpCurrentLevelBase(): Int = FocusEconomyManager.requiredXpForLevel(level)
     fun xpNextLevelThreshold(): Int = FocusEconomyManager.requiredXpForLevel(level + 1)
@@ -53,7 +54,7 @@ object FocusEconomyManager {
     }
 
     private val _profileFlow = MutableStateFlow(
-        UserProfile("Focus Warrior", 0, 0, 1, 1, 0, 1, "tier_1", emptySet(), 0, 0, 0, 0, 0, 0, 0)
+        UserProfile("Focus Warrior", 0, 0, 1, 1, 0, 1, "tier_1", emptySet(), 0, 0, 0, 0, 0, 0, 0, 1)
     )
     val profileFlow: StateFlow<UserProfile> = _profileFlow.asStateFlow()
 
@@ -103,7 +104,8 @@ object FocusEconomyManager {
                 pendingGold = it.getInt("pending_gold", 0),
                 lifetimeFocusMins = it.getInt("lifetime_focus_mins", 0),
                 lifetimeResists = it.getInt("lifetime_resists", 0),
-                lifetimeTasksCompleted = it.getInt("lifetime_tasks_completed", 0)
+                lifetimeTasksCompleted = it.getInt("lifetime_tasks_completed", 0),
+                streakFreezes = it.getInt("streak_freezes", 1)
             )
         }
         if (oldProfile.xp > 0 || oldProfile.gold > 0 || oldProfile.lifetimeFocusMins > 0 || oldProfile.lifetimeTasksCompleted > 0) {
@@ -462,6 +464,36 @@ object FocusEconomyManager {
                 .apply()
             loadProfile()
         }
+    }
+
+    fun buyStreakFreeze(cost: Int = 150): Boolean {
+        val p = prefs ?: return false
+        val currentGold = _profileFlow.value.gold
+        if (currentGold >= cost) {
+            val currentFreezes = _profileFlow.value.streakFreezes
+            p.edit()
+                .putInt("gold", currentGold - cost)
+                .putInt("streak_freezes", currentFreezes + 1)
+                .apply()
+            loadProfile()
+            emitEvent(EconomyEvent.RewardsEarned(0, 0, "Streak Freeze Shield Acquired 🛡️"))
+            return true
+        }
+        return false
+    }
+
+    fun useStreakFreeze(): Boolean {
+        val p = prefs ?: return false
+        val currentFreezes = _profileFlow.value.streakFreezes
+        if (currentFreezes > 0) {
+            p.edit()
+                .putInt("streak_freezes", currentFreezes - 1)
+                .apply()
+            loadProfile()
+            emitEvent(EconomyEvent.RewardsEarned(0, 0, "Streak Freeze Activated ❄️"))
+            return true
+        }
+        return false
     }
 
     fun calculateUnlockedAvatarTier(gold: Int): Int {

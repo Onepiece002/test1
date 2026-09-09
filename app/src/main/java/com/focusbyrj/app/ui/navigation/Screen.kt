@@ -44,5 +44,6 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     object BubbleSettings : Screen("bubble_settings", "Bubble Settings", Icons.Filled.Chat)
     object Subscription : Screen("subscription", "Subscription", androidx.compose.material.icons.Icons.Filled.Star)
     object Todos : Screen("todos", "Todos", Icons.Filled.CheckCircle)
+    object Habits : Screen("habits", "Habits", Icons.Filled.Schedule)
     object Empty : Screen("empty", "", Icons.Filled.CropSquare)
 }

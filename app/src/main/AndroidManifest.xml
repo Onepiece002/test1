@@ -244,6 +244,8 @@
         <receiver android:name=".service.TaskActionReceiver" android:exported="false" />
         <receiver android:name=".service.DailySummaryReceiver" android:exported="false" />
         <receiver android:name=".service.AptitudeReminderReceiver" android:exported="false" />
+        <receiver android:name=".service.HabitReceiver" android:exported="false" />
+        <receiver android:name=".service.HabitActionReceiver" android:exported="false" />
 
         <!-- Floating Task Reminder Popup Activity -->
         <activity

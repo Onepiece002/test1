@@ -40,6 +40,7 @@ class FocusApplication : Application() {
         com.focusbyrj.app.util.AppIconManager.init(this)
         com.focusbyrj.app.util.StreakManager.init(this)
         com.focusbyrj.app.data.drill.DrillSessionRepository.init(this)
+        com.focusbyrj.app.service.HabitReceiver.createHabitNotificationChannel(this)
 
         try {
             app.rive.runtime.kotlin.core.Rive.init(this)
@@ -74,7 +75,9 @@ class FocusApplication : Application() {
             FocusDatabase.MIGRATION_5_6,
             FocusDatabase.MIGRATION_1_6,
             FocusDatabase.MIGRATION_6_7,
-            FocusDatabase.MIGRATION_1_7
+            FocusDatabase.MIGRATION_1_7,
+            FocusDatabase.MIGRATION_7_8,
+            FocusDatabase.MIGRATION_1_8
         )
         .fallbackToDestructiveMigrationOnDowngrade()
         .build() 
@@ -94,5 +97,6 @@ class FocusApplication : Application() {
     
     val repository by lazy { AppRepository(database.appRestrictionDao(), database.scheduleDao()) }
     val taskRepository by lazy { TaskRepository(database.taskDao()) }
+    val habitRepository by lazy { com.focusbyrj.app.data.HabitRepository(database.habitDao()) }
     val vocabRepository by lazy { com.focusbyrj.app.data.VocabRepository(vocabDatabase.vocabDao()) }
 }

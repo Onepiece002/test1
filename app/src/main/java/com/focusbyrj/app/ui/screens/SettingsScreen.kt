@@ -115,6 +115,10 @@ fun SettingsScreen(navController: NavController) {
     }
     var showNotificationDropdown by remember { mutableStateOf(false) }
 
+    var habitTopNotifications by remember {
+        mutableStateOf(prefs.getBoolean("habit_top_notifications", false))
+    }
+
     val currentAppTheme by AppThemeManager.themeFlow.collectAsState()
     val currentThemeMode by AppThemeManager.themeModeFlow.collectAsState()
     val currentOverlayThemeMode by AppThemeManager.overlayThemeModeFlow.collectAsState()
@@ -548,6 +552,23 @@ fun SettingsScreen(navController: NavController) {
                         taskNotificationStyle = option
                         prefs.edit().putString("task_notification_style", option).apply()
                         showNotificationDropdown = false
+                    }
+                )
+
+                HorizontalDivider(
+                    modifier = Modifier.padding(start = 54.dp, end = 6.dp),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+                )
+
+                // Habit Top Notifications Toggle
+                SettingsSwitchRow(
+                    icon = Icons.Filled.Notifications,
+                    title = "Habit Top Notifications",
+                    subtitle = "Status bar alerts alongside floating reminder",
+                    checked = habitTopNotifications,
+                    onCheckedChange = { isEnabled ->
+                        habitTopNotifications = isEnabled
+                        prefs.edit().putBoolean("habit_top_notifications", isEnabled).apply()
                     }
                 )
 

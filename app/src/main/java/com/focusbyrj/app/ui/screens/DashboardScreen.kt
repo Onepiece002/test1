@@ -54,6 +54,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BatteryFull
 import androidx.compose.material.icons.filled.AutoMode
 import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
@@ -98,6 +100,7 @@ import kotlinx.coroutines.launch
 fun DashboardScreen(
     restrictions: List<AppRestriction> = emptyList(),
     schedules: List<com.focusbyrj.app.data.FocusSchedule> = emptyList(),
+    habits: List<com.focusbyrj.app.data.HabitWithProgress> = emptyList(),
     onToggle: (AppRestriction) -> Unit = {},
     onDelete: (AppRestriction) -> Unit = {},
     onUpdate: (AppRestriction) -> Unit = {},
@@ -106,7 +109,9 @@ fun DashboardScreen(
     initialTime: Long = 25 * 60L,
     onToggleSession: () -> Unit = {},
     onSetTime: (Int) -> Unit = {},
-    onOpenRoutines: () -> Unit = {}
+    onOpenRoutines: () -> Unit = {},
+    onOpenHabits: () -> Unit = {},
+    onHabitIncrement: (com.focusbyrj.app.data.Habit) -> Unit = {}
 ) {
     if (isSessionActive) {
         ActiveSessionScreen(timeRemaining = timeRemaining, initialTime = initialTime, onToggleSession = onToggleSession)
@@ -114,13 +119,16 @@ fun DashboardScreen(
         NormalDashboard(
             restrictions = restrictions,
             schedules = schedules,
+            habits = habits,
             onToggle = onToggle,
             onDelete = onDelete,
             onUpdate = onUpdate,
             timeRemaining = timeRemaining,
             onToggleSession = onToggleSession,
             onSetTime = onSetTime,
-            onOpenRoutines = onOpenRoutines
+            onOpenRoutines = onOpenRoutines,
+            onOpenHabits = onOpenHabits,
+            onHabitIncrement = onHabitIncrement
         )
     }
 }
@@ -129,13 +137,16 @@ fun DashboardScreen(
 fun NormalDashboard(
     restrictions: List<AppRestriction>,
     schedules: List<com.focusbyrj.app.data.FocusSchedule> = emptyList(),
+    habits: List<com.focusbyrj.app.data.HabitWithProgress> = emptyList(),
     onToggle: (AppRestriction) -> Unit,
     onDelete: (AppRestriction) -> Unit = {},
     onUpdate: (AppRestriction) -> Unit = {},
     timeRemaining: Long,
     onToggleSession: () -> Unit,
     onSetTime: (Int) -> Unit,
-    onOpenRoutines: () -> Unit = {}
+    onOpenRoutines: () -> Unit = {},
+    onOpenHabits: () -> Unit = {},
+    onHabitIncrement: (com.focusbyrj.app.data.Habit) -> Unit = {}
 ) {
     var editingApp by remember { mutableStateOf<AppRestriction?>(null) }
 
@@ -229,7 +240,31 @@ fun NormalDashboard(
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
-            DeepWorkCard(timeRemaining = timeRemaining, onToggleSession = onToggleSession, onSetTime = onSetTime)
+            // Top Row: Deep Work Card (Left) & Habits Glance Card (Right) Side-by-Side
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(128.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                DeepWorkCard(
+                    timeRemaining = timeRemaining,
+                    onToggleSession = onToggleSession,
+                    onSetTime = onSetTime,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                )
+
+                DashboardHabitsGlanceCard(
+                    habits = habits,
+                    onOpenHabits = onOpenHabits,
+                    onHabitIncrement = onHabitIncrement,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                )
+            }
             Spacer(modifier = Modifier.height(12.dp))
 
             RoutinesAndShieldedSection(
@@ -314,9 +349,11 @@ fun NormalDashboard(
 fun DeepWorkCard(
     timeRemaining: Long,
     onToggleSession: () -> Unit,
-    onSetTime: (Int) -> Unit
+    onSetTime: (Int) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
     var showDialog by remember { mutableStateOf(false) }
     var sliderValue by remember { mutableStateOf((timeRemaining / 60).toFloat()) }
 
@@ -387,98 +424,132 @@ fun DeepWorkCard(
     val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
 
     Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(26.dp))
+        modifier = modifier
+            .clip(RoundedCornerShape(22.dp))
             .background(MaterialTheme.colorScheme.surface)
             .border(
                 1.dp,
                 MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
-                RoundedCornerShape(26.dp)
+                RoundedCornerShape(22.dp)
             )
-            .padding(20.dp)
+            .padding(14.dp)
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
+            // Header Row: Lock icon badge + Title + Edit Duration icon
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    // Squircle Lock Icon Badge
                     Box(
                         modifier = Modifier
-                            .size(46.dp)
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f))
-                            .border(
-                                1.dp,
-                                MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
-                                RoundedCornerShape(14.dp)
-                            ),
+                            .size(24.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             Icons.Filled.Lock,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(22.dp)
+                            modifier = Modifier.size(13.dp)
                         )
                     }
 
-                    Column {
-                        Text(
-                            text = "DEEP FOCUS SESSION",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 1.5.sp,
-                                fontSize = 10.sp
-                            ),
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Row(
-                            verticalAlignment = Alignment.Bottom,
-                            modifier = Modifier.clickable { showDialog = true }
-                        ) {
-                            Text(
-                                text = "${timeRemaining / 60}",
-                                style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "minutes",
-                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(bottom = 4.dp)
-                            )
-                        }
-                    }
+                    Text(
+                        text = "DEEP FOCUS",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.2.sp,
+                            fontSize = 10.sp
+                        ),
+                        color = MaterialTheme.colorScheme.primary
+                    )
                 }
 
-                Button(
-                    onClick = {
-                        if (!DndHelper.hasDndPermission(context)) {
-                            DndHelper.requestDndPermission(context)
-                        } else {
-                            DndHelper.setDndMode(context, true)
-                            onToggleSession()
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
-                    ),
-                    shape = RoundedCornerShape(18.dp),
-                    contentPadding = PaddingValues(horizontal = 22.dp, vertical = 12.dp)
+                Surface(
+                    onClick = { showDialog = true },
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    modifier = Modifier.size(20.dp)
                 ) {
-                    Text("Start", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Filled.Edit,
+                            contentDescription = "Edit Duration",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            modifier = Modifier.size(11.dp)
+                        )
+                    }
+                }
+            }
+
+            // Duration: Big number + min
+            Row(
+                verticalAlignment = Alignment.Bottom,
+                modifier = Modifier.clickable { showDialog = true }
+            ) {
+                Text(
+                    text = "${timeRemaining / 60}",
+                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "minutes",
+                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 3.dp)
+                )
+            }
+
+            // Start Button Pill
+            Surface(
+                onClick = {
+                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                    if (!DndHelper.hasDndPermission(context)) {
+                        DndHelper.requestDndPermission(context)
+                    } else {
+                        DndHelper.setDndMode(context, true)
+                        onToggleSession()
+                    }
+                },
+                shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(26.dp)
+            ) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            Icons.Filled.Bolt,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Text(
+                            "Start",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                fontSize = 11.sp
+                            )
+                        )
+                    }
                 }
             }
         }
@@ -650,6 +721,244 @@ fun EmptyStateView() {
     }
 }
 
+@Composable
+fun DashboardHabitsGlanceCard(
+    habits: List<com.focusbyrj.app.data.HabitWithProgress>,
+    onOpenHabits: () -> Unit,
+    onHabitIncrement: (com.focusbyrj.app.data.Habit) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+    val completedCount = habits.count { it.isCompletedToday }
+    val totalCount = habits.size
+    val maxStreak = habits.maxOfOrNull { it.currentStreak } ?: 0
+    val overallRatio = if (totalCount > 0) completedCount.toFloat() / totalCount.toFloat() else 0f
+    val percentText = if (totalCount > 0) "${(overallRatio * 100).toInt()}%" else "0%"
+
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(22.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .border(
+                1.dp,
+                MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
+                RoundedCornerShape(22.dp)
+            )
+            .clickable {
+                haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
+                onOpenHabits()
+            }
+            .padding(14.dp)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            // Header Row: RHYTHMS label + Streak pill + Chevron
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                ) {
+                    Text(
+                        "RHYTHMS",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            letterSpacing = 1.2.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 10.sp
+                        ),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    if (maxStreak > 0) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = Color(0xFFF97316).copy(alpha = 0.15f)
+                        ) {
+                            Text(
+                                "🔥 ${maxStreak}d",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 9.sp,
+                                    color = Color(0xFFF97316)
+                                ),
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                            )
+                        }
+                    }
+                }
+
+                Icon(
+                    Icons.Filled.ChevronRight,
+                    contentDescription = "View all",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    modifier = Modifier.size(15.dp)
+                )
+            }
+
+            // Body Row: Left Status Metrics + Right Activity Rings
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                // Left Metrics
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(1.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = percentText,
+                        style = MaterialTheme.typography.headlineMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = (-0.5).sp
+                        ),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = if (totalCount == 0) "Tap to start" else if (completedCount == totalCount) "All done ✓" else "$completedCount of $totalCount done",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 11.sp
+                        ),
+                        color = if (completedCount == totalCount && totalCount > 0) Color(0xFF10B981) else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                // Right: Concentric Activity Rings
+                HabitActivityRings(
+                    habits = habits,
+                    modifier = Modifier.size(52.dp)
+                )
+            }
+
+            // Bottom Micro Indicator
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                if (totalCount == 0) {
+                    Text(
+                        "Set daily goals",
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                } else {
+                    Text(
+                        if (completedCount == totalCount) "Daily goal reached!" else "${totalCount - completedCount} remaining today",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (completedCount == totalCount) Color(0xFF10B981) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
+                        )
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun HabitActivityRings(
+    habits: List<com.focusbyrj.app.data.HabitWithProgress>,
+    modifier: Modifier = Modifier
+) {
+    val topHabits = remember(habits) { habits.take(3) }
+    val ringCount = topHabits.size
+
+    val progress0 by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (topHabits.isNotEmpty()) (topHabits[0].completedToday.toFloat() / topHabits[0].targetToday.coerceAtLeast(1).toFloat()).coerceIn(0f, 1f) else 0f,
+        animationSpec = androidx.compose.animation.core.tween(800),
+        label = "ring0"
+    )
+    val progress1 by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (topHabits.size > 1) (topHabits[1].completedToday.toFloat() / topHabits[1].targetToday.coerceAtLeast(1).toFloat()).coerceIn(0f, 1f) else 0f,
+        animationSpec = androidx.compose.animation.core.tween(800),
+        label = "ring1"
+    )
+    val progress2 by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (topHabits.size > 2) (topHabits[2].completedToday.toFloat() / topHabits[2].targetToday.coerceAtLeast(1).toFloat()).coerceIn(0f, 1f) else 0f,
+        animationSpec = androidx.compose.animation.core.tween(800),
+        label = "ring2"
+    )
+
+    val centerEmoji = remember(habits) {
+        habits.firstOrNull { !it.isCompletedToday }?.habit?.iconEmoji
+            ?: habits.firstOrNull()?.habit?.iconEmoji
+            ?: "🥤"
+    }
+
+    Box(
+        modifier = modifier,
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val strokeWidth = if (ringCount <= 1) 4.5.dp.toPx() else if (ringCount == 2) 3.5.dp.toPx() else 2.8.dp.toPx()
+            val spacing = if (ringCount == 2) 4.5.dp.toPx() else 3.8.dp.toPx()
+            val center = androidx.compose.ui.geometry.Offset(size.width / 2f, size.height / 2f)
+
+            if (ringCount == 0) {
+                // Empty subtle track
+                val radius = (size.minDimension / 2f) - (strokeWidth / 2f)
+                drawCircle(
+                    color = Color.Gray.copy(alpha = 0.2f),
+                    radius = radius,
+                    style = Stroke(width = strokeWidth)
+                )
+            } else {
+                val progressList = listOf(progress0, progress1, progress2)
+                for (i in 0 until ringCount) {
+                    val item = topHabits[i]
+                    val ringColor = try {
+                        Color(android.graphics.Color.parseColor(item.habit.colorHex))
+                    } catch (_: Exception) {
+                        when (i) {
+                            0 -> Color(0xFF38BDF8)
+                            1 -> Color(0xFFA855F7)
+                            else -> Color(0xFF10B981)
+                        }
+                    }
+                    val currentProgress = progressList[i]
+                    val radius = (size.minDimension / 2f) - (strokeWidth / 2f) - (i * spacing)
+
+                    if (radius > strokeWidth / 2f) {
+                        // Background track
+                        drawCircle(
+                            color = ringColor.copy(alpha = 0.18f),
+                            radius = radius,
+                            style = Stroke(width = strokeWidth)
+                        )
+
+                        // Active progress arc
+                        if (currentProgress > 0f) {
+                            drawArc(
+                                color = ringColor,
+                                startAngle = -90f,
+                                sweepAngle = (currentProgress * 360f).coerceIn(4f, 360f),
+                                useCenter = false,
+                                topLeft = androidx.compose.ui.geometry.Offset(center.x - radius, center.y - radius),
+                                size = androidx.compose.ui.geometry.Size(radius * 2f, radius * 2f),
+                                style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Center emoji or status symbol
+        Text(
+            text = centerEmoji,
+            fontSize = if (ringCount <= 1) 14.sp else 11.sp,
+            textAlign = TextAlign.Center
+        )
+    }
+}
 
 @Composable
 fun RoutinesAndShieldedSection(
