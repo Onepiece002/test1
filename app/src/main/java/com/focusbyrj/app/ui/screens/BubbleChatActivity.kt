@@ -2504,6 +2504,7 @@ fun ChatBubble(
     onHabitLog: ((Long) -> Unit)? = null,
     onHabitCreated: ((com.focusbyrj.app.data.Habit) -> Unit)? = null
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     if (message.isStreakPrompt) {
         StreakPromptCard(
             message = message,
@@ -2577,7 +2578,15 @@ fun ChatBubble(
             message = message,
             fontSizeSp = fontSizeSp,
             onHabitLog = onHabitLog,
-            onHabitCreated = onHabitCreated
+            onHabitCreated = onHabitCreated,
+            onOpenFullTracker = {
+                val intent = Intent(context, com.focusbyrj.app.MainActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    putExtra("navigate_to", "habits")
+                    putExtra("NAV_DESTINATION", "habits")
+                }
+                context.startActivity(intent)
+            }
         )
         return
     }

@@ -69,16 +69,48 @@ object HabitMicroCopyProvider {
     data class StreakBadgeInfo(
         val label: String,
         val isBurning: Boolean,
-        val days: Int
+        val days: Int,
+        val flameEmoji: String = "🩵",
+        val primaryColorHex: String = "#38BDF8",
+        val bgAlphaInt: Int = 55
     )
 
-    fun getStreakBadge(streakDays: Int): StreakBadgeInfo {
-        return when {
-            streakDays <= 0 -> StreakBadgeInfo("🌱 Day 1", isBurning = false, days = 0)
-            streakDays == 1 -> StreakBadgeInfo("🔥 1d Streak", isBurning = false, days = 1)
-            streakDays in 2..6 -> StreakBadgeInfo("🔥 ${streakDays}d Streak", isBurning = true, days = streakDays)
-            else -> StreakBadgeInfo("⚡ ${streakDays}d On Fire", isBurning = true, days = streakDays)
+    fun getStreakBadge(streakDays: Int, habit: Habit? = null): StreakBadgeInfo {
+        val category = habit?.let { getCategory(it) } ?: Category.GENERAL_HABIT
+
+        val flameEmoji = when (category) {
+            Category.HYDRATION -> "💧"
+            Category.POSTURE_MOVEMENT -> "⚡"
+            Category.MINDFULNESS_BREATH -> "🩵"
+            Category.READING_LEARNING -> "📚"
+            Category.FITNESS_WORKOUT -> "💪"
+            Category.GENERAL_HABIT -> if (streakDays >= 7) "💙" else "🩵"
         }
+
+        val (colorHex, bgAlpha) = when (category) {
+            Category.HYDRATION -> Pair("#38BDF8", 55)         // Sky Blue
+            Category.POSTURE_MOVEMENT -> Pair("#60A5FA", 50)  // Bright Vibrant Blue
+            Category.MINDFULNESS_BREATH -> Pair("#818CF8", 55)// Indigo Lavender Blue
+            Category.READING_LEARNING -> Pair("#2DD4BF", 50)  // Cyan Teal
+            Category.FITNESS_WORKOUT -> Pair("#3B82F6", 55)   // Sapphire Blue
+            Category.GENERAL_HABIT -> if (streakDays >= 7) Pair("#00F0FF", 60) else Pair("#38BDF8", 50)
+        }
+
+        val label = when {
+            streakDays <= 0 -> "🌱 Day 1"
+            streakDays == 1 -> "$flameEmoji 1d Streak"
+            streakDays in 2..6 -> "$flameEmoji ${streakDays}d Streak"
+            else -> "$flameEmoji ${streakDays}d On Fire"
+        }
+
+        return StreakBadgeInfo(
+            label = label,
+            isBurning = streakDays >= 2,
+            days = streakDays,
+            flameEmoji = flameEmoji,
+            primaryColorHex = colorHex,
+            bgAlphaInt = bgAlpha
+        )
     }
 
     fun getCategory(habit: Habit): Category {

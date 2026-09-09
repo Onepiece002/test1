@@ -150,7 +150,7 @@ class MainActivity : FragmentActivity() {
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        val navigateTo = intent.getStringExtra("navigate_to")
+        val navigateTo = intent.getStringExtra("navigate_to") ?: intent.getStringExtra("NAV_DESTINATION")
         val openAddDialog = intent.getBooleanExtra("open_add_dialog", false)
         if (navigateTo != null) {
             viewModel.triggerNavigation(navigateTo)
@@ -186,7 +186,7 @@ class MainActivity : FragmentActivity() {
         kotlin.runCatching { com.focusbyrj.app.util.TaskReminderHelper.scheduleAllPendingReminders(this) }
         kotlin.runCatching { com.focusbyrj.app.util.HabitAlarmScheduler.rescheduleAllHabits(this) }
 
-        val navigateTo = intent?.getStringExtra("navigate_to")
+        val navigateTo = intent?.getStringExtra("navigate_to") ?: intent?.getStringExtra("NAV_DESTINATION")
         val openAddDialog = intent?.getBooleanExtra("open_add_dialog", false) ?: false
 
         setContent {

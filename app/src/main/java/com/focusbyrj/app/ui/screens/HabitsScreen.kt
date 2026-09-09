@@ -17,6 +17,7 @@
 
 package com.focusbyrj.app.ui.screens
 
+import androidx.activity.compose.BackHandler
 import android.app.TimePickerDialog
 import androidx.compose.animation.*
 import androidx.compose.animation.core.animateFloatAsState
@@ -43,7 +44,9 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -1008,7 +1011,7 @@ fun EmptyHabitsCard(onAddClick: () -> Unit) {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun HabitEditorBottomSheet(
     habit: Habit?,
@@ -1016,6 +1019,14 @@ fun HabitEditorBottomSheet(
     onSave: (Habit) -> Unit
 ) {
     val context = LocalContext.current
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val isImeVisible = WindowInsets.isImeVisible
+
+    BackHandler(enabled = isImeVisible) {
+        focusManager.clearFocus()
+        keyboardController?.hide()
+    }
     var title by remember { mutableStateOf(habit?.title ?: "") }
     var description by remember { mutableStateOf(habit?.description ?: "") }
     var iconEmoji by remember { mutableStateOf(habit?.iconEmoji ?: "🥤") }

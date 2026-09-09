@@ -88,12 +88,12 @@ object HabitFloatingOverlayManager {
         "habbitcatssleeping.lottie",
         "habbitchrismascat.lottie",
         "habbitcutegirlcat.lottie",
+        "habbitgojoawseomecat.lottie",
         "habbithappylaptopcat.lottie",
+        "habbithollowencat.lottie",
         "habbitpopupcat.lottie",
         "habbitscalmcat.lottie",
-        "habbitsppokycat.lottie",
-        "cat_dance.lottie",
-        "cat_flying.lottie"
+        "habbitsppokycat.lottie"
     )
 
     internal fun getRandomHabitLottieAsset(): String {
@@ -172,7 +172,7 @@ object HabitFloatingOverlayManager {
                     windowAnimations = 0
                 }
 
-                val displayStreak = if (currentStreak > 0) currentStreak else StreakManager.getActiveCurrentStreak()
+                val displayStreak = currentStreak
 
                 val cardView = buildStoryModalCard(
                     context = appContext,
@@ -392,29 +392,21 @@ object HabitFloatingOverlayManager {
         }
         topMetaRow.addView(categoryPill)
 
-        // Streak Flame Pill (Natural progress badge)
-        val streakBadge = HabitMicroCopyProvider.getStreakBadge(currentStreak)
+        // Streak Flame Pill (Customized habit streak badge with category blue flame emoji)
+        val streakBadge = HabitMicroCopyProvider.getStreakBadge(currentStreak, habit)
         val streakPill = TextView(context).apply {
             text = streakBadge.label
             textSize = 9.5f
             typeface = Typeface.DEFAULT_BOLD
-            val (bgColor, strokeColor, txtColor) = when {
-                streakBadge.isBurning -> Triple(
-                    Color.argb(55, 249, 115, 22),
-                    Color.argb(140, 251, 146, 60),
-                    Color.parseColor("#FB923C")
-                )
-                streakBadge.days == 1 -> Triple(
-                    Color.argb(45, 245, 158, 11),
-                    Color.argb(110, 251, 191, 36),
-                    Color.parseColor("#FDE047")
-                )
-                else -> Triple(
-                    Color.argb(35, 16, 185, 129),
-                    Color.argb(90, 52, 211, 153),
-                    Color.parseColor("#6EE7B7")
-                )
+            val parsedColor = try {
+                Color.parseColor(streakBadge.primaryColorHex)
+            } catch (_: Exception) {
+                Color.parseColor("#38BDF8")
             }
+            val bgColor = Color.argb(streakBadge.bgAlphaInt, Color.red(parsedColor), Color.green(parsedColor), Color.blue(parsedColor))
+            val strokeColor = Color.argb(140, Color.red(parsedColor), Color.green(parsedColor), Color.blue(parsedColor))
+            val txtColor = parsedColor
+
             setTextColor(txtColor)
             val bg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
@@ -441,29 +433,6 @@ object HabitFloatingOverlayManager {
             layoutParams = LinearLayout.LayoutParams(0, 1, 1f)
         }
         topMetaRow.addView(metaSpacer)
-
-        // XP Pill
-        val xpPill = TextView(context).apply {
-            text = "+15 XP"
-            textSize = 10f
-            typeface = Typeface.DEFAULT_BOLD
-            setTextColor(Color.parseColor("#FDE047"))
-            val bg = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = 6f * density
-                setColor(Color.argb(35, 250, 204, 21))
-            }
-            background = bg
-            val pH = (6 * density).toInt()
-            val pV = (2 * density).toInt()
-            setPadding(pH, pV, pH, pV)
-            val lp = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-            layoutParams = lp
-        }
-        topMetaRow.addView(xpPill)
         infoColumn.addView(topMetaRow)
 
         // Habit Identity: Emoji Chip + Habit Title

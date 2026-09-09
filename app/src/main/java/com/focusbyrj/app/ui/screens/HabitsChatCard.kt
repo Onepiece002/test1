@@ -9,6 +9,7 @@
 
 package com.focusbyrj.app.ui.screens
 
+import android.app.TimePickerDialog
 import android.content.Intent
 import android.widget.Toast
 import androidx.compose.animation.AnimatedContent
@@ -25,6 +26,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -35,6 +38,7 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.OpenInNew
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.TrackChanges
@@ -169,7 +173,8 @@ fun HabitsChatCard(
                                     onOpenFullTracker()
                                 } else {
                                     val intent = Intent(context, MainActivity::class.java).apply {
-                                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                                        putExtra("navigate_to", "habits")
                                         putExtra("NAV_DESTINATION", "habits")
                                     }
                                     context.startActivity(intent)
@@ -184,6 +189,18 @@ fun HabitsChatCard(
                             isDark = isDark,
                             fontSizeSp = fontSizeSp,
                             onBack = { isCreatingHabit = false },
+                            onOpenFullTracker = {
+                                if (onOpenFullTracker != null) {
+                                    onOpenFullTracker()
+                                } else {
+                                    val intent = Intent(context, MainActivity::class.java).apply {
+                                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                                        putExtra("navigate_to", "habits")
+                                        putExtra("NAV_DESTINATION", "habits")
+                                    }
+                                    context.startActivity(intent)
+                                }
+                            },
                             onCreateHabit = { newHabit ->
                                 coroutineScope.launch(Dispatchers.IO) {
                                     try {
@@ -542,63 +559,129 @@ private fun HabitsListView(
 }
 
 // =============================================================================
-// SUB-VIEW 2: ENTER HABIT (OPTIONS & FORM) VIEW
+// SUB-VIEW 2: ENTER HABIT (OPTIONS & FORM) VIEW - COMPACT
 // =============================================================================
 @Composable
 private fun EnterHabitView(
     isDark: Boolean,
     fontSizeSp: Float,
     onBack: () -> Unit,
+    onOpenFullTracker: (() -> Unit)? = null,
     onCreateHabit: (Habit) -> Unit
 ) {
+    val context = LocalContext.current
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var iconEmoji by remember { mutableStateOf("🥤") }
-    var colorHex by remember { mutableStateOf("#38BDF8") }
+    var colorHex by remember { mutableStateOf("#0284C7") }
     var habitType by remember { mutableStateOf(HabitType.INTERVAL_WINDOW) }
     var targetPerDay by remember { mutableIntStateOf(6) }
-    var intervalHours by remember { mutableIntStateOf(2) }
-    var intervalMinutes by remember { mutableIntStateOf(0) }
-    var fixedHour by remember { mutableIntStateOf(9) }
-    var fixedMinute by remember { mutableIntStateOf(0) }
+
     var windowStartHour by remember { mutableIntStateOf(8) }
     var windowStartMinute by remember { mutableIntStateOf(0) }
     var windowEndHour by remember { mutableIntStateOf(20) }
     var windowEndMinute by remember { mutableIntStateOf(0) }
 
-    val activeColor = parseHexColor(colorHex)
-
     val activeWindowMinutes by remember {
         derivedStateOf {
             val startMins = windowStartHour * 60 + windowStartMinute
             val endMins = windowEndHour * 60 + windowEndMinute
-            if (endMins > startMins) endMins - startMins else (24 * 60 - startMins + endMins).coerceAtLeast(15)
+            if (endMins > startMins) {
+                endMins - startMins
+            } else {
+                (24 * 60 - startMins + endMins).coerceAtLeast(15)
+            }
         }
     }
 
-    fun autoSplit(target: Int) {
-        val step = (activeWindowMinutes / target.coerceAtLeast(1)).coerceAtLeast(5)
+    var intervalHours by remember { mutableIntStateOf(2) }
+    var intervalMinutes by remember { mutableIntStateOf(0) }
+    var fixedHour by remember { mutableIntStateOf(9) }
+    var fixedMinute by remember { mutableIntStateOf(0) }
+
+    // Toggle for more customization (emojis, colors, note, window times)
+    var showMoreOptions by remember { mutableStateOf(false) }
+
+    fun autoSplitInterval(target: Int) {
+        val totalWin = activeWindowMinutes
+        val step = (totalWin / target.coerceAtLeast(1)).coerceAtLeast(5)
         intervalHours = step / 60
         intervalMinutes = step % 60
     }
 
-    // Preset Habit Templates for 1-tap fill
+    fun onTargetChanged(newTarget: Int) {
+        val clamped = newTarget.coerceIn(1, 24)
+        targetPerDay = clamped
+        autoSplitInterval(clamped)
+    }
+
+    fun onIntervalStep(direction: Int) {
+        val currentTotal = (intervalHours * 60 + intervalMinutes)
+        val step = if (currentTotal <= 90) 15 else 30
+        val targetStep = if (direction > 0) {
+            ((currentTotal / step) + 1) * step
+        } else {
+            val prev = ((currentTotal - 1) / step) * step
+            prev.coerceAtLeast(15)
+        }
+        val clamped = targetStep.coerceIn(15, activeWindowMinutes)
+        intervalHours = clamped / 60
+        intervalMinutes = clamped % 60
+        targetPerDay = (activeWindowMinutes / clamped).coerceIn(1, 24)
+    }
+
+    val activeColor = remember(colorHex) {
+        parseHexColor(colorHex)
+    }
+
+    // Curated quick emojis + categories when expanded
+    val quickEmojis = listOf("🥤", "💊", "📖", "🧘", "🏃", "💻", "✨", "💧")
+    val emojiCategories = remember {
+        listOf(
+            "Popular" to listOf("🥤", "🧋", "🧊", "🌊", "💊", "🧘", "🏃", "🏋️", "⚡", "🧠", "🎯", "📖", "🌙", "😴", "☀️", "✨"),
+            "🥤 Drinks" to listOf("🥤", "🧋", "🧊", "🌊", "🫖", "☕", "🍵", "🍶", "🥥", "🥑", "🫐", "🍓", "🥗", "🍎"),
+            "🧘 Health" to listOf("🧘", "🏃", "🏋️", "🚴", "🚶", "🧗", "🏊", "🤸", "💪", "🛹", "💊", "🩺", "🩹"),
+            "⚡ Focus" to listOf("⚡", "🧠", "🎯", "📖", "✍️", "💻", "🎧", "💡", "🚀", "🎨", "🎸", "📚", "📝"),
+            "🌙 Daily" to listOf("🌙", "😴", "🛌", "🚿", "🪥", "🧴", "🪴", "🐕", "🐈", "☀️", "🌅", "🕯️", "⏰", "✨")
+        )
+    }
+    var selectedCategoryIndex by remember { mutableIntStateOf(0) }
+    val displayedEmojis = remember(selectedCategoryIndex) {
+        emojiCategories[selectedCategoryIndex].second
+    }
+
+    // Quick colors
+    val quickColors = listOf("#0284C7", "#3B82F6", "#8B5CF6", "#EC4899", "#10B981", "#F59E0B")
+    val allColors = listOf(
+        "#0284C7", "#3B82F6", "#6366F1", "#8B5CF6", "#A855F7",
+        "#EC4899", "#F43F5E", "#F97316", "#EAB308", "#10B981", "#14B8A6", "#06B6D4"
+    )
+
+    // Preset Habit Templates
     val presets = remember {
         listOf(
-            PresetChoice("Drink Water", "🥤", "#38BDF8", HabitType.INTERVAL_WINDOW, 8, 1, 30, 8, 0, 20, 0, 9, 0),
+            PresetChoice("Drink Water", "🥤", "#0284C7", HabitType.INTERVAL_WINDOW, 8, 1, 30, 8, 0, 20, 0, 9, 0),
             PresetChoice("Medicine", "💊", "#F43F5E", HabitType.ONCE_DAILY, 1, 2, 0, 8, 0, 20, 0, 9, 0),
             PresetChoice("Read 20m", "📖", "#A855F7", HabitType.ONCE_DAILY, 1, 2, 0, 8, 0, 20, 0, 21, 0),
             PresetChoice("Posture", "🧍", "#10B981", HabitType.INTERVAL_WINDOW, 4, 2, 15, 10, 0, 19, 0, 9, 0),
             PresetChoice("Meditate", "🧘", "#F59E0B", HabitType.ONCE_DAILY, 1, 2, 0, 8, 0, 20, 0, 7, 30),
-            PresetChoice("Workout", "🏃", "#3B82F6", HabitType.ONCE_DAILY, 1, 2, 0, 8, 0, 20, 0, 7, 0)
+            PresetChoice("Workout", "🏃", "#3B82F6", HabitType.ONCE_DAILY, 1, 2, 0, 8, 0, 20, 0, 7, 0),
+            PresetChoice("Deep Work", "💻", "#6366F1", HabitType.INTERVAL_WINDOW, 3, 2, 30, 9, 0, 18, 0, 10, 0)
         )
     }
 
-    val emojiChoices = listOf("🥤", "💊", "📖", "🧍", "🧘", "🏃", "🎯", "🍎", "💪", "💧", "✨", "💤")
-    val colorChoices = listOf("#38BDF8", "#F43F5E", "#A855F7", "#10B981", "#F59E0B", "#3B82F6", "#EC4899")
+    val cardBg = if (isDark) Color(0xFF161E2E) else Color(0xFFFFFFFF)
+    val cardBorder = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = if (isDark) 0.16f else 0.12f))
 
-    Column(modifier = Modifier.padding(14.dp)) {
-        // Header with Back Button
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 11.dp, vertical = 9.dp),
+        verticalArrangement = Arrangement.spacedBy(7.dp)
+    ) {
+        // -------------------------------------------------------------
+        // COMPACT HEADER: Back, Title, Full Editor, Close
+        // -------------------------------------------------------------
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
@@ -609,13 +692,13 @@ private fun EnterHabitView(
                     onClick = onBack,
                     shape = CircleShape,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier.size(26.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = Icons.Filled.ArrowBack,
                             contentDescription = "Back",
-                            modifier = Modifier.size(15.dp)
+                            modifier = Modifier.size(14.dp)
                         )
                     }
                 }
@@ -630,36 +713,51 @@ private fun EnterHabitView(
                 )
             }
 
-            IconButton(
-                onClick = onBack,
-                modifier = Modifier.size(24.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Close,
-                    contentDescription = "Close",
-                    modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                if (onOpenFullTracker != null) {
+                    TextButton(
+                        onClick = onOpenFullTracker,
+                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.OpenInNew,
+                            contentDescription = null,
+                            modifier = Modifier.size(12.dp),
+                            tint = activeColor
+                        )
+                        Spacer(modifier = Modifier.width(3.dp))
+                        Text(
+                            text = "Full Screen",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.SemiBold,
+                                color = activeColor,
+                                fontSize = 10.5.sp
+                            )
+                        )
+                    }
+                }
+                IconButton(
+                    onClick = onBack,
+                    modifier = Modifier.size(24.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Close,
+                        contentDescription = "Close",
+                        modifier = Modifier.size(15.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
 
-        Spacer(modifier = Modifier.height(10.dp))
-
-        // 1. Quick Presets Bar
-        Text(
-            text = "Quick Presets",
-            style = MaterialTheme.typography.labelSmall.copy(
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary,
-                fontSize = 10.sp
-            )
-        )
-        Spacer(modifier = Modifier.height(4.dp))
+        // -------------------------------------------------------------
+        // 1. QUICK PRESETS PILL ROW (Compact 1-Tap)
+        // -------------------------------------------------------------
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            horizontalArrangement = Arrangement.spacedBy(5.dp)
         ) {
             presets.forEach { preset ->
                 val isSelected = title == preset.title
@@ -679,22 +777,25 @@ private fun EnterHabitView(
                         fixedHour = preset.fixedH
                         fixedMinute = preset.fixedM
                     },
-                    shape = RoundedCornerShape(12.dp),
-                    color = if (isSelected) activeColor else (if (isDark) Color(0xFF1E2838) else Color(0xFFE2E8F0)),
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (isSelected) activeColor else (if (isDark) Color(0xFF1E2838) else Color(0xFFF1F5F9)),
                     contentColor = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface,
-                    border = BorderStroke(1.dp, if (isSelected) activeColor else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                    border = BorderStroke(
+                        1.dp,
+                        if (isSelected) activeColor else MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
+                    )
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(preset.emoji, fontSize = 12.sp)
+                        Text(preset.emoji, fontSize = 11.5.sp)
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             preset.title,
                             style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                fontSize = 10.5.sp
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                fontSize = 10.sp
                             )
                         )
                     }
@@ -702,107 +803,49 @@ private fun EnterHabitView(
             }
         }
 
-        Spacer(modifier = Modifier.height(10.dp))
-
-        // 2. Habit Title Input
+        // -------------------------------------------------------------
+        // 2. HABIT TITLE INPUT (Slim & Clean)
+        // -------------------------------------------------------------
         OutlinedTextField(
             value = title,
             onValueChange = { title = it },
             placeholder = {
-                Text(
-                    "Habit title (e.g. Read 10 pages)",
-                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp)
-                )
+                Text("Habit title (e.g. Drink water, Read)", fontSize = 12.sp)
+            },
+            leadingIcon = {
+                Text(iconEmoji, fontSize = 16.sp, modifier = Modifier.padding(start = 6.dp))
             },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
+            shape = RoundedCornerShape(10.dp),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = activeColor,
-                unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                focusedContainerColor = if (isDark) Color(0xFF161E2E) else Color.White,
-                unfocusedContainerColor = if (isDark) Color(0xFF161E2E) else Color.White
+                unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
+                focusedContainerColor = cardBg,
+                unfocusedContainerColor = cardBg
             )
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // 3. Emoji & Color Row
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            // Emoji Picker Chips
-            Row(
-                modifier = Modifier
-                    .weight(1f)
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                emojiChoices.forEach { emoji ->
-                    val selected = iconEmoji == emoji
-                    Box(
-                        modifier = Modifier
-                            .size(28.dp)
-                            .clip(CircleShape)
-                            .background(if (selected) activeColor.copy(alpha = 0.25f) else Color.Transparent)
-                            .border(
-                                width = if (selected) 1.5.dp else 0.5.dp,
-                                color = if (selected) activeColor else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
-                                shape = CircleShape
-                            )
-                            .clickable { iconEmoji = emoji },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(emoji, fontSize = 13.sp)
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            // Color Picker Dots
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                colorChoices.take(4).forEach { hex ->
-                    val color = parseHexColor(hex)
-                    val selected = colorHex == hex
-                    Box(
-                        modifier = Modifier
-                            .size(20.dp)
-                            .clip(CircleShape)
-                            .background(color)
-                            .border(
-                                width = if (selected) 2.dp else 0.dp,
-                                color = Color.White,
-                                shape = CircleShape
-                            )
-                            .clickable { colorHex = hex }
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        // 4. Frequency Type Selector
+        // -------------------------------------------------------------
+        // 3. SCHEDULE FREQUENCY: [Once Daily] vs [Periodic Window]
+        // -------------------------------------------------------------
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            // Once Daily Option
+            // Once Daily Pill
             Surface(
                 onClick = {
                     habitType = HabitType.ONCE_DAILY
                     targetPerDay = 1
                 },
-                shape = RoundedCornerShape(10.dp),
-                color = if (habitType == HabitType.ONCE_DAILY) activeColor.copy(alpha = 0.18f) else (if (isDark) Color(0xFF161E2E) else Color.White),
-                border = BorderStroke(1.dp, if (habitType == HabitType.ONCE_DAILY) activeColor else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+                shape = RoundedCornerShape(8.dp),
+                color = if (habitType == HabitType.ONCE_DAILY) activeColor.copy(alpha = 0.18f) else (if (isDark) Color(0xFF161E2E) else Color(0xFFF8FAFC)),
+                border = BorderStroke(1.dp, if (habitType == HabitType.ONCE_DAILY) activeColor else MaterialTheme.colorScheme.outline.copy(alpha = 0.18f)),
                 modifier = Modifier.weight(1f)
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                    modifier = Modifier.padding(vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center
                 ) {
@@ -817,26 +860,26 @@ private fun EnterHabitView(
                         text = "Once Daily",
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontWeight = if (habitType == HabitType.ONCE_DAILY) FontWeight.Bold else FontWeight.Medium,
-                            fontSize = 10.sp
+                            fontSize = 10.5.sp
                         ),
                         color = if (habitType == HabitType.ONCE_DAILY) activeColor else MaterialTheme.colorScheme.onSurface
                     )
                 }
             }
 
-            // Interval Window Option
+            // Periodic Window Pill
             Surface(
                 onClick = {
                     habitType = HabitType.INTERVAL_WINDOW
-                    if (targetPerDay == 1) targetPerDay = 4
+                    if (targetPerDay <= 1) targetPerDay = 6
                 },
-                shape = RoundedCornerShape(10.dp),
-                color = if (habitType == HabitType.INTERVAL_WINDOW) activeColor.copy(alpha = 0.18f) else (if (isDark) Color(0xFF161E2E) else Color.White),
-                border = BorderStroke(1.dp, if (habitType == HabitType.INTERVAL_WINDOW) activeColor else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+                shape = RoundedCornerShape(8.dp),
+                color = if (habitType == HabitType.INTERVAL_WINDOW) activeColor.copy(alpha = 0.18f) else (if (isDark) Color(0xFF161E2E) else Color(0xFFF8FAFC)),
+                border = BorderStroke(1.dp, if (habitType == HabitType.INTERVAL_WINDOW) activeColor else MaterialTheme.colorScheme.outline.copy(alpha = 0.18f)),
                 modifier = Modifier.weight(1f)
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                    modifier = Modifier.padding(vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center
                 ) {
@@ -851,7 +894,7 @@ private fun EnterHabitView(
                         text = "Periodic Window",
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontWeight = if (habitType == HabitType.INTERVAL_WINDOW) FontWeight.Bold else FontWeight.Medium,
-                            fontSize = 10.sp
+                            fontSize = 10.5.sp
                         ),
                         color = if (habitType == HabitType.INTERVAL_WINDOW) activeColor else MaterialTheme.colorScheme.onSurface
                     )
@@ -859,180 +902,460 @@ private fun EnterHabitView(
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // 5. Config Details for Selected Habit Type
-        if (habitType == HabitType.ONCE_DAILY) {
-            // Time presets
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+        // -------------------------------------------------------------
+        // 4. TIMING & TARGET CONTROLS (Dense & Streamlined)
+        // -------------------------------------------------------------
+        Surface(
+            shape = RoundedCornerShape(10.dp),
+            color = cardBg,
+            border = cardBorder,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = 9.dp, vertical = 7.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                listOf(
-                    Pair("8 AM", 8),
-                    Pair("12 PM", 12),
-                    Pair("6 PM", 18),
-                    Pair("9 PM", 21)
-                ).forEach { (label, h) ->
-                    val selected = fixedHour == h
-                    Surface(
-                        onClick = {
-                            fixedHour = h
-                            fixedMinute = 0
-                        },
-                        shape = RoundedCornerShape(8.dp),
-                        color = if (selected) activeColor else (if (isDark) Color(0xFF161E2E) else Color.White),
-                        border = BorderStroke(1.dp, if (selected) activeColor else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
-                        modifier = Modifier.weight(1f)
+                if (habitType == HabitType.ONCE_DAILY) {
+                    // Time selector row + quick chips
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Box(
-                            modifier = Modifier.padding(vertical = 5.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = label,
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                                    fontSize = 9.5.sp
-                                ),
-                                color = if (selected) Color.White else MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-                    }
-                }
-            }
-        } else {
-            val currentIntervalText = when {
-                intervalHours > 0 && intervalMinutes > 0 -> "${intervalHours}h ${intervalMinutes}m"
-                intervalHours > 0 -> "${intervalHours}h"
-                else -> "${intervalMinutes}m"
-            }
-            val winHours = activeWindowMinutes / 60
-            val winRemMins = activeWindowMinutes % 60
-            val winText = if (winRemMins > 0) "${winHours}h ${winRemMins}m" else "${winHours}h"
-
-            // Target per day chips
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Daily Target:",
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    listOf(2, 4, 6, 8).forEach { count ->
-                        val selected = targetPerDay == count
-                        Surface(
-                            onClick = {
-                                targetPerDay = count
-                                autoSplit(count)
-                            },
-                            shape = RoundedCornerShape(8.dp),
-                            color = if (selected) activeColor else (if (isDark) Color(0xFF161E2E) else Color.White),
-                            border = BorderStroke(1.dp, if (selected) activeColor else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-                        ) {
-                            Text(
-                                text = "${count}x",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                                    fontSize = 9.5.sp
-                                ),
-                                color = if (selected) Color.White else MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp)
-                            )
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            // Auto-division pill
-            Surface(
-                shape = RoundedCornerShape(6.dp),
-                color = activeColor.copy(alpha = 0.08f),
-                border = BorderStroke(1.dp, activeColor.copy(alpha = 0.2f)),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 3.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "⚡ $winText window cut into $targetPerDay parts (~$currentIntervalText each)",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontSize = 9.5.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurface
+                        Text(
+                            text = "Time:",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         )
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            // Frequency Interval options
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Interval:",
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    val intervalOptions = listOf(
-                        Triple(1, 0, "1h"),
-                        Triple(1, 30, "1.5h"),
-                        Triple(2, 0, "2h"),
-                        Triple(3, 0, "3h")
-                    )
-                    intervalOptions.forEach { (h, m, label) ->
-                        val selected = intervalHours == h && intervalMinutes == m
-                        Surface(
+                        TextButton(
                             onClick = {
-                                intervalHours = h
-                                intervalMinutes = m
+                                TimePickerDialog(
+                                    context,
+                                    { _, h, m ->
+                                        fixedHour = h
+                                        fixedMinute = m
+                                    },
+                                    fixedHour,
+                                    fixedMinute,
+                                    false
+                                ).show()
                             },
-                            shape = RoundedCornerShape(8.dp),
-                            color = if (selected) activeColor else (if (isDark) Color(0xFF161E2E) else Color.White),
-                            border = BorderStroke(1.dp, if (selected) activeColor else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 1.dp)
                         ) {
                             Text(
-                                text = "Every $label",
+                                text = "⏰ ${formatTime(fixedHour, fixedMinute)} (change)",
                                 style = MaterialTheme.typography.labelSmall.copy(
-                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                                    fontSize = 9.5.sp
-                                ),
-                                color = if (selected) Color.White else MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 4.dp)
+                                    fontWeight = FontWeight.Bold,
+                                    color = activeColor,
+                                    fontSize = 10.5.sp
+                                )
                             )
+                        }
+                    }
+
+                    // Quick Pick Chips
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        listOf(
+                            Triple("8 AM", 8, 0),
+                            Triple("12 PM", 12, 0),
+                            Triple("6 PM", 18, 0),
+                            Triple("9 PM", 21, 0)
+                        ).forEach { (label, h, m) ->
+                            val selected = fixedHour == h && fixedMinute == m
+                            Surface(
+                                onClick = {
+                                    fixedHour = h
+                                    fixedMinute = m
+                                },
+                                shape = RoundedCornerShape(6.dp),
+                                color = if (selected) activeColor else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                                border = BorderStroke(1.dp, if (selected) activeColor else MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Box(
+                                    modifier = Modifier.padding(vertical = 4.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = label,
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontSize = 9.5.sp,
+                                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                            color = if (selected) Color.White else MaterialTheme.colorScheme.onSurface
+                                        )
+                                    )
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    // Periodic Window: Target row with stepping + quick chips
+                    val intervalDisplay = when {
+                        intervalHours > 0 && intervalMinutes > 0 -> "Every ${intervalHours}h ${intervalMinutes}m"
+                        intervalHours > 0 -> "Every ${intervalHours}h"
+                        else -> "Every ${intervalMinutes}m"
+                    }
+                    val winHours = activeWindowMinutes / 60
+                    val winMinsRem = activeWindowMinutes % 60
+                    val winDurationText = if (winMinsRem > 0) "${winHours}h ${winMinsRem}m" else "${winHours}h"
+
+                    // Target & Steppers Row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "Target: ",
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            )
+                            Text(
+                                text = "${targetPerDay}x/day",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = activeColor, fontSize = 11.sp)
+                            )
+                        }
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(3.dp)
+                        ) {
+                            Surface(
+                                onClick = { onTargetChanged(targetPerDay - 1) },
+                                shape = RoundedCornerShape(6.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(Icons.Filled.Remove, contentDescription = null, modifier = Modifier.size(12.dp))
+                                }
+                            }
+                            // Quick chips (2x, 4x, 6x, 8x)
+                            listOf(2, 4, 6, 8).forEach { count ->
+                                val selected = targetPerDay == count
+                                Surface(
+                                    onClick = { onTargetChanged(count) },
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = if (selected) activeColor else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                                    modifier = Modifier.height(24.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier.padding(horizontal = 6.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "${count}x",
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                fontSize = 9.sp,
+                                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                                color = if (selected) Color.White else MaterialTheme.colorScheme.onSurface
+                                            )
+                                        )
+                                    }
+                                }
+                            }
+                            Surface(
+                                onClick = { onTargetChanged(targetPerDay + 1) },
+                                shape = RoundedCornerShape(6.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(12.dp))
+                                }
+                            }
+                        }
+                    }
+
+                    // Interval & Window summary in 1 compact pill
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = activeColor.copy(alpha = 0.08f),
+                        border = BorderStroke(0.8.dp, activeColor.copy(alpha = 0.18f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp, vertical = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "⚡ $intervalDisplay · $winDurationText window",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontSize = 9.5.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            )
+
+                            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Surface(
+                                    onClick = { onIntervalStep(-1) },
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = activeColor.copy(alpha = 0.2f),
+                                    modifier = Modifier.size(20.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(Icons.Filled.Remove, contentDescription = null, modifier = Modifier.size(10.dp), tint = activeColor)
+                                    }
+                                }
+                                Surface(
+                                    onClick = { onIntervalStep(1) },
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = activeColor.copy(alpha = 0.2f),
+                                    modifier = Modifier.size(20.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(10.dp), tint = activeColor)
+                                    }
+                                }
+                            }
                         }
                     }
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(14.dp))
-
-        // 6. Action Buttons: Cancel and Create Habit
+        // -------------------------------------------------------------
+        // 5. QUICK EMOJI & COLOR ROW (Slim 1-line picker)
+        // -------------------------------------------------------------
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            // Emojis (Compact strip)
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                quickEmojis.forEach { emoji ->
+                    val isSelected = iconEmoji == emoji
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .background(if (isSelected) activeColor.copy(alpha = 0.22f) else Color.Transparent)
+                            .border(
+                                width = if (isSelected) 1.5.dp else 0.5.dp,
+                                color = if (isSelected) activeColor else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                                shape = CircleShape
+                            )
+                            .clickable { iconEmoji = emoji },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(emoji, fontSize = 13.sp)
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.width(6.dp))
+
+            // Colors (Compact dots)
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                quickColors.forEach { hex ->
+                    val color = parseHexColor(hex)
+                    val isSelected = colorHex.equals(hex, ignoreCase = true)
+                    Box(
+                        modifier = Modifier
+                            .size(18.dp)
+                            .clip(CircleShape)
+                            .background(color)
+                            .border(
+                                width = if (isSelected) 2.dp else 0.dp,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                shape = CircleShape
+                            )
+                            .clickable { colorHex = hex }
+                    )
+                }
+            }
+        }
+
+        // -------------------------------------------------------------
+        // 6. COLLAPSIBLE "MORE CUSTOMIZATION" SECTION (Hidden by default)
+        // -------------------------------------------------------------
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { showMoreOptions = !showMoreOptions }
+                .padding(vertical = 2.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = if (showMoreOptions) "▲ Less options" else "▼ More options (Window, Notes, 80+ Emojis)",
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontSize = 10.sp,
+                    color = activeColor,
+                    fontWeight = FontWeight.Medium
+                )
+            )
+        }
+
+        AnimatedVisibility(visible = showMoreOptions) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 2.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                // Optional Note / Description
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    placeholder = { Text("Details / Motivation (optional)", fontSize = 11.5.sp) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = activeColor,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                        focusedContainerColor = cardBg,
+                        unfocusedContainerColor = cardBg
+                    )
+                )
+
+                // Window Start & End time pickers (only relevant if INTERVAL_WINDOW)
+                if (habitType == HabitType.INTERVAL_WINDOW) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Window: ${formatTime(windowStartHour, windowStartMinute)} → ${formatTime(windowEndHour, windowEndMinute)}",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            TextButton(
+                                onClick = {
+                                    TimePickerDialog(
+                                        context,
+                                        { _, h, m ->
+                                            windowStartHour = h
+                                            windowStartMinute = m
+                                            autoSplitInterval(targetPerDay)
+                                        },
+                                        windowStartHour,
+                                        windowStartMinute,
+                                        false
+                                    ).show()
+                                },
+                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+                            ) {
+                                Text("Start", fontSize = 10.sp, color = activeColor)
+                            }
+                            TextButton(
+                                onClick = {
+                                    TimePickerDialog(
+                                        context,
+                                        { _, h, m ->
+                                            windowEndHour = h
+                                            windowEndMinute = m
+                                            autoSplitInterval(targetPerDay)
+                                        },
+                                        windowEndHour,
+                                        windowEndMinute,
+                                        false
+                                    ).show()
+                                },
+                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+                            ) {
+                                Text("End", fontSize = 10.sp, color = activeColor)
+                            }
+                        }
+                    }
+                }
+
+                // Full Category Emoji Picker (LazyRow)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    emojiCategories.forEachIndexed { idx, (catName, _) ->
+                        Surface(
+                            onClick = { selectedCategoryIndex = idx },
+                            shape = RoundedCornerShape(6.dp),
+                            color = if (selectedCategoryIndex == idx) activeColor.copy(alpha = 0.2f) else Color.Transparent,
+                            border = BorderStroke(0.8.dp, if (selectedCategoryIndex == idx) activeColor else MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+                        ) {
+                            Text(
+                                catName,
+                                fontSize = 9.5.sp,
+                                color = if (selectedCategoryIndex == idx) activeColor else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                }
+
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    contentPadding = PaddingValues(vertical = 1.dp)
+                ) {
+                    items(displayedEmojis) { emoji ->
+                        val isSelected = iconEmoji == emoji
+                        Surface(
+                            onClick = { iconEmoji = emoji },
+                            shape = RoundedCornerShape(6.dp),
+                            color = if (isSelected) activeColor.copy(alpha = 0.25f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                            modifier = Modifier.size(30.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(emoji, fontSize = 13.sp)
+                            }
+                        }
+                    }
+                }
+
+                // All 12 Colors
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    contentPadding = PaddingValues(vertical = 1.dp)
+                ) {
+                    items(allColors) { hex ->
+                        val color = parseHexColor(hex)
+                        val isSelected = colorHex.equals(hex, ignoreCase = true)
+                        Box(
+                            modifier = Modifier
+                                .size(20.dp)
+                                .clip(CircleShape)
+                                .background(color)
+                                .border(
+                                    width = if (isSelected) 2.dp else 0.dp,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    shape = CircleShape
+                                )
+                                .clickable { colorHex = hex }
+                        )
+                    }
+                }
+            }
+        }
+
+        // -------------------------------------------------------------
+        // 7. COMPACT ACTION BUTTONS: Cancel & Add Habit
+        // -------------------------------------------------------------
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             OutlinedButton(
                 onClick = onBack,
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(10.dp),
                 modifier = Modifier.weight(1f),
                 contentPadding = PaddingValues(vertical = 8.dp)
             ) {
-                Text("Cancel", style = MaterialTheme.typography.labelMedium)
+                Text("Cancel", style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp))
             }
 
             Button(
@@ -1058,7 +1381,7 @@ private fun EnterHabitView(
                     }
                 },
                 enabled = title.isNotBlank(),
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(10.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = activeColor,
                     contentColor = Color.White,
@@ -1068,11 +1391,11 @@ private fun EnterHabitView(
                 modifier = Modifier.weight(1.5f),
                 contentPadding = PaddingValues(vertical = 8.dp)
             ) {
-                Icon(imageVector = Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(15.dp))
+                Icon(imageVector = Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(14.dp))
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                    text = "Create Habit",
-                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                    text = "Add Habit (+25 XP)",
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 11.5.sp)
                 )
             }
         }
