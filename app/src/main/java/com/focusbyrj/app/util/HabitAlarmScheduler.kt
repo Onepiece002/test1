@@ -174,7 +174,7 @@ object HabitAlarmScheduler {
                     set(Calendar.MILLISECOND, 0)
                 }
 
-                val intervalMs = (habit.intervalHours.coerceAtLeast(1) * 3600 * 1000L)
+                val intervalMs = (habit.totalIntervalMinutes.coerceAtLeast(5) * 60 * 1000L)
 
                 when {
                     // Before window starts today

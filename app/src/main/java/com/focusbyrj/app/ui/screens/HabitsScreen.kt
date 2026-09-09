@@ -722,7 +722,7 @@ fun HabitCard(
                                 "Daily • $displayHr:$min $amPm"
                             }
                             HabitType.INTERVAL_WINDOW -> {
-                                "Every ${habit.intervalHours}h • ${habit.windowStartHour}:00 - ${habit.windowEndHour}:00"
+                                "Every ${habit.formattedInterval} • ${habit.formattedWindow}"
                             }
                         }
 
@@ -1022,35 +1022,59 @@ fun HabitEditorBottomSheet(
     var colorHex by remember { mutableStateOf(habit?.colorHex ?: "#0284C7") }
     var type by remember { mutableStateOf(habit?.type ?: HabitType.INTERVAL_WINDOW) }
     var targetPerDay by remember { mutableIntStateOf(habit?.targetPerDay ?: 6) }
-    var intervalHours by remember { mutableIntStateOf(habit?.intervalHours ?: 3) }
-
-    var fixedHour by remember { mutableIntStateOf(habit?.fixedReminderHour ?: 9) }
-    var fixedMinute by remember { mutableIntStateOf(habit?.fixedReminderMinute ?: 0) }
 
     var windowStartHour by remember { mutableIntStateOf(habit?.windowStartHour ?: 8) }
+    var windowStartMinute by remember { mutableIntStateOf(habit?.windowStartMinute ?: 0) }
     var windowEndHour by remember { mutableIntStateOf(habit?.windowEndHour ?: 20) }
+    var windowEndMinute by remember { mutableIntStateOf(habit?.windowEndMinute ?: 0) }
 
-    val activeWindowDuration by remember {
+    val activeWindowMinutes by remember {
         derivedStateOf {
-            if (windowEndHour > windowStartHour) {
-                windowEndHour - windowStartHour
+            val startMins = windowStartHour * 60 + windowStartMinute
+            val endMins = windowEndHour * 60 + windowEndMinute
+            if (endMins > startMins) {
+                endMins - startMins
             } else {
-                (24 - windowStartHour + windowEndHour).coerceAtLeast(1)
+                (24 * 60 - startMins + endMins).coerceAtLeast(15)
             }
         }
     }
 
-    fun onIntervalChanged(newInterval: Int) {
-        val clamped = newInterval.coerceIn(1, 12)
-        intervalHours = clamped
-        targetPerDay = (activeWindowDuration / clamped).coerceAtLeast(1)
+    val initialIntervalMins = habit?.let { it.intervalHours * 60 + it.intervalMinutes }
+        ?: ((if (20 > 8) (20 - 8) * 60 else 12 * 60) / 6) // default 120m = 2h
+
+    var intervalHours by remember { mutableIntStateOf(initialIntervalMins / 60) }
+    var intervalMinutes by remember { mutableIntStateOf(initialIntervalMins % 60) }
+
+    var fixedHour by remember { mutableIntStateOf(habit?.fixedReminderHour ?: 9) }
+    var fixedMinute by remember { mutableIntStateOf(habit?.fixedReminderMinute ?: 0) }
+
+    fun autoSplitInterval(target: Int) {
+        val totalWin = activeWindowMinutes
+        val step = (totalWin / target.coerceAtLeast(1)).coerceAtLeast(5)
+        intervalHours = step / 60
+        intervalMinutes = step % 60
     }
 
     fun onTargetChanged(newTarget: Int) {
         val clamped = newTarget.coerceIn(1, 24)
         targetPerDay = clamped
-        val calculatedInterval = kotlin.math.round(activeWindowDuration.toFloat() / clamped.toFloat()).toInt().coerceIn(1, 12)
-        intervalHours = calculatedInterval
+        autoSplitInterval(clamped)
+    }
+
+    fun onIntervalStep(direction: Int) {
+        val currentTotal = (intervalHours * 60 + intervalMinutes)
+        val step = if (currentTotal <= 90) 15 else 30
+        val targetStep = if (direction > 0) {
+            ((currentTotal / step) + 1) * step
+        } else {
+            val prev = ((currentTotal - 1) / step) * step
+            prev.coerceAtLeast(15)
+        }
+        val clamped = targetStep.coerceIn(15, activeWindowMinutes)
+        intervalHours = clamped / 60
+        intervalMinutes = clamped % 60
+        targetPerDay = (activeWindowMinutes / clamped).coerceIn(1, 24)
     }
 
     var selectedCategoryIndex by remember { mutableIntStateOf(0) }
@@ -1123,10 +1147,13 @@ fun HabitEditorBottomSheet(
                                 type = type,
                                 targetPerDay = targetPerDay,
                                 intervalHours = intervalHours,
+                                intervalMinutes = intervalMinutes,
                                 fixedReminderHour = fixedHour,
                                 fixedReminderMinute = fixedMinute,
                                 windowStartHour = windowStartHour,
-                                windowEndHour = windowEndHour
+                                windowStartMinute = windowStartMinute,
+                                windowEndHour = windowEndHour,
+                                windowEndMinute = windowEndMinute
                             )
                             onSave(newHabit)
                         }
@@ -1306,6 +1333,27 @@ fun HabitEditorBottomSheet(
                     }
                 }
             } else {
+                val currentTotalMins = intervalHours * 60 + intervalMinutes
+                val intervalDisplay = when {
+                    intervalHours > 0 && intervalMinutes > 0 -> "Every ${intervalHours}h ${intervalMinutes}m"
+                    intervalHours > 0 -> "Every ${intervalHours}h"
+                    else -> "Every ${intervalMinutes}m"
+                }
+
+                val windowHours = activeWindowMinutes / 60
+                val windowMinsRem = activeWindowMinutes % 60
+                val windowDurationText = if (windowMinsRem > 0) "${windowHours}h ${windowMinsRem}m" else "${windowHours}h"
+
+                val autoPartMins = (activeWindowMinutes / targetPerDay.coerceAtLeast(1)).coerceAtLeast(5)
+                val autoH = autoPartMins / 60
+                val autoM = autoPartMins % 60
+                val autoPartText = when {
+                    autoH > 0 && autoM > 0 -> "${autoH}h ${autoM}m"
+                    autoH > 0 -> "${autoH}h"
+                    else -> "${autoM}m"
+                }
+                val isAutoSynced = (currentTotalMins == autoPartMins)
+
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -1322,7 +1370,7 @@ fun HabitEditorBottomSheet(
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Surface(
-                            onClick = { onIntervalChanged(intervalHours - 1) },
+                            onClick = { onIntervalStep(-1) },
                             shape = RoundedCornerShape(8.dp),
                             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
                             modifier = Modifier.size(28.dp)
@@ -1332,7 +1380,7 @@ fun HabitEditorBottomSheet(
                             }
                         }
                         Text(
-                            "Every ${intervalHours}h",
+                            intervalDisplay,
                             modifier = Modifier.padding(horizontal = 6.dp),
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 fontWeight = FontWeight.SemiBold,
@@ -1340,7 +1388,7 @@ fun HabitEditorBottomSheet(
                             )
                         )
                         Surface(
-                            onClick = { onIntervalChanged(intervalHours + 1) },
+                            onClick = { onIntervalStep(1) },
                             shape = RoundedCornerShape(8.dp),
                             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
                             modifier = Modifier.size(28.dp)
@@ -1402,6 +1450,63 @@ fun HabitEditorBottomSheet(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
+                // Auto-cut calculation banner
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = activeColor.copy(alpha = 0.08f),
+                    border = BorderStroke(1.dp, activeColor.copy(alpha = 0.22f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(
+                                text = "⚡",
+                                fontSize = 12.sp
+                            )
+                            Text(
+                                text = "$windowDurationText window cut into $targetPerDay parts (~$autoPartText each)",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                ),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        if (!isAutoSynced) {
+                            Surface(
+                                onClick = { autoSplitInterval(targetPerDay) },
+                                shape = RoundedCornerShape(6.dp),
+                                color = activeColor,
+                                modifier = Modifier.padding(start = 6.dp)
+                            ) {
+                                Text(
+                                    text = "Auto-Split",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White
+                                    ),
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -1421,21 +1526,22 @@ fun HabitEditorBottomSheet(
                             onClick = {
                                 TimePickerDialog(
                                     context,
-                                    { _, h, _ ->
+                                    { _, h, m ->
                                         windowStartHour = h
-                                        val dur = if (windowEndHour > h) windowEndHour - h else (24 - h + windowEndHour).coerceAtLeast(1)
-                                        targetPerDay = (dur / intervalHours).coerceAtLeast(1)
+                                        windowStartMinute = m
+                                        autoSplitInterval(targetPerDay)
                                     },
                                     windowStartHour,
-                                    0,
+                                    windowStartMinute,
                                     false
                                 ).show()
                             }
                         ) {
                             val startHr = if (windowStartHour % 12 == 0) 12 else windowStartHour % 12
                             val startAmPm = if (windowStartHour >= 12) "PM" else "AM"
+                            val startMin = String.format(Locale.US, "%02d", windowStartMinute)
                             Text(
-                                text = "$startHr:00 $startAmPm",
+                                text = "$startHr:$startMin $startAmPm",
                                 style = MaterialTheme.typography.bodyMedium.copy(
                                     fontWeight = FontWeight.SemiBold,
                                     color = activeColor
@@ -1453,21 +1559,22 @@ fun HabitEditorBottomSheet(
                             onClick = {
                                 TimePickerDialog(
                                     context,
-                                    { _, h, _ ->
+                                    { _, h, m ->
                                         windowEndHour = h
-                                        val dur = if (h > windowStartHour) h - windowStartHour else (24 - windowStartHour + h).coerceAtLeast(1)
-                                        targetPerDay = (dur / intervalHours).coerceAtLeast(1)
+                                        windowEndMinute = m
+                                        autoSplitInterval(targetPerDay)
                                     },
                                     windowEndHour,
-                                    0,
+                                    windowEndMinute,
                                     false
                                 ).show()
                             }
                         ) {
                             val endHr = if (windowEndHour % 12 == 0) 12 else windowEndHour % 12
                             val endAmPm = if (windowEndHour >= 12) "PM" else "AM"
+                            val endMin = String.format(Locale.US, "%02d", windowEndMinute)
                             Text(
-                                text = "$endHr:00 $endAmPm",
+                                text = "$endHr:$endMin $endAmPm",
                                 style = MaterialTheme.typography.bodyMedium.copy(
                                     fontWeight = FontWeight.SemiBold,
                                     color = activeColor
@@ -1535,10 +1642,13 @@ fun HabitEditorBottomSheet(
                             type = type,
                             targetPerDay = targetPerDay,
                             intervalHours = intervalHours,
+                            intervalMinutes = intervalMinutes,
                             fixedReminderHour = fixedHour,
                             fixedReminderMinute = fixedMinute,
                             windowStartHour = windowStartHour,
-                            windowEndHour = windowEndHour
+                            windowStartMinute = windowStartMinute,
+                            windowEndHour = windowEndHour,
+                            windowEndMinute = windowEndMinute
                         )
                         onSave(newHabit)
                     }

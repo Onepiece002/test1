@@ -22,7 +22,7 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [AppRestriction::class, FocusSchedule::class, Task::class, Habit::class, HabitLog::class], version = 8, exportSchema = false)
+@Database(entities = [AppRestriction::class, FocusSchedule::class, Task::class, Habit::class, HabitLog::class], version = 9, exportSchema = false)
 abstract class FocusDatabase : RoomDatabase() {
     abstract fun appRestrictionDao(): AppRestrictionDao
     abstract fun scheduleDao(): ScheduleDao
@@ -150,10 +150,11 @@ abstract class FocusDatabase : RoomDatabase() {
                         `colorHex` TEXT NOT NULL DEFAULT '#3B82F6',
                         `type` TEXT NOT NULL DEFAULT 'ONCE_DAILY',
                         `targetPerDay` INTEGER NOT NULL DEFAULT 1,
-                        `intervalHours` INTEGER NOT NULL DEFAULT 3,
+                        `intervalHours` INTEGER NOT NULL DEFAULT 2,
+                        `intervalMinutes` INTEGER NOT NULL DEFAULT 0,
                         `windowStartHour` INTEGER NOT NULL DEFAULT 8,
                         `windowStartMinute` INTEGER NOT NULL DEFAULT 0,
-                        `windowEndHour` INTEGER NOT NULL DEFAULT 21,
+                        `windowEndHour` INTEGER NOT NULL DEFAULT 20,
                         `windowEndMinute` INTEGER NOT NULL DEFAULT 0,
                         `fixedReminderHour` INTEGER NOT NULL DEFAULT 9,
                         `fixedReminderMinute` INTEGER NOT NULL DEFAULT 0,
@@ -185,6 +186,28 @@ abstract class FocusDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 MIGRATION_1_7.migrate(db)
                 MIGRATION_7_8.migrate(db)
+            }
+        }
+
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                try {
+                    db.execSQL("ALTER TABLE `habits` ADD COLUMN `intervalMinutes` INTEGER NOT NULL DEFAULT 0")
+                } catch (_: Exception) {}
+            }
+        }
+
+        val MIGRATION_7_9 = object : Migration(7, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                MIGRATION_7_8.migrate(db)
+                MIGRATION_8_9.migrate(db)
+            }
+        }
+
+        val MIGRATION_1_9 = object : Migration(1, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                MIGRATION_1_8.migrate(db)
+                MIGRATION_8_9.migrate(db)
             }
         }
     }

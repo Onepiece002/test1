@@ -88,12 +88,12 @@ object HabitFloatingOverlayManager {
         "habbitcatssleeping.lottie",
         "habbitchrismascat.lottie",
         "habbitcutegirlcat.lottie",
-        "habbitgojoawseomecat.lottie",
         "habbithappylaptopcat.lottie",
-        "habbithollowencat.lottie",
         "habbitpopupcat.lottie",
         "habbitscalmcat.lottie",
-        "habbitsppokycat.lottie"
+        "habbitsppokycat.lottie",
+        "cat_dance.lottie",
+        "cat_flying.lottie"
     )
 
     internal fun getRandomHabitLottieAsset(): String {
@@ -322,7 +322,20 @@ object HabitFloatingOverlayManager {
             scaleType = if (isWhiteBg) ImageView.ScaleType.FIT_CENTER else ImageView.ScaleType.CENTER_CROP
             repeatCount = LottieDrawable.INFINITE
             repeatMode = LottieDrawable.RESTART
+            speed = 1.15f
         }
+
+        // Guarantee continuous infinite looping without stopping or pausing
+        lottieView.addLottieOnCompositionLoadedListener {
+            lottieView.repeatCount = LottieDrawable.INFINITE
+            lottieView.repeatMode = LottieDrawable.RESTART
+            lottieView.playAnimation()
+        }
+        lottieView.addAnimatorListener(object : AnimatorListenerAdapter() {
+            override fun onAnimationEnd(animation: Animator) {
+                lottieView.playAnimation()
+            }
+        })
 
         try {
             lottieView.setAnimation(lottieAsset)
@@ -336,18 +349,6 @@ object HabitFloatingOverlayManager {
         }
         activeLottieView = lottieView
         lottieStage.addView(lottieView)
-
-        // Ambient gentle pulse on the animation stage
-        pulseAnimator = ObjectAnimator.ofPropertyValuesHolder(
-            lottieStage,
-            PropertyValuesHolder.ofFloat(View.SCALE_X, 1f, 1.025f, 1f),
-            PropertyValuesHolder.ofFloat(View.SCALE_Y, 1f, 1.025f, 1f)
-        ).apply {
-            duration = 3200L
-            repeatCount = ValueAnimator.INFINITE
-            interpolator = LinearInterpolator()
-            start()
-        }
 
         storyBody.addView(lottieStage)
 
@@ -708,7 +709,7 @@ object HabitFloatingOverlayManager {
 
             handler.postDelayed({
                 dismissOverlay()
-            }, 1000L)
+            }, 220L)
         }
 
         snoozeBtn.setOnClickListener {
@@ -719,11 +720,11 @@ object HabitFloatingOverlayManager {
             HabitAlarmScheduler.snoozeHabit(context, habit.id, 30)
             handler.postDelayed({
                 dismissOverlay()
-            }, 600L)
+            }, 220L)
         }
 
-        // --- TOP-LEFT '✕' MARK ---
-        // Prominently placed on the top-left corner so users can dismiss without logging.
+        // --- TOP-RIGHT '✕' MARK ---
+        // Prominently placed on the top-right corner so users can dismiss without logging.
         // Clicking it does NOT log the habit, ensuring next logging reminders continue as normal.
         val closeBtn = TextView(context).apply {
             text = "✕"
@@ -735,9 +736,9 @@ object HabitFloatingOverlayManager {
 
             val btnSize = (28 * density).toInt()
             val lp = FrameLayout.LayoutParams(btnSize, btnSize).apply {
-                gravity = Gravity.TOP or Gravity.START
+                gravity = Gravity.TOP or Gravity.END
                 topMargin = (10 * density).toInt()
-                marginStart = (10 * density).toInt()
+                marginEnd = (10 * density).toInt()
             }
             layoutParams = lp
 

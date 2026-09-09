@@ -281,7 +281,8 @@ class HabitRepository(private val habitDao: HabitDao) {
                 colorHex = "#38BDF8", // Cyan / Sky blue
                 type = HabitType.INTERVAL_WINDOW,
                 targetPerDay = 8,
-                intervalHours = 2,
+                intervalHours = 1,
+                intervalMinutes = 30,
                 windowStartHour = 8,
                 windowEndHour = 20,
                 reminderSound = "WATER_DROP"
@@ -315,7 +316,8 @@ class HabitRepository(private val habitDao: HabitDao) {
                 colorHex = "#10B981", // Emerald
                 type = HabitType.INTERVAL_WINDOW,
                 targetPerDay = 4,
-                intervalHours = 3,
+                intervalHours = 2,
+                intervalMinutes = 15,
                 windowStartHour = 10,
                 windowEndHour = 19,
                 reminderSound = "ZEN"

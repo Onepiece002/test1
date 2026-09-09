@@ -36,10 +36,11 @@ data class Habit(
     val colorHex: String = "#3B82F6",
     val type: HabitType = HabitType.ONCE_DAILY,
     val targetPerDay: Int = 1,
-    val intervalHours: Int = 3,
+    val intervalHours: Int = 2,
+    val intervalMinutes: Int = 0,
     val windowStartHour: Int = 8,
     val windowStartMinute: Int = 0,
-    val windowEndHour: Int = 21,
+    val windowEndHour: Int = 20,
     val windowEndMinute: Int = 0,
     val fixedReminderHour: Int = 9,
     val fixedReminderMinute: Int = 0,
@@ -47,7 +48,38 @@ data class Habit(
     val reminderSound: String = "ZEN",
     val createdAt: Long = System.currentTimeMillis(),
     val isArchived: Boolean = false
-)
+) {
+    val totalIntervalMinutes: Int
+        get() {
+            val total = intervalHours * 60 + intervalMinutes
+            return if (total > 0) total else 60
+        }
+
+    val formattedInterval: String
+        get() {
+            val total = totalIntervalMinutes
+            val h = total / 60
+            val m = total % 60
+            return when {
+                h > 0 && m > 0 -> "${h}h ${m}m"
+                h > 0 -> "${h}h"
+                else -> "${m}m"
+            }
+        }
+
+    val formattedWindow: String
+        get() {
+            val startAmPm = if (windowStartHour >= 12) "PM" else "AM"
+            val startHr = if (windowStartHour % 12 == 0) 12 else windowStartHour % 12
+            val startMin = String.format(java.util.Locale.US, "%02d", windowStartMinute)
+
+            val endAmPm = if (windowEndHour >= 12) "PM" else "AM"
+            val endHr = if (windowEndHour % 12 == 0) 12 else windowEndHour % 12
+            val endMin = String.format(java.util.Locale.US, "%02d", windowEndMinute)
+
+            return "$startHr:$startMin $startAmPm - $endHr:$endMin $endAmPm"
+        }
+}
 
 @Entity(
     tableName = "habit_logs",

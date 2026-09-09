@@ -51,7 +51,9 @@ data class PersistedChatMessage(
     val isVocabBrief: Boolean = false,
     val isVocabHub: Boolean = false,
     val vocabJson: String? = null,
-    val isWelcome: Boolean = false
+    val isWelcome: Boolean = false,
+    val isHabitsSummary: Boolean = false,
+    val habitsSummaryJson: String? = null
 ) {
     /**
      * Determines if this message is a persistent/valuable learning or status card
@@ -60,9 +62,9 @@ data class PersistedChatMessage(
     val isImportantCard: Boolean
         get() = isDrillSummary || isAptitudeProfile || isStreakPrompt || 
                 isDailyQuests || isMysteryBox || isMorningBrief || isEveningBrief || 
-                isStreakFreezeSkipped || isVocabHub || isWelcome || (isTaskSummary && !taskSummaryJson.isNullOrBlank()) ||
+                isStreakFreezeSkipped || isVocabHub || isWelcome || isHabitsSummary || (isTaskSummary && !taskSummaryJson.isNullOrBlank()) ||
                 id.startsWith("drill_summary_") || id.startsWith("morning_") || 
-                id.startsWith("evening_") || id.startsWith("streak_prompt_") || id.startsWith("mystery_box_") || id.startsWith("vocab_hub_") || id.startsWith("welcome_")
+                id.startsWith("evening_") || id.startsWith("streak_prompt_") || id.startsWith("mystery_box_") || id.startsWith("vocab_hub_") || id.startsWith("welcome_") || id.startsWith("habits_")
 
     /**
      * Ephemeral messages are quick commands, casual talk, setting toggles, task additions,
@@ -244,7 +246,9 @@ object BubbleChatManager {
                         isVocabBrief = obj.optBoolean("isVocabBrief", false),
                         isVocabHub = obj.optBoolean("isVocabHub", false) || obj.optString("id", "").startsWith("vocab_hub_"),
                         vocabJson = if (obj.has("vocabJson") && !obj.isNull("vocabJson")) obj.optString("vocabJson", null) else null,
-                        isWelcome = obj.optBoolean("isWelcome", false) || obj.optString("id", "").startsWith("welcome_")
+                        isWelcome = obj.optBoolean("isWelcome", false) || obj.optString("id", "").startsWith("welcome_"),
+                        isHabitsSummary = obj.optBoolean("isHabitsSummary", false) || obj.optString("id", "").startsWith("habits_"),
+                        habitsSummaryJson = if (obj.has("habitsSummaryJson") && !obj.isNull("habitsSummaryJson")) obj.optString("habitsSummaryJson", null) else null
                     )
                 )
             }
@@ -287,6 +291,8 @@ object BubbleChatManager {
                     put("isVocabHub", msg.isVocabHub)
                     put("vocabJson", msg.vocabJson)
                     put("isWelcome", msg.isWelcome || msg.id.startsWith("welcome_"))
+                    put("isHabitsSummary", msg.isHabitsSummary)
+                    put("habitsSummaryJson", msg.habitsSummaryJson)
                 }
                 jsonArray.put(obj)
             }

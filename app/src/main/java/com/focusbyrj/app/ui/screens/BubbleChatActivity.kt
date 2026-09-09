@@ -158,7 +158,9 @@ data class ChatMessage(
     val isVocabBrief: Boolean = false,
     val isVocabHub: Boolean = false,
     val vocabJson: String? = null,
-    val isWelcome: Boolean = false
+    val isWelcome: Boolean = false,
+    val isHabitsSummary: Boolean = false,
+    val habitsSummaryJson: String? = null
 )
 
 fun PersistedChatMessage.toChatMessage(): ChatMessage {
@@ -193,7 +195,9 @@ fun PersistedChatMessage.toChatMessage(): ChatMessage {
                     text.contains("ready for action", ignoreCase = true) ||
                     text.contains("Ayva here!", ignoreCase = true) ||
                     text.contains("I'm Ayva", ignoreCase = true) ||
-                    text.contains("anti-procrastination", ignoreCase = true)
+                    text.contains("anti-procrastination", ignoreCase = true),
+        isHabitsSummary = isHabitsSummary || id.startsWith("habits_"),
+        habitsSummaryJson = habitsSummaryJson
     )
 }
 
@@ -224,7 +228,9 @@ fun ChatMessage.toPersistedChatMessage(): PersistedChatMessage {
         isVocabBrief = isVocabBrief,
         isVocabHub = isVocabHub,
         vocabJson = vocabJson,
-        isWelcome = isWelcome
+        isWelcome = isWelcome,
+        isHabitsSummary = isHabitsSummary,
+        habitsSummaryJson = habitsSummaryJson
     )
 }
 
@@ -492,6 +498,7 @@ fun ChatInterface() {
         listOf(
             QuickActionCommand("💬 /talk", "/talk "),
             QuickActionCommand("📋 /tasks", "/tasks "),
+            QuickActionCommand("🎯 /habit", "/habit"),
             QuickActionCommand("🧹 /clear", "/clear"),
             QuickActionCommand("👤 /profile", "/profile"),
             QuickActionCommand("📚 /vocab", "/vocab"),
@@ -642,7 +649,7 @@ fun ChatInterface() {
         
         when {
             parts.size == 1 -> {
-                val available = listOf("/talk", "/advice", "/breathe", "/screentime", "/tasks", "/tasks all", "/summary", "/summary all", "/drill", "/blitz", "/quests", "/daily", "/chest", "/box", "/mystery", "/freeze", "/wager", "/profile", "/priority", "/postpone all", "/reschedule", "/clear", "/help")
+                val available = listOf("/talk", "/habit", "/habits", "/advice", "/breathe", "/screentime", "/tasks", "/tasks all", "/summary", "/summary all", "/drill", "/blitz", "/quests", "/daily", "/chest", "/box", "/mystery", "/freeze", "/wager", "/profile", "/priority", "/postpone all", "/reschedule", "/clear", "/help")
                 available.filter { it.startsWith(cmd) }.map { Suggestion(it, "$it ") }
             }
             (cmd == "/summary" || cmd == "/tasks" || cmd == "/task") && parts.size == 2 -> {
@@ -726,27 +733,31 @@ fun ChatInterface() {
                     val db = app.database
                     
                     if (!sentText.startsWith("/")) {
-                        val nluResult = com.focusbyrj.app.util.OfflineNluEngine.parse(sentText, pendingTasksList)
-                        when (nluResult.intent) {
-                            com.focusbyrj.app.util.NluIntent.LIST_TASKS -> {
-                                sentText = if (nluResult.isAllTasks) "/tasks all" else "/tasks"
-                            }
-                            com.focusbyrj.app.util.NluIntent.SHOW_PROFILE -> sentText = "/profile"
-                            com.focusbyrj.app.util.NluIntent.SHOW_SUMMARY -> sentText = "/summary"
-                            com.focusbyrj.app.util.NluIntent.START_DRILL -> sentText = "/drill"
-                            com.focusbyrj.app.util.NluIntent.CLEAR_CHAT -> sentText = "/clear"
-                            com.focusbyrj.app.util.NluIntent.RESCHEDULE,
-                            com.focusbyrj.app.util.NluIntent.COMPLETE,
-                            com.focusbyrj.app.util.NluIntent.DELETE,
-                            com.focusbyrj.app.util.NluIntent.BLOCK_APP,
-                            com.focusbyrj.app.util.NluIntent.BLOCK_FILTER,
-                            com.focusbyrj.app.util.NluIntent.UNBLOCK,
-                            com.focusbyrj.app.util.NluIntent.START_ROUTINE,
-                            com.focusbyrj.app.util.NluIntent.STOP_ROUTINE,
-                            com.focusbyrj.app.util.NluIntent.LIST_ROUTINES -> {
-                                sentText = "/talk $sentText"
-                            }
-                            com.focusbyrj.app.util.NluIntent.UNKNOWN -> {
+                        val trimmedLower = sentText.trim().lowercase()
+                        if (trimmedLower in listOf("habit", "habits", "my habits", "show habits", "habit tracker", "track habits", "habits list", "open habits")) {
+                            sentText = "/habit"
+                        } else {
+                            val nluResult = com.focusbyrj.app.util.OfflineNluEngine.parse(sentText, pendingTasksList)
+                            when (nluResult.intent) {
+                                com.focusbyrj.app.util.NluIntent.LIST_TASKS -> {
+                                    sentText = if (nluResult.isAllTasks) "/tasks all" else "/tasks"
+                                }
+                                com.focusbyrj.app.util.NluIntent.SHOW_PROFILE -> sentText = "/profile"
+                                com.focusbyrj.app.util.NluIntent.SHOW_SUMMARY -> sentText = "/summary"
+                                com.focusbyrj.app.util.NluIntent.START_DRILL -> sentText = "/drill"
+                                com.focusbyrj.app.util.NluIntent.CLEAR_CHAT -> sentText = "/clear"
+                                com.focusbyrj.app.util.NluIntent.RESCHEDULE,
+                                com.focusbyrj.app.util.NluIntent.COMPLETE,
+                                com.focusbyrj.app.util.NluIntent.DELETE,
+                                com.focusbyrj.app.util.NluIntent.BLOCK_APP,
+                                com.focusbyrj.app.util.NluIntent.BLOCK_FILTER,
+                                com.focusbyrj.app.util.NluIntent.UNBLOCK,
+                                com.focusbyrj.app.util.NluIntent.START_ROUTINE,
+                                com.focusbyrj.app.util.NluIntent.STOP_ROUTINE,
+                                com.focusbyrj.app.util.NluIntent.LIST_ROUTINES -> {
+                                    sentText = "/talk $sentText"
+                                }
+                                com.focusbyrj.app.util.NluIntent.UNKNOWN -> {
                                 val lower = sentText.lowercase().trim()
                                 val isQuestionOrSetting = com.focusbyrj.app.util.AyvaTalkEngine.activeSession != null ||
                                     lower.startsWith("how") || lower.startsWith("why") || 
@@ -793,8 +804,9 @@ fun ChatInterface() {
                             }
                         }
                     }
+                }
 
-                    if (sentText.startsWith("/")) {
+                if (sentText.startsWith("/")) {
                         val parts = sentText.split(" ")
                         val cmd = parts[0].lowercase()
                         var replyMsg = "Command not recognized."
@@ -1276,6 +1288,49 @@ fun ChatInterface() {
                                 withContext(Dispatchers.Main) {
                                     activeDrillSession = session
                                     
+                                }
+                                return@launch
+                            }
+                            "/habit", "/habits" -> {
+                                val habitRepo = (context.applicationContext as com.focusbyrj.app.FocusApplication).habitRepository
+                                val habits = habitRepo.activeHabitsWithProgress.first()
+                                
+                                val habitJsonArray = org.json.JSONArray()
+                                habits.forEach { hp ->
+                                    val h = hp.habit
+                                    val obj = org.json.JSONObject().apply {
+                                        put("id", h.id)
+                                        put("title", h.title)
+                                        put("description", h.description)
+                                        put("iconEmoji", h.iconEmoji)
+                                        put("colorHex", h.colorHex)
+                                        put("type", h.type.name)
+                                        put("targetPerDay", h.targetPerDay)
+                                        put("intervalHours", h.intervalHours)
+                                        put("intervalMinutes", h.intervalMinutes)
+                                        put("windowStartHour", h.windowStartHour)
+                                        put("windowStartMinute", h.windowStartMinute)
+                                        put("windowEndHour", h.windowEndHour)
+                                        put("windowEndMinute", h.windowEndMinute)
+                                        put("fixedReminderHour", h.fixedReminderHour)
+                                        put("fixedReminderMinute", h.fixedReminderMinute)
+                                        put("completedToday", hp.completedToday)
+                                        put("targetToday", hp.targetToday)
+                                        put("currentStreak", hp.currentStreak)
+                                        put("isCompletedToday", hp.isCompletedToday)
+                                    }
+                                    habitJsonArray.put(obj)
+                                }
+
+                                val habitMsg = ChatMessage(
+                                    id = "habits_${java.util.UUID.randomUUID()}",
+                                    text = "Habit Radar",
+                                    isUser = false,
+                                    isHabitsSummary = true,
+                                    habitsSummaryJson = habitJsonArray.toString()
+                                )
+                                withContext(Dispatchers.Main) {
+                                    messages = messages + habitMsg
                                 }
                                 return@launch
                             }
@@ -1949,6 +2004,12 @@ fun ChatInterface() {
                             },
                             onFilterChange = { cmd ->
                                 sendMessage(cmd)
+                            },
+                            onHabitLog = { habitId ->
+                                coroutineScope.launch(Dispatchers.IO) {
+                                    val app = context.applicationContext as com.focusbyrj.app.FocusApplication
+                                    app.habitRepository.incrementHabitProgress(habitId)
+                                }
                             }
                         )
                         Spacer(modifier = Modifier.height(8.dp))
@@ -2439,7 +2500,9 @@ fun ChatBubble(
     onMessageUpdate: (ChatMessage) -> Unit = {},
     onViewSolutions: ((String) -> Unit)? = null,
     onOpenMysteryChest: (() -> Unit)? = null,
-    onDismiss: (() -> Unit)? = null
+    onDismiss: (() -> Unit)? = null,
+    onHabitLog: ((Long) -> Unit)? = null,
+    onHabitCreated: ((com.focusbyrj.app.data.Habit) -> Unit)? = null
 ) {
     if (message.isStreakPrompt) {
         StreakPromptCard(
@@ -2508,6 +2571,16 @@ fun ChatBubble(
         message.text.contains("cognitive mastery", ignoreCase = true) ||
         message.text.contains("focus & learning companion", ignoreCase = true)
     )
+
+    if (message.isHabitsSummary && !message.isUser) {
+        HabitsChatCard(
+            message = message,
+            fontSizeSp = fontSizeSp,
+            onHabitLog = onHabitLog,
+            onHabitCreated = onHabitCreated
+        )
+        return
+    }
 
     if (message.isTaskSummary && !message.isUser && !isMorning && !isEvening) {
         TaskSummaryCard(
