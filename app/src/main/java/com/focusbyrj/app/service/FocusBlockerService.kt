@@ -32,6 +32,7 @@ import com.focusbyrj.app.data.AppRestriction
 import com.focusbyrj.app.data.FocusDatabase
 import com.focusbyrj.app.util.FocusQuotes
 import com.focusbyrj.app.util.TemporaryUnlockManager
+import com.focusbyrj.app.util.UsageBreakTracker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -79,10 +80,12 @@ class FocusBlockerService : Service() {
             when (intent?.action) {
                 Intent.ACTION_SCREEN_OFF -> {
                     isScreenOn = false
+                    UsageBreakTracker.onScreenOff()
                     monitoringJob?.cancel()
                     monitoringJob = null
                 }
                 Intent.ACTION_SCREEN_ON, Intent.ACTION_USER_PRESENT -> {
+                    UsageBreakTracker.onScreenOn()
                     if (!isScreenOn || intent?.action == Intent.ACTION_USER_PRESENT) {
                         isScreenOn = true
                         startAppMonitoringLoop()
@@ -191,6 +194,11 @@ class FocusBlockerService : Service() {
                     if (!currentPackage.isNullOrBlank()) {
                         checkPermissionDialogState(currentPackage)
                         checkAndBlockApp(currentPackage)
+                        UsageBreakTracker.onForegroundPackageChecked(
+                            context = applicationContext,
+                            foregroundPackage = currentPackage,
+                            isHomeScreenOrSystem = isIgnoredPackage(currentPackage)
+                        )
                     } else if (isPermissionDialogInForeground) {
                         checkPermissionDialogState("")
                     }
@@ -333,27 +341,15 @@ class FocusBlockerService : Service() {
         
         for (schedule in schedules) {
             if (!schedule.isEnabled) continue
-            val activeDays = schedule.daysOfWeek.split(",")
-            if (activeDays.contains(currentDay.toString())) {
-                val startTotalMinutes = schedule.startHour * 60 + schedule.startMinute
-                val endTotalMinutes = schedule.endHour * 60 + schedule.endMinute
-                
-                val isTimeMatch = if (startTotalMinutes <= endTotalMinutes) {
-                    currentTotalMinutes in startTotalMinutes..endTotalMinutes
-                } else {
-                    currentTotalMinutes >= startTotalMinutes || currentTotalMinutes <= endTotalMinutes
-                }
-                
-                if (isTimeMatch) {
-                    currentlyActive[schedule.id.toString()] = schedule
-                    if (!activeRoutines.containsKey(schedule.id.toString())) {
-                        if (notifyEnabled) {
-                            sendRoutineNotification("Routine Started", "${schedule.name} is now active.")
-                        }
+            if (schedule.isActiveAt(calendar)) {
+                currentlyActive[schedule.id.toString()] = schedule
+                if (!activeRoutines.containsKey(schedule.id.toString())) {
+                    if (notifyEnabled) {
+                        sendRoutineNotification("Routine Started", "${schedule.name} is now active.")
                     }
-                    // Log ongoing routine follow activity
-                    com.focusbyrj.app.util.FocusStatsManager.addRoutineActivity(applicationContext, 1L)
                 }
+                // Log ongoing routine follow activity
+                com.focusbyrj.app.util.FocusStatsManager.addRoutineActivity(applicationContext, 1L)
             }
         }
         
@@ -653,6 +649,7 @@ class FocusBlockerService : Service() {
         super.onDestroy()
         lastTrackedPackage = null
         lastUsageQueryTime = 0L
+        UsageBreakTracker.reset()
         val prefs = applicationContext.getSharedPreferences("focus_prefs", Context.MODE_PRIVATE)
         prefs.edit().putBoolean("isSessionActive", false).apply()
         com.focusbyrj.app.util.DndHelper.setDndMode(applicationContext, false)

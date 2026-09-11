@@ -87,7 +87,7 @@ class HabitActionReceiver : BroadcastReceiver() {
 
                         // Update existing notification to visually reward user
                         val updatedNotification = NotificationCompat.Builder(appContext, HabitReceiver.CHANNEL_ID)
-                            .setSmallIcon(R.mipmap.ic_launcher_round)
+                            .setSmallIcon(R.drawable.ic_app_logo)
                             .setContentTitle(feedbackTitle)
                             .setContentText(feedbackText)
                             .setProgress(target, completed, false)
@@ -106,12 +106,13 @@ class HabitActionReceiver : BroadcastReceiver() {
                         }
 
                         // Reschedule next reminder for interval habit or next day for once daily
-                        HabitAlarmScheduler.scheduleHabitReminder(appContext, habit)
+                        HabitAlarmScheduler.scheduleHabitReminder(appContext, habit, updatedLog.lastCompletedTimestamp)
                     }
 
                     ACTION_SNOOZE_HABIT -> {
                         if (notificationId != -1) {
                             notificationManager.cancel(notificationId)
+                            cleanUpHabitSummary(notificationManager, notificationId)
                         }
                         HabitAlarmScheduler.snoozeHabit(appContext, habitId, 30)
                     }
@@ -119,6 +120,7 @@ class HabitActionReceiver : BroadcastReceiver() {
                     ACTION_DISMISS_HABIT -> {
                         if (notificationId != -1) {
                             notificationManager.cancel(notificationId)
+                            cleanUpHabitSummary(notificationManager, notificationId)
                         }
                     }
                 }
@@ -127,6 +129,22 @@ class HabitActionReceiver : BroadcastReceiver() {
             } finally {
                 pendingResult.finish()
             }
+        }
+    }
+
+    private fun cleanUpHabitSummary(notificationManager: NotificationManager, dismissedNotificationId: Int? = null) {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+            val activeNotifs = notificationManager.activeNotifications ?: emptyArray()
+            val activeHabits = activeNotifs.filter {
+                it.id != HabitReceiver.HABITS_SUMMARY_ID &&
+                (dismissedNotificationId == null || it.id != dismissedNotificationId) &&
+                it.notification.group == HabitReceiver.HABITS_GROUP_KEY
+            }
+            if (activeHabits.size < 2) {
+                notificationManager.cancel(HabitReceiver.HABITS_SUMMARY_ID)
+            }
+        } else {
+            notificationManager.cancel(HabitReceiver.HABITS_SUMMARY_ID)
         }
     }
 }

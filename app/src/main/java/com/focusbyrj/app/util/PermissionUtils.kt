@@ -163,6 +163,28 @@ object PermissionUtils {
         return true
     }
 
+    fun hasExactAlarmPermission(context: Context): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? android.app.AlarmManager
+            return alarmManager?.canScheduleExactAlarms() ?: true
+        }
+        return true
+    }
+
+    fun requestExactAlarmPermission(context: Context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            try {
+                val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+                    data = Uri.parse("package:${context.packageName}")
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(intent)
+            } catch (e: Exception) {
+                openAppBatterySettings(context)
+            }
+        }
+    }
+
     fun requestNotificationPermission(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             try {
@@ -181,6 +203,7 @@ object PermissionUtils {
         return hasUsageStatsPermission(context) && 
                hasOverlayPermission(context) && 
                isIgnoringBatteryOptimizations(context) &&
-               hasNotificationPermission(context)
+               hasNotificationPermission(context) &&
+               hasExactAlarmPermission(context)
     }
 }

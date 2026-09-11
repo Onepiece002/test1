@@ -446,7 +446,17 @@ fun AddRestrictionScreen(
                                 items(filteredApps, key = { it.packageName }) { app ->
                                     val isSelected = selectedApps.contains(app)
                                     val pm = context.packageManager
-                                    val icon = remember(app.packageName) { ImageUtils.getAppIcon(pm, app.packageName) }
+                                    var icon by remember(app.packageName) {
+                                        mutableStateOf(ImageUtils.getAppIcon(pm, app.packageName))
+                                    }
+                                    LaunchedEffect(app.packageName) {
+                                        if (icon == null) {
+                                            val loaded = withContext(Dispatchers.IO) {
+                                                ImageUtils.getAppIcon(pm, app.packageName)
+                                            }
+                                            icon = loaded
+                                        }
+                                    }
 
                                     Box(
                                         modifier = Modifier
@@ -471,9 +481,10 @@ fun AddRestrictionScreen(
                                             verticalAlignment = Alignment.CenterVertically,
                                             modifier = Modifier.fillMaxWidth()
                                         ) {
-                                            if (icon != null) {
+                                            val currentIcon = icon
+                                            if (currentIcon != null) {
                                                 Image(
-                                                    bitmap = icon,
+                                                    bitmap = currentIcon,
                                                     contentDescription = null,
                                                     modifier = Modifier
                                                         .size(48.dp)

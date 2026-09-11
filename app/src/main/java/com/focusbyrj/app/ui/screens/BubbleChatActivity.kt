@@ -532,15 +532,53 @@ fun ChatInterface() {
     
     val persistedFlowMessages by BubbleChatManager.messagesFlow.collectAsState()
     
-    // Dynamically sync messages whenever background alerts (streak prompts, summaries) are received
+    // Dynamically sync messages whenever background alerts (streak prompts, summaries) are received or updated
     LaunchedEffect(persistedFlowMessages) {
         if (persistedFlowMessages.isNotEmpty()) {
-            val existingIds = messages.map { it.id }.toSet()
-            val newIncoming = persistedFlowMessages.filter { it.id !in existingIds }
-            if (newIncoming.isNotEmpty()) {
-                val mapped = newIncoming.map { it.toChatMessage() }
-                messages = messages + mapped
+            val incomingIds = persistedFlowMessages.map { it.id }.toSet()
+            val existingMap = messages.associateBy { it.id }
+            var changed = false
+            val merged = mutableListOf<ChatMessage>()
+
+            // Update existing or preserve in order
+            for (pMsg in persistedFlowMessages) {
+                val existing = existingMap[pMsg.id]
+                val converted = pMsg.toChatMessage()
+                if (existing == null) {
+                    merged.add(converted)
+                    changed = true
+                } else if (existing.text != converted.text ||
+                           existing.streakPromptJson != converted.streakPromptJson ||
+                           existing.drillSummaryJson != converted.drillSummaryJson ||
+                           existing.taskSummaryJson != converted.taskSummaryJson ||
+                           existing.vocabJson != converted.vocabJson ||
+                           existing.habitsSummaryJson != converted.habitsSummaryJson) {
+                    merged.add(converted)
+                    changed = true
+                } else {
+                    merged.add(existing)
+                }
             }
+
+            // Include any locally dispatched user messages not yet committed to persistence
+            for (msg in messages) {
+                if (msg.id !in incomingIds && msg.isUser) {
+                    merged.add(msg)
+                }
+            }
+
+            if (changed || merged.size != messages.size) {
+                messages = merged
+            }
+        } else if (messages.isNotEmpty() && messages.none { it.isUser }) {
+            // Background cleared the stream
+            val welcome = ChatMessage(
+                id = "welcome_${System.currentTimeMillis()}",
+                text = com.focusbyrj.app.util.AyvaDialogueEngine.getHelloWelcomeMessage(context),
+                isUser = false,
+                timestamp = System.currentTimeMillis()
+            )
+            messages = listOf(welcome)
         }
     }
 
@@ -715,8 +753,10 @@ fun ChatInterface() {
             val userMsg = ChatMessage(System.currentTimeMillis().toString(), textToSendOriginal, true)
             messages = messages + userMsg
             var sentText = textToSend
-            val finalTitle = parsedResult?.cleanText?.takeIf { it.isNotBlank() && overrideText == null } ?: sentText
-            val dueDate = parsedResult?.timestamp
+            val effectiveParsed = SmartDateParser.parse(textToSendOriginal)
+            val finalTitle = effectiveParsed.cleanText.takeIf { it.isNotBlank() } ?: sentText
+            val dueDate = effectiveParsed.timestamp
+            val detectedRecurrence = effectiveParsed.recurrence
             
             val wasPriority = isHighPriority
             val wasPersistent = isPersistent
@@ -960,10 +1000,12 @@ fun ChatInterface() {
                                     val parsed = SmartDateParser.parse(rawTaskContent)
                                     val taskTitle = parsed.cleanText.ifBlank { rawTaskContent }
                                     val tDueDate = parsed.timestamp
+                                    val tRecurrence = parsed.recurrence
                                     val tTask = Task(
                                         title = taskTitle,
                                         isPriority = wasPriority,
                                         isPersistent = wasPersistent,
+                                        recurrence = tRecurrence,
                                         dueDate = tDueDate
                                     )
                                     val createdId = repo.insertTask(tTask)
@@ -972,13 +1014,14 @@ fun ChatInterface() {
 
                                     withContext(Dispatchers.Main) {
                                         val dueStr = if (tDueDate != null) SmartDateParser.formatDueDate(tDueDate) else null
+                                        val recStr = if (tRecurrence != com.focusbyrj.app.data.RecurrencePattern.NONE) tRecurrence.name.lowercase() else null
                                         val confirmationText = com.focusbyrj.app.util.AyvaDialogueEngine.getTaskAddedResponse(
                                             context = context,
                                             title = taskTitle,
                                             isPriority = wasPriority,
                                             hasDueDate = tDueDate != null,
                                             dueDateStr = dueStr,
-                                            attrStr = null
+                                            attrStr = recStr
                                         )
                                         messages = messages + ChatMessage(
                                             id = "bot_${java.util.UUID.randomUUID()}",
@@ -1472,6 +1515,7 @@ fun ChatInterface() {
                     title = finalTitle,
                     isPriority = wasPriority,
                     isPersistent = wasPersistent,
+                    recurrence = detectedRecurrence,
                     dueDate = dueDate
                 )
                 val newId = repo.insertTask(newTask)
@@ -1482,15 +1526,18 @@ fun ChatInterface() {
                     val attrs = mutableListOf<String>()
                     if (wasPriority) attrs.add("priority")
                     if (wasPersistent) attrs.add("persistent")
+                    if (detectedRecurrence != com.focusbyrj.app.data.RecurrencePattern.NONE) {
+                        attrs.add(detectedRecurrence.name.lowercase())
+                    }
                     
                     val attrStr = if (attrs.isNotEmpty()) attrs.joinToString(" and ") else null
-                    val dueStr = if (parsedResult?.timestamp != null) SmartDateParser.formatDueDate(dueDate) else null
+                    val dueStr = if (dueDate != null) SmartDateParser.formatDueDate(dueDate) else null
                     
                     val confirmationText = com.focusbyrj.app.util.AyvaDialogueEngine.getTaskAddedResponse(
                         context = context,
                         title = finalTitle,
                         isPriority = wasPriority,
-                        hasDueDate = parsedResult?.timestamp != null,
+                        hasDueDate = dueDate != null,
                         dueDateStr = dueStr,
                         attrStr = attrStr
                     )
@@ -2724,6 +2771,7 @@ fun ChatBubble(
                                 vocabJson = message.vocabJson,
                                 fontSizeSp = fontSizeSp,
                                 isLearnMoreSession = isLearnMoreSession,
+                                messageId = message.id,
                                 onLearnMoreClick = {
                                     onQueryClick?.invoke("/vocab learn_more")
                                 },

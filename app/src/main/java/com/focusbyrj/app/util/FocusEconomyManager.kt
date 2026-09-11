@@ -50,7 +50,7 @@ object FocusEconomyManager {
     val economyEvents = _economyEvents.asSharedFlow()
 
     private fun emitEvent(event: EconomyEvent) {
-        GlobalScope.launch { _economyEvents.emit(event) }
+        _economyEvents.tryEmit(event)
     }
 
     private val _profileFlow = MutableStateFlow(
@@ -381,6 +381,40 @@ object FocusEconomyManager {
         return Pair(baseXp, finalGold)
     }
 
+    fun uncompleteTaskReward(
+        isPriority: Boolean,
+        type: com.focusbyrj.app.data.TaskType = com.focusbyrj.app.data.TaskType.TASK
+    ) {
+        val p = prefs ?: return
+
+        val baseXp = when {
+            isPriority -> 60
+            type != com.focusbyrj.app.data.TaskType.TASK -> 40
+            else -> 30
+        }
+        val baseGold = when {
+            isPriority -> 30
+            type != com.focusbyrj.app.data.TaskType.TASK -> 20
+            else -> 15
+        }
+
+        val currentLevel = _profileFlow.value.level
+        val goldMultiplier = getGoldMultiplier(currentLevel)
+        val finalGold = max(1, (baseGold * goldMultiplier).toInt())
+
+        val pXp = _profileFlow.value.pendingXp
+        val pGold = _profileFlow.value.pendingGold
+        val currentTasks = _profileFlow.value.lifetimeTasksCompleted
+
+        p.edit()
+            .putInt("pending_xp", max(0, pXp - baseXp))
+            .putInt("pending_gold", max(0, pGold - finalGold))
+            .putInt("lifetime_tasks_completed", max(0, currentTasks - 1))
+            .apply()
+
+        loadProfile()
+    }
+
     fun addResist() {
         prefs?.let { p ->
             val current = _profileFlow.value.lifetimeResists
@@ -404,9 +438,9 @@ object FocusEconomyManager {
             
             val oldLongest = _profileFlow.value.longestStreak
             if (longest > oldLongest) {
-                if (longest == 3 && oldLongest < 3) newGold += 100
-                if (longest == 7 && oldLongest < 7) newGold += 500
-                if (longest == 30 && oldLongest < 30) newGold += 5000
+                if (longest >= 3 && oldLongest < 3) newGold += 100
+                if (longest >= 7 && oldLongest < 7) newGold += 500
+                if (longest >= 30 && oldLongest < 30) newGold += 5000
             }
             
             
@@ -426,23 +460,21 @@ object FocusEconomyManager {
     fun incrementStreak() {
         prefs?.let { p ->
             val newStreak = _profileFlow.value.currentStreak + 1
-            var longest = _profileFlow.value.longestStreak
-            if (newStreak > longest) {
-                longest = newStreak
-            }
+            val oldLongest = _profileFlow.value.longestStreak
+            val newLongest = maxOf(oldLongest, newStreak)
             
             var goldBonus = 0
-            when (newStreak) {
-                3 -> goldBonus = 100
-                7 -> goldBonus = 500
-                30 -> goldBonus = 5000
+            if (newLongest > oldLongest) {
+                if (newLongest >= 3 && oldLongest < 3) goldBonus += 100
+                if (newLongest >= 7 && oldLongest < 7) goldBonus += 500
+                if (newLongest >= 30 && oldLongest < 30) goldBonus += 5000
             }
             
             val pGold = _profileFlow.value.pendingGold
             
             p.edit()
                 .putInt("current_streak", newStreak)
-                .putInt("longest_streak", longest)
+                .putInt("longest_streak", newLongest)
                 .putInt("pending_gold", pGold + goldBonus)
                 .apply()
             loadProfile()

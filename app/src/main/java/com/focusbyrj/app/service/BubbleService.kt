@@ -106,6 +106,8 @@ class BubbleService : Service() {
         const val ACTION_RESTORE_FROM_PERMISSION = "com.focusbyrj.app.RESTORE_FROM_PERMISSION"
         const val ACTION_SNOOZE_BUBBLE = "com.focusbyrj.app.SNOOZE_BUBBLE"
         const val ACTION_RESUME_BUBBLE = "com.focusbyrj.app.RESUME_BUBBLE"
+        const val ACTION_SHOW_ALERT_PREVIEW = "com.focusbyrj.app.SHOW_ALERT_PREVIEW"
+        const val EXTRA_ALERT_TEXT = "extra_alert_text"
 
         const val PREFS_KEY_SNOOZED_UNTIL = "bubble_snoozed_until"
         const val DEFAULT_SNOOZE_DURATION_MS = 10 * 60 * 1000L // 10 minutes
@@ -198,6 +200,15 @@ class BubbleService : Service() {
                 ACTION_SETTINGS_CHANGED -> {
                     applyBubbleStyleSettings()
                 }
+                ACTION_SHOW_ALERT_PREVIEW -> {
+                    val alertText = intent?.getStringExtra(EXTRA_ALERT_TEXT)
+                    if (!alertText.isNullOrBlank()) {
+                        clearSnooze(this@BubbleService)
+                        addBubbleToWindowManager()
+                        unpeekBubble(animate = false)
+                        showNotificationPreviewPill(alertText)
+                    }
+                }
                 Intent.ACTION_USER_PRESENT, Intent.ACTION_SCREEN_ON -> {
                     if (!isChatOpen && !isSnoozed(this@BubbleService) && !isHiddenForPermission) {
                         addBubbleToWindowManager()
@@ -218,6 +229,15 @@ class BubbleService : Service() {
             ACTION_RESUME_BUBBLE -> resumeBubble()
             ACTION_HIDE_FOR_PERMISSION -> hideForPermission()
             ACTION_RESTORE_FROM_PERMISSION -> restoreFromPermission()
+            ACTION_SHOW_ALERT_PREVIEW -> {
+                val alertText = intent.getStringExtra(EXTRA_ALERT_TEXT)
+                if (!alertText.isNullOrBlank()) {
+                    clearSnooze(this)
+                    addBubbleToWindowManager()
+                    unpeekBubble(animate = false)
+                    showNotificationPreviewPill(alertText)
+                }
+            }
         }
         return START_STICKY
     }
@@ -237,6 +257,7 @@ class BubbleService : Service() {
             addAction(ACTION_RESTORE_FROM_PERMISSION)
             addAction(ACTION_SNOOZE_BUBBLE)
             addAction(ACTION_RESUME_BUBBLE)
+            addAction(ACTION_SHOW_ALERT_PREVIEW)
             addAction(BubbleChatManager.ACTION_UNREAD_COUNT_CHANGED)
             addAction(ACTION_SETTINGS_CHANGED)
             addAction(Intent.ACTION_USER_PRESENT)
@@ -737,7 +758,7 @@ class BubbleService : Service() {
             .replace(Regex("\n+"), " ")
             .trim()
 
-        val displayText = if (cleanText.length > 60) cleanText.take(57) + "…" else cleanText
+        val displayText = if (cleanText.length > 140) cleanText.take(137) + "…" else cleanText
         if (displayText.isEmpty()) return
 
         val displayMetrics = resources.displayMetrics
@@ -832,9 +853,9 @@ class BubbleService : Service() {
             .setInterpolator(android.view.animation.OvershootInterpolator(1.25f))
             .start()
 
-        // Auto-dismiss after 6 seconds
+        // Auto-dismiss after 8.5 seconds for comfortable reading
         previewDismissHandler.removeCallbacks(previewDismissRunnable)
-        previewDismissHandler.postDelayed(previewDismissRunnable, 6000L)
+        previewDismissHandler.postDelayed(previewDismissRunnable, 8500L)
     }
 
     private fun dismissPreviewPill(animated: Boolean) {
@@ -1331,7 +1352,7 @@ class MessengerBubbleNotificationView(context: Context) : FrameLayout(context) {
     private val bodyTextView = TextView(context).apply {
         textSize = 13.5f
         typeface = android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.NORMAL)
-        maxLines = 2
+        maxLines = 3
         ellipsize = android.text.TextUtils.TruncateAt.END
     }
 

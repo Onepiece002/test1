@@ -54,14 +54,14 @@ object HabitAlarmScheduler {
         return (500_000L + (habitId % 400_000L)).toInt()
     }
 
-    fun scheduleHabitReminder(context: Context, habit: Habit) {
+    fun scheduleHabitReminder(context: Context, habit: Habit, lastCompletedTimestamp: Long? = null) {
         if (!habit.isReminderEnabled || habit.isArchived) {
             cancelHabitReminder(context, habit.id)
             return
         }
 
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
-        val nextTriggerTime = calculateNextTriggerTime(habit) ?: return
+        val nextTriggerTime = calculateNextTriggerTime(habit, lastCompletedTimestamp) ?: return
 
         val pendingIntent = getPendingIntent(context, habit.id, getRequestCode(habit.id))
 
@@ -113,6 +113,8 @@ object HabitAlarmScheduler {
             } else {
                 alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
             }
+        } catch (e: SecurityException) {
+            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -142,7 +144,7 @@ object HabitAlarmScheduler {
     /**
      * Computes next timestamp in epoch milliseconds.
      */
-    fun calculateNextTriggerTime(habit: Habit): Long? {
+    fun calculateNextTriggerTime(habit: Habit, lastCompletedTimestamp: Long? = null): Long? {
         val now = System.currentTimeMillis()
 
         return when (habit.type) {
@@ -175,27 +177,69 @@ object HabitAlarmScheduler {
                 }
 
                 val intervalMs = (habit.totalIntervalMinutes.coerceAtLeast(5) * 60 * 1000L)
+                val isOvernight = habit.windowEndHour < habit.windowStartHour ||
+                        (habit.windowEndHour == habit.windowStartHour && habit.windowEndMinute <= habit.windowStartMinute)
 
-                when {
-                    // Before window starts today
-                    now < todayStartCal.timeInMillis -> {
-                        todayStartCal.timeInMillis
-                    }
-                    // Inside active window
-                    now in todayStartCal.timeInMillis..todayEndCal.timeInMillis -> {
-                        val nextInterval = now + intervalMs
-                        if (nextInterval <= todayEndCal.timeInMillis) {
-                            nextInterval
-                        } else {
-                            // Next interval would exceed window end, roll over to tomorrow's window start
+                // If user logged recently within today's window, anchor next interval from that completion
+                val anchorTime = if (lastCompletedTimestamp != null && lastCompletedTimestamp in (now - intervalMs)..now) {
+                    lastCompletedTimestamp
+                } else {
+                    now
+                }
+
+                if (!isOvernight) {
+                    when {
+                        // Before window starts today
+                        now < todayStartCal.timeInMillis -> {
+                            todayStartCal.timeInMillis
+                        }
+                        // Inside active window
+                        now in todayStartCal.timeInMillis..todayEndCal.timeInMillis -> {
+                            val nextInterval = (anchorTime + intervalMs).coerceAtLeast(now + 60_000L)
+                            if (nextInterval <= todayEndCal.timeInMillis) {
+                                nextInterval
+                            } else {
+                                // Next interval would exceed window end, roll over to tomorrow's window start
+                                todayStartCal.add(Calendar.DAY_OF_YEAR, 1)
+                                todayStartCal.timeInMillis
+                            }
+                        }
+                        // After window ends today
+                        else -> {
                             todayStartCal.add(Calendar.DAY_OF_YEAR, 1)
                             todayStartCal.timeInMillis
                         }
                     }
-                    // After window ends today
-                    else -> {
-                        todayStartCal.add(Calendar.DAY_OF_YEAR, 1)
-                        todayStartCal.timeInMillis
+                } else {
+                    // Overnight window: e.g. 22:00 to 06:00
+                    when {
+                        // Currently in the early morning portion of the window (e.g. 03:00, before 06:00)
+                        now <= todayEndCal.timeInMillis -> {
+                            val nextInterval = now + intervalMs
+                            if (nextInterval <= todayEndCal.timeInMillis) {
+                                nextInterval
+                            } else {
+                                // Exceeds morning window end, rolls to today's start at 22:00
+                                todayStartCal.timeInMillis
+                            }
+                        }
+                        // Currently in daytime gap (e.g. 14:00, between 06:00 and 22:00)
+                        now < todayStartCal.timeInMillis -> {
+                            todayStartCal.timeInMillis
+                        }
+                        // Currently in evening portion of the window (e.g. 23:00, after 22:00)
+                        else -> {
+                            val tomorrowEndCal = (todayEndCal.clone() as Calendar).apply {
+                                add(Calendar.DAY_OF_YEAR, 1)
+                            }
+                            val nextInterval = now + intervalMs
+                            if (nextInterval <= tomorrowEndCal.timeInMillis) {
+                                nextInterval
+                            } else {
+                                todayStartCal.add(Calendar.DAY_OF_YEAR, 1)
+                                todayStartCal.timeInMillis
+                            }
+                        }
                     }
                 }
             }

@@ -1027,26 +1027,26 @@ fun HabitEditorBottomSheet(
         focusManager.clearFocus()
         keyboardController?.hide()
     }
-    var title by remember { mutableStateOf(habit?.title ?: "") }
-    var description by remember { mutableStateOf(habit?.description ?: "") }
-    var iconEmoji by remember { mutableStateOf(habit?.iconEmoji ?: "🥤") }
-    var colorHex by remember { mutableStateOf(habit?.colorHex ?: "#0284C7") }
-    var type by remember { mutableStateOf(habit?.type ?: HabitType.INTERVAL_WINDOW) }
-    var targetPerDay by remember { mutableIntStateOf(habit?.targetPerDay ?: 6) }
+    var title by remember(habit) { mutableStateOf(habit?.title ?: "") }
+    var description by remember(habit) { mutableStateOf(habit?.description ?: "") }
+    var iconEmoji by remember(habit) { mutableStateOf(habit?.iconEmoji ?: "🥤") }
+    var colorHex by remember(habit) { mutableStateOf(habit?.colorHex ?: "#0284C7") }
+    var type by remember(habit) { mutableStateOf(habit?.type ?: HabitType.INTERVAL_WINDOW) }
+    var targetPerDay by remember(habit) { mutableIntStateOf(habit?.targetPerDay ?: 6) }
 
-    var windowStartHour by remember { mutableIntStateOf(habit?.windowStartHour ?: 8) }
-    var windowStartMinute by remember { mutableIntStateOf(habit?.windowStartMinute ?: 0) }
-    var windowEndHour by remember { mutableIntStateOf(habit?.windowEndHour ?: 20) }
-    var windowEndMinute by remember { mutableIntStateOf(habit?.windowEndMinute ?: 0) }
+    var windowStartHour by remember(habit) { mutableIntStateOf(habit?.windowStartHour ?: 8) }
+    var windowStartMinute by remember(habit) { mutableIntStateOf(habit?.windowStartMinute ?: 0) }
+    var windowEndHour by remember(habit) { mutableIntStateOf(habit?.windowEndHour ?: 20) }
+    var windowEndMinute by remember(habit) { mutableIntStateOf(habit?.windowEndMinute ?: 0) }
 
     val activeWindowMinutes by remember {
         derivedStateOf {
             val startMins = windowStartHour * 60 + windowStartMinute
             val endMins = windowEndHour * 60 + windowEndMinute
             if (endMins > startMins) {
-                endMins - startMins
+                (endMins - startMins).coerceAtLeast(30)
             } else {
-                (24 * 60 - startMins + endMins).coerceAtLeast(15)
+                (24 * 60 - startMins + endMins).coerceAtLeast(30)
             }
         }
     }
@@ -1054,11 +1054,11 @@ fun HabitEditorBottomSheet(
     val initialIntervalMins = habit?.let { it.intervalHours * 60 + it.intervalMinutes }
         ?: ((if (20 > 8) (20 - 8) * 60 else 12 * 60) / 6) // default 120m = 2h
 
-    var intervalHours by remember { mutableIntStateOf(initialIntervalMins / 60) }
-    var intervalMinutes by remember { mutableIntStateOf(initialIntervalMins % 60) }
+    var intervalHours by remember(habit) { mutableIntStateOf(initialIntervalMins / 60) }
+    var intervalMinutes by remember(habit) { mutableIntStateOf(initialIntervalMins % 60) }
 
-    var fixedHour by remember { mutableIntStateOf(habit?.fixedReminderHour ?: 9) }
-    var fixedMinute by remember { mutableIntStateOf(habit?.fixedReminderMinute ?: 0) }
+    var fixedHour by remember(habit) { mutableIntStateOf(habit?.fixedReminderHour ?: 9) }
+    var fixedMinute by remember(habit) { mutableIntStateOf(habit?.fixedReminderMinute ?: 0) }
 
     fun autoSplitInterval(target: Int) {
         val totalWin = activeWindowMinutes
@@ -1082,10 +1082,11 @@ fun HabitEditorBottomSheet(
             val prev = ((currentTotal - 1) / step) * step
             prev.coerceAtLeast(15)
         }
-        val clamped = targetStep.coerceIn(15, activeWindowMinutes)
+        val safeWindow = activeWindowMinutes.coerceAtLeast(30)
+        val clamped = targetStep.coerceIn(15, safeWindow)
         intervalHours = clamped / 60
         intervalMinutes = clamped % 60
-        targetPerDay = (activeWindowMinutes / clamped).coerceIn(1, 24)
+        targetPerDay = (safeWindow / clamped).coerceIn(1, 24)
     }
 
     var selectedCategoryIndex by remember { mutableIntStateOf(0) }

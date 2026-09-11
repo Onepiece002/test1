@@ -132,6 +132,7 @@ object HabitFloatingOverlayManager {
             try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(appContext)) {
                     Log.d(TAG, "Overlay permission not granted; fallback to notification.")
+                    UnifiedOverlayCoordinator.onOverlayDismissed(appContext)
                     return@post
                 }
 
@@ -140,7 +141,10 @@ object HabitFloatingOverlayManager {
                 }
 
                 currentHabitId = habit.id
-                val wm = appContext.getSystemService(Context.WINDOW_SERVICE) as? WindowManager ?: return@post
+                val wm = appContext.getSystemService(Context.WINDOW_SERVICE) as? WindowManager ?: run {
+                    UnifiedOverlayCoordinator.onOverlayDismissed(appContext)
+                    return@post
+                }
                 windowManager = wm
 
                 val density = appContext.resources.displayMetrics.density
@@ -206,6 +210,7 @@ object HabitFloatingOverlayManager {
 
             } catch (e: Exception) {
                 Log.e(TAG, "Error displaying habit floating overlay", e)
+                UnifiedOverlayCoordinator.onOverlayDismissed(appContext)
             }
         }
     }

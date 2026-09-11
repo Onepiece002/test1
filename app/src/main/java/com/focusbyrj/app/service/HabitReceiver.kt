@@ -238,7 +238,7 @@ class HabitReceiver : BroadcastReceiver() {
                     }
 
                     val builder = NotificationCompat.Builder(appContext, CHANNEL_ID)
-                        .setSmallIcon(R.mipmap.ic_launcher_round)
+                        .setSmallIcon(R.drawable.ic_app_logo)
                         .setContentTitle("${habit.iconEmoji} ${habit.title}")
                         .setContentText(progressText)
                         .setStyle(NotificationCompat.DecoratedCustomViewStyle())
@@ -258,15 +258,34 @@ class HabitReceiver : BroadcastReceiver() {
                     notificationManager.notify(notificationId, builder.build())
 
                     // Clean group summary for expandable notification drawer
-                    val summaryNotification = NotificationCompat.Builder(appContext, CHANNEL_ID)
-                        .setSmallIcon(R.mipmap.ic_launcher_round)
-                        .setStyle(NotificationCompat.InboxStyle().setSummaryText("Habit Reminders"))
-                        .setGroup(HABITS_GROUP_KEY)
-                        .setGroupSummary(true)
-                        .setAutoCancel(true)
-                        .setPriority(NotificationCompat.PRIORITY_LOW)
-                        .build()
-                    notificationManager.notify(HABITS_SUMMARY_ID, summaryNotification)
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                        val activeNotifs = notificationManager.activeNotifications ?: emptyArray()
+                        val activeHabits = activeNotifs.filter {
+                            it.id != HABITS_SUMMARY_ID && it.notification.group == HABITS_GROUP_KEY
+                        }
+                        if (activeHabits.size >= 2) {
+                            val inboxStyle = NotificationCompat.InboxStyle().setSummaryText("Habit Reminders")
+                            activeHabits.take(5).forEach {
+                                val t = it.notification.extras?.getCharSequence(NotificationCompat.EXTRA_TITLE)
+                                if (!t.isNullOrBlank()) {
+                                    inboxStyle.addLine(t)
+                                }
+                            }
+                            val summaryNotification = NotificationCompat.Builder(appContext, CHANNEL_ID)
+                                .setSmallIcon(R.drawable.ic_app_logo)
+                                .setContentTitle("Habit Reminders")
+                                .setContentText("${activeHabits.size} habits scheduled")
+                                .setStyle(inboxStyle)
+                                .setGroup(HABITS_GROUP_KEY)
+                                .setGroupSummary(true)
+                                .setAutoCancel(true)
+                                .setPriority(NotificationCompat.PRIORITY_LOW)
+                                .build()
+                            notificationManager.notify(HABITS_SUMMARY_ID, summaryNotification)
+                        } else {
+                            notificationManager.cancel(HABITS_SUMMARY_ID)
+                        }
+                    }
                 }
 
                 // 2026 Floating Dynamic Island Window Overlay
@@ -279,7 +298,7 @@ class HabitReceiver : BroadcastReceiver() {
                 )
 
                 // Automatically schedule the next interval / occurrence
-                HabitAlarmScheduler.scheduleHabitReminder(appContext, habit)
+                HabitAlarmScheduler.scheduleHabitReminder(appContext, habit, todayLog?.lastCompletedTimestamp)
 
             } catch (e: Exception) {
                 e.printStackTrace()

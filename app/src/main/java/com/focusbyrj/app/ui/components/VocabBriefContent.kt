@@ -16,12 +16,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import org.json.JSONObject
+import java.util.Collections
+
+private val processedVocabCardIds = Collections.synchronizedSet(mutableSetOf<String>())
 
 @Composable
 fun VocabBriefContent(
     vocabJson: String,
     fontSizeSp: Float,
     isLearnMoreSession: Boolean,
+    messageId: String? = null,
     onLearnMoreClick: () -> Unit,
     onQuizClick: () -> Unit
 ) {
@@ -47,7 +51,13 @@ fun VocabBriefContent(
     val revOwsObj = jsonObj.optJSONObject("rev_ows")
 
     // Confirm words learned and cycle revision items when the user actually views this card
-    LaunchedEffect(vocabJson) {
+    // Guarded to only execute once per card instance so scrolling chat list does not bump spaced repetition repeatedly
+    LaunchedEffect(vocabJson, messageId) {
+        val cardKey = messageId ?: vocabJson.hashCode().toString()
+        if (!processedVocabCardIds.add(cardKey)) {
+            return@LaunchedEffect
+        }
+
         val idiomId = idiomObj?.optInt("id", -1)?.takeIf { it > 0 }
         val owsId = owsObj?.optInt("id", -1)?.takeIf { it > 0 }
         val revIdiomId = revIdiomObj?.optInt("id", -1)?.takeIf { it > 0 }

@@ -342,21 +342,21 @@ fun CreateRoutineScreen(
 ) {
     val context = LocalContext.current
     val pm = context.packageManager
-    var name by remember { mutableStateOf(scheduleToEdit?.name ?: "Deep Focus") }
-    var startHour by remember { mutableStateOf(scheduleToEdit?.startHour ?: 9) }
-    var startMinute by remember { mutableStateOf(scheduleToEdit?.startMinute ?: 0) }
-    var endHour by remember { mutableStateOf(scheduleToEdit?.endHour ?: 17) }
-    var endMinute by remember { mutableStateOf(scheduleToEdit?.endMinute ?: 0) }
-    var selectedDays by remember { 
+    var name by remember(scheduleToEdit) { mutableStateOf(scheduleToEdit?.name ?: "Deep Focus") }
+    var startHour by remember(scheduleToEdit) { mutableStateOf(scheduleToEdit?.startHour ?: 9) }
+    var startMinute by remember(scheduleToEdit) { mutableStateOf(scheduleToEdit?.startMinute ?: 0) }
+    var endHour by remember(scheduleToEdit) { mutableStateOf(scheduleToEdit?.endHour ?: 17) }
+    var endMinute by remember(scheduleToEdit) { mutableStateOf(scheduleToEdit?.endMinute ?: 0) }
+    var selectedDays by remember(scheduleToEdit) { 
         mutableStateOf(
             scheduleToEdit?.daysOfWeek?.split(",")?.mapNotNull { it.toIntOrNull() }?.toSet() ?: setOf(2,3,4,5,6)
         ) 
     } 
-    var restrictionMode by remember { mutableStateOf(scheduleToEdit?.restrictionMode ?: "SIMPLE") }
-    var timeLimitMinutes by remember { mutableStateOf(if (scheduleToEdit?.timeLimitMinutes != null && scheduleToEdit.timeLimitMinutes > 0) scheduleToEdit.timeLimitMinutes else 15) }
-    var clickLimitCount by remember { mutableStateOf(if (scheduleToEdit?.clickLimitCount != null && scheduleToEdit.clickLimitCount > 0) scheduleToEdit.clickLimitCount.coerceIn(1, 20) else 5) }
-    var mode by remember { mutableStateOf(scheduleToEdit?.mode ?: "HARD") }
-    var appModes by remember { 
+    var restrictionMode by remember(scheduleToEdit) { mutableStateOf(scheduleToEdit?.restrictionMode ?: "SIMPLE") }
+    var timeLimitMinutes by remember(scheduleToEdit) { mutableStateOf(if (scheduleToEdit?.timeLimitMinutes != null && scheduleToEdit.timeLimitMinutes > 0) scheduleToEdit.timeLimitMinutes else 15) }
+    var clickLimitCount by remember(scheduleToEdit) { mutableStateOf(if (scheduleToEdit?.clickLimitCount != null && scheduleToEdit.clickLimitCount > 0) scheduleToEdit.clickLimitCount.coerceIn(1, 20) else 5) }
+    var mode by remember(scheduleToEdit) { mutableStateOf(scheduleToEdit?.mode ?: "HARD") }
+    var appModes by remember(scheduleToEdit) { 
         val initialMap = scheduleToEdit?.appsToBlock?.split(",")?.mapNotNull { 
             val parts = it.split("|")
             if (parts.size > 1) parts[0].trim() to parts[1].trim() else null
@@ -372,7 +372,7 @@ fun CreateRoutineScreen(
         }
         mutableStateOf(validMap)
     }
-    var selectedApps by remember { 
+    var selectedApps by remember(scheduleToEdit) { 
         val initialPkgs = scheduleToEdit?.appsToBlock?.split(",")?.map { it.split("|")[0].trim() }?.filter { it.isNotBlank() } ?: emptyList()
         val validPkgs = initialPkgs.filter { pkg ->
             try {
@@ -458,6 +458,16 @@ fun CreateRoutineScreen(
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     TimePickerBox("Start Time", startHour, startMinute, modifier = Modifier.weight(1f)) { h, m -> startHour = h; startMinute = m }
                     TimePickerBox("End Time", endHour, endMinute, modifier = Modifier.weight(1f)) { h, m -> endHour = h; endMinute = m }
+                }
+                
+                val isSameTime = (startHour * 60 + startMinute) == (endHour * 60 + endMinute)
+                if (isSameTime) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Start time and end time cannot be the same.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
                 }
                 
                 Spacer(modifier = Modifier.height(24.dp))
@@ -585,7 +595,7 @@ fun CreateRoutineScreen(
                         contentColor = MaterialTheme.colorScheme.onPrimary
                     ),
                     shape = RoundedCornerShape(28.dp),
-                    enabled = name.isNotBlank() && selectedDays.isNotEmpty()
+                    enabled = name.isNotBlank() && selectedDays.isNotEmpty() && ((startHour * 60 + startMinute) != (endHour * 60 + endMinute))
                 ) {
                     Text("Save Routine", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
                 }

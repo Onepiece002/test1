@@ -91,18 +91,7 @@ class FocusViewModel(private val repository: AppRepository, application: Applica
 
         for (s in scheds) {
             if (!s.isEnabled) continue
-            val activeDays = s.daysOfWeek.split(",")
-            val isActiveNow = if (activeDays.contains(currentDay.toString())) {
-                val startTotalMinutes = s.startHour * 60 + s.startMinute
-                val endTotalMinutes = s.endHour * 60 + s.endMinute
-                if (startTotalMinutes <= endTotalMinutes) {
-                    currentTotalMinutes in startTotalMinutes..endTotalMinutes
-                } else {
-                    currentTotalMinutes >= startTotalMinutes || currentTotalMinutes <= endTotalMinutes
-                }
-            } else {
-                false
-            }
+            val isActiveNow = s.isActiveAt(calendar)
 
             val entries = s.appsToBlock.split(",").filter { it.isNotBlank() }
             for (entry in entries) {
@@ -222,8 +211,11 @@ class FocusViewModel(private val repository: AppRepository, application: Applica
     }
 
     fun toggleFocusSession() {
-        if (_isSessionActive.value) {
-            timerJob?.cancel()
+        val currentlyActive = _isSessionActive.value
+        timerJob?.cancel()
+        timerJob = null
+
+        if (currentlyActive) {
             _isSessionActive.value = false
             _timeRemaining.value = _initialTime.value
             prefs.edit().putBoolean("isSessionActive", false).apply()
@@ -239,6 +231,7 @@ class FocusViewModel(private val repository: AppRepository, application: Applica
                 
                 while (_timeRemaining.value > 0 && _isSessionActive.value) {
                     kotlinx.coroutines.delay(1000)
+                    if (!_isSessionActive.value) break
                     _timeRemaining.value -= 1
                     secondsAccumulator++
                     statsSecs++
@@ -259,7 +252,7 @@ class FocusViewModel(private val repository: AppRepository, application: Applica
                 if (statsSecs > 0) {
                     com.focusbyrj.app.util.FocusStatsManager.addFocusSessionTime(getApplication(), statsSecs.toLong())
                 }
-                if (_timeRemaining.value == 0L) {
+                if (_timeRemaining.value <= 0L) {
                     _isSessionActive.value = false
                     _timeRemaining.value = _initialTime.value
                     prefs.edit().putBoolean("isSessionActive", false).apply()

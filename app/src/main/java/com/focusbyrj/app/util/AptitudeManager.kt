@@ -187,8 +187,7 @@ object AptitudeManager {
         val newStreak = when {
             lastDate == today -> if (savedStreak <= 0) 1 else savedStreak
             lastDate == yesterday -> savedStreak + 1
-            savedStreak <= 0 -> 1
-            else -> savedStreak + 1
+            else -> 1
         }
         val newLongest = maxOf(longestStreak, newStreak)
 
@@ -424,7 +423,7 @@ object AptitudeManager {
             putInt(KEY_WEEKLY_XP, weeklyXp)
             putBoolean(KEY_WAGER_ACTIVE, wagerActive)
             putInt(KEY_WAGER_DAYS, wagerDays)
-        }?.apply()
+        }
 
         // Report to DailyQuestManager
         DailyQuestManager.recordXpEarned(xpEarned)

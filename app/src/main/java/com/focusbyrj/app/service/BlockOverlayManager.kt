@@ -34,6 +34,11 @@ object BlockOverlayManager {
         private set
 
     fun showBlockScreen(context: Context, packageName: String, quote: String, mode: String) {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            handler.post { showBlockScreen(context, packageName, quote, mode) }
+            return
+        }
+
         if (isShowing && currentPackageName == packageName) return
 
         com.focusbyrj.app.util.FocusStatsManager.addInterception(context)
@@ -418,6 +423,11 @@ object BlockOverlayManager {
     }
 
     fun hideOverlay(context: Context? = null) {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            handler.post { hideOverlay(context) }
+            return
+        }
+
         if (!isShowing && overlayView == null) {
             // If it's the Activity fallback, broadcast the close signal
             if (context != null) {
@@ -432,7 +442,10 @@ object BlockOverlayManager {
         try {
             countdownRunnable?.let { handler.removeCallbacks(it) }
             countdownRunnable = null
-            overlayView?.let { windowManager?.removeView(it) }
+            val viewToRemove = overlayView
+            if (viewToRemove != null && viewToRemove.isAttachedToWindow) {
+                windowManager?.removeView(viewToRemove)
+            }
         } catch (e: Exception) {
             // Ignore
         } finally {

@@ -501,13 +501,21 @@ object AyvaTalkEngine {
             }
         }
 
-        // --- 0.2 PERMISSIONS CHECK INTERCEPT ---
-        if (context != null && (cleanQuery.contains("permission") || cleanQuery.contains("permissions") || cleanQuery == "check permissions" || cleanQuery == "permissions check")) {
+        // --- 0.2 PERMISSIONS & DIAGNOSTIC SELF-HEALING CHECK ---
+        val isPermissionOrDiagnosticQuery = cleanQuery.contains("permission") || cleanQuery.contains("permissions") ||
+                cleanQuery == "check permissions" || cleanQuery == "permissions check" ||
+                cleanQuery.contains("why aren't apps blocking") || cleanQuery.contains("why aren't apps blocked") ||
+                cleanQuery.contains("not blocking") || cleanQuery.contains("app not blocking") ||
+                cleanQuery.contains("why didn't i get my alarm") || cleanQuery.contains("alarm didn't go off") ||
+                cleanQuery.contains("alarm not working") || cleanQuery.contains("reminder not working") ||
+                cleanQuery.contains("diagnose") || cleanQuery == "diagnostics" || cleanQuery == "/diagnose"
+
+        if (context != null && isPermissionOrDiagnosticQuery) {
             val missingPermissions = mutableListOf<String>()
             val actions = mutableListOf<TalkAction>()
             
             if (!PermissionUtils.hasUsageStatsPermission(context)) {
-                missingPermissions.add("Usage Access (App Detection)")
+                missingPermissions.add("Usage Access (App Detection & Telemetry)")
                 actions.add(TalkAction.OpenSystemSetting(android.provider.Settings.ACTION_USAGE_ACCESS_SETTINGS, "Open Usage Access", "⚙️", false))
             }
             if (!PermissionUtils.hasOverlayPermission(context)) {
@@ -519,18 +527,41 @@ object AyvaTalkEngine {
                 actions.add(TalkAction.OpenSystemSetting(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, "Battery Optimization", "⚙️", true))
             }
             if (!PermissionUtils.hasNotificationPermission(context)) {
-                missingPermissions.add("Notifications (Reminders)")
+                missingPermissions.add("Notifications (Reminders & Alarms)")
                 actions.add(TalkAction.OpenSystemSetting(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS, "Notification Settings", "⚙️", true))
             }
+            if (!PermissionUtils.hasExactAlarmPermission(context)) {
+                missingPermissions.add("Alarms & Reminders (Precise Task Timing)")
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                    actions.add(TalkAction.OpenSystemSetting(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, "Exact Alarm Settings", "⏰", true))
+                }
+            }
             
-            val text = if (missingPermissions.isEmpty()) {
-                "✅ **All necessary permissions are granted.** FocusByRj is fully optimized and ready!"
-            } else {
-                "⚠️ **Missing Permissions Detected:**\nYou need to grant the following for app blocking and alerts to work reliably:\n\n" +
-                missingPermissions.joinToString("\n") { "• $it" } +
-                "\n\nTap the buttons below to fix them."
+            val isAlarmSpecific = cleanQuery.contains("alarm") || cleanQuery.contains("reminder")
+            val isBlockSpecific = cleanQuery.contains("block")
+
+            val text = when {
+                missingPermissions.isEmpty() -> {
+                    "✅ **Diagnostic Check Passed: All System Permissions Granted!**\n\n• Usage Access: Granted\n• Display Overlay: Granted\n• Battery Optimization Exemption: Active\n• Notifications: Allowed\n• Exact Alarms: Allowed\n\nEverything is properly configured for instant app shielding and on-time task alarms. ⚡"
+                }
+                isAlarmSpecific -> {
+                    "⏰ **Task Reminder Diagnostic:**\nTo ensure your alarms and task notifications trigger right on time without being delayed by system battery savers, the following need attention:\n\n" +
+                    missingPermissions.joinToString("\n") { "• **$it**" } +
+                    "\n\n_Tap the buttons below to enable them directly:_"
+                }
+                isBlockSpecific -> {
+                    "🛡️ **App Shielding Diagnostic:**\nApps won't be blocked reliably unless both **Usage Access** and **Display Over Other Apps** are allowed. Missing:\n\n" +
+                    missingPermissions.joinToString("\n") { "• **$it**" } +
+                    "\n\n_Tap the buttons below to open the setup screen directly:_"
+                }
+                else -> {
+                    "🔧 **Self-Healing Diagnostics:**\nHere are the system permissions required for FocusByRj to function smoothly:\n\n" +
+                    missingPermissions.joinToString("\n") { "• **$it**" } +
+                    "\n\n_Tap the buttons below to enable missing items:_"
+                }
             }
             val json = serializeActionsJson("permissions", actions)
+            recordTurn(cleanQuery, "permissions")
             return TalkResponse(text, actions, "permissions", json)
         }
 
@@ -652,8 +683,14 @@ object AyvaTalkEngine {
                     val isAdviceQuery = cleanQuery in listOf(
                         "advice", "/advice", "focus advice", "how to focus", "help me focus", "coach", "coaching",
                         "give me advice", "i can't focus", "distracted", "i am distracted", "procrastinating", "tips",
-                        "productivity tip", "focus tip", "focus tips"
-                    ) || cleanQuery.contains("help me focus") || cleanQuery.contains("can't focus")
+                        "productivity tip", "focus tip", "focus tips", "stuck", "i'm stuck", "im stuck",
+                        "tired", "i'm tired", "im tired", "exhausted", "overwhelmed", "i'm overwhelmed", "im overwhelmed",
+                        "can't do this", "too tired"
+                    ) || cleanQuery.contains("help me focus") || cleanQuery.contains("can't focus") ||
+                            cleanQuery.contains("i'm stuck") || cleanQuery.contains("im stuck") ||
+                            cleanQuery.contains("i am stuck") || cleanQuery.contains("i'm tired") ||
+                            cleanQuery.contains("im tired") || cleanQuery.contains("i am tired") ||
+                            cleanQuery.contains("overwhelmed")
                     if (isAdviceQuery) {
                         lastQueriedTopicId = "advice"
                         val tasks = app.taskRepository.allTasks.firstOrNull() ?: emptyList()
@@ -675,13 +712,24 @@ object AyvaTalkEngine {
                             overdueCount = overdueCount
                         )
 
+                        val currentHour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+                        val isLateNight = currentHour >= 22 || currentHour < 5
+
                         val actions = mutableListOf<TalkAction>()
                         if (overdueCount > 0) {
-                            actions.add(TalkAction.AskQuery("/tasks", "⚡ View Overdue"))
+                            actions.add(TalkAction.AskQuery("/tasks", "⚡ View Overdue ($overdueCount)"))
+                            actions.add(TalkAction.AskQuery("/tasks postpone all", "🌙 Push to Tomorrow"))
                         }
-                        actions.add(TalkAction.AskQuery("/breathe", "🫁 Guided Breathing"))
-                        actions.add(TalkAction.AskQuery("/drill", "⚡ Mind Warm-Up"))
-                        actions.add(TalkAction.AskQuery("/screentime", "📱 Screen Time"))
+                        if (isLateNight) {
+                            actions.add(TalkAction.AskQuery("/breathe", "🫁 Calm Breathing"))
+                            actions.add(TalkAction.AskQuery("/screentime", "📱 Screen Time"))
+                        } else {
+                            actions.add(TalkAction.AskQuery("/breathe", "🫁 Guided Breathing"))
+                            if (totalScreenTimeMins > 120) {
+                                actions.add(TalkAction.AskQuery("/screentime", "📱 Screen Time"))
+                            }
+                            actions.add(TalkAction.AskQuery("/tasks", "📋 My Tasks"))
+                        }
 
                         recordTurn(cleanQuery, "advice")
                         return TalkResponse(
@@ -1210,7 +1258,14 @@ object AyvaTalkEngine {
                                     } else null
                                 }
                                 
-                                val matchedApp = installedApps.filter { target.contains(it.name, ignoreCase = true) || OfflineNluEngine.levenshtein(target.lowercase(), it.name.lowercase()) <= 1 }.maxByOrNull { it.name.length }
+                                val matchedApp = installedApps.filter { appInfo ->
+                                    val appNameLower = appInfo.name.lowercase()
+                                    val targetLower = target.lowercase()
+                                    targetLower.contains(appNameLower) ||
+                                    appNameLower.contains(targetLower) ||
+                                    OfflineNluEngine.levenshtein(targetLower, appNameLower) <= 1 ||
+                                    appNameLower.split(Regex("\\s+")).any { part -> part.length > 2 && (part == targetLower || targetLower.contains(part)) }
+                                }.maxByOrNull { it.name.length }
                                 val customCats = CustomCategoryManager.getCategories(context)
                                 val matchedCustomCat = customCats.find { target.contains(it.name, ignoreCase = true) || OfflineNluEngine.levenshtein(target.lowercase(), it.name.lowercase()) <= 1 }
                                 

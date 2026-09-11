@@ -54,6 +54,9 @@ interface HabitDao {
     @Query("SELECT * FROM habit_logs WHERE habitId = :habitId ORDER BY date ASC")
     suspend fun getAllLogsForHabitSync(habitId: Long): List<HabitLog>
 
+    @Query("SELECT * FROM habit_logs ORDER BY date ASC")
+    suspend fun getAllLogsSync(): List<HabitLog>
+
     @Query("SELECT * FROM habit_logs WHERE date = :date")
     suspend fun getAllLogsForDateSync(date: String): List<HabitLog>
 

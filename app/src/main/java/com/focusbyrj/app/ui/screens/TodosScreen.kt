@@ -105,7 +105,13 @@ fun TodosScreen(
             3 -> tasks.filter { it.type != TaskType.TASK } // Occasions
             else -> emptyList()
         }
-        baseList.filter { !it.isCompleted && it.id != pendingDeleteTask?.id }
+        baseList
+            .filter { !it.isCompleted && it.id != pendingDeleteTask?.id }
+            .sortedWith(
+                compareByDescending<Task> { it.isPriority }
+                    .thenBy { it.dueDate ?: Long.MAX_VALUE }
+                    .thenBy { it.id }
+            )
     }
 
     Scaffold(
@@ -185,13 +191,13 @@ fun TodosScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .weight(1f, fill = false)
+                            .weight(1f)
                             .padding(horizontal = 4.dp)
                     ) {
                         LazyColumn(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.fillMaxSize(),
                             verticalArrangement = Arrangement.spacedBy(2.dp),
-                            contentPadding = PaddingValues(top = 4.dp, bottom = 4.dp)
+                            contentPadding = PaddingValues(top = 4.dp, bottom = 96.dp)
                         ) {
                             itemsIndexed(
                                 filteredTasks, 
@@ -228,7 +234,6 @@ fun TodosScreen(
                             }
                         }
                     }
-                    Spacer(modifier = Modifier.height(88.dp))
                 }
             }
             
@@ -319,7 +324,16 @@ fun TodosScreen(
                 }
                 showAddDialog = false
                 editingTask = null
-            }
+            },
+            onDelete = if (editingTask != null) {
+                { taskToDelete ->
+                    pendingDeleteTask?.let { deleted -> viewModel.deleteTask(deleted) }
+                    pendingDeleteTask = taskToDelete
+                    deleteCountdown = 4
+                    showAddDialog = false
+                    editingTask = null
+                }
+            } else null
         )
     }
 }
@@ -650,16 +664,21 @@ fun TaskItem(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddTaskDialog(initialTask: Task? = null, onDismiss: () -> Unit, onSave: (Task) -> Unit) {
-    var title by remember { mutableStateOf(initialTask?.title ?: "") }
-    var details by remember { mutableStateOf(initialTask?.details ?: "") }
-    var type by remember { mutableStateOf(initialTask?.type ?: TaskType.TASK) }
-    var recurrence by remember { mutableStateOf(initialTask?.recurrence ?: RecurrencePattern.NONE) }
-    var userManuallySetRecurrence by remember { mutableStateOf(initialTask?.recurrence != null && initialTask.recurrence != RecurrencePattern.NONE) }
-    var isPersistent by remember { mutableStateOf(initialTask?.isPersistent ?: false) }
-    var isPriority by remember { mutableStateOf(initialTask?.isPriority ?: false) }
-    var manualDueDate by remember { mutableStateOf<Long?>(initialTask?.dueDate) }
-    var userManuallySetDate by remember { mutableStateOf(initialTask?.dueDate != null) }
+fun AddTaskDialog(
+    initialTask: Task? = null, 
+    onDismiss: () -> Unit, 
+    onSave: (Task) -> Unit,
+    onDelete: ((Task) -> Unit)? = null
+) {
+    var title by remember(initialTask) { mutableStateOf(initialTask?.title ?: "") }
+    var details by remember(initialTask) { mutableStateOf(initialTask?.details ?: "") }
+    var type by remember(initialTask) { mutableStateOf(initialTask?.type ?: TaskType.TASK) }
+    var recurrence by remember(initialTask) { mutableStateOf(initialTask?.recurrence ?: RecurrencePattern.NONE) }
+    var userManuallySetRecurrence by remember(initialTask) { mutableStateOf(initialTask?.recurrence != null && initialTask.recurrence != RecurrencePattern.NONE) }
+    var isPersistent by remember(initialTask) { mutableStateOf(initialTask?.isPersistent ?: false) }
+    var isPriority by remember(initialTask) { mutableStateOf(initialTask?.isPriority ?: false) }
+    var manualDueDate by remember(initialTask) { mutableStateOf<Long?>(initialTask?.dueDate) }
+    var userManuallySetDate by remember(initialTask) { mutableStateOf(initialTask?.dueDate != null) }
     
     val parsedResult = remember(title, userManuallySetDate) {
         if (!userManuallySetDate && title.isNotBlank()) SmartDateParser.parse(title) else null
@@ -707,8 +726,9 @@ fun AddTaskDialog(initialTask: Task? = null, onDismiss: () -> Unit, onSave: (Tas
                     onClick = {
                         val finalTitle = parsedResult?.cleanText?.takeIf { it.isNotBlank() } ?: title
                         if (finalTitle.isNotBlank()) {
+                            val base = initialTask ?: Task(title = finalTitle)
                             onSave(
-                                Task(
+                                base.copy(
                                     title = finalTitle, 
                                     details = details, 
                                     dueDate = effectiveDueDate, 
@@ -825,37 +845,56 @@ fun AddTaskDialog(initialTask: Task? = null, onDismiss: () -> Unit, onSave: (Tas
                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium), 
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                TextButton(
-                    onClick = {
-                        DatePickerDialog(
-                            context,
-                            { _, year, month, dayOfMonth ->
-                                calendar.set(year, month, dayOfMonth)
-                                TimePickerDialog(
-                                    context,
-                                    { _, hourOfDay, minute ->
-                                        calendar.set(Calendar.HOUR_OF_DAY, hourOfDay)
-                                        calendar.set(Calendar.MINUTE, minute)
-                                        calendar.set(Calendar.SECOND, 0)
-                                        manualDueDate = calendar.timeInMillis
-                                        userManuallySetDate = true
-                                    },
-                                    calendar.get(Calendar.HOUR_OF_DAY),
-                                    calendar.get(Calendar.MINUTE),
-                                    false
-                                ).show()
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (effectiveDueDate != null) {
+                        IconButton(
+                            onClick = {
+                                manualDueDate = null
+                                userManuallySetDate = true
                             },
-                            calendar.get(Calendar.YEAR),
-                            calendar.get(Calendar.MONTH),
-                            calendar.get(Calendar.DAY_OF_MONTH)
-                        ).show()
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Close,
+                                contentDescription = "Clear Due Date",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(4.dp))
                     }
-                ) {
-                    Text(
-                        text = if (effectiveDueDate == null) "Set Time" else SmartDateParser.formatDueDate(effectiveDueDate),
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (parsedResult?.timestamp != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary
-                    )
+                    TextButton(
+                        onClick = {
+                            DatePickerDialog(
+                                context,
+                                { _, year, month, dayOfMonth ->
+                                    calendar.set(year, month, dayOfMonth)
+                                    TimePickerDialog(
+                                        context,
+                                        { _, hourOfDay, minute ->
+                                            calendar.set(Calendar.HOUR_OF_DAY, hourOfDay)
+                                            calendar.set(Calendar.MINUTE, minute)
+                                            calendar.set(Calendar.SECOND, 0)
+                                            manualDueDate = calendar.timeInMillis
+                                            userManuallySetDate = true
+                                        },
+                                        calendar.get(Calendar.HOUR_OF_DAY),
+                                        calendar.get(Calendar.MINUTE),
+                                        false
+                                    ).show()
+                                },
+                                calendar.get(Calendar.YEAR),
+                                calendar.get(Calendar.MONTH),
+                                calendar.get(Calendar.DAY_OF_MONTH)
+                            ).show()
+                        }
+                    ) {
+                        Text(
+                            text = if (effectiveDueDate == null) "Set Time" else SmartDateParser.formatDueDate(effectiveDueDate),
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
             }
             
@@ -915,6 +954,33 @@ fun AddTaskDialog(initialTask: Task? = null, onDismiss: () -> Unit, onSave: (Tas
                     checked = isPersistent, 
                     onCheckedChange = { isPersistent = it }
                 )
+            }
+            
+            if (initialTask != null && onDelete != null) {
+                Spacer(modifier = Modifier.height(24.dp))
+                OutlinedButton(
+                    onClick = { onDelete(initialTask) },
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp, 
+                        MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Delete,
+                        contentDescription = "Delete Task",
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = if (initialTask.recurrence != RecurrencePattern.NONE) "Delete Recurring Task" else "Delete Task",
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
+                    )
+                }
             }
             
 

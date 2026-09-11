@@ -21,6 +21,7 @@ import android.app.AppOpsManager
 import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Process
 import android.provider.Settings
@@ -33,6 +34,51 @@ data class AppUsageData(
 )
 
 object UsageStatsHelper {
+    @Volatile
+    private var cachedUsageMap: Map<String, Long>? = null
+    @Volatile
+    private var lastUsageMapFetchTime: Long = 0L
+    private const val USAGE_MAP_CACHE_TTL_MS = 2500L
+
+    private val homePackagesCache = mutableSetOf<String>()
+    @Volatile
+    private var lastHomePackagesRefreshTime = 0L
+
+    private fun isSystemOrLauncherPackage(context: Context, packageName: String): Boolean {
+        if (packageName.isBlank()) return true
+        if (packageName == context.packageName || packageName == "com.focusbyrj.app") return true
+        if (packageName == "com.android.settings" || packageName == "com.android.systemui" || packageName == "android") return true
+
+        val now = System.currentTimeMillis()
+        if (now - lastHomePackagesRefreshTime > 60_000L || homePackagesCache.isEmpty()) {
+            lastHomePackagesRefreshTime = now
+            homePackagesCache.clear()
+            kotlin.runCatching {
+                val intent = Intent(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_HOME) }
+                val resolves = context.packageManager.queryIntentActivities(intent, PackageManager.MATCH_ALL)
+                for (info in resolves) {
+                    info.activityInfo?.packageName?.let { homePackagesCache.add(it) }
+                }
+            }
+        }
+
+        if (homePackagesCache.contains(packageName)) return true
+
+        val lower = packageName.lowercase()
+        return lower.contains("launcher") ||
+                lower.contains("quickstep") ||
+                lower.contains("trebuchet") ||
+                lower.contains("nexuslauncher") ||
+                lower.contains("miui.home") ||
+                lower.contains("sec.android.app.launcher") ||
+                lower.contains("huawei.android.launcher") ||
+                lower.contains("oppo.launcher") ||
+                lower.contains("vivo.launcher") ||
+                lower.contains("transsion.home") ||
+                lower.contains("motorola.launcher") ||
+                lower.contains("oneplus.launcher")
+    }
+
     fun hasUsageStatsPermission(context: Context): Boolean {
         val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
         val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -58,7 +104,15 @@ object UsageStatsHelper {
         context.startActivity(intent)
     }
 
-    fun getTodayUsageMap(context: Context): Map<String, Long> {
+    fun getTodayUsageMap(context: Context, forceRefresh: Boolean = false): Map<String, Long> {
+        val nowMs = System.currentTimeMillis()
+        if (!forceRefresh) {
+            val cached = cachedUsageMap
+            if (cached != null && (nowMs - lastUsageMapFetchTime) < USAGE_MAP_CACHE_TTL_MS) {
+                return cached
+            }
+        }
+
         val usm = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager ?: return emptyMap()
         val calendar = Calendar.getInstance().apply {
             set(Calendar.HOUR_OF_DAY, 0)
@@ -75,7 +129,7 @@ object UsageStatsHelper {
         kotlin.runCatching {
             val aggregated = usm.queryAndAggregateUsageStats(startTime, endTime)
             for ((pkg, stats) in aggregated) {
-                if (stats.totalTimeInForeground > 0L) {
+                if (stats.totalTimeInForeground > 0L && !isSystemOrLauncherPackage(context, pkg)) {
                     usageMap[pkg] = stats.totalTimeInForeground
                 }
             }
@@ -92,6 +146,7 @@ object UsageStatsHelper {
             while (events.hasNextEvent()) {
                 events.getNextEvent(event)
                 val pkg = event.packageName ?: continue
+                if (isSystemOrLauncherPackage(context, pkg)) continue
                 val type = event.eventType
                 val time = event.timeStamp
 
@@ -136,6 +191,8 @@ object UsageStatsHelper {
             }
         }
 
+        cachedUsageMap = usageMap
+        lastUsageMapFetchTime = nowMs
         return usageMap
     }
 

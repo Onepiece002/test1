@@ -111,17 +111,17 @@ object AyvaDialogueEngine {
         }
 
         // Context: Time of Day
-        if (hour < 6) {
+        if (hour < 5 || hour >= 22) {
             val lateNightQuips = listOf(
-                "${moodPrefix}Adding tasks in the dead of night? I admire the insomnia grind, but get some sleep soon! Logged: \"$title\"$dueSuffix.",
-                "${moodPrefix}Late night inspiration strikes! Locked in \"$title\"$dueSuffix. Now please get some rest! 🌙",
-                "${moodPrefix}Logged \"$title\"$dueSuffix at $hour AM. Future you will either thank you or wonder what you were drinking. 🦉",
-                "${moodPrefix}Got it: \"$title\"$dueSuffix. You're working while the world sleeps — mysterious and productive.",
-                "${moodPrefix}Midnight warrior mode activated. Added \"$title\"$dueSuffix to the queue. ☕"
+                "Logged: \"$title\"$dueSuffix. It's getting late—whenever you're ready, take some time to rest. 🌙",
+                "Saved \"$title\"$dueSuffix. It'll be waiting for you tomorrow. Wishing you a peaceful night. ✨",
+                "Noted: \"$title\"$dueSuffix. Be gentle on yourself tonight and wind down when you can. 🌿",
+                "Added \"$title\"$dueSuffix to your tasks. You've worked hard today; get some rest soon. 🍵",
+                "All recorded: \"$title\"$dueSuffix. Rest well tonight so you wake up refreshed. 🌙"
             )
             return getNextFromDeck(context, "task_late_night", lateNightQuips)
         }
-        if (hour in 6..8) {
+        if (hour in 5..8) {
             val earlyMorningQuips = listOf(
                 "${moodPrefix}Up with the sun and already locking in goals? Respect. Added$attrSuffix: \"$title\"$dueSuffix. 🌅",
                 "${moodPrefix}Early bird getting the worm! \"$title\"$dueSuffix is on today's hit list.",
@@ -220,26 +220,21 @@ object AyvaDialogueEngine {
     // =========================================================================
     fun getRescheduleSuccessResponse(context: Context, taskTitle: String, newDueFormatted: String): String {
         val reschedulePool = listOf(
-            "Shifted '$taskTitle' to $newDueFormatted. Procrastination noted, but handled! 😉",
-            "Moved '$taskTitle' to $newDueFormatted. Strategic tactical retreat! 🎯",
-            "Pushed '$taskTitle' to $newDueFormatted. Fresh timing, fresh energy!",
-            "Rescheduled '$taskTitle' to $newDueFormatted. I won't judge, but future you is keeping score. ⏳",
-            "Bumped '$taskTitle' to $newDueFormatted. Reset your focus and attack it then! ⚡",
-            "Adjusted! '$taskTitle' is now set for $newDueFormatted. Breathe, recharge, conquer.",
-            "Shifted '$taskTitle' to $newDueFormatted. Clean schedule balance restored! 🔄",
-            "Moved to $newDueFormatted for '$taskTitle'. New deadline, zero excuses! 🚀",
-            "Done! '$taskTitle' is rescheduled to $newDueFormatted. Let's make sure it doesn't run away again."
+            "Shifted '$taskTitle' to $newDueFormatted. It'll be ready for you then. ✨",
+            "Moved '$taskTitle' to $newDueFormatted. Take a breath and reset. 🌿",
+            "Pushed '$taskTitle' to $newDueFormatted. Fresh timing set.",
+            "Rescheduled '$taskTitle' to $newDueFormatted. One less thing on your mind right now. ⏳",
+            "Adjusted! '$taskTitle' is now set for $newDueFormatted. Breathe, recharge, and take it step by step."
         )
         return getNextFromDeck(context, "reschedule_success", reschedulePool)
     }
 
     fun getPostponeAllResponse(context: Context, count: Int): String {
         val postponePool = listOf(
-            "Shifted $count items to tomorrow. Declaring a clean slate for tonight! 🚀",
-            "Moved $count tasks to tomorrow. Reset, recharge, and come back swinging in the morning! 🌅",
-            "Pushed $count tasks forward. Tactical reset complete! Tomorrow we feast. ✨",
-            "All $count items moved to tomorrow's roster. Time to rest your brain for now! 🌙",
-            "Waved the magic wand: $count tasks shifted to tomorrow. Don't forget, tomorrow they mean business! 😉"
+            "Shifted $count tasks to tomorrow. Giving you a clean slate for tonight. 🌙",
+            "Moved $count tasks forward. Reset, rest, and tackle them refreshed tomorrow morning. 🌅",
+            "All $count items moved to tomorrow's list. Time to give your mind some well-deserved rest. ✨",
+            "Shifted $count tasks to tomorrow. Enjoy the peace of mind tonight. 🍵"
         )
         return getNextFromDeck(context, "postpone_all", postponePool)
     }
@@ -287,21 +282,20 @@ object AyvaDialogueEngine {
         }
 
         val eveningBriefings = listOf(
-            "🌙 *__Evening Debrief with Ayva__*\n_Wrapping up the day! Here's how we finished:_\n",
-            "🌙 *__Nightly Wrap-Up with Ayva__*\n_Time to review today's scorecard:_\n",
-            "✨ *__Ayva's Evening Reflection__*\n_Here's what got crushed today and what carried over:_\n",
-            "🌙 *__End of Day Check-In__*\n_Let's see where the day landed:_\n"
+            "🌙 *__Evening Check-In with Ayva__*\n_Here is where things stand for today:_\n",
+            "🌙 *__Nightly Wrap-Up__*\n_A quick look at today's tasks so you can close out the evening smoothly:_\n",
+            "✨ *__Evening Reflection__*\n_Here's what you completed today and what's remaining:_\n",
+            "🌙 *__End of Day Overview__*\n_A calm glance at your tasks before heading to rest:_\n"
         )
         return getNextFromDeck(context, "briefing_evening", eveningBriefings)
     }
 
     fun getReschedulePrompt(context: Context): String {
         val prompts = listOf(
-            "_Wanna reschedule any of these, or are we tackling them head-on?_",
-            "_Any of these need to be shifted, or are you locked and loaded?_",
-            "_Need to push anything to later, or are we executing as planned? 😉_",
-            "_Want to adjust any due dates before we dive in?_",
-            "_Any tasks need a rain check, or are we ready to crush them? 🎯_"
+            "_Would you like to move any of these to tomorrow, or leave them as is?_",
+            "_Feel free to postpone any of these if you need extra breathing room._",
+            "_Any tasks you'd like to reschedule for tomorrow morning?_",
+            "_You can easily postpone or adjust due dates if today was already full._"
         )
         return getNextFromDeck(context, "reschedule_prompt", prompts)
     }
@@ -355,13 +349,24 @@ object AyvaDialogueEngine {
         val timeGreeting = when {
             hour < 12 -> "Good morning!"
             hour < 17 -> "Good afternoon!"
-            else -> "Good evening!"
+            hour < 22 -> "Good evening!"
+            else -> "Good evening—getting late!"
         }
+
+        if (hour >= 22 || hour < 5) {
+            val calmNightWelcome = listOf(
+                "🌙 *Hello! Ayva here.* $timeGreeting\n\nTake it easy tonight. If you have any thoughts or tasks you want to jot down so they don't linger in your head, just type them below and rest peacefully.",
+                "✨ *Hey there!* $timeGreeting\n\nI'm here if you want to quickly log something for tomorrow or check your schedule, but remember to get good rest tonight. 🍵",
+                "🌙 *Ayva on deck.* $timeGreeting\n\nWhether you're closing out your day or planning ahead, I'm ready to keep things organized for you."
+            )
+            return getNextFromDeck(context, "hello_night", calmNightWelcome)
+        }
+
         val helloPool = listOf(
-            "👋 *Hey there! I'm Ayva, your personal focus & learning companion.* ✨\n\n$timeGreeting Ready to sharpen your brain? Type **/blitz** for a 5-minute math sprint, **/drill** for practice, or drop a task below to conquer!",
-            "✨ *Ayva here! Fresh mind, zero excuses.* 🚀\n\n$timeGreeting Let's build momentum! Type **/blitz** for mental arithmetic, check **/quests** for daily XP, or start an arithmetic drill!",
-            "👋 *Hello! I'm Ayva — your witty partner in anti-procrastination & cognitive mastery.* 😉\n\n$timeGreeting Ready for action? Test your mental speed with **/blitz** or type **/tasks** to view your schedule!",
-            "🌟 *Hey! Ayva is on deck and ready for action.* ⚡\n\n$timeGreeting Type **/blitz** for a rapid arithmetic workout, **/drill** to practice, or tell me what we're tackling next!"
+            "👋 *Hey there! I'm Ayva, your focus & task companion.* ✨\n\n$timeGreeting Drop any task or reminder below to schedule it, or type **/status** to check your focus posture!",
+            "✨ *Ayva here!* 🚀\n\n$timeGreeting Tell me what you'd like to accomplish, type **/tasks** to view your list, or type **/advice** for mindful focus tips.",
+            "👋 *Hello! I'm Ayva — ready to keep your day on track.* ⚡\n\n$timeGreeting Type any task naturally below (e.g., _\"Review documents at 3pm\"_), or type **/screentime** to review your app usage!",
+            "🌟 *Hey! Ayva is on deck.* 🌿\n\n$timeGreeting Let me know what you're working on, or explore **/help** to see everything we can do."
         )
         return getNextFromDeck(context, "hello_welcome", helloPool)
     }
@@ -423,20 +428,33 @@ object AyvaDialogueEngine {
     // 6. CONTEXTUAL FOCUS ADVICE & MINDFUL COACHING
     // =========================================================================
     fun getContextualFocusAdvice(context: Context, totalScreenTimeMins: Int, pendingTasksCount: Int, overdueCount: Int): String {
+        val cal = Calendar.getInstance()
+        val hour = cal.get(Calendar.HOUR_OF_DAY)
+
+        // Late night calm check (after 10 PM or before 5 AM):
+        if (hour >= 22 || hour < 5) {
+            val nightAdvice = listOf(
+                "🌙 *Evening Wind-Down*: It's late and you've likely had a full day. Consider letting your mind unwind—rest tonight is what powers your clarity tomorrow.",
+                "🍵 *Rest Suggestion*: If you're feeling depleted, it's completely okay to step back. Give your eyes a break from the screen and get some restful sleep.",
+                "✨ *Night Reflection*: You made it through today. Any unfinished tasks can be picked up with a fresh mind in the morning. Rest well."
+            )
+            return getNextFromDeck(context, "advice_night", nightAdvice)
+        }
+
         return when {
             overdueCount > 0 -> {
                 val overduePool = listOf(
-                    "⚠️ *Triage Mode*: You have $overdueCount overdue task(s). Procrastination creates phantom mental weight. Pick just *one* and knock it out in the next 15 minutes! ⚡",
-                    "🎯 *Laser Focus Strategy*: Don't look at all your overdue items at once. Focus solely on the single highest priority task right now. Single-tasking is your superpower.",
-                    "⚡ *Momentum Builder*: High friction right now? Do the easiest 2-minute part of an overdue task. Action precedes motivation, always."
+                    "⚠️ *Triage Suggestion*: You have $overdueCount overdue task(s). To keep things manageable, pick just the smallest one to finish or postpone the rest so you don't feel burdened.",
+                    "🎯 *Single Focus*: Rather than tackling everything at once, focus gently on just one item. Taking it one step at a time removes the stress.",
+                    "🌿 *Small Step*: When energy feels low, doing just 2 minutes on a task is enough to get moving without overwhelming yourself."
                 )
                 getNextFromDeck(context, "advice_overdue", overduePool)
             }
             totalScreenTimeMins > 180 -> {
                 val screenPool = listOf(
-                    "🌿 *Eye & Brain Break*: You've logged over ${totalScreenTimeMins / 60}h of screen time today. Look away at an object 20 feet away for 20 seconds, roll your shoulders, and drink a glass of water. 💧",
-                    "🧠 *Neural Recharge*: Prolonged screen exposure causes cognitive fatigue. Take a 5-minute offline stroll or try the 4-7-8 breathing exercise in the chat before resuming work.",
-                    "⚡ *Focus Hygiene*: Digital exhaustion is real. If you're switching apps compulsively, step away from the device for 10 minutes to reset your dopamine baseline."
+                    "🌿 *Screen Time Suggestion*: You've logged over ${totalScreenTimeMins / 60}h on your device today. Consider taking a 10-minute break away from screens, hydrating, or stretching to rest your eyes.",
+                    "🧠 *Gentle Recharge*: High screen time naturally tires the eyes and mind. Stepping away for a short stroll or relaxing with some deep breathing can help you recharge.",
+                    "💧 *Eye Rest*: Digital fatigue builds up quietly. Looking away into the distance for a few minutes or dimming display brightness can bring comfortable relief."
                 )
                 getNextFromDeck(context, "advice_screentime", screenPool)
             }
@@ -532,12 +550,15 @@ object AyvaDialogueEngine {
         sb.append("📱 **Screen Time**: $timeStr$topAppStr\n\n")
 
         // 6. Ayva Verdict
+        val cal = Calendar.getInstance()
+        val hour = cal.get(Calendar.HOUR_OF_DAY)
         val verdict = when {
-            overdueCount > 0 -> "💡 _Verdict: Knock out your overdue item first to eliminate subconscious cognitive drag._"
-            activeRoutineName != null -> "💡 _Verdict: You're in protected focus time. Keep digital distractions at zero!_"
-            restrictedAppsCount == 0 && totalScreenTimeMins > 120 -> "💡 _Verdict: High screen time with no app blocks. Consider locking your top distractor!_"
-            pendingCount == 0 -> "💡 _Verdict: Pristine task radar. Great momentum today!_"
-            else -> "💡 _Verdict: Pick your single highest-priority task and execute a 20-minute focus sprint._"
+            hour >= 22 || hour < 5 -> "🌙 _Suggestion: It's late into the evening. Be gentle on yourself tonight and wind down whenever you're ready._"
+            overdueCount > 0 -> "💡 _Suggestion: If you have energy, picking just one overdue item or postponing the rest can bring immediate mental clarity._"
+            activeRoutineName != null -> "🛡️ _Status: Routine active. Apps are gently shielded so you can focus peacefully._"
+            restrictedAppsCount == 0 && totalScreenTimeMins > 180 -> "🌿 _Suggestion: Screen time has been high today. If you find yourself switching apps often, taking a short break or locking your top distractor might help._"
+            pendingCount == 0 -> "✨ _Status: All tasks clear for now. Great pace today—enjoy your free time!_"
+            else -> "🎯 _Suggestion: Pick your single most meaningful task and take it step by step._"
         }
         sb.append(verdict)
         return sb.toString()
@@ -556,6 +577,42 @@ object AyvaDialogueEngine {
             "⚡ *Zero Friction!* Completed \"$taskTitle\". $remainingStr One step closer to total victory."
         )
         return getNextFromDeck(context, "task_complete_praise", pool)
+    }
+
+    // =========================================================================
+    // 6. CONTINUOUS USAGE & SCREEN TIME BREAK REMINDERS
+    // =========================================================================
+    fun getNightSleepSuggestion(context: Context, appName: String): String {
+        val pool = listOf(
+            "🌙 You've been on $appName for 45m. A good night's sleep does wonders for your energy and mood tomorrow—time to rest your eyes whenever you're ready. ✨",
+            "🌙 45m in $appName tonight. Deep, restorative sleep is the best gift for tomorrow's mind. Consider winding down and getting some cozy rest. 🍵",
+            "🌙 It's late and you've spent 45m in $appName. Great sleep heals your brain and resets your energy. Gentle reminder to close your eyes and sleep well. 🛌",
+            "🌙 45m on $appName. Restorative sleep sets you up for a peaceful, clear-headed morning. Be kind to your eyes and drift off when you can. 🌿",
+            "🌙 Late night session in $appName (45m). Giving your mind real rest tonight pays off so much tomorrow. Sweet dreams whenever you decide to sleep. 🌌"
+        )
+        return getNextFromDeck(context, "night_sleep_suggestion", pool)
+    }
+
+    fun getDaySingleAppBreakSuggestion(context: Context, appName: String): String {
+        val pool = listOf(
+            "🌿 You've been using $appName for 90 minutes. Taking a quick 5-minute stroll or drinking a glass of water will leave you feeling refreshed!",
+            "🚶 90m continuous session in $appName. Step away, stretch your back, or take a quick walk—your mind and body will thank you. ✨",
+            "🌿 90 mins on $appName! A short breather away from the screen does wonders for focus and creativity. Take a gentle break whenever you reach a pause. ☕",
+            "🚶 Great focus in $appName (90m)! How about giving your eyes a rest and taking a short walk outside or around the room? 🌿",
+            "☕ You've spent 90m in $appName. A quick stretch, a glass of water, or looking out the window will recharge your clarity completely."
+        )
+        return getNextFromDeck(context, "day_single_app_break", pool)
+    }
+
+    fun getDayTotalScreenBreakSuggestion(context: Context): String {
+        val pool = listOf(
+            "🌿 You've had 2 continuous hours of screen time. Taking a short break to walk around, hydrate, and rest your eyes will recharge your energy! 🚶",
+            "🚶 2 hours of continuous screen time. Step outside or take a quick stretch break—giving your eyes natural light works miracles for focus. ✨",
+            "🌿 Screen time reached 2 continuous hours. A gentle reminder to pause, stretch your neck and shoulders, and take a refreshing breath of air. ☕",
+            "🚶 2-hour screen milestone! Time for a mindful screen pause. Grab a glass of water and enjoy a few minutes off screens. 🌿",
+            "☕ You've been active on your phone for 2 hours straight. Unplug for a brief walk—your clarity and vitality will reset beautifully."
+        )
+        return getNextFromDeck(context, "day_total_screen_break", pool)
     }
 }
 

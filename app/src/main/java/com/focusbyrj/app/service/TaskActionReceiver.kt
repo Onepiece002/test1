@@ -13,6 +13,7 @@ class TaskActionReceiver : BroadcastReceiver() {
         const val ACTION_SNOOZE_TASK = "com.focusbyrj.app.action.SNOOZE_TASK"
         const val ACTION_OPEN_RESCHEDULE = "com.focusbyrj.app.action.OPEN_RESCHEDULE"
         const val ACTION_SHOW_POPUP = "com.focusbyrj.app.action.SHOW_POPUP"
+        const val ACTION_TASK_DISMISSED = "com.focusbyrj.app.action.TASK_DISMISSED"
         const val EXTRA_TASK_ID = "taskId"
         const val EXTRA_SNOOZE_MINUTES = "snoozeMinutes"
     }
@@ -24,6 +25,10 @@ class TaskActionReceiver : BroadcastReceiver() {
         val pendingResult = goAsync()
 
         when (intent.action) {
+            ACTION_TASK_DISMISSED -> {
+                TaskReminderHelper.cleanUpTaskSummaryNotification(context, taskId)
+                pendingResult.finish()
+            }
             ACTION_COMPLETE_TASK -> {
                 TaskReminderHelper.completeTask(context, taskId) {
                     pendingResult.finish()

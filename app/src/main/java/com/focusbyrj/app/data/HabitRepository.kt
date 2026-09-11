@@ -48,57 +48,69 @@ class HabitRepository(private val habitDao: HabitDao) {
         return list
     }
 
+    private val todayDateTicker: Flow<String> = flow {
+        while (true) {
+            emit(getTodayDateString())
+            kotlinx.coroutines.delay(60000)
+        }
+    }.distinctUntilChanged()
+
     /**
      * Flow that pairs each active habit with its progress for today,
      * computing current streak, best streak, 7-day history, and total completions.
+     * Re-evaluates automatically at midnight / date change via todayDateTicker.
      */
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val activeHabitsWithProgress: Flow<List<HabitWithProgress>> =
-        combine(
-            habitDao.getAllActiveHabits(),
-            habitDao.getLogsForDate(getTodayDateString())
-        ) { habits, todayLogs ->
-            val logMap = todayLogs.associateBy { it.habitId }
-            val past7 = getPast7Dates()
-            val todayStr = getTodayDateString()
+        todayDateTicker.flatMapLatest { todayStr ->
+            combine(
+                habitDao.getAllActiveHabits(),
+                habitDao.getLogsForDate(todayStr)
+            ) { habits, todayLogs ->
+                val logMap = todayLogs.associateBy { it.habitId }
+                val past7 = getPast7Dates()
+                val allLogsList = habitDao.getAllLogsSync()
+                val allLogsByHabit = allLogsList.groupBy { it.habitId }
 
-            habits.map { habit ->
-                val todayLog = logMap[habit.id]
-                val allLogs = habitDao.getAllLogsForHabitSync(habit.id)
-                val allLogsMap = allLogs.associateBy { it.date }
+                habits.map { habit ->
+                    val todayLog = logMap[habit.id]
+                    val allLogs = allLogsByHabit[habit.id] ?: emptyList()
+                    val allLogsMap = allLogs.associateBy { it.date }
 
-                val (currentStreak, bestStreak) = calculateStreaksFromLogs(
-                    habit.id,
-                    habit.targetPerDay,
-                    todayLog,
-                    allLogs
-                )
+                    val (currentStreak, bestStreak) = calculateStreaksFromLogs(
+                        habit.id,
+                        habit.targetPerDay,
+                        todayLog,
+                        allLogs
+                    )
 
-                val weeklyHistory = past7.map { (dateStr, letter) ->
-                    val log = if (dateStr == todayStr) todayLog else allLogsMap[dateStr]
-                    val count = log?.completedCount ?: 0
-                    val target = log?.targetCount ?: habit.targetPerDay
-                    HabitDaySummary(
-                        date = dateStr,
-                        dayOfWeekLetter = letter,
-                        completedCount = count,
-                        targetCount = target,
-                        isCompleted = count >= target,
-                        isToday = dateStr == todayStr
+                    val weeklyHistory = past7.map { (dateStr, letter) ->
+                        val log = if (dateStr == todayStr) todayLog else allLogsMap[dateStr]
+                        val count = log?.completedCount ?: 0
+                        val target = log?.targetCount ?: habit.targetPerDay
+                        HabitDaySummary(
+                            date = dateStr,
+                            dayOfWeekLetter = letter,
+                            completedCount = count,
+                            targetCount = target,
+                            isCompleted = count >= target,
+                            isToday = dateStr == todayStr
+                        )
+                    }
+
+                    val totalCompletions = allLogs.sumOf { it.completedCount } +
+                        (if (todayLog != null && !allLogsMap.containsKey(todayStr)) todayLog.completedCount else 0)
+
+                    HabitWithProgress(
+                        habit = habit,
+                        todayLog = todayLog,
+                        currentStreak = currentStreak,
+                        bestStreak = bestStreak,
+                        weeklyHistory = weeklyHistory,
+                        totalCompletionsAllTime = totalCompletions,
+                        streakFrozenToday = false
                     )
                 }
-
-                val totalCompletions = allLogs.sumOf { it.completedCount } +
-                    (if (todayLog != null && !allLogsMap.containsKey(todayStr)) todayLog.completedCount else 0)
-
-                HabitWithProgress(
-                    habit = habit,
-                    todayLog = todayLog,
-                    currentStreak = currentStreak,
-                    bestStreak = bestStreak,
-                    weeklyHistory = weeklyHistory,
-                    totalCompletionsAllTime = totalCompletions,
-                    streakFrozenToday = false
-                )
             }
         }.flowOn(Dispatchers.IO)
 
@@ -243,10 +255,16 @@ class HabitRepository(private val habitDao: HabitDao) {
             if (prevCal == null) {
                 tempStreak = 1
             } else {
-                val diffDays = (curCal.timeInMillis - prevCal.timeInMillis) / (1000 * 60 * 60 * 24)
-                if (diffDays == 1L) {
+                // DST-safe consecutive day check
+                val nextDayCal = (prevCal.clone() as Calendar).apply { add(Calendar.DAY_OF_YEAR, 1) }
+                val isConsecutive = nextDayCal.get(Calendar.YEAR) == curCal.get(Calendar.YEAR) &&
+                        nextDayCal.get(Calendar.DAY_OF_YEAR) == curCal.get(Calendar.DAY_OF_YEAR)
+                val isSameDay = prevCal.get(Calendar.YEAR) == curCal.get(Calendar.YEAR) &&
+                        prevCal.get(Calendar.DAY_OF_YEAR) == curCal.get(Calendar.DAY_OF_YEAR)
+
+                if (isConsecutive) {
                     tempStreak++
-                } else if (diffDays > 1L) {
+                } else if (!isSameDay) {
                     tempStreak = 1
                 }
             }

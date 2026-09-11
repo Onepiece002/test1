@@ -117,4 +117,77 @@ class SmartDateParserTest {
         assertEquals(10, cal.get(Calendar.HOUR_OF_DAY))
         assertEquals(30, cal.get(Calendar.MINUTE))
     }
+
+    @Test
+    fun testColonSeparatedTime930() {
+        val result = SmartDateParser.parse("call client at 9:30")
+        assertEquals("call client", result.cleanText)
+        assertNotNull(result.timestamp)
+        assertTrue(result.hasTime)
+
+        val cal = Calendar.getInstance().apply { timeInMillis = result.timestamp!! }
+        assertEquals(30, cal.get(Calendar.MINUTE))
+        assertTrue(cal.get(Calendar.HOUR_OF_DAY) in listOf(9, 21))
+    }
+
+    @Test
+    fun testDotSeparatedTime930() {
+        val result = SmartDateParser.parse("call client at 9.30")
+        assertEquals("call client", result.cleanText)
+        assertNotNull(result.timestamp)
+        assertTrue(result.hasTime)
+
+        val cal = Calendar.getInstance().apply { timeInMillis = result.timestamp!! }
+        assertEquals(30, cal.get(Calendar.MINUTE))
+        assertTrue(cal.get(Calendar.HOUR_OF_DAY) in listOf(9, 21))
+    }
+
+    @Test
+    fun testColonSeparatedTime930AmPm() {
+        val resultAm = SmartDateParser.parse("breakfast meeting at 9:30 am")
+        assertEquals("breakfast meeting", resultAm.cleanText)
+        assertNotNull(resultAm.timestamp)
+        assertTrue(resultAm.hasTime)
+        val calAm = Calendar.getInstance().apply { timeInMillis = resultAm.timestamp!! }
+        assertEquals(9, calAm.get(Calendar.HOUR_OF_DAY))
+        assertEquals(30, calAm.get(Calendar.MINUTE))
+
+        val resultPm = SmartDateParser.parse("dinner at 9:30 pm")
+        assertEquals("dinner", resultPm.cleanText)
+        assertNotNull(resultPm.timestamp)
+        assertTrue(resultPm.hasTime)
+        val calPm = Calendar.getInstance().apply { timeInMillis = resultPm.timestamp!! }
+        assertEquals(21, calPm.get(Calendar.HOUR_OF_DAY))
+        assertEquals(30, calPm.get(Calendar.MINUTE))
+    }
+
+    @Test
+    fun testDotSeparatedTime930AmPm() {
+        val resultAm = SmartDateParser.parse("breakfast meeting at 9.30am")
+        assertEquals("breakfast meeting", resultAm.cleanText)
+        assertNotNull(resultAm.timestamp)
+        assertTrue(resultAm.hasTime)
+        val calAm = Calendar.getInstance().apply { timeInMillis = resultAm.timestamp!! }
+        assertEquals(9, calAm.get(Calendar.HOUR_OF_DAY))
+        assertEquals(30, calAm.get(Calendar.MINUTE))
+
+        val resultPm = SmartDateParser.parse("dinner at 9.30pm")
+        assertEquals("dinner", resultPm.cleanText)
+        assertNotNull(resultPm.timestamp)
+        assertTrue(resultPm.hasTime)
+        val calPm = Calendar.getInstance().apply { timeInMillis = resultPm.timestamp!! }
+        assertEquals(21, calPm.get(Calendar.HOUR_OF_DAY))
+        assertEquals(30, calPm.get(Calendar.MINUTE))
+    }
+
+    @Test
+    fun testRemindMePrefixAndColonTime() {
+        val result = SmartDateParser.parse("remind me to check oven at 9:30")
+        assertEquals("check oven", result.cleanText)
+        assertNotNull(result.timestamp)
+        assertTrue(result.hasTime)
+
+        val cal = Calendar.getInstance().apply { timeInMillis = result.timestamp!! }
+        assertEquals(30, cal.get(Calendar.MINUTE))
+    }
 }

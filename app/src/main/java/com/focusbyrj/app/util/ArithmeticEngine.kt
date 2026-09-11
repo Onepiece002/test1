@@ -757,31 +757,64 @@ object ArithmeticEngine {
     private fun generateWrongNumberSeries(): ArithmeticQuestion {
         val length = 6
         val correctSeq = mutableListOf<Double>()
-        val start = Random.nextInt(4, 20).toDouble()
-        correctSeq.add(start)
+        var patternExplanation = ""
+        val patternType = Random.nextInt(3)
 
-        val diffStart = Random.nextInt(2, 6)
-        val diffs = (diffStart until diffStart + length).map { (it * it).toDouble() }
-        for (i in 0 until length - 1) {
-            correctSeq.add(correctSeq.last() + diffs[i])
+        when (patternType) {
+            0 -> {
+                // Pattern 1: Differences of consecutive squares (+n²)
+                val start = Random.nextInt(4, 20).toDouble()
+                correctSeq.add(start)
+                val diffStart = Random.nextInt(2, 6)
+                val diffs = (diffStart until diffStart + length).map { (it * it).toDouble() }
+                for (i in 0 until length - 1) {
+                    correctSeq.add(correctSeq.last() + diffs[i])
+                }
+                patternExplanation = "Differences are consecutive squares (+${formatNumber(diffs[0])}, +${formatNumber(diffs[1])}, +${formatNumber(diffs[2])}...)."
+            }
+            1 -> {
+                // Pattern 2: Differences of consecutive cubes (+n³)
+                val start = Random.nextInt(5, 30).toDouble()
+                correctSeq.add(start)
+                val cubeStart = Random.nextInt(2, 5)
+                val diffs = (cubeStart until cubeStart + length).map { (it * it * it).toDouble() }
+                for (i in 0 until length - 1) {
+                    correctSeq.add(correctSeq.last() + diffs[i])
+                }
+                patternExplanation = "Differences are consecutive cubes (+${formatNumber(diffs[0])}, +${formatNumber(diffs[1])}, +${formatNumber(diffs[2])}...)."
+            }
+            else -> {
+                // Pattern 3: Classic Bank Decimal Multiplier Pattern (×0.5 + 1, ×1 + 1, ×1.5 + 1, ×2 + 1, ×2.5 + 1)
+                var current = listOf(8.0, 12.0, 16.0, 20.0, 24.0, 32.0).random()
+                correctSeq.add(current)
+                var mult = 0.5
+                for (i in 0 until length - 1) {
+                    current = (current * mult) + 1.0
+                    correctSeq.add(current)
+                    mult += 0.5
+                }
+                patternExplanation = "Pattern follows: (Term × 0.5 + 1), (Term × 1.0 + 1), (Term × 1.5 + 1), (Term × 2.0 + 1)..."
+            }
         }
 
         // Pick one middle term to corrupt
         val wrongIdx = Random.nextInt(1, length - 1)
         val actualCorrect = correctSeq[wrongIdx]
-        val wrongValue = actualCorrect + listOf(-5.0, -3.0, 2.0, 4.0, 6.0).random()
+        val wrongOffset = listOf(-6.0, -4.0, -2.0, 2.0, 4.0, 6.0).random()
+        val wrongValue = actualCorrect + wrongOffset
 
         val displaySeq = correctSeq.toMutableList()
         displaySeq[wrongIdx] = wrongValue
 
         val questionStr = displaySeq.joinToString(", ") { formatNumber(it) }
 
-        // The 5 options in bank exams are 5 terms from the given series
-        val candidateOptions = displaySeq.take(5).shuffled()
+        // The 5 options in bank exams are 5 terms from the given series, ALWAYS including the wrong number
+        val otherTerms = displaySeq.filterIndexed { index, _ -> index != wrongIdx }.shuffled().take(4)
+        val candidateOptions = (otherTerms + wrongValue).shuffled()
 
         val explanation = """
             💡 **Wrong Number Series Pattern:**
-            Differences should be consecutive squares (+${formatNumber(diffs[0])}, +${formatNumber(diffs[1])}, +${formatNumber(diffs[2])}...).
+            $patternExplanation
             At position ${wrongIdx + 1}, the value is ${formatNumber(wrongValue)}, but it should be ${formatNumber(actualCorrect)}.
             Therefore, **${formatNumber(wrongValue)}** is the wrong number in the series.
         """.trimIndent()
@@ -801,6 +834,50 @@ object ArithmeticEngine {
     // 5. QUADRATIC EQUATIONS (BANK CLERK & PO PRELIMS)
     // =========================================================================
     private fun generateQuadratic(difficulty: ArithmeticDifficulty): ArithmeticQuestion {
+        // In PO difficulty, 25% of the time test the high-speed 10-Second Sign Trick:
+        // When constant terms c1 < 0 and c2 < 0, both equations have one positive and one negative root.
+        // Therefore, relationship is ALWAYS "Relationship cannot be established" (CND) without calculation!
+        val isSignTrick = (difficulty == ArithmeticDifficulty.HARD && Random.nextInt(4) == 0)
+
+        val options = listOf(
+            "x > y",
+            "x < y",
+            "x ≥ y",
+            "x ≤ y",
+            "x = y or Relationship cannot be established"
+        )
+
+        if (isSignTrick) {
+            val aX = listOf(2, 3, 5).random()
+            val aY = listOf(2, 4, 6).random()
+            val rXPos = Random.nextInt(3, 9)
+            val rXNeg = -Random.nextInt(2, 7)
+            val rYPos = Random.nextInt(2, 8)
+            val rYNeg = -Random.nextInt(3, 9)
+
+            val eqX = formatQuadratic("x", aX, -aX * (rXPos + rXNeg), aX * (rXPos * rXNeg))
+            val eqY = formatQuadratic("y", aY, -aY * (rYPos + rYNeg), aY * (rYPos * rYNeg))
+
+            val explanation = """
+                ⚡ **10-Second Bank Exam Sign Shortcut:**
+                Notice the constant terms in both equations:
+                • Equation I constant term is negative ($eqX)
+                • Equation II constant term is negative ($eqY)
+                
+                **Rule:** When both constant terms are negative, each equation produces one positive root and one negative root (+/- and +/-).
+                When cross-comparing, the positive root of x is greater than negative root of y, but negative root of x is smaller than positive root of y.
+                Hence, **Relationship cannot be established (CND)** without calculating any roots!
+            """.trimIndent()
+
+            return ArithmeticQuestion(
+                title = "Quadratic Equations (Speed Sign Trick)",
+                questionText = "I. $eqX\nII. $eqY",
+                options = options,
+                correctIndex = 4,
+                explanation = explanation
+            )
+        }
+
         val relType = Random.nextInt(5)
         // 0: x > y, 1: x < y, 2: x >= y, 3: x <= y, 4: Relationship cannot be established
 
@@ -859,14 +936,6 @@ object ArithmeticEngine {
 
         val eqX = formatQuadratic("x", aX, -aX * (xRoots[0] + xRoots[1]), aX * (xRoots[0] * xRoots[1]))
         val eqY = formatQuadratic("y", aY, -aY * (yRoots[0] + yRoots[1]), aY * (yRoots[0] * yRoots[1]))
-
-        val options = listOf(
-            "x > y",
-            "x < y",
-            "x ≥ y",
-            "x ≤ y",
-            "x = y or Relationship cannot be established"
-        )
 
         val explanation = """
             💡 **Step-by-step Factoring:**
@@ -927,10 +996,11 @@ object ArithmeticEngine {
         val cleanAnswer = round(answer * 100.0) / 100.0
         optionsSet.add(cleanAnswer)
 
+        val allowNegative = cleanAnswer < 0
         var attempts = 0
         while (optionsSet.size < 5 && attempts < 30) {
             val dist = round(distractorLogic(cleanAnswer) * 100.0) / 100.0
-            if (dist >= 0 && !optionsSet.contains(dist)) {
+            if ((allowNegative || dist >= 0) && !optionsSet.contains(dist)) {
                 optionsSet.add(dist)
             }
             attempts++
@@ -941,7 +1011,7 @@ object ArithmeticEngine {
         var offsetIdx = 0
         while (optionsSet.size < 5 && offsetIdx < fallbackOffsets.size) {
             val dist = cleanAnswer + fallbackOffsets[offsetIdx++]
-            if (dist >= 0) optionsSet.add(round(dist * 100.0) / 100.0)
+            if (allowNegative || dist >= 0) optionsSet.add(round(dist * 100.0) / 100.0)
         }
 
         var mult = 25.0

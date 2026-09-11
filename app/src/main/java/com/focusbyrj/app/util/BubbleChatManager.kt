@@ -109,7 +109,8 @@ object BubbleChatManager {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit().putInt(KEY_UNREAD_COUNT, safeCount).apply()
         _unreadCountFlow.value = safeCount
-        context.sendBroadcast(Intent(ACTION_UNREAD_COUNT_CHANGED))
+        val intent = Intent(ACTION_UNREAD_COUNT_CHANGED).apply { setPackage(context.packageName) }
+        context.sendBroadcast(intent)
     }
 
     fun incrementUnread(context: Context) {
@@ -302,7 +303,8 @@ object BubbleChatManager {
             }
             editor.apply()
             _messagesFlow.value = trimmed
-            context.sendBroadcast(Intent(ACTION_MESSAGES_CHANGED))
+            val intent = Intent(ACTION_MESSAGES_CHANGED).apply { setPackage(context.packageName) }
+            context.sendBroadcast(intent)
         } catch (_: Exception) {}
     }
 
@@ -329,6 +331,7 @@ object BubbleChatManager {
         prefs.edit().remove(KEY_MESSAGES).putLong(KEY_LAST_ACTIVITY, System.currentTimeMillis()).apply()
         _messagesFlow.value = emptyList()
         clearUnread(context)
-        context.sendBroadcast(Intent(ACTION_MESSAGES_CHANGED))
+        val intent = Intent(ACTION_MESSAGES_CHANGED).apply { setPackage(context.packageName) }
+        context.sendBroadcast(intent)
     }
 }

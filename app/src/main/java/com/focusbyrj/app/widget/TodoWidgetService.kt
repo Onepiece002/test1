@@ -61,7 +61,7 @@ class TodoWidgetRemoteViewsFactory(
                 set(Calendar.SECOND, 0)
                 set(Calendar.MILLISECOND, 0)
             }.timeInMillis
-            val todayEnd = todayStart + 86400000L
+            val todayEnd = todayStart + 86400000L - 1L
 
             val uncompleted = allTasks.filter { !it.isCompleted }
 

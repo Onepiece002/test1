@@ -62,14 +62,17 @@ class TaskReminderReceiver : BroadcastReceiver() {
                             return@launch
                         }
 
-                        // If the task was rescheduled to a time in the future, stop the current nagging loop.
-                        // (60s buffer to account for minor alarm trigger variances)
+                        // If the task was rescheduled to a time in the future, dismiss active notification and overlay.
+                        // Do NOT cancel the alarm from AlarmManager, because that is the newly scheduled future alarm!
                         if (task.dueDate != null && task.dueDate > System.currentTimeMillis() + 60000L) {
-                            TaskReminderHelper.cancelReminderById(appContext, taskId)
+                            val nm = appContext.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+                            nm?.cancel(taskId.toInt())
+                            TaskReminderHelper.cleanUpTaskSummaryNotification(appContext, taskId)
+                            TaskReminderOverlayManager.hideOverlay()
                             return@launch
                         }
                         
-                        dbTitle = task.title
+                        dbTitle = task.title.trim().ifEmpty { "Task Reminder" }
                         dbDetails = task.details
                         dbDueDate = task.dueDate ?: dbDueDate
                         dbTypeStr = task.type.name
@@ -78,7 +81,7 @@ class TaskReminderReceiver : BroadcastReceiver() {
                         dbIsPriority = task.isPriority
                     }
 
-                    val title = dbTitle
+                    val title = dbTitle.trim().ifEmpty { "Task Reminder" }
                     val details = dbDetails
                     val dueDate = dbDueDate
                     val typeStr = dbTypeStr
@@ -168,6 +171,17 @@ class TaskReminderReceiver : BroadcastReceiver() {
                         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                     )
 
+                    val deleteIntent = Intent(appContext, TaskActionReceiver::class.java).apply {
+                        action = TaskActionReceiver.ACTION_TASK_DISMISSED
+                        putExtra(TaskActionReceiver.EXTRA_TASK_ID, taskId)
+                    }
+                    val deletePendingIntent = PendingIntent.getBroadcast(
+                        appContext,
+                        (taskId + 400000).toInt(),
+                        deleteIntent,
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                    )
+
                     val contentSubtitle = when {
                         details.isNotBlank() -> details
                         isPersistent -> "Persistent Reminder • Tap to manage"
@@ -175,14 +189,14 @@ class TaskReminderReceiver : BroadcastReceiver() {
                     }
 
                     val builder = NotificationCompat.Builder(appContext, channelId)
-                        .setSmallIcon(R.mipmap.ic_launcher_round)
+                        .setSmallIcon(R.drawable.ic_app_logo)
                         .setContentTitle(title)
                         .setContentText(contentSubtitle)
                         .setStyle(NotificationCompat.BigTextStyle().bigText(if (details.isNotBlank()) "$details\nTap to view or manage task." else "Scheduled task reminder is due."))
                         .setPriority(NotificationCompat.PRIORITY_HIGH)
                         .setCategory(NotificationCompat.CATEGORY_REMINDER)
                         .setContentIntent(popupPendingIntent)
-                        .setFullScreenIntent(popupPendingIntent, true)
+                        .setDeleteIntent(deletePendingIntent)
                         .setAutoCancel(!isPersistent)
                         .setGroup(TASKS_GROUP_KEY)
                         .setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_CHILDREN)
@@ -197,16 +211,41 @@ class TaskReminderReceiver : BroadcastReceiver() {
                     if (showNotification) {
                         notificationManager.notify(taskId.toInt(), builder.build())
 
-                        // Post clean tasks group summary for notification tray
-                        val summaryNotification = NotificationCompat.Builder(appContext, channelId)
-                            .setSmallIcon(R.mipmap.ic_launcher_round)
-                            .setStyle(NotificationCompat.InboxStyle().setSummaryText("Tasks & To-Dos"))
-                            .setGroup(TASKS_GROUP_KEY)
-                            .setGroupSummary(true)
-                            .setAutoCancel(true)
-                            .setPriority(NotificationCompat.PRIORITY_LOW)
-                            .build()
-                        notificationManager.notify(TASKS_SUMMARY_ID, summaryNotification)
+                        // Only post group summary if there are multiple active task notifications
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                            val activeNotifs = notificationManager.activeNotifications ?: emptyArray()
+                            val activeTasks = activeNotifs.filter {
+                                it.id != TASKS_SUMMARY_ID && it.notification.group == TASKS_GROUP_KEY
+                            }
+                            if (activeTasks.size >= 2) {
+                                val inboxStyle = NotificationCompat.InboxStyle().setSummaryText("Tasks & To-Dos")
+                                val lines = mutableListOf<CharSequence>()
+                                activeTasks.take(5).forEach {
+                                    val t = it.notification.extras?.getCharSequence(NotificationCompat.EXTRA_TITLE)
+                                    if (!t.isNullOrBlank()) {
+                                        lines.add(t)
+                                    }
+                                }
+                                if (lines.isEmpty()) {
+                                    lines.add(title)
+                                }
+                                lines.forEach { inboxStyle.addLine(it) }
+
+                                val summaryNotification = NotificationCompat.Builder(appContext, channelId)
+                                    .setSmallIcon(R.drawable.ic_app_logo)
+                                    .setContentTitle("Tasks & To-Dos")
+                                    .setContentText("${activeTasks.size} tasks pending")
+                                    .setStyle(inboxStyle)
+                                    .setGroup(TASKS_GROUP_KEY)
+                                    .setGroupSummary(true)
+                                    .setAutoCancel(true)
+                                    .setPriority(NotificationCompat.PRIORITY_LOW)
+                                    .build()
+                                notificationManager.notify(TASKS_SUMMARY_ID, summaryNotification)
+                            } else {
+                                notificationManager.cancel(TASKS_SUMMARY_ID)
+                            }
+                        }
                     }
 
                     if (showFloating) {

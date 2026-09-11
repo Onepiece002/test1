@@ -94,15 +94,24 @@ class DailySummaryReceiver : BroadcastReceiver() {
             var hour = 8
             var minute = 0
             try {
-                val parts = timeStr.trim().split(":", " ")
-                if (parts.size >= 3) {
-                    var h = parts[0].toInt()
-                    val m = parts[1].toInt()
-                    val amPm = parts[2]
-                    if (amPm.equals("PM", true) && h != 12) h += 12
-                    if (amPm.equals("AM", true) && h == 12) h = 0
-                    hour = h
-                    minute = m
+                val cleaned = timeStr.trim()
+                if (cleaned.contains("AM", ignoreCase = true) || cleaned.contains("PM", ignoreCase = true)) {
+                    val parts = cleaned.split(":", " ").filter { it.isNotBlank() }
+                    if (parts.size >= 3) {
+                        var h = parts[0].toInt()
+                        val m = parts[1].toInt()
+                        val amPm = parts[2]
+                        if (amPm.equals("PM", ignoreCase = true) && h != 12) h += 12
+                        if (amPm.equals("AM", ignoreCase = true) && h == 12) h = 0
+                        hour = h
+                        minute = m
+                    }
+                } else {
+                    val parts = cleaned.split(":")
+                    if (parts.size >= 2) {
+                        hour = parts[0].toInt()
+                        minute = parts[1].toInt()
+                    }
                 }
             } catch (_: Exception) {}
 

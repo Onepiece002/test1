@@ -178,7 +178,7 @@ class TodoWidgetProvider : AppWidgetProvider() {
                 val serviceIntent = Intent(context, TodoWidgetService::class.java).apply {
                     putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
                     putExtra(EXTRA_TAB_INDEX, selectedTab)
-                    data = Uri.parse(toUri(Intent.URI_INTENT_SCHEME))
+                    data = Uri.parse("widget://todo/$appWidgetId/$selectedTab")
                 }
                 views.setRemoteAdapter(R.id.widget_list_view, serviceIntent)
                 views.setEmptyView(R.id.widget_list_view, R.id.widget_empty_view)
@@ -211,7 +211,7 @@ class TodoWidgetProvider : AppWidgetProvider() {
                             set(Calendar.SECOND, 0)
                             set(Calendar.MILLISECOND, 0)
                         }.timeInMillis
-                        val todayEnd = todayStart + 86400000L
+                        val todayEnd = todayStart + 86400000L - 1L
 
                         val uncompleted = allTasks.filter { !it.isCompleted }
 

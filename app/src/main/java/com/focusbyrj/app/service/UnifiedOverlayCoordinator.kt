@@ -159,6 +159,14 @@ object UnifiedOverlayCoordinator {
                 )
             }
         }
+
+        // Anti-deadlock watchdog: if overlay was rejected, failed, or dismissed immediately without callback
+        handler.postDelayed({
+            if (currentActiveItem == item && !HabitFloatingOverlayManager.isShowing && !TaskReminderOverlayManager.isShowing) {
+                Log.w(TAG, "Watchdog detected overlay not showing after presentation; advancing queue.")
+                onOverlayDismissed(context)
+            }
+        }, 1500L)
     }
 
     fun onOverlayDismissed(context: Context) {

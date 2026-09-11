@@ -101,6 +101,9 @@ object TaskReminderOverlayManager {
                     Log.w(TAG, "Overlay permission not granted. Attempting activity launch.")
                 }
 
+                // Notify coordinator that overlay slot is released before fallback activity launch
+                UnifiedOverlayCoordinator.onOverlayDismissed(appContext)
+
                 // Fallback to Activity launch if overlay cannot be drawn
                 launchPopupActivity(
                     context = appContext,
@@ -115,6 +118,7 @@ object TaskReminderOverlayManager {
                 )
             } catch (e: Exception) {
                 Log.e(TAG, "Error in showReminderOverlay", e)
+                UnifiedOverlayCoordinator.onOverlayDismissed(appContext)
             }
         }
     }
@@ -746,13 +750,16 @@ object TaskReminderOverlayManager {
     private fun hideOverlayDirect() {
         var appContext: Context? = null
         try {
-            if (overlayView != null && windowManager != null) {
-                appContext = overlayView?.context?.applicationContext
+            val view = overlayView
+            if (view != null && windowManager != null) {
+                appContext = view.context.applicationContext
                 // Hide keyboard before removing the view to prevent ImeBackDispatcher errors
-                val imm = overlayView?.context?.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
-                imm?.hideSoftInputFromWindow(overlayView?.windowToken, 0)
+                val imm = view.context.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
+                imm?.hideSoftInputFromWindow(view.windowToken, 0)
                 
-                windowManager?.removeView(overlayView)
+                if (view.isAttachedToWindow) {
+                    windowManager?.removeView(view)
+                }
             }
         } catch (e: Exception) {
             // Ignore

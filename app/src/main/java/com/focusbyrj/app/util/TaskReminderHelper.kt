@@ -87,9 +87,9 @@ object TaskReminderHelper {
         val app = context.applicationContext as? FocusApplication ?: return
         CoroutineScope(Dispatchers.IO).launch {
             kotlin.runCatching {
-                val tasks = app.taskRepository.allTasks.firstOrNull() ?: app.database.taskDao().getTaskById(0)?.let { listOf(it) } ?: emptyList()
                 val now = System.currentTimeMillis()
-                tasks.filter { !it.isCompleted && it.dueDate != null && it.dueDate > now }.forEach { task ->
+                val tasks = app.database.taskDao().getActivePendingTasks(now)
+                tasks.forEach { task ->
                     scheduleReminder(context, task)
                 }
             }
@@ -128,6 +128,28 @@ object TaskReminderHelper {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
             alarmManager.cancel(pendingLegacy)
+
+            // 3. Clear notification for this task and remove orphaned summary notification if no task notifications left
+            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+            notificationManager?.cancel(taskId.toInt())
+            cleanUpTaskSummaryNotification(context, taskId)
+        }
+    }
+
+    fun cleanUpTaskSummaryNotification(context: Context, dismissedTaskId: Long? = null) {
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val activeNotifs = notificationManager.activeNotifications ?: emptyArray()
+            val remainingTaskNotifs = activeNotifs.filter {
+                it.id != TaskReminderReceiver.TASKS_SUMMARY_ID &&
+                (dismissedTaskId == null || it.id != dismissedTaskId.toInt()) &&
+                it.notification.group == TaskReminderReceiver.TASKS_GROUP_KEY
+            }
+            if (remainingTaskNotifs.size < 2) {
+                notificationManager.cancel(TaskReminderReceiver.TASKS_SUMMARY_ID)
+            }
+        } else {
+            notificationManager.cancel(TaskReminderReceiver.TASKS_SUMMARY_ID)
         }
     }
 
@@ -213,6 +235,7 @@ object TaskReminderHelper {
                             scheduleReminder(context, nextTask.copy(id = newId))
                         }
                     } else {
+                        FocusEconomyManager.uncompleteTaskReward(existing.isPriority, existing.type)
                         scheduleReminder(context, updated)
                     }
                     TodoWidgetProvider.updateAllWidgets(context)
@@ -274,14 +297,23 @@ object TaskReminderHelper {
             return cal.timeInMillis
         }
         
-        // Pattern 3: Absolute time today/tomorrow ("5pm", "at 10:30", "15:00")
-        val timePattern = java.util.regex.Pattern.compile("(?:at\\s+)?(\\d+)(?::(\\d+))?\\s*(am|pm)?")
+        // Pattern 3: Absolute time today/tomorrow ("5pm", "at 10:30", "15:00", "at 8")
+        val timePattern = java.util.regex.Pattern.compile("(?:^|\\s)(?:at\\s+)?(\\d{1,2})(?::(\\d{2}))?\\s*(am|pm)?(?:$|\\s)")
         val timeMatcher = timePattern.matcher(lowerInput)
         if (timeMatcher.find()) {
-            var hour = timeMatcher.group(1)?.toIntOrNull() ?: return null
-            val min = timeMatcher.group(2)?.toIntOrNull() ?: 0
+            val hourRaw = timeMatcher.group(1)?.toIntOrNull() ?: return null
+            val minRaw = timeMatcher.group(2)?.toIntOrNull() ?: 0
             val ampm = timeMatcher.group(3)
-            
+
+            val hasColon = timeMatcher.group(2) != null
+            val hasAt = lowerInput.contains("at " + hourRaw)
+            val isExact = lowerInput == hourRaw.toString() || lowerInput == "$hourRaw:$minRaw"
+            if (ampm == null && !hasColon && !hasAt && !isExact) {
+                return null
+            }
+            if (hourRaw !in 0..23 || minRaw !in 0..59) return null
+
+            var hour = hourRaw
             if (ampm == "pm" && hour < 12) hour += 12
             if (ampm == "am" && hour == 12) hour = 0
             
@@ -294,7 +326,7 @@ object TaskReminderHelper {
             }
             
             cal.set(Calendar.HOUR_OF_DAY, hour)
-            cal.set(Calendar.MINUTE, min)
+            cal.set(Calendar.MINUTE, minRaw)
             cal.set(Calendar.SECOND, 0)
             
             // if time has already passed today, schedule for tomorrow
@@ -308,22 +340,40 @@ object TaskReminderHelper {
     }
 
     fun generateNextRecurringTask(completedTask: Task): Task {
-        if (completedTask.dueDate == null) return completedTask
+        val baseDueDate = completedTask.dueDate ?: System.currentTimeMillis()
         
         val calendar = Calendar.getInstance()
-        calendar.timeInMillis = completedTask.dueDate
+        calendar.timeInMillis = baseDueDate
+        val now = System.currentTimeMillis()
 
         when (completedTask.recurrence) {
-            RecurrencePattern.DAILY -> calendar.add(Calendar.DAY_OF_YEAR, 1)
-            RecurrencePattern.WEEKLY -> calendar.add(Calendar.WEEK_OF_YEAR, 1)
-            RecurrencePattern.MONTHLY -> calendar.add(Calendar.MONTH, 1)
-            RecurrencePattern.YEARLY -> calendar.add(Calendar.YEAR, 1)
+            RecurrencePattern.DAILY -> {
+                do {
+                    calendar.add(Calendar.DAY_OF_YEAR, 1)
+                } while (calendar.timeInMillis <= now)
+            }
+            RecurrencePattern.WEEKLY -> {
+                do {
+                    calendar.add(Calendar.WEEK_OF_YEAR, 1)
+                } while (calendar.timeInMillis <= now)
+            }
+            RecurrencePattern.MONTHLY -> {
+                do {
+                    calendar.add(Calendar.MONTH, 1)
+                } while (calendar.timeInMillis <= now)
+            }
+            RecurrencePattern.YEARLY -> {
+                do {
+                    calendar.add(Calendar.YEAR, 1)
+                } while (calendar.timeInMillis <= now)
+            }
             RecurrencePattern.NONE -> return completedTask
         }
 
         return completedTask.copy(
             id = 0, // new task
             isCompleted = false,
+            completedAt = null,
             dueDate = calendar.timeInMillis
         )
     }

@@ -222,7 +222,11 @@ fun MainAppScreen(
     LaunchedEffect(initialNavigateTo) {
         if (initialNavigateTo != null) {
             navController.navigate(initialNavigateTo) {
+                popUpTo(navController.graph.findStartDestination().id) {
+                    saveState = true
+                }
                 launchSingleTop = true
+                restoreState = true
             }
         }
     }
@@ -230,7 +234,11 @@ fun MainAppScreen(
     LaunchedEffect(pendingRoute) {
         pendingRoute?.let { route ->
             navController.navigate(route) {
+                popUpTo(navController.graph.findStartDestination().id) {
+                    saveState = true
+                }
                 launchSingleTop = true
+                restoreState = true
             }
             viewModel.clearNavigation()
         }

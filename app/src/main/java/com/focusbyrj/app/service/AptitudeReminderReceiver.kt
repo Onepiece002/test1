@@ -148,12 +148,6 @@ class AptitudeReminderReceiver : BroadcastReceiver() {
 
             val pendingIntent = PendingIntent.getBroadcast(context, REQUEST_CODE_EXACT, intent, flags)
 
-            // Intent to open app when alarm triggers
-            val showIntent = Intent(context, com.focusbyrj.app.MainActivity::class.java).apply {
-                this.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            }
-            val showPendingIntent = PendingIntent.getActivity(context, REQUEST_CODE_EXACT + 100, showIntent, flags)
-
             try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     if (alarmManager.canScheduleExactAlarms()) {
@@ -179,20 +173,39 @@ class AptitudeReminderReceiver : BroadcastReceiver() {
             val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
             val now = Calendar.getInstance()
             
-            // Pick random hour between minHour and maxHour, and random minute
-            val randomHour = Random.nextInt(minHour, maxHour + 1)
-            val randomMinute = Random.nextInt(0, 60)
+            val currentHour = now.get(Calendar.HOUR_OF_DAY)
+            val currentMinute = now.get(Calendar.MINUTE)
 
-            val target = Calendar.getInstance().apply {
-                set(Calendar.HOUR_OF_DAY, randomHour)
-                set(Calendar.MINUTE, randomMinute)
-                set(Calendar.SECOND, 0)
-                set(Calendar.MILLISECOND, 0)
+            // If we are currently within or before today's window, prefer scheduling for remaining slots today
+            val (chosenHour, chosenMinute, scheduleForTomorrow) = if (currentHour < maxHour) {
+                val startHour = kotlin.math.max(minHour, currentHour)
+                if (startHour == currentHour) {
+                    val minMin = (currentMinute + 5).coerceAtMost(59)
+                    if (minMin >= 55 && currentHour + 1 <= maxHour) {
+                        // Move to next hour slot today
+                        Triple(Random.nextInt(currentHour + 1, maxHour + 1), Random.nextInt(0, 60), false)
+                    } else if (minMin < 55) {
+                        Triple(currentHour, Random.nextInt(minMin, 60), false)
+                    } else {
+                        // Current hour exhausted and at maxHour -> schedule for tomorrow
+                        Triple(Random.nextInt(minHour, maxHour + 1), Random.nextInt(0, 60), true)
+                    }
+                } else {
+                    Triple(Random.nextInt(startHour, maxHour + 1), Random.nextInt(0, 60), false)
+                }
+            } else {
+                // Today's window has already passed; pick random slot for tomorrow
+                Triple(Random.nextInt(minHour, maxHour + 1), Random.nextInt(0, 60), true)
             }
 
-            // If the random time for today has already passed, schedule for tomorrow
-            if (target.timeInMillis <= now.timeInMillis) {
-                target.add(Calendar.DAY_OF_YEAR, 1)
+            val target = Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, chosenHour)
+                set(Calendar.MINUTE, chosenMinute)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+                if (scheduleForTomorrow || timeInMillis <= now.timeInMillis) {
+                    add(Calendar.DAY_OF_YEAR, 1)
+                }
             }
 
             val intent = Intent(context, AptitudeReminderReceiver::class.java).apply {
@@ -206,12 +219,6 @@ class AptitudeReminderReceiver : BroadcastReceiver() {
             }
 
             val pendingIntent = PendingIntent.getBroadcast(context, requestCode, intent, flags)
-
-            // Intent to open app when alarm triggers
-            val showIntent = Intent(context, com.focusbyrj.app.MainActivity::class.java).apply {
-                this.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            }
-            val showPendingIntent = PendingIntent.getActivity(context, requestCode + 100, showIntent, flags)
 
             try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
