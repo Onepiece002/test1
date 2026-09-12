@@ -56,11 +56,23 @@ data class PersistedChatMessage(
     val habitsSummaryJson: String? = null
 ) {
     /**
-     * Determines if this message is a persistent/valuable learning or status card
-     * that should stay visible for the full 10-minute inactivity window.
+     * Determines if this message is a completed drill summary / solutions / claim XP card.
+     */
+    val isDrillSummaryCard: Boolean
+        get() = isDrillSummary || id.startsWith("drill_summary_")
+
+    /**
+     * Determines if this message is an active, ongoing drill or quiz question.
+     * Active questions must NEVER expire while the user is actively working on them.
+     */
+    val isActiveDrillOrQuizQuestion: Boolean
+        get() = !isDrillSummary && (isArithmetic || id.startsWith("arithmetic_") || id.startsWith("drill_q_") || id.startsWith("quiz_q_"))
+
+    /**
+     * Determines if this message is a persistent/valuable learning or status card.
      */
     val isImportantCard: Boolean
-        get() = isDrillSummary || isAptitudeProfile || isStreakPrompt || 
+        get() = isDrillSummaryCard || isAptitudeProfile || isStreakPrompt || 
                 isDailyQuests || isMysteryBox || isMorningBrief || isEveningBrief || 
                 isStreakFreezeSkipped || isVocabHub || isWelcome || isHabitsSummary || (isTaskSummary && !taskSummaryJson.isNullOrBlank()) ||
                 id.startsWith("drill_summary_") || id.startsWith("morning_") || 
@@ -68,7 +80,7 @@ data class PersistedChatMessage(
 
     /**
      * Ephemeral messages are quick commands, casual talk, setting toggles, task additions,
-     * and short-lived bot confirmations that should auto-clear after 2 minutes.
+     * and short-lived bot confirmations that now also enjoy a full 10-minute lifetime once viewed.
      */
     val isEphemeral: Boolean
         get() = !isImportantCard && !isArithmetic
@@ -79,8 +91,9 @@ object BubbleChatManager {
     private const val KEY_MESSAGES = "chat_messages_json"
     private const val KEY_UNREAD_COUNT = "unread_message_count"
     private const val KEY_LAST_ACTIVITY = "last_chat_activity_timestamp"
-    private const val INACTIVITY_TIMEOUT_MS = 10 * 60 * 1000L // 10 minutes for important cards/summaries
-    private const val EPHEMERAL_TIMEOUT_MS = 2 * 60 * 1000L  // 2 minutes for casual commands & talk confirmations
+    const val CHAT_LIFETIME_MS = 10 * 60 * 1000L // 10 minutes for all opened/viewed chat items
+    private const val INACTIVITY_TIMEOUT_MS = CHAT_LIFETIME_MS
+    private const val EPHEMERAL_TIMEOUT_MS = CHAT_LIFETIME_MS
 
     const val ACTION_UNREAD_COUNT_CHANGED = "com.focusbyrj.app.UNREAD_COUNT_CHANGED"
     const val ACTION_MESSAGES_CHANGED = "com.focusbyrj.app.CHAT_MESSAGES_CHANGED"
@@ -155,37 +168,44 @@ object BubbleChatManager {
     }
 
     /**
-     * Periodically cleans up the chat stream based on message tier:
-     * - Messages that have never been opened/viewed in the chat window NEVER disappear.
-     * - Once opened/viewed, morning brief, evening brief, practice alerts, and drill summaries
-     *   disappear only after 10 minutes of inactivity with no action taken.
-     * - Ephemeral commands & talk replies expire after 2 minutes of being viewed.
+     * Periodically cleans up the chat stream:
+     * - Welcome greeting card NEVER disappears on a timer.
+     * - Active interactive drills and quizzes NEVER expire while the user is actively working on them.
+     * - Unread / unviewed alerts and reminders NEVER expire before the user opens the chat window.
+     * - Once opened and viewed, all chat history (queries, bot answers, task/habit addition confirmations,
+     *   briefings, completed quiz/drill summaries, solutions, and claim XP cards) stays for exactly 10 minutes.
+     * - Clearing chat messages has ZERO effect on saved tasks, habits, XP, drill stats, or routines.
      */
-    fun checkAndClearIfInactive(context: Context): Boolean {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val lastActivity = prefs.getLong(KEY_LAST_ACTIVITY, 0L)
+    fun checkAndClearIfInactive(context: Context, isDrillOrQuizActive: Boolean = false): Boolean {
         val now = System.currentTimeMillis()
 
         val allMessages = getMessages(context)
         if (allMessages.isEmpty()) return false
 
         val filtered = allMessages.filter { msg ->
-            // Unread / unviewed messages NEVER expire before the user opens the chat window to view them!
+            // 1. Welcome greeting card NEVER expires on a timer
+            if (msg.isWelcome || msg.id.startsWith("welcome_") ||
+                msg.text.contains("Hey! Ayva is on deck", ignoreCase = true) ||
+                msg.text.contains("ready for action", ignoreCase = true) ||
+                msg.text.contains("Ayva here!", ignoreCase = true) ||
+                msg.text.contains("I'm Ayva", ignoreCase = true) ||
+                msg.text.contains("anti-procrastination", ignoreCase = true)) {
+                return@filter true
+            }
+
+            // 2. Active interactive drill or quiz questions NEVER expire while the user is actively working on them!
+            if (isDrillOrQuizActive || msg.isActiveDrillOrQuizQuestion) {
+                return@filter true
+            }
+
+            // 3. Unread / unviewed messages NEVER expire before the user opens the chat window to view them!
             if (msg.firstViewedTimestamp == 0L) {
                 return@filter true
             }
 
+            // 4. Completed drill summaries, solutions, claim XP cards, and all viewed queries/alerts stay for exactly 10 minutes after being viewed/completed!
             val timeSinceViewed = now - msg.firstViewedTimestamp
-
-            if (msg.isEphemeral) {
-                timeSinceViewed < EPHEMERAL_TIMEOUT_MS
-            } else if (msg.isImportantCard || msg.isDrillSummary || msg.isArithmetic || 
-                       msg.isMorningBrief || msg.isEveningBrief || msg.isStreakPrompt) {
-                // Must be within 10 minutes of opening/viewing
-                timeSinceViewed < INACTIVITY_TIMEOUT_MS
-            } else {
-                timeSinceViewed < 24 * 60 * 60 * 1000L
-            }
+            timeSinceViewed < CHAT_LIFETIME_MS
         }
 
         if (filtered.size < allMessages.size) {

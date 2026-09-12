@@ -52,7 +52,7 @@ object SmartDateParser {
         }
 
         // 0. Clean task command prefixes like "task ,", "task:", "task -", "todo:", "remind me to", "add task", "remember to", "reschedule ... to", "postpone ... to"
-        val prefixRegex = Regex("(?i)^\\s*(?:(?:add|new|create)\\s+(?:task|todo)|task|todo|please\\s+remind\\s+me\\s+to|remind\\s+me\\s+to|remember\\s+to|need\\s+to|don't\\s+forget\\s+to|have\\s+to|reschedule(?:\\s+to)?|postpone(?:\\s+to)?|move(?:\\s+to)?|push(?:\\s+to)?|delay(?:\\s+to)?|bump(?:\\s+to)?)\\s*[,:\\-]?\\s*")
+        val prefixRegex = Regex("(?i)^\\s*(?:(?:add|new|create)\\s+(?:task|todo)|task|todo|please\\s+remind\\s+me\\s+to|remind\\s+me\\s+to|remember\\s+to|need\\s+to|don't\\s+forget\\s+to|have\\s+to|reschedule(?:\\s+(?:the|my)?\\s*task)?(?:\\s+to)?|postpone(?:\\s+(?:the|my)?\\s*task)?(?:\\s+to)?|move(?:\\s+(?:the|my)?\\s*task)?(?:\\s+to)?|push(?:\\s+(?:the|my)?\\s*task)?(?:\\s+to)?|delay(?:\\s+(?:the|my)?\\s*task)?(?:\\s+to)?|bump(?:\\s+(?:the|my)?\\s*task)?(?:\\s+to)?|change(?:\\s+(?:the|my)?\\s*(?:due\\s+)?(?:date|time))?(?:\\s+to)?|set(?:\\s+(?:the|my)?\\s*(?:due\\s+)?(?:date|time))?(?:\\s+to)?)\\s*[,:\\-]?\\s*")
         prefixRegex.find(text)?.let { match ->
             text = removeMatch(match)
         }
@@ -297,10 +297,10 @@ object SmartDateParser {
             }
         }
 
-        // 8. Time parsing: "9:30", "9.30", "at 9.30", "at 9:30 pm", "9:30pm", "9.30pm", "9:30 am", "9.30 am", "at 9pm", "9pm", "9 am", "at 14:00", "at 9", "9 o'clock"
+        // 8. Time parsing: "9:30", "9.30", "at 9.30", "at 9:30 pm", "9:30pm", "to 5pm", "to 5:30", "at 5", "by 6pm", "9 o'clock"
         if (!hasExplicitTime) {
-            // Check time with AM/PM (supporting ':' or '.' as separator, e.g. "9:30 pm", "9.30am", "9pm", "at 9:30 am")
-            val timeAmPmRegex = Regex("(?i)\\b(?:at\\s+)?(\\d{1,2})(?:[:.](\\d{1,2}))?\\s*(am|pm)\\b")
+            // Check time with AM/PM (supporting ':' or '.' as separator, e.g. "9:30 pm", "9.30am", "9pm", "at 9:30 am", "to 5pm", "for 6pm")
+            val timeAmPmRegex = Regex("(?i)\\b(?:at|by|to|for|around)?\\s*(\\d{1,2})(?:[:.](\\d{1,2}))?\\s*(am|pm)\\b")
             timeAmPmRegex.find(text)?.let { match ->
                 var hour = match.groupValues[1].toIntOrNull() ?: 12
                 val minute = match.groupValues[2].toIntOrNull() ?: 0
@@ -318,8 +318,8 @@ object SmartDateParser {
                     text = removeMatch(match)
                 }
             } ?: run {
-                // Check time with explicit ':' or '.' separator (e.g. "9:30", "9.30", "at 9:30", "at 14:30", "14.30", "21:15")
-                val timeSepRegex = Regex("(?i)\\b(?:at\\s+)?(\\d{1,2})[:.](\\d{2})\\b")
+                // Check time with explicit ':' or '.' separator (e.g. "9:30", "9.30", "at 9:30", "to 5:30", "at 14:30", "14.30", "21:15")
+                val timeSepRegex = Regex("(?i)\\b(?:at|by|to|for|around)?\\s*(\\d{1,2})[:.](\\d{2})\\b")
                 timeSepRegex.find(text)?.let { match ->
                     val rawHour = match.groupValues[1].toIntOrNull() ?: 12
                     val minute = match.groupValues[2].toIntOrNull() ?: 0
@@ -355,15 +355,15 @@ object SmartDateParser {
                         text = removeMatch(match)
                     }
                 } ?: run {
-                    // Check "at <hour>" or "<hour> o'clock" (e.g. "at 9", "at 5", "9 o'clock", "5 oclock")
-                    val timeAtRegex = Regex("(?i)\\b(?:at\\s+(\\d{1,2})|(\\d{1,2})\\s*o'?clock)\\b")
+                    // Check "at <hour>", "to <hour>", "by <hour>", "for <hour>", or "<hour> o'clock" (e.g. "at 9", "to 5", "by 6", "9 o'clock", "5 oclock")
+                    val timeAtRegex = Regex("(?i)\\b(?:(?:at|by|to|for|around)\\s+(\\d{1,2})|(\\d{1,2})\\s*o'?clock)\\b")
                     timeAtRegex.find(text)?.let { match ->
                         val h1 = match.groupValues[1].toIntOrNull()
                         val h2 = match.groupValues[2].toIntOrNull()
                         var hour = h1 ?: h2 ?: 12
                         if (hour in 0..23) {
                             val lowerContext = text.lowercase()
-                            val isEveningContext = lowerContext.contains("evening") || lowerContext.contains("night")
+                            val isEveningContext = lowerContext.contains("evening") || lowerContext.contains("night") || lowerContext.contains("tonight")
                             val isAfternoonContext = lowerContext.contains("afternoon")
                             val isMorningContext = lowerContext.contains("morning")
 
@@ -373,9 +373,9 @@ object SmartDateParser {
                                 hour += 12
                             } else if (!isMorningContext && hour in 1..11) {
                                 val nowHour = nowCal.get(Calendar.HOUR_OF_DAY)
-                                if (hour + 12 > nowHour && hour <= nowHour) {
+                                if (hour in 1..7) {
                                     hour += 12
-                                } else if (hour in 1..7) {
+                                } else if (nowHour in 12..23 && (hour + 12) > nowHour) {
                                     hour += 12
                                 }
                             }
@@ -388,7 +388,7 @@ object SmartDateParser {
                         }
                     } ?: run {
                         // Named time shortcuts: "noon", "midnight", "morning", "afternoon", "evening", "tonight"
-                        val namedTimeRegex = Regex("(?i)\\b(noon|midnight|in\\s+the\\s+morning|in\\s+the\\s+afternoon|in\\s+the\\s+evening)\\b")
+                        val namedTimeRegex = Regex("(?i)\\b(noon|midnight|in\\s+the\\s+morning|in\\s+the\\s+afternoon|in\\s+the\\s+evening|at\\s+night|morning|afternoon|evening|tonight)\\b")
                         namedTimeRegex.find(text)?.let { match ->
                             val word = match.groupValues[1].lowercase()
                             when {
@@ -397,6 +397,7 @@ object SmartDateParser {
                                 word.contains("morning") -> cal.set(Calendar.HOUR_OF_DAY, 9)
                                 word.contains("afternoon") -> cal.set(Calendar.HOUR_OF_DAY, 14)
                                 word.contains("evening") -> cal.set(Calendar.HOUR_OF_DAY, 18)
+                                word.contains("night") || word == "tonight" -> cal.set(Calendar.HOUR_OF_DAY, 20)
                             }
                             cal.set(Calendar.MINUTE, 0)
                             cal.set(Calendar.SECOND, 0)

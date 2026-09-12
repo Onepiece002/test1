@@ -216,4 +216,64 @@ class DrillCrashTest {
         assertFalse(cleanedAfterOpen)
         assertEquals(1, BubbleChatManager.getMessages(context).size)
     }
+
+    @Test
+    fun testCasualChatMessagesStayFor10MinutesOnceViewed() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        BubbleChatManager.clearMessages(context)
+
+        val now = System.currentTimeMillis()
+        // Message viewed 5 minutes ago should stay
+        val fiveMinMsg = PersistedChatMessage(
+            id = "chat_1",
+            text = "Added task: Read a book",
+            isUser = false,
+            timestamp = now - (5 * 60 * 1000L),
+            firstViewedTimestamp = now - (5 * 60 * 1000L)
+        )
+        // Message viewed 11 minutes ago should expire
+        val elevenMinMsg = PersistedChatMessage(
+            id = "chat_2",
+            text = "Old query",
+            isUser = true,
+            timestamp = now - (11 * 60 * 1000L),
+            firstViewedTimestamp = now - (11 * 60 * 1000L)
+        )
+        BubbleChatManager.saveMessages(context, listOf(fiveMinMsg, elevenMinMsg), updateActivityTimestamp = false)
+        assertEquals(2, BubbleChatManager.getMessages(context).size)
+
+        val cleaned = BubbleChatManager.checkAndClearIfInactive(context)
+        assertTrue(cleaned)
+        val remaining = BubbleChatManager.getMessages(context)
+        assertEquals(1, remaining.size)
+        assertEquals("chat_1", remaining[0].id)
+    }
+
+    @Test
+    fun testActiveDrillQuestionsNeverExpireWhileActive() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        BubbleChatManager.clearMessages(context)
+
+        val now = System.currentTimeMillis()
+        // Question displayed 15 minutes ago during an ongoing drill
+        val activeQuestionMsg = PersistedChatMessage(
+            id = "arithmetic_question_1",
+            text = "What is 12 x 12?",
+            isUser = false,
+            timestamp = now - (15 * 60 * 1000L),
+            firstViewedTimestamp = now - (15 * 60 * 1000L),
+            isArithmetic = true
+        )
+        BubbleChatManager.saveMessages(context, listOf(activeQuestionMsg), updateActivityTimestamp = false)
+
+        // While drill is active, it must NOT be cleared even if 15 mins elapsed
+        val cleanedWhileActive = BubbleChatManager.checkAndClearIfInactive(context, isDrillOrQuizActive = true)
+        assertFalse(cleanedWhileActive)
+        assertEquals(1, BubbleChatManager.getMessages(context).size)
+
+        // Even with default isDrillOrQuizActive, active arithmetic question is recognized and protected
+        val cleanedDefault = BubbleChatManager.checkAndClearIfInactive(context)
+        assertFalse(cleanedDefault)
+        assertEquals(1, BubbleChatManager.getMessages(context).size)
+    }
 }

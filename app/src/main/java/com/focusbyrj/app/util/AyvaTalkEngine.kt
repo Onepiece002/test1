@@ -550,7 +550,7 @@ object AyvaTalkEngine {
                     "\n\n_Tap the buttons below to enable them directly:_"
                 }
                 isBlockSpecific -> {
-                    "🛡️ **App Shielding Diagnostic:**\nApps won't be blocked reliably unless both **Usage Access** and **Display Over Other Apps** are allowed. Missing:\n\n" +
+                    "🛡️ **App Shielding Diagnostic:**\nApps won't be blocked reliably unless both **Usage Access** and **Display Over Other Apps** permissions are allowed. Missing:\n\n" +
                     missingPermissions.joinToString("\n") { "• **$it**" } +
                     "\n\n_Tap the buttons below to open the setup screen directly:_"
                 }
@@ -959,6 +959,45 @@ object AyvaTalkEngine {
                             val tasks = app.taskRepository.allTasks.firstOrNull() ?: emptyList()
                             val pending = tasks.filter { !it.isCompleted }
 
+                            if (nluResult.intent == NluIntent.CONFLICT) {
+                                val actions = nluResult.conflictOptions.map { opt ->
+                                    TalkAction.AskQuery(opt.command, opt.label, opt.emoji)
+                                }
+                                return TalkResponse(
+                                    formattedText = nluResult.conflictPrompt ?: "🤔 **Conflict Detected:** Did you mean to update an existing task or create a new one?",
+                                    actions = actions,
+                                    topicId = "conflict",
+                                    jsonPayload = serializeActionsJson("conflict", actions)
+                                )
+                            }
+
+                            if (nluResult.intent == NluIntent.CREATE_TASK) {
+                                val (extractedTitle, extractedDueDate) = OfflineNluEngine.extractTaskCreationDetails(cleanQuery)
+                                val finalTitle = nluResult.createdTaskTitle?.takeIf { it.isNotBlank() } ?: extractedTitle
+                                val finalDueDate = nluResult.targetDateMs ?: extractedDueDate
+                                val newTask = com.focusbyrj.app.data.Task(
+                                    title = finalTitle.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() },
+                                    isPriority = false,
+                                    isPersistent = false,
+                                    dueDate = finalDueDate
+                                )
+                                val newId = app.taskRepository.insertTask(newTask)
+                                TaskReminderHelper.scheduleReminder(context, newTask.copy(id = newId))
+                                TodoWidgetProvider.updateAllWidgets(context)
+
+                                val dateStr = if (finalDueDate != null) " (Due: ${SmartDateParser.formatDueDate(finalDueDate)})" else ""
+                                val actions = listOf(
+                                    TalkAction.AskQuery("/tasks", "📋 View Tasks"),
+                                    TalkAction.AskQuery("/reschedule $newId", "⏰ Change Time")
+                                )
+                                return TalkResponse(
+                                    formattedText = "✅ **Added to your radar:**\n• **${newTask.title}**$dateStr",
+                                    actions = actions,
+                                    topicId = "tasks",
+                                    jsonPayload = serializeActionsJson("tasks", actions)
+                                )
+                            }
+
                             if (nluResult.intent == NluIntent.RESCHEDULE || nluResult.intent == NluIntent.COMPLETE || nluResult.intent == NluIntent.DELETE) {
                                 if (nluResult.isAllTasks) {
                                     if (nluResult.intent == NluIntent.RESCHEDULE) {
@@ -1011,38 +1050,90 @@ object AyvaTalkEngine {
                                         )
                                         return TalkResponse("🗑️ **Deleted '${targetTask.title}'**\nTask removed from your radar.", actions, "tasks", serializeActionsJson("tasks", actions))
                                     } else if (nluResult.intent == NluIntent.RESCHEDULE) {
-                                        val newDate = nluResult.targetDateMs ?: (System.currentTimeMillis() + 86400000L)
-                                        val updated = targetTask.copy(dueDate = newDate)
-                                        app.taskRepository.updateTask(updated)
-                                        TaskReminderHelper.scheduleReminder(context, updated)
-                                        TodoWidgetProvider.updateAllWidgets(context)
-                                        val dateStr = SmartDateParser.formatDueDate(newDate)
-                                        val actions = listOf(
-                                            TalkAction.AskQuery("/tasks", "📋 View Tasks"),
-                                            TalkAction.AskQuery("/talk complete ${targetTask.title}", "✅ Mark Complete")
-                                        )
-                                        return TalkResponse("⏰ **Rescheduled '${targetTask.title}'**\nNew due date: **$dateStr**", actions, "tasks", serializeActionsJson("tasks", actions))
+                                        if (nluResult.targetDateMs != null) {
+                                            // If user did not specify an explicit time of day, but the task already had a time, preserve that time
+                                            val newDate = if (!nluResult.hasExplicitTimeSpecified && targetTask.dueDate != null) {
+                                                val prevCal = java.util.Calendar.getInstance().apply { timeInMillis = targetTask.dueDate }
+                                                val targetCal = java.util.Calendar.getInstance().apply { timeInMillis = nluResult.targetDateMs }
+                                                targetCal.set(java.util.Calendar.HOUR_OF_DAY, prevCal.get(java.util.Calendar.HOUR_OF_DAY))
+                                                targetCal.set(java.util.Calendar.MINUTE, prevCal.get(java.util.Calendar.MINUTE))
+                                                targetCal.set(java.util.Calendar.SECOND, 0)
+                                                targetCal.set(java.util.Calendar.MILLISECOND, 0)
+                                                targetCal.timeInMillis
+                                            } else {
+                                                nluResult.targetDateMs
+                                            }
+                                            val updated = targetTask.copy(dueDate = newDate)
+                                            app.taskRepository.updateTask(updated)
+                                            TaskReminderHelper.scheduleReminder(context, updated)
+                                            TodoWidgetProvider.updateAllWidgets(context)
+                                            val dateStr = SmartDateParser.formatDueDate(newDate)
+                                            val actions = listOf(
+                                                TalkAction.AskQuery("/tasks", "📋 View Tasks"),
+                                                TalkAction.AskQuery("/talk complete ${targetTask.title}", "✅ Mark Complete")
+                                            )
+                                            return TalkResponse("⏰ **Rescheduled '${targetTask.title}'**\nNew due date: **$dateStr**", actions, "tasks", serializeActionsJson("tasks", actions))
+                                        } else {
+                                            // No date or time specified, prompt user with quick reschedule chips
+                                            val actions = listOf(
+                                                TalkAction.AskQuery("/talk reschedule ${targetTask.title} tomorrow at 9am", "⏰ Tomorrow 9am"),
+                                                TalkAction.AskQuery("/talk reschedule ${targetTask.title} tomorrow at 5pm", "⏰ Tomorrow 5pm"),
+                                                TalkAction.AskQuery("/talk reschedule ${targetTask.title} tonight at 8pm", "⏰ Tonight 8pm"),
+                                                TalkAction.AskQuery("/talk reschedule ${targetTask.title} in 2 hours", "⏰ In 2 Hours")
+                                            )
+                                            return TalkResponse(
+                                                formattedText = "⏰ **When would you like to reschedule '${targetTask.title}' to?**\n\n_Tap an option below or specify: `tomorrow at 5pm`, `in 30 mins`, or `friday 10am`._",
+                                                actions = actions,
+                                                topicId = "tasks",
+                                                jsonPayload = serializeActionsJson("tasks", actions)
+                                            )
+                                        }
                                     }
                                 } else {
                                     if (pending.isEmpty()) {
                                         return TalkResponse("🎯 **No Pending Tasks!**\nYou don't have any active tasks on your radar right now.", listOf(TalkAction.AskQuery("/tasks", "📋 Task History")), "tasks", null)
                                     } else {
                                         val verb = if (nluResult.intent == NluIntent.COMPLETE) "complete" else if (nluResult.intent == NluIntent.DELETE) "delete" else "reschedule"
+                                        val candidateList = if (nluResult.matchingTasks.isNotEmpty()) nluResult.matchingTasks else pending
+                                        val hasQuery = !nluResult.filterQuery.isNullOrBlank()
+                                        val whenSuffix = if (nluResult.targetDateMs != null) " " + SmartDateParser.formatDueDate(nluResult.targetDateMs) else ""
+
+                                        if (hasQuery && nluResult.matchingTasks.isEmpty()) {
+                                            // User searched for a keyword that did not match any task
+                                            val actions = pending.take(3).mapIndexed { idx, t ->
+                                                TalkAction.AskQuery("/talk $verb ${t.title}$whenSuffix", "⏰ ${idx + 1}. ${t.title.take(15)}")
+                                            }
+                                            val listText = pending.take(5).mapIndexed { idx, t -> "${idx + 1}. **${t.title}**" }.joinToString("\n")
+                                            return TalkResponse(
+                                                formattedText = "🤔 **No active tasks found matching '${nluResult.filterQuery}'.**\n\nHere are your current active tasks:\n\n$listText\n\n_Tap an option below or specify: `/talk $verb [number or task name]`._",
+                                                actions = actions,
+                                                topicId = "tasks",
+                                                jsonPayload = serializeActionsJson("tasks", actions)
+                                            )
+                                        }
+
+                                        val headerText = if (hasQuery && nluResult.matchingTasks.size > 1) {
+                                            "🤔 **Found ${nluResult.matchingTasks.size} tasks matching '${nluResult.filterQuery}':**"
+                                        } else {
+                                            "🤔 **Which task would you like to $verb?**"
+                                        }
+
                                         val actions = when (nluResult.intent) {
-                                            NluIntent.COMPLETE -> pending.take(3).mapIndexed { idx, t ->
-                                                TalkAction.AskQuery("/talk complete ${idx + 1}", "✅ ${idx + 1}. ${t.title.take(15)}")
+                                            NluIntent.COMPLETE -> candidateList.take(3).mapIndexed { idx, t ->
+                                                TalkAction.AskQuery("/talk complete ${t.title}", "✅ ${idx + 1}. ${t.title.take(15)}")
                                             } + listOf(TalkAction.AskQuery("/talk complete all", "✅ Complete All"))
-                                            NluIntent.RESCHEDULE -> pending.take(3).mapIndexed { idx, t ->
-                                                TalkAction.AskQuery("/talk reschedule ${idx + 1} tomorrow", "⏰ ${idx + 1}. Tomorrow")
-                                            } + listOf(TalkAction.AskQuery("/talk reschedule all tomorrow", "⏰ All Tomorrow"))
-                                            NluIntent.DELETE -> pending.take(3).mapIndexed { idx, t ->
-                                                TalkAction.AskQuery("/talk delete ${idx + 1}", "🗑️ ${idx + 1}. ${t.title.take(15)}")
+                                            NluIntent.RESCHEDULE -> candidateList.take(3).mapIndexed { idx, t ->
+                                                val targetWhen = if (whenSuffix.isNotBlank()) whenSuffix else " tomorrow"
+                                                TalkAction.AskQuery("/talk reschedule ${t.title}$targetWhen", "⏰ ${idx + 1}. ${t.title.take(12)}")
+                                            } + listOf(TalkAction.AskQuery("/talk reschedule all${if (whenSuffix.isNotBlank()) whenSuffix else " tomorrow"}", "⏰ All Tomorrow"))
+                                            NluIntent.DELETE -> candidateList.take(3).mapIndexed { idx, t ->
+                                                TalkAction.AskQuery("/talk delete ${t.title}", "🗑️ ${idx + 1}. ${t.title.take(15)}")
                                             }
                                             else -> emptyList()
                                         }
-                                        val listText = pending.take(5).mapIndexed { idx, t -> "${idx + 1}. **${t.title}**" }.joinToString("\n")
+                                        val listText = candidateList.take(5).mapIndexed { idx, t -> "${idx + 1}. **${t.title}**" }.joinToString("\n")
                                         return TalkResponse(
-                                            formattedText = "🤔 **Which task would you like to $verb?**\n\n$listText\n\n_Tap an option below or specify: `/talk $verb [number]`._",
+                                            formattedText = "$headerText\n\n$listText\n\n_Tap an option below or specify: `/talk $verb [number or task name]`._",
                                             actions = actions,
                                             topicId = "tasks",
                                             jsonPayload = serializeActionsJson("tasks", actions)
@@ -1606,7 +1697,7 @@ object AyvaTalkEngine {
                 lower.contains("how to adjust it")
     }
 
-    private fun serializeActionsJson(topicId: String, actions: List<TalkAction>): String? {
+    fun serializeActionsJson(topicId: String, actions: List<TalkAction>): String? {
         if (actions.isEmpty()) return null
         return try {
             val obj = JSONObject()

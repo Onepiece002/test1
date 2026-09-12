@@ -171,6 +171,8 @@ object DrillSummaryHelper {
             id = sessionId,
             text = "Drill Summary",
             isUser = false,
+            timestamp = System.currentTimeMillis(),
+            firstViewedTimestamp = System.currentTimeMillis(),
             isDrillSummary = true,
             drillSummaryJson = typedSummary.toJson()
         )

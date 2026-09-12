@@ -37,7 +37,6 @@ class AyvaTalkEngineTest {
     @Test
     fun testWhyNotBlockingQueryIsSpecific() = kotlinx.coroutines.runBlocking {
         val answer = AyvaTalkEngine.answerTalkQuery(context = androidx.test.core.app.ApplicationProvider.getApplicationContext(), query = "why are apps not blocking?")
-        
         // Let's assert on things that are reliably present regardless of whether live permission check or static fallback happens
         assertTrue(answer.lowercase().contains("permission"))
         assertFalse(answer.contains("Heatmap"))
