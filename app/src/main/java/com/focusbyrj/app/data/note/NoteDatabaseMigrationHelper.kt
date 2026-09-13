@@ -20,6 +20,7 @@ package com.focusbyrj.app.data.note
 import android.content.Context
 import android.util.Log
 import androidx.room.Room
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import java.io.File
@@ -61,19 +62,25 @@ object NoteDatabaseMigrationHelper {
                 PLAINTEXT_DB_NAME
             ).build()
 
-            runBlocking {
-                val activeNotes = legacyDb.noteDao().getAllActiveNotes().first()
-                val archivedNotes = legacyDb.noteDao().getArchivedNotes().first()
-                val trashedNotes = legacyDb.noteDao().getTrashedNotes().first()
+            // Read legacy notes on IO dispatcher safely
+            val allLegacyNotes = runBlocking(Dispatchers.IO) {
+                try {
+                    legacyDb.noteDao().getAllNotesList()
+                } catch (_: Exception) {
+                    val activeNotes = legacyDb.noteDao().getAllActiveNotes().first()
+                    val archivedNotes = legacyDb.noteDao().getArchivedNotes().first()
+                    val trashedNotes = legacyDb.noteDao().getTrashedNotes().first()
+                    (activeNotes + archivedNotes + trashedNotes).distinctBy { it.id }
+                }
+            }
 
-                val allLegacyNotes = (activeNotes + archivedNotes + trashedNotes).distinctBy { it.id }
-
-                if (allLegacyNotes.isNotEmpty()) {
+            if (allLegacyNotes.isNotEmpty()) {
+                runBlocking(Dispatchers.IO) {
                     for (note in allLegacyNotes) {
                         encryptedDb.noteDao().insertNote(note)
                     }
-                    Log.i(TAG, "Successfully migrated ${allLegacyNotes.size} legacy notes into encrypted SQLCipher database.")
                 }
+                Log.i(TAG, "Successfully migrated ${allLegacyNotes.size} legacy notes into encrypted SQLCipher database.")
             }
 
             legacyDb.close()

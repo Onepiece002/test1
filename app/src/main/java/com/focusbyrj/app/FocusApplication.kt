@@ -30,6 +30,11 @@ class FocusApplication : Application() {
     
     override fun onCreate() {
         super.onCreate()
+        try {
+            net.sqlcipher.database.SQLiteDatabase.loadLibs(this)
+        } catch (t: Throwable) {
+            android.util.Log.e("FocusApplication", "Failed to load SQLCipher libs early", t)
+        }
         com.focusbyrj.app.util.AppThemeManager.init(this)
         com.focusbyrj.app.util.FocusStatsManager.init(this)
         com.focusbyrj.app.util.FocusEconomyManager.init(this)

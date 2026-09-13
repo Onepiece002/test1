@@ -39,6 +39,11 @@
 -dontwarn okhttp3.**
 -dontwarn org.checkerframework.**
 
+# SQLCipher
+-keep class net.sqlcipher.** { *; }
+-keep interface net.sqlcipher.** { *; }
+-dontwarn net.sqlcipher.**
+
 -keep class com.focusbyrj.app.service.** { *; }
 -keep class com.focusbyrj.app.receiver.** { *; }
 -keep class com.focusbyrj.app.model.** { *; }

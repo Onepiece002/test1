@@ -21,6 +21,9 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
+import net.sqlcipher.database.SQLiteDatabase
 import net.sqlcipher.database.SupportFactory
 
 @Database(entities = [NoteEntity::class], version = 2, exportSchema = false)
@@ -31,9 +34,27 @@ abstract class NoteDatabase : RoomDatabase() {
         @Volatile
         private var INSTANCE: NoteDatabase? = null
 
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Ensure keep_notes table has imageUrisJson and audioUrisJson if migrating from v1
+                try {
+                    db.execSQL("ALTER TABLE keep_notes ADD COLUMN imageUrisJson TEXT NOT NULL DEFAULT '[]'")
+                } catch (_: Exception) {}
+                try {
+                    db.execSQL("ALTER TABLE keep_notes ADD COLUMN audioUrisJson TEXT NOT NULL DEFAULT '[]'")
+                } catch (_: Exception) {}
+            }
+        }
+
         fun getInstance(context: Context): NoteDatabase {
             return INSTANCE ?: synchronized(this) {
                 val appContext = context.applicationContext
+                try {
+                    SQLiteDatabase.loadLibs(appContext)
+                } catch (t: Throwable) {
+                    android.util.Log.e("NoteDatabase", "Failed to load SQLCipher native libs", t)
+                }
+
                 val passphrase = DatabaseKeyProvider.getOrCreatePassphrase(appContext)
                 val factory = SupportFactory(passphrase)
 
@@ -43,6 +64,7 @@ abstract class NoteDatabase : RoomDatabase() {
                     NoteDatabaseMigrationHelper.getEncryptedDatabaseName()
                 )
                     .openHelperFactory(factory)
+                    .addMigrations(MIGRATION_1_2)
                     .fallbackToDestructiveMigration()
                     .build()
 
