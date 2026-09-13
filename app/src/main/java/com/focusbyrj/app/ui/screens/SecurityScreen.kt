@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -22,6 +23,9 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.QueryStats
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.CloudDownload
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -34,8 +38,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.focusbyrj.app.service.FocusDeviceAdminReceiver
+import com.focusbyrj.app.ui.screens.security.ExportBackupPasswordDialog
+import com.focusbyrj.app.ui.screens.security.RestoreBackupPasswordDialog
 import com.focusbyrj.app.ui.theme.*
 import com.focusbyrj.app.util.PermissionUtils
+import com.focusbyrj.app.util.backup.BackupRestoreManager
+import kotlinx.coroutines.launch
 
 @Composable
 fun SecurityScreen(navController: NavController) {
@@ -51,6 +59,50 @@ fun SecurityScreen(navController: NavController) {
     var isBatteryUnrestricted by remember { mutableStateOf(PermissionUtils.isIgnoringBatteryOptimizations(context)) }
     var hasNotifications by remember { mutableStateOf(PermissionUtils.hasNotificationPermission(context)) }
     var showBatteryInfoDialog by remember { mutableStateOf(false) }
+    
+    // Backup & Restore State
+    var showExportPasswordDialog by remember { mutableStateOf(false) }
+    var showRestorePasswordDialog by remember { mutableStateOf(false) }
+    var isExporting by remember { mutableStateOf(false) }
+    var isRestoring by remember { mutableStateOf(false) }
+    var pendingExportPassword by remember { mutableStateOf<String?>(null) }
+    var pendingRestoreUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    val coroutineScope = rememberCoroutineScope()
+
+    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
+        val password = pendingExportPassword
+        if (uri != null && password != null) {
+            isExporting = true
+            coroutineScope.launch {
+                val result = BackupRestoreManager.createEncryptedBackup(context, uri, password)
+                isExporting = false
+                pendingExportPassword = null
+                if (result.isSuccess) {
+                    val meta = result.getOrNull()
+                    Toast.makeText(
+                        context,
+                        "Backup encrypted & saved successfully! (${meta?.noteCount ?: 0} notes, ${meta?.taskCount ?: 0} tasks)",
+                        Toast.LENGTH_LONG
+                    ).show()
+                } else {
+                    Toast.makeText(
+                        context,
+                        "Failed to create backup: ${result.exceptionOrNull()?.message}",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        } else {
+            pendingExportPassword = null
+        }
+    }
+
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            pendingRestoreUri = uri
+            showRestorePasswordDialog = true
+        }
+    }
 
     val adminLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         isUninstallProtectionEnabled = dpm.isAdminActive(adminComponent)
@@ -219,8 +271,119 @@ fun SecurityScreen(navController: NavController) {
                 }
             }
 
+            Spacer(modifier = Modifier.height(24.dp))
+
+            SecuritySectionHeader("DATA VAULT & BACKUP")
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(22.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
+            ) {
+                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    SecurityActionRow(
+                        icon = Icons.Filled.CloudUpload,
+                        iconTint = MaterialTheme.colorScheme.primary,
+                        title = "Export Encrypted Backup",
+                        subtitle = "AES-256 encrypted archive of all notes, tasks, habits, drills & settings.",
+                        action = {
+                            Button(
+                                onClick = {
+                                    showExportPasswordDialog = true
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                ),
+                                shape = RoundedCornerShape(12.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                modifier = Modifier.height(36.dp)
+                            ) {
+                                Text("Export", style = MaterialTheme.typography.labelMedium)
+                            }
+                        }
+                    )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+
+                    SecurityActionRow(
+                        icon = Icons.Filled.CloudDownload,
+                        iconTint = MaterialTheme.colorScheme.tertiary,
+                        title = "Restore from Backup",
+                        subtitle = "Decrypt and restore your data using your backup password.",
+                        action = {
+                            Button(
+                                onClick = {
+                                    importLauncher.launch(arrayOf("*/*"))
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                                ),
+                                shape = RoundedCornerShape(12.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                modifier = Modifier.height(36.dp)
+                            ) {
+                                Text("Restore", style = MaterialTheme.typography.labelMedium)
+                            }
+                        }
+                    )
+                }
+            }
+
             Spacer(modifier = Modifier.height(64.dp))
         }
+    }
+
+    if (showExportPasswordDialog) {
+        ExportBackupPasswordDialog(
+            isExporting = isExporting,
+            onDismiss = { 
+                showExportPasswordDialog = false 
+                pendingExportPassword = null
+            },
+            onConfirm = { password ->
+                showExportPasswordDialog = false
+                pendingExportPassword = password
+                val suggestedName = BackupRestoreManager.generateBackupFileName()
+                exportLauncher.launch(suggestedName)
+            }
+        )
+    }
+
+    if (showRestorePasswordDialog && pendingRestoreUri != null) {
+        val uri = pendingRestoreUri!!
+        RestoreBackupPasswordDialog(
+            isRestoring = isRestoring,
+            onDismiss = {
+                showRestorePasswordDialog = false
+                pendingRestoreUri = null
+            },
+            onConfirm = { password, cleanRestore ->
+                isRestoring = true
+                coroutineScope.launch {
+                    val result = BackupRestoreManager.restoreEncryptedBackup(context, uri, password, cleanRestore)
+                    isRestoring = false
+                    showRestorePasswordDialog = false
+                    pendingRestoreUri = null
+                    if (result.isSuccess) {
+                        val meta = result.getOrNull()
+                        Toast.makeText(
+                            context,
+                            "Restore completed! Restored ${meta?.noteCount ?: 0} notes, ${meta?.taskCount ?: 0} tasks, ${meta?.habitCount ?: 0} habits.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    } else {
+                        Toast.makeText(
+                            context,
+                            "Restore failed: ${result.exceptionOrNull()?.message}",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
+            }
+        )
     }
     
     if (showBatteryInfoDialog) {

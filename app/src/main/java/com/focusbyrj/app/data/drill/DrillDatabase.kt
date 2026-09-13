@@ -34,8 +34,14 @@ interface DrillSessionDao {
     @Query("SELECT * FROM drill_sessions ORDER BY timestamp DESC")
     fun getAllSessions(): Flow<List<DrillSessionEntity>>
 
+    @Query("SELECT * FROM drill_sessions ORDER BY timestamp DESC")
+    suspend fun getAllSessionsSync(): List<DrillSessionEntity>
+
     @Query("UPDATE drill_sessions SET isClaimed = 1 WHERE sessionId = :sessionId")
     suspend fun markClaimed(sessionId: String)
+
+    @Query("DELETE FROM drill_sessions")
+    suspend fun deleteAllSessions()
 }
 
 @Database(entities = [DrillSessionEntity::class], version = 1, exportSchema = false)

@@ -23,6 +23,9 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface HabitDao {
 
+    @Query("SELECT * FROM habits")
+    suspend fun getAllHabitsSync(): List<Habit>
+
     @Query("SELECT * FROM habits WHERE isArchived = 0 ORDER BY createdAt ASC")
     fun getAllActiveHabits(): Flow<List<Habit>>
 
@@ -71,4 +74,10 @@ interface HabitDao {
 
     @Query("DELETE FROM habit_logs WHERE habitId = :habitId")
     suspend fun deleteLogsForHabit(habitId: Long)
+
+    @Query("DELETE FROM habits")
+    suspend fun deleteAllHabits()
+
+    @Query("DELETE FROM habit_logs")
+    suspend fun deleteAllLogs()
 }

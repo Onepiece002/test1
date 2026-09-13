@@ -15,8 +15,8 @@ android {
     multiDexEnabled = true
     minSdk = 24
     targetSdk = 35
-    versionCode = 60
-    versionName = "1.6.0"
+    versionCode = 61
+    versionName = "1.6.1"
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
@@ -132,6 +132,10 @@ dependencies {
   implementation(libs.androidx.room.runtime)
   implementation(libs.androidx.room.ktx)
   ksp(libs.androidx.room.compiler)
+  implementation(libs.sqlcipher.android)
+
+  // Coil for Note Image Attachments
+  implementation("io.coil-kt:coil-compose:2.7.0")
 
   // Palette for UI tinting
   implementation("androidx.palette:palette-ktx:1.0.0")

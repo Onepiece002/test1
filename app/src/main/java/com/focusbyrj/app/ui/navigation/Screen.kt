@@ -24,12 +24,15 @@ import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.ui.graphics.vector.ImageVector
 
+import androidx.compose.material.icons.automirrored.filled.Notes
+import androidx.compose.material.icons.automirrored.filled.StickyNote2
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.CropSquare
+import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.CheckCircle
 
@@ -45,5 +48,5 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     object Subscription : Screen("subscription", "Subscription", androidx.compose.material.icons.Icons.Filled.Star)
     object Todos : Screen("todos", "Todos", Icons.Filled.CheckCircle)
     object Habits : Screen("habits", "Habits", Icons.Filled.Schedule)
-    object Empty : Screen("empty", "", Icons.Filled.CropSquare)
+    object Empty : Screen("empty", "Notes", Icons.AutoMirrored.Filled.StickyNote2)
 }

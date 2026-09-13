@@ -58,6 +58,7 @@ import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Star
+import com.focusbyrj.app.ui.screens.notes.NotesScreen
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.School
@@ -215,6 +216,7 @@ fun MainAppScreen(
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
+    val notesViewModel: com.focusbyrj.app.ui.screens.notes.NotesViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
 
     val pendingRoute by viewModel.pendingNavigationRoute.collectAsStateWithLifecycle()
     val pendingOpenAdd by viewModel.pendingOpenAddDialog.collectAsStateWithLifecycle()
@@ -688,7 +690,7 @@ fun MainAppScreen(
             modifier = Modifier.fillMaxSize(),
             containerColor = MaterialTheme.colorScheme.background,
             topBar = {
-                if (!isSessionActive && currentDestination?.route != Screen.Habits.route) {
+                if (!isSessionActive && currentDestination?.route != Screen.Habits.route && currentDestination?.route != Screen.Empty.route) {
                     TopAppBar(
                         title = {
                             AnimatedContent(
@@ -744,6 +746,16 @@ fun MainAppScreen(
                                     Screen.Account.route -> {
                                         Text(
                                             text = "Profile & Stats",
+                                            style = MaterialTheme.typography.titleLarge.copy(
+                                                fontWeight = FontWeight.SemiBold,
+                                                fontSize = 20.sp
+                                            ),
+                                            color = MaterialTheme.colorScheme.onBackground
+                                        )
+                                    }
+                                    Screen.Empty.route -> {
+                                        Text(
+                                            text = "Notes",
                                             style = MaterialTheme.typography.titleLarge.copy(
                                                 fontWeight = FontWeight.SemiBold,
                                                 fontSize = 20.sp
@@ -878,7 +890,9 @@ fun MainAppScreen(
                     Screen.Subscription.route,
                     Screen.Habits.route
                 )
-                if (currentDestination?.route !in hideBottomBarRoutes && !isSessionActive) {
+                val notesEditingState by notesViewModel.editingState.collectAsStateWithLifecycle()
+                val isEditingNote = currentDestination?.route == Screen.Empty.route && notesEditingState != null
+                if (currentDestination?.route !in hideBottomBarRoutes && !isSessionActive && !isEditingNote) {
                     FocusBottomBar(
                         items = items,
                         currentDestination = currentDestination,
@@ -955,10 +969,30 @@ fun MainAppScreen(
                     )
                 }
                 composable(Screen.Empty.route) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(MaterialTheme.colorScheme.background)
+                    NotesScreen(
+                        viewModel = notesViewModel,
+                        activeStreakDays = activeStreakDays,
+                        onOpenAccount = {
+                            navController.navigate(Screen.Account.route) {
+                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        },
+                        onNavigateToDashboard = {
+                            navController.navigate(Screen.Dashboard.route) {
+                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        },
+                        onNavigateToTodos = {
+                            navController.navigate(Screen.Todos.route) {
+                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        }
                     )
                 }
                 composable(Screen.Schedules.route) {
