@@ -115,15 +115,15 @@ fun KeepNoteCard(
     val haptic = LocalHapticFeedback.current
     val isDark = isSystemInDarkTheme()
     val theme = KeepColorPalette.getColor(note.colorKey)
-    val cardBg = theme.getBackgroundColor(isDark)
-    val baseBorderColor = theme.getBorderColor(isDark)
+    val cardBg = theme.resolveBackgroundColor(isDark)
+    val baseBorderColor = theme.resolveBorderColor(isDark)
     val isBeingDragged = isDragging
     val cardBorder = if (isBeingDragged || isSelected) {
         BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
     } else {
         BorderStroke(1.dp, baseBorderColor)
     }
-    val textColor = theme.getTextColor(isDark)
+    val textColor = theme.resolveTextColor(isDark)
 
     Card(
         modifier = modifier
@@ -490,10 +490,8 @@ fun KeepNoteCard(
                 shape = CircleShape,
                 color = if (isSelected) {
                     MaterialTheme.colorScheme.primary
-                } else if (isDark) {
-                    Color(0xFF2C2D30).copy(alpha = 0.85f)
                 } else {
-                    Color.White.copy(alpha = 0.85f)
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f)
                 },
                 border = BorderStroke(
                     width = if (isSelected) 0.dp else 1.2.dp,

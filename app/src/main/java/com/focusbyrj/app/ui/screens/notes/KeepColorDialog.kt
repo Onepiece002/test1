@@ -79,14 +79,16 @@ fun KeepColorDialog(
                 ) {
                     KeepColorPalette.allColors.forEach { colorTheme ->
                         val isSelected = colorTheme.key.equals(selectedColorKey, ignoreCase = true)
+                        val isDefault = colorTheme.key.equals("default", ignoreCase = true)
+                        val swatchBg = if (isDefault) MaterialTheme.colorScheme.surfaceVariant else colorTheme.swatchColor
                         Box(
                             modifier = Modifier
                                 .size(44.dp)
                                 .clip(CircleShape)
-                                .background(colorTheme.swatchColor)
+                                .background(swatchBg)
                                 .border(
                                     width = if (isSelected) 3.dp else 1.5.dp,
-                                    color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Black.copy(alpha = 0.2f),
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
                                     shape = CircleShape
                                 )
                                 .clickable {
@@ -100,7 +102,7 @@ fun KeepColorDialog(
                                 Icon(
                                     imageVector = Icons.Filled.Check,
                                     contentDescription = "Selected",
-                                    tint = if (colorTheme.key == "default") Color.Black else Color.White,
+                                    tint = if (isDefault) MaterialTheme.colorScheme.onSurfaceVariant else Color.White,
                                     modifier = Modifier.size(20.dp)
                                 )
                             }

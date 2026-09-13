@@ -137,15 +137,13 @@ fun TodosScreen(
                     .fillMaxSize()
                     .padding(horizontal = 12.dp)
             ) {
-                Spacer(modifier = Modifier.height(8.dp))
-                
                 TodoSegmentedPill(
                     tabs = tabs,
                     selectedIndex = selectedTab,
                     onSelect = { selectedTab = it }
                 )
                 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(10.dp))
                 
                 if (filteredTasks.isEmpty()) {
                     Box(

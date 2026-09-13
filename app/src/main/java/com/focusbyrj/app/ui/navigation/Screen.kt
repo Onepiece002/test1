@@ -49,4 +49,5 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     object Todos : Screen("todos", "Todos", Icons.Filled.CheckCircle)
     object Habits : Screen("habits", "Habits", Icons.Filled.Schedule)
     object Empty : Screen("empty", "Notes", Icons.AutoMirrored.Filled.StickyNote2)
+    object PreferencesHub : Screen("preferences_hub", "Preferences", Icons.Filled.Settings)
 }

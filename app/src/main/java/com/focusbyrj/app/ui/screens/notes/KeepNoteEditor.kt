@@ -200,9 +200,9 @@ fun KeepNoteEditor(
 
     val isDark = isSystemInDarkTheme()
     val theme = KeepColorPalette.getColor(state.colorKey)
-    val bgColor = theme.getBackgroundColor(isDark)
-    val textColor = theme.getTextColor(isDark)
-    val borderColor = theme.getBorderColor(isDark)
+    val bgColor = theme.resolveBackgroundColor(isDark)
+    val textColor = theme.resolveTextColor(isDark)
+    val borderColor = theme.resolveBorderColor(isDark)
 
     var showColorPicker by remember { mutableStateOf(false) }
     var showLabelDialog by remember { mutableStateOf(false) }
@@ -720,7 +720,7 @@ fun KeepNoteEditor(
                 exit = shrinkVertically() + fadeOut()
             ) {
                 Surface(
-                    color = if (isDark) Color(0xFF2E3138) else Color(0xFFF1F3F4),
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
                     shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -732,14 +732,16 @@ fun KeepNoteEditor(
                     ) {
                         items(KeepColorPalette.allColors) { colorTheme ->
                             val isSelected = colorTheme.key.equals(state.colorKey, ignoreCase = true)
+                            val isDefault = colorTheme.key.equals("default", ignoreCase = true)
+                            val swatchBg = if (isDefault) MaterialTheme.colorScheme.surfaceVariant else colorTheme.swatchColor
                             Box(
                                 modifier = Modifier
                                     .size(36.dp)
                                     .clip(CircleShape)
-                                    .background(colorTheme.swatchColor)
+                                    .background(swatchBg)
                                     .border(
                                         width = if (isSelected) 3.dp else 1.dp,
-                                        color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Black.copy(alpha = 0.2f),
+                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
                                         shape = CircleShape
                                     )
                                     .clickable { onColorChange(colorTheme.key) }
@@ -931,7 +933,7 @@ fun KeepNoteEditor(
         if (showAddSheet) {
             ModalBottomSheet(
                 onDismissRequest = { showAddSheet = false },
-                containerColor = if (isDark) Color(0xFF282A2E) else Color(0xFFFFFFFF),
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                 shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
             ) {
                 Column(

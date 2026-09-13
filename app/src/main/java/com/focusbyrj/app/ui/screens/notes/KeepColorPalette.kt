@@ -17,6 +17,9 @@
 
 package com.focusbyrj.app.ui.screens.notes
 
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.graphics.Color
 
 data class KeepColorTheme(
@@ -33,6 +36,46 @@ data class KeepColorTheme(
     fun getBackgroundColor(isDark: Boolean): Color = if (isDark) darkBg else lightBg
     fun getBorderColor(isDark: Boolean): Color = if (isDark) darkBorder else lightBorder
     fun getTextColor(isDark: Boolean): Color = if (isDark) darkText else lightText
+
+    @Composable
+    @ReadOnlyComposable
+    fun resolveBackgroundColor(isDark: Boolean): Color {
+        return if (key.equals("default", ignoreCase = true)) {
+            MaterialTheme.colorScheme.surface
+        } else {
+            getBackgroundColor(isDark)
+        }
+    }
+
+    @Composable
+    @ReadOnlyComposable
+    fun resolveBorderColor(isDark: Boolean): Color {
+        return if (key.equals("default", ignoreCase = true)) {
+            MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
+        } else {
+            getBorderColor(isDark)
+        }
+    }
+
+    @Composable
+    @ReadOnlyComposable
+    fun resolveTextColor(isDark: Boolean): Color {
+        return if (key.equals("default", ignoreCase = true)) {
+            MaterialTheme.colorScheme.onSurface
+        } else {
+            getTextColor(isDark)
+        }
+    }
+
+    @Composable
+    @ReadOnlyComposable
+    fun resolveSecondaryTextColor(isDark: Boolean): Color {
+        return if (key.equals("default", ignoreCase = true)) {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        } else {
+            getTextColor(isDark).copy(alpha = 0.75f)
+        }
+    }
 }
 
 object KeepColorPalette {
@@ -40,7 +83,7 @@ object KeepColorPalette {
         key = "default",
         name = "Default",
         lightBg = Color(0xFFFFFFFF),
-        darkBg = Color(0xFF1E1F22),
+        darkBg = Color(0xFF151921),
         lightBorder = Color(0xFFE0E0E0),
         darkBorder = Color(0xFF2E3138),
         lightText = Color(0xFF202124),
@@ -51,133 +94,133 @@ object KeepColorPalette {
     val Coral = KeepColorTheme(
         key = "coral",
         name = "Coral",
-        lightBg = Color(0xFFF28B82),
-        darkBg = Color(0xFF77172E),
-        lightBorder = Color(0xFFEA4335).copy(alpha = 0.4f),
-        darkBorder = Color(0xFF9E233E),
-        lightText = Color(0xFF202124),
+        lightBg = Color(0xFFFFEBEE),
+        darkBg = Color(0xFF4C1D24),
+        lightBorder = Color(0xFFE57373).copy(alpha = 0.45f),
+        darkBorder = Color(0xFF7A2E3A),
+        lightText = Color(0xFF371E22),
         darkText = Color(0xFFFCE8E6),
-        swatchColor = Color(0xFFF28B82)
+        swatchColor = Color(0xFFEF9A9A)
     )
 
     val Peach = KeepColorTheme(
         key = "peach",
         name = "Peach",
-        lightBg = Color(0xFFFBBC04),
-        darkBg = Color(0xFF692B17),
-        lightBorder = Color(0xFFF29900).copy(alpha = 0.4f),
-        darkBorder = Color(0xFF8C3E22),
-        lightText = Color(0xFF202124),
-        darkText = Color(0xFFFEF7E0),
-        swatchColor = Color(0xFFFBBC04)
+        lightBg = Color(0xFFFFF3E0),
+        darkBg = Color(0xFF4E2A18),
+        lightBorder = Color(0xFFFFB74D).copy(alpha = 0.45f),
+        darkBorder = Color(0xFF7E4224),
+        lightText = Color(0xFF382316),
+        darkText = Color(0xFFFEF0E4),
+        swatchColor = Color(0xFFFFCC80)
     )
 
     val Sand = KeepColorTheme(
         key = "sand",
         name = "Sand",
-        lightBg = Color(0xFFFFF475),
-        darkBg = Color(0xFF7C4A03),
-        lightBorder = Color(0xFFF9AB00).copy(alpha = 0.4f),
-        darkBorder = Color(0xFF9E650C),
-        lightText = Color(0xFF202124),
-        darkText = Color(0xFFFEF7E0),
-        swatchColor = Color(0xFFFFF475)
+        lightBg = Color(0xFFFFFDE7),
+        darkBg = Color(0xFF483E15),
+        lightBorder = Color(0xFFFFF176).copy(alpha = 0.5f),
+        darkBorder = Color(0xFF74641E),
+        lightText = Color(0xFF363212),
+        darkText = Color(0xFFFEFBE8),
+        swatchColor = Color(0xFFFFF59D)
     )
 
     val Mint = KeepColorTheme(
         key = "mint",
         name = "Mint",
-        lightBg = Color(0xFFCCFF90),
-        darkBg = Color(0xFF264D3B),
-        lightBorder = Color(0xFF5BB974).copy(alpha = 0.4f),
-        darkBorder = Color(0xFF336850),
-        lightText = Color(0xFF202124),
+        lightBg = Color(0xFFE8F8F0),
+        darkBg = Color(0xFF1B3D2F),
+        lightBorder = Color(0xFF81C784).copy(alpha = 0.45f),
+        darkBorder = Color(0xFF2C5E4A),
+        lightText = Color(0xFF142F24),
         darkText = Color(0xFFE6F4EA),
-        swatchColor = Color(0xFFCCFF90)
+        swatchColor = Color(0xFFA5D6A7)
     )
 
     val Sage = KeepColorTheme(
         key = "sage",
         name = "Sage",
-        lightBg = Color(0xFFA7FFEB),
-        darkBg = Color(0xFF0C625D),
-        lightBorder = Color(0xFF12B5CB).copy(alpha = 0.4f),
-        darkBorder = Color(0xFF137E77),
-        lightText = Color(0xFF202124),
+        lightBg = Color(0xFFE0F2F1),
+        darkBg = Color(0xFF133E3B),
+        lightBorder = Color(0xFF4DB6AC).copy(alpha = 0.45f),
+        darkBorder = Color(0xFF205E59),
+        lightText = Color(0xFF102E2B),
         darkText = Color(0xFFE4F7FB),
-        swatchColor = Color(0xFFA7FFEB)
+        swatchColor = Color(0xFF80CBC4)
     )
 
     val Fog = KeepColorTheme(
         key = "fog",
         name = "Fog",
-        lightBg = Color(0xFFCBF0F8),
-        darkBg = Color(0xFF256377),
-        lightBorder = Color(0xFF24A1DE).copy(alpha = 0.4f),
-        darkBorder = Color(0xFF327C94),
-        lightText = Color(0xFF202124),
-        darkText = Color(0xFFE8F0FE),
-        swatchColor = Color(0xFFCBF0F8)
+        lightBg = Color(0xFFE1F5FE),
+        darkBg = Color(0xFF17384A),
+        lightBorder = Color(0xFF4FC3F7).copy(alpha = 0.45f),
+        darkBorder = Color(0xFF255773),
+        lightText = Color(0xFF122C3A),
+        darkText = Color(0xFFE8F4FD),
+        swatchColor = Color(0xFF90CAF9)
     )
 
     val Storm = KeepColorTheme(
         key = "storm",
         name = "Storm",
-        lightBg = Color(0xFFAECBFA),
-        darkBg = Color(0xFF284255),
-        lightBorder = Color(0xFF4285F4).copy(alpha = 0.4f),
-        darkBorder = Color(0xFF38576E),
-        lightText = Color(0xFF202124),
-        darkText = Color(0xFFE8F0FE),
-        swatchColor = Color(0xFFAECBFA)
+        lightBg = Color(0xFFE8EAF6),
+        darkBg = Color(0xFF212B47),
+        lightBorder = Color(0xFF7986CB).copy(alpha = 0.45f),
+        darkBorder = Color(0xFF33436F),
+        lightText = Color(0xFF1A223B),
+        darkText = Color(0xFFE8EAF6),
+        swatchColor = Color(0xFF9FA8DA)
     )
 
     val Dusk = KeepColorTheme(
         key = "dusk",
         name = "Dusk",
-        lightBg = Color(0xFFD7AEFB),
-        darkBg = Color(0xFF472E5B),
-        lightBorder = Color(0xFFA142F4).copy(alpha = 0.4f),
-        darkBorder = Color(0xFF5E3F78),
-        lightText = Color(0xFF202124),
+        lightBg = Color(0xFFF3E5F5),
+        darkBg = Color(0xFF382346),
+        lightBorder = Color(0xFFBA68C8).copy(alpha = 0.45f),
+        darkBorder = Color(0xFF5A3970),
+        lightText = Color(0xFF2B1838),
         darkText = Color(0xFFF3E8FD),
-        swatchColor = Color(0xFFD7AEFB)
+        swatchColor = Color(0xFFCE93D8)
     )
 
     val Blossom = KeepColorTheme(
         key = "blossom",
         name = "Blossom",
-        lightBg = Color(0xFFFDCFE8),
-        darkBg = Color(0xFF6C394F),
-        lightBorder = Color(0xFFE52592).copy(alpha = 0.4f),
-        darkBorder = Color(0xFF884B65),
-        lightText = Color(0xFF202124),
-        darkText = Color(0xFFFCE8E6),
-        swatchColor = Color(0xFFFDCFE8)
+        lightBg = Color(0xFFFCE4EC),
+        darkBg = Color(0xFF491E32),
+        lightBorder = Color(0xFFF06292).copy(alpha = 0.45f),
+        darkBorder = Color(0xFF752F50),
+        lightText = Color(0xFF381525),
+        darkText = Color(0xFFFCE8F0),
+        swatchColor = Color(0xFFF48FB1)
     )
 
     val Clay = KeepColorTheme(
         key = "clay",
         name = "Clay",
-        lightBg = Color(0xFFE6C9A8),
-        darkBg = Color(0xFF4B443A),
-        lightBorder = Color(0xFF935D25).copy(alpha = 0.4f),
-        darkBorder = Color(0xFF625B4E),
-        lightText = Color(0xFF202124),
+        lightBg = Color(0xFFEFEBE9),
+        darkBg = Color(0xFF3E322E),
+        lightBorder = Color(0xFFA1887F).copy(alpha = 0.45f),
+        darkBorder = Color(0xFF614E48),
+        lightText = Color(0xFF332723),
         darkText = Color(0xFFF1EFEA),
-        swatchColor = Color(0xFFE6C9A8)
+        swatchColor = Color(0xFFBCAAA4)
     )
 
     val Chalk = KeepColorTheme(
         key = "chalk",
         name = "Chalk",
-        lightBg = Color(0xFFE8EAED),
-        darkBg = Color(0xFF232427),
-        lightBorder = Color(0xFFBDC1C6).copy(alpha = 0.5f),
-        darkBorder = Color(0xFF3C4043),
-        lightText = Color(0xFF202124),
-        darkText = Color(0xFFE8EAED),
-        swatchColor = Color(0xFFE8EAED)
+        lightBg = Color(0xFFECEFF1),
+        darkBg = Color(0xFF263238),
+        lightBorder = Color(0xFF90A4AE).copy(alpha = 0.45f),
+        darkBorder = Color(0xFF3E4E56),
+        lightText = Color(0xFF1E282C),
+        darkText = Color(0xFFECEFF1),
+        swatchColor = Color(0xFFB0BEC5)
     )
 
     val allColors: List<KeepColorTheme> = listOf(

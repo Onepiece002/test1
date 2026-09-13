@@ -254,7 +254,6 @@ fun MainAppScreen(
         Screen.Account
     )
 
-    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val isSessionActive by viewModel.isSessionActive.collectAsStateWithLifecycle()
     val economyProfile by FocusEconomyManager.profileFlow.collectAsStateWithLifecycle()
@@ -331,366 +330,21 @@ fun MainAppScreen(
         )
     }
 
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        drawerContent = {
-            ModalDrawerSheet(
-                modifier = Modifier.width(320.dp),
-                drawerContainerColor = MaterialTheme.colorScheme.background
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 16.dp, vertical = 20.dp)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .verticalScroll(rememberScrollState())
-                    ) {
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                    // Executive Profile Card inside Drawer
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(22.dp))
-                            .clickable {
-                                scope.launch { drawerState.close() }
-                                kotlin.runCatching {
-                                    navController.navigate(Screen.Account.route) {
-                                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                        launchSingleTop = true
-                                        restoreState = true
-                                    }
-                                }
-                            },
-                        shape = RoundedCornerShape(22.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                val avatarRes = ProfileAvatarManager.getAvatarImageRes(economyProfile.selectedAvatar, economyProfile.avatarTier)
-                                val avatarBorder = ProfileAvatarManager.getAvatarBorderColor(economyProfile.selectedAvatar, economyProfile.avatarTier)
-                                val rankTitle = ProfileAvatarManager.getAvatarTitle(economyProfile.selectedAvatar, economyProfile.avatarTier)
-                                
-                                Box(
-                                    modifier = Modifier
-                                        .size(50.dp)
-                                        .clip(CircleShape)
-                                        .background(MaterialTheme.colorScheme.surface)
-                                        .border(2.dp, avatarBorder, CircleShape),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Image(
-                                        painter = painterResource(id = avatarRes),
-                                        contentDescription = null,
-                                        modifier = Modifier.size(40.dp).clip(CircleShape)
-                                    )
-                                }
-
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = economyProfile.name.ifBlank { "Focus Master" },
-                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        maxLines = 1
-                                    )
-                                    Text(
-                                        text = "$rankTitle • Lvl ${economyProfile.level}",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                // Multiplier Pill
-                                Surface(
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                                    border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.Center
-                                    ) {
-                                        Text("⚡", fontSize = 12.sp)
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text(
-                                            text = "${FocusEconomyManager.getGoldMultiplier(economyProfile.level)}x Multiplier",
-                                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                            color = MaterialTheme.colorScheme.primary,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                    }
-                                }
-
-                                // Gold Pill
-                                Surface(
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = Color(0xFFF59E0B).copy(alpha = 0.12f),
-                                    border = BorderStroke(0.8.dp, Color(0xFFF59E0B).copy(alpha = 0.35f)),
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.Center
-                                    ) {
-                                        Text("🪙", fontSize = 12.sp)
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text(
-                                            text = "${economyProfile.gold} Gold",
-                                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                            color = Color(0xFFF59E0B),
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    // Section: PREFERENCES (2026 Calm Minimal)
-                    Text(
-                        text = "PREFERENCES",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontWeight = FontWeight.SemiBold,
-                            letterSpacing = 1.4.sp,
-                            fontSize = 11.sp
-                        ),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
-                        modifier = Modifier.padding(start = 10.dp, bottom = 4.dp)
-                    )
-
-                    // Preferences List (Borderless, calm flow)
-                    Column(
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        // Security & Permissions
-                        DrawerMenuItem(
-                            icon = Icons.Filled.Security,
-                            title = "Security & Permissions",
-                            subtitle = "Device shield & lock access",
-                            trailingBadge = {
-                                if (allConfigured) {
-                                    Surface(
-                                        shape = CircleShape,
-                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                        ) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(5.dp)
-                                                    .clip(CircleShape)
-                                                    .background(MaterialTheme.colorScheme.primary)
-                                            )
-                                            Text(
-                                                "Active",
-                                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Medium),
-                                                color = MaterialTheme.colorScheme.primary
-                                            )
-                                        }
-                                    }
-                                } else {
-                                    Surface(
-                                        shape = CircleShape,
-                                        color = MaterialTheme.colorScheme.error.copy(alpha = 0.12f)
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                        ) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(5.dp)
-                                                    .clip(CircleShape)
-                                                    .background(MaterialTheme.colorScheme.error)
-                                            )
-                                            Text(
-                                                "Setup",
-                                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Medium),
-                                                color = MaterialTheme.colorScheme.error
-                                            )
-                                        }
-                                    }
-                                }
-                            },
-                            onClick = {
-                                scope.launch { drawerState.close() }
-                                kotlin.runCatching {
-                                    navController.navigate(Screen.Security.route) {
-                                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                        launchSingleTop = true
-                                        restoreState = true
-                                    }
-                                }
-                            }
-                        )
-
-                        HorizontalDivider(
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
-                            modifier = Modifier.padding(start = 54.dp, end = 8.dp)
-                        )
-
-                        // App Settings
-                        DrawerMenuItem(
-                            icon = Icons.Filled.Palette,
-                            title = "App Settings",
-                            subtitle = "Theme, sounds & preferences",
-                            onClick = {
-                                scope.launch { drawerState.close() }
-                                kotlin.runCatching {
-                                    navController.navigate(Screen.Settings.route) {
-                                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                        launchSingleTop = true
-                                        restoreState = true
-                                    }
-                                }
-                            }
-                        )
-
-                        HorizontalDivider(
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
-                            modifier = Modifier.padding(start = 54.dp, end = 8.dp)
-                        )
-
-                        DrawerMenuItem(
-                            icon = Icons.Filled.Chat,
-                            title = "Bubble Settings",
-                            subtitle = "Floating timer & quick dock",
-                            onClick = {
-                                scope.launch { drawerState.close() }
-                                kotlin.runCatching {
-                                    navController.navigate(Screen.BubbleSettings.route) {
-                                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                        launchSingleTop = true
-                                        restoreState = true
-                                    }
-                                }
-                            }
-                        )
-
-                        HorizontalDivider(
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
-                            modifier = Modifier.padding(start = 54.dp, end = 8.dp)
-                        )
-
-                        // Subscription
-                        DrawerMenuItem(
-                            icon = Icons.Filled.Star,
-                            title = "Subscription",
-                            subtitle = "Unlock Pro & cloud sync",
-                            trailingBadge = {
-                                Surface(
-                                    shape = CircleShape,
-                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-                                ) {
-                                    Text(
-                                        text = "PRO",
-                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, fontWeight = FontWeight.Bold),
-                                        color = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
-                                    )
-                                }
-                            },
-                            onClick = {
-                                scope.launch { drawerState.close() }
-                                kotlin.runCatching {
-                                    navController.navigate(Screen.Subscription.route) {
-                                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                        launchSingleTop = true
-                                        restoreState = true
-                                    }
-                                }
-                            }
-                        )
-
-
-                    }
-
-                    Spacer(modifier = Modifier.height(18.dp))
-
-                    // Section: ASSISTANCE
-                    Text(
-                        text = "ASSISTANCE",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontWeight = FontWeight.SemiBold,
-                            letterSpacing = 1.4.sp,
-                            fontSize = 11.sp
-                        ),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
-                        modifier = Modifier.padding(start = 10.dp, bottom = 4.dp)
-                    )
-
-                    // Assistance List (Borderless, calm flow)
-                    Column(
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        // Setup Guide
-                        DrawerMenuItem(
-                            icon = Icons.Filled.Info,
-                            title = "Setup Guide",
-                            subtitle = "Tour & permissions guide",
-                            onClick = {
-                                scope.launch { drawerState.close() }
-                                showSetupDialog = true
-                            }
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
-
-                // Footer Branding (pinned to very bottom of drawer)
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 12.dp, bottom = 8.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "Focus by Rj • v${BuildConfig.VERSION_NAME}",
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "Stay present. Guard your mind.",
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-                    )
-                }
-            }
-            }
-        }
-    ) {
-        Scaffold(
-            modifier = Modifier.fillMaxSize(),
-            containerColor = MaterialTheme.colorScheme.background,
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        containerColor = MaterialTheme.colorScheme.background,
             topBar = {
-                if (!isSessionActive && currentDestination?.route != Screen.Habits.route && currentDestination?.route != Screen.Empty.route) {
+                val hideTopBarRoutes = listOf(
+                    Screen.Habits.route,
+                    Screen.Empty.route,
+                    Screen.PreferencesHub.route,
+                    Screen.Settings.route,
+                    Screen.Security.route,
+                    Screen.BubbleSettings.route,
+                    Screen.Subscription.route,
+                    Screen.AddRestriction.route
+                )
+                if (!isSessionActive && currentDestination?.route !in hideTopBarRoutes) {
                     TopAppBar(
                         title = {
                             AnimatedContent(
@@ -703,21 +357,41 @@ fun MainAppScreen(
                             ) { route ->
                                 when (route) {
                                     Screen.Dashboard.route -> {
-                                        Text(
-                                            text = "Focus by Rj",
-                                            style = MaterialTheme.typography.titleLarge.copy(
-                                                fontWeight = FontWeight.SemiBold,
-                                                letterSpacing = 1.2.sp,
-                                                fontSize = 20.sp
-                                            ),
-                                            color = MaterialTheme.colorScheme.onBackground
-                                        )
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(30.dp)
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+                                                    .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f), RoundedCornerShape(8.dp)),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    painter = painterResource(id = R.drawable.ic_app_logo),
+                                                    contentDescription = "Focus App Logo",
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                            }
+                                            Text(
+                                                text = "Focus by Rj",
+                                                style = MaterialTheme.typography.titleLarge.copy(
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 19.sp,
+                                                    letterSpacing = 0.3.sp
+                                                ),
+                                                color = MaterialTheme.colorScheme.onBackground
+                                            )
+                                        }
                                     }
                                     Screen.Todos.route -> {
                                         Text(
                                             text = "Todos",
                                             style = MaterialTheme.typography.titleLarge.copy(
-                                                fontWeight = FontWeight.SemiBold,
+                                                fontWeight = FontWeight.Bold,
                                                 fontSize = 20.sp
                                             ),
                                             color = MaterialTheme.colorScheme.onBackground
@@ -727,7 +401,7 @@ fun MainAppScreen(
                                         Text(
                                             text = "Routines",
                                             style = MaterialTheme.typography.titleLarge.copy(
-                                                fontWeight = FontWeight.SemiBold,
+                                                fontWeight = FontWeight.Bold,
                                                 fontSize = 20.sp
                                             ),
                                             color = MaterialTheme.colorScheme.onBackground
@@ -737,7 +411,7 @@ fun MainAppScreen(
                                         Text(
                                             text = "Screen Time",
                                             style = MaterialTheme.typography.titleLarge.copy(
-                                                fontWeight = FontWeight.SemiBold,
+                                                fontWeight = FontWeight.Bold,
                                                 fontSize = 20.sp
                                             ),
                                             color = MaterialTheme.colorScheme.onBackground
@@ -747,7 +421,7 @@ fun MainAppScreen(
                                         Text(
                                             text = "Profile & Stats",
                                             style = MaterialTheme.typography.titleLarge.copy(
-                                                fontWeight = FontWeight.SemiBold,
+                                                fontWeight = FontWeight.Bold,
                                                 fontSize = 20.sp
                                             ),
                                             color = MaterialTheme.colorScheme.onBackground
@@ -757,22 +431,42 @@ fun MainAppScreen(
                                         Text(
                                             text = "Notes",
                                             style = MaterialTheme.typography.titleLarge.copy(
-                                                fontWeight = FontWeight.SemiBold,
+                                                fontWeight = FontWeight.Bold,
                                                 fontSize = 20.sp
                                             ),
                                             color = MaterialTheme.colorScheme.onBackground
                                         )
                                     }
                                     else -> {
-                                        Text(
-                                            text = "Focus by Rj",
-                                            style = MaterialTheme.typography.titleLarge.copy(
-                                                fontWeight = FontWeight.SemiBold,
-                                                letterSpacing = 1.2.sp,
-                                                fontSize = 20.sp
-                                            ),
-                                            color = MaterialTheme.colorScheme.onBackground
-                                        )
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(30.dp)
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+                                                    .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f), RoundedCornerShape(8.dp)),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    painter = painterResource(id = R.drawable.ic_app_logo),
+                                                    contentDescription = "Focus App Logo",
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                            }
+                                            Text(
+                                                text = "Focus by Rj",
+                                                style = MaterialTheme.typography.titleLarge.copy(
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 19.sp,
+                                                    letterSpacing = 0.3.sp
+                                                ),
+                                                color = MaterialTheme.colorScheme.onBackground
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -792,24 +486,6 @@ fun MainAppScreen(
                                     Icon(
                                         Icons.AutoMirrored.Filled.ArrowBack,
                                         contentDescription = "Back",
-                                        tint = MaterialTheme.colorScheme.onBackground,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-                            } else {
-                                Box(
-                                    modifier = Modifier
-                                        .padding(start = 12.dp, end = 4.dp)
-                                        .size(38.dp)
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
-                                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
-                                        .clickable { scope.launch { drawerState.open() } },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        Icons.Filled.Menu,
-                                        contentDescription = "Menu",
                                         tint = MaterialTheme.colorScheme.onBackground,
                                         modifier = Modifier.size(20.dp)
                                     )
@@ -846,7 +522,7 @@ fun MainAppScreen(
                                 }
                             }
 
-                            // Interactive Profile Avatar Ring
+                            // Interactive Profile Avatar Ring -> Opens full-page Preferences & Settings Hub
                             val avatarRes = ProfileAvatarManager.getAvatarImageRes(economyProfile.selectedAvatar, economyProfile.avatarTier)
                             val avatarBorder = ProfileAvatarManager.getAvatarBorderColor(economyProfile.selectedAvatar, economyProfile.avatarTier)
 
@@ -858,17 +534,15 @@ fun MainAppScreen(
                                     .background(MaterialTheme.colorScheme.surfaceVariant)
                                     .border(1.8.dp, avatarBorder, CircleShape)
                                     .clickable {
-                                        navController.navigate(Screen.Account.route) {
-                                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                        navController.navigate(Screen.PreferencesHub.route) {
                                             launchSingleTop = true
-                                            restoreState = true
                                         }
                                     },
                                 contentAlignment = Alignment.Center
                             ) {
                                 Image(
                                     painter = painterResource(id = avatarRes),
-                                    contentDescription = "Profile",
+                                    contentDescription = "Settings & Preferences",
                                     modifier = Modifier
                                         .fillMaxSize()
                                         .padding(2.dp)
@@ -888,7 +562,8 @@ fun MainAppScreen(
                     Screen.Settings.route,
                     Screen.BubbleSettings.route,
                     Screen.Subscription.route,
-                    Screen.Habits.route
+                    Screen.Habits.route,
+                    Screen.PreferencesHub.route
                 )
                 val notesEditingState by notesViewModel.editingState.collectAsStateWithLifecycle()
                 val isEditingNote = currentDestination?.route == Screen.Empty.route && notesEditingState != null
@@ -973,10 +648,8 @@ fun MainAppScreen(
                         viewModel = notesViewModel,
                         activeStreakDays = activeStreakDays,
                         onOpenAccount = {
-                            navController.navigate(Screen.Account.route) {
-                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                            navController.navigate(Screen.PreferencesHub.route) {
                                 launchSingleTop = true
-                                restoreState = true
                             }
                         },
                         onNavigateToDashboard = {
@@ -1000,6 +673,12 @@ fun MainAppScreen(
                 }
                 composable(Screen.Account.route) {
                     AccountScreen()
+                }
+                composable(Screen.PreferencesHub.route) {
+                    com.focusbyrj.app.ui.screens.PreferencesHubScreen(
+                        navController = navController,
+                        onOpenSetupGuide = { showSetupDialog = true }
+                    )
                 }
                 composable(Screen.Time.route) {
                     TimeScreen()
@@ -1091,75 +770,6 @@ fun MainAppScreen(
                     }
                 }
             }
-        }
-        }
-    }
-}
-
-@Composable
-private fun DrawerMenuItem(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    title: String,
-    subtitle: String,
-    onClick: () -> Unit,
-    trailingBadge: @Composable (() -> Unit)? = null
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .clickable { onClick() }
-            .padding(horizontal = 10.dp, vertical = 11.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.weight(1f),
-            horizontalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(34.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
-                    modifier = Modifier.size(17.dp)
-                )
-            }
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium, fontSize = 14.sp),
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                    maxLines = 1
-                )
-            }
-        }
-        
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            if (trailingBadge != null) {
-                trailingBadge()
-            }
-            Icon(
-                imageVector = Icons.Filled.ChevronRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
-                modifier = Modifier.size(16.dp)
-            )
         }
     }
 }

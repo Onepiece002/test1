@@ -295,15 +295,15 @@ fun NotesScreen(
         viewModel.reorderNotes(listToSave)
     }
 
-    val searchBarBg = if (isDark) Color(0xFF282A2E) else Color(0xFFF1F3F4)
-    val searchBarBorder = if (isDark) Color(0xFF3C4043) else Color(0xFFE0E0E0)
-    val contentTextColor = if (isDark) Color(0xFFE8EAED) else Color(0xFF202124)
+    val searchBarBg = MaterialTheme.colorScheme.surfaceVariant
+    val searchBarBorder = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)
+    val contentTextColor = MaterialTheme.colorScheme.onSurface
 
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
             ModalDrawerSheet(
-                drawerContainerColor = if (isDark) Color(0xFF202124) else Color(0xFFFFFFFF),
+                drawerContainerColor = MaterialTheme.colorScheme.surface,
                 drawerContentColor = contentTextColor,
                 modifier = Modifier.width(300.dp)
             ) {
@@ -636,7 +636,6 @@ fun NotesScreen(
             modifier = modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
-                .statusBarsPadding()
         ) {
             Column(
                 modifier = Modifier.fillMaxSize()
@@ -656,8 +655,8 @@ fun NotesScreen(
                                 spotColor = Color.Black.copy(alpha = 0.08f)
                             ),
                         shape = CircleShape,
-                        color = if (isDark) Color(0xFF2E3035) else Color(0xFFECEEF4),
-                        border = BorderStroke(1.dp, searchBarBorder)
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
                     ) {
                         Row(
                             modifier = Modifier
@@ -810,148 +809,157 @@ fun NotesScreen(
                         }
                     }
                 } else {
-                    Surface(
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
-                            .shadow(
-                                elevation = 2.dp,
-                                shape = CircleShape,
-                                ambientColor = Color.Black.copy(alpha = 0.08f),
-                                spotColor = Color.Black.copy(alpha = 0.04f)
-                            ),
-                        shape = CircleShape,
-                        color = searchBarBg,
-                        border = BorderStroke(1.dp, searchBarBorder)
+                            .height(64.dp)
+                            .padding(start = 16.dp, end = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
+                        Surface(
                             modifier = Modifier
-                                .fillMaxWidth()
+                                .weight(1f)
                                 .height(48.dp)
-                                .padding(horizontal = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            IconButton(
-                                onClick = { coroutineScope.launch { drawerState.open() } },
-                                modifier = Modifier.size(36.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.Menu,
-                                    contentDescription = "Open navigation drawer",
-                                    tint = contentTextColor.copy(alpha = 0.75f),
-                                    modifier = Modifier.size(22.dp)
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.width(4.dp))
-
-                            BasicTextField(
-                                value = searchQuery,
-                                onValueChange = { viewModel.setSearchQuery(it) },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .testTag("keep_search_input"),
-                                textStyle = TextStyle(
-                                    color = contentTextColor,
-                                    fontSize = 15.sp
+                                .shadow(
+                                    elevation = 2.dp,
+                                    shape = CircleShape,
+                                    ambientColor = Color.Black.copy(alpha = 0.08f),
+                                    spotColor = Color.Black.copy(alpha = 0.04f)
                                 ),
-                                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                                singleLine = true,
-                                decorationBox = { innerTextField ->
-                                    if (searchQuery.isEmpty()) {
-                                        Text(
-                                            text = when (currentFolder) {
-                                                NoteFolder.NOTES -> "Search your notes"
-                                                NoteFolder.REMINDERS -> "Search reminders"
-                                                NoteFolder.ARCHIVE -> "Search archive"
-                                                NoteFolder.TRASH -> "Search trash"
-                                            },
-                                            style = TextStyle(
-                                                color = contentTextColor.copy(alpha = 0.50f),
-                                                fontSize = 15.sp
-                                            )
-                                        )
-                                    }
-                                    innerTextField()
-                                }
-                            )
-
-                            if (searchQuery.isNotEmpty()) {
+                            shape = CircleShape,
+                            color = searchBarBg,
+                            border = BorderStroke(1.dp, searchBarBorder)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(horizontal = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
                                 IconButton(
-                                    onClick = { viewModel.setSearchQuery("") },
-                                    modifier = Modifier.size(32.dp)
+                                    onClick = { coroutineScope.launch { drawerState.open() } },
+                                    modifier = Modifier.size(36.dp)
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Filled.Close,
-                                        contentDescription = "Clear search",
-                                        tint = contentTextColor.copy(alpha = 0.6f),
-                                        modifier = Modifier.size(18.dp)
+                                        imageVector = Icons.Filled.Menu,
+                                        contentDescription = "Open navigation drawer",
+                                        tint = contentTextColor.copy(alpha = 0.75f),
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.width(4.dp))
+
+                                BasicTextField(
+                                    value = searchQuery,
+                                    onValueChange = { viewModel.setSearchQuery(it) },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .testTag("keep_search_input"),
+                                    textStyle = TextStyle(
+                                        color = contentTextColor,
+                                        fontSize = 15.sp
+                                    ),
+                                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                                    singleLine = true,
+                                    decorationBox = { innerTextField ->
+                                        if (searchQuery.isEmpty()) {
+                                            Text(
+                                                text = when (currentFolder) {
+                                                    NoteFolder.NOTES -> "Search your notes"
+                                                    NoteFolder.REMINDERS -> "Search reminders"
+                                                    NoteFolder.ARCHIVE -> "Search archive"
+                                                    NoteFolder.TRASH -> "Search trash"
+                                                },
+                                                style = TextStyle(
+                                                    color = contentTextColor.copy(alpha = 0.50f),
+                                                    fontSize = 15.sp
+                                                )
+                                            )
+                                        }
+                                        innerTextField()
+                                    }
+                                )
+
+                                if (searchQuery.isNotEmpty()) {
+                                    IconButton(
+                                        onClick = { viewModel.setSearchQuery("") },
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Close,
+                                            contentDescription = "Clear search",
+                                            tint = contentTextColor.copy(alpha = 0.6f),
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
+
+                                // Layout Mode Toggle (2-column masonry grid vs 1-column single list view)
+                                IconButton(
+                                    onClick = { viewModel.toggleLayoutMode() },
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .testTag("keep_layout_toggle")
+                                ) {
+                                    Icon(
+                                        imageVector = if (isGridView) Icons.Filled.ViewAgenda else Icons.Filled.GridView,
+                                        contentDescription = if (isGridView) "Switch to list view" else "Switch to grid view",
+                                        tint = contentTextColor.copy(alpha = 0.75f),
+                                        modifier = Modifier.size(20.dp)
                                     )
                                 }
                             }
+                        }
 
-                            // Layout Mode Toggle (2-column masonry grid vs 1-column single list view)
-                            IconButton(
-                                onClick = { viewModel.toggleLayoutMode() },
+                        // Streak Flame Pill (matching main TopAppBar style)
+                        if (activeStreakDays > 0) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Surface(
                                 modifier = Modifier
-                                    .size(36.dp)
-                                    .testTag("keep_layout_toggle")
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .clickable(onClick = onOpenAccount),
+                                shape = RoundedCornerShape(16.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
                             ) {
-                                Icon(
-                                    imageVector = if (isGridView) Icons.Filled.ViewAgenda else Icons.Filled.GridView,
-                                    contentDescription = if (isGridView) "Switch to list view" else "Switch to grid view",
-                                    tint = contentTextColor.copy(alpha = 0.75f),
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-
-                            // Streak Flame Pill (Keep style indicator)
-                            if (activeStreakDays > 0) {
-                                Spacer(modifier = Modifier.width(2.dp))
                                 Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
-                                        .clickable(onClick = onOpenAccount)
-                                        .padding(horizontal = 7.dp, vertical = 3.dp)
+                                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(text = "🔥", fontSize = 12.sp)
-                                    Spacer(modifier = Modifier.width(2.dp))
+                                    Spacer(modifier = Modifier.width(3.dp))
                                     Text(
                                         text = "${activeStreakDays}d",
-                                        style = MaterialTheme.typography.labelSmall.copy(
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 11.sp
-                                        ),
-                                        color = MaterialTheme.colorScheme.primary
+                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                        color = MaterialTheme.colorScheme.onSurface
                                     )
                                 }
                             }
+                        }
 
-                            Spacer(modifier = Modifier.width(6.dp))
+                        // Account Profile Avatar - matching MainActivity TopAppBar profile avatar alignment & border
+                        val avatarRes = ProfileAvatarManager.getAvatarImageRes(economyProfile.selectedAvatar, economyProfile.avatarTier)
+                        val avatarBorder = ProfileAvatarManager.getAvatarBorderColor(economyProfile.selectedAvatar, economyProfile.avatarTier)
 
-                            // Account Profile Avatar (Connected to selected profile avatar & tier)
-                            val avatarRes = ProfileAvatarManager.getAvatarImageRes(economyProfile.selectedAvatar, economyProfile.avatarTier)
-                            val avatarBorder = ProfileAvatarManager.getAvatarBorderColor(economyProfile.selectedAvatar, economyProfile.avatarTier)
-
-                            Box(
+                        Box(
+                            modifier = Modifier
+                                .padding(start = 8.dp)
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .border(1.8.dp, avatarBorder, CircleShape)
+                                .clickable(onClick = onOpenAccount),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Image(
+                                painter = painterResource(id = avatarRes),
+                                contentDescription = "Profile Account",
                                 modifier = Modifier
-                                    .size(32.dp)
+                                    .fillMaxSize()
+                                    .padding(2.dp)
                                     .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                                    .border(1.5.dp, avatarBorder, CircleShape)
-                                    .clickable(onClick = onOpenAccount),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Image(
-                                    painter = painterResource(id = avatarRes),
-                                    contentDescription = "Profile Account",
-                                    modifier = Modifier
-                                        .size(26.dp)
-                                        .clip(CircleShape)
-                                )
-                            }
+                            )
                         }
                     }
                 }

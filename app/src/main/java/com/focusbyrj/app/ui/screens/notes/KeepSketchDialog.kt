@@ -100,11 +100,14 @@ fun KeepSketchDialog(
     val paths = remember { mutableStateListOf<DrawingPath>() }
     var currentPoints = remember { mutableStateListOf<Offset>() }
 
-    val palette = remember {
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val defaultDrawColor = MaterialTheme.colorScheme.onSurface
+
+    val palette = remember(primaryColor, defaultDrawColor) {
         listOf(
-            Color(0xFF202124), // Black/Dark
-            Color(0xFFD93025), // Red
-            Color(0xFFEA4335), // Coral
+            defaultDrawColor,
+            primaryColor,
+            Color(0xFFEA4335), // Coral Red
             Color(0xFFFBBC04), // Yellow
             Color(0xFF34A853), // Green
             Color(0xFF1A73E8), // Google Blue
@@ -116,7 +119,7 @@ fun KeepSketchDialog(
         )
     }
 
-    var selectedColor by remember { mutableStateOf(if (isDark) Color(0xFFE8EAED) else Color(0xFF202124)) }
+    var selectedColor by remember { mutableStateOf(defaultDrawColor) }
     var selectedStrokeWidth by remember { mutableFloatStateOf(8f) }
     var canvasSize by remember { mutableStateOf(IntSize(1080, 1440)) }
 
@@ -126,7 +129,7 @@ fun KeepSketchDialog(
     ) {
         Surface(
             modifier = Modifier.fillMaxSize(),
-            color = if (isDark) Color(0xFF1E1F22) else Color(0xFFF8F9FA)
+            color = MaterialTheme.colorScheme.background
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
                 // Top App Bar
@@ -308,7 +311,7 @@ fun KeepSketchDialog(
                 // Bottom Tool Bar: Stroke Widths + Color Swatches
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    color = if (isDark) Color(0xFF282A2E) else Color(0xFFFFFFFF),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
                     shadowElevation = 8.dp
                 ) {
                     Column(

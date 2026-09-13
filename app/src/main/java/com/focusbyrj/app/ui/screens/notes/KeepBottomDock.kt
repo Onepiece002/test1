@@ -60,12 +60,11 @@ fun KeepBottomDock(
     modifier: Modifier = Modifier,
     onNewAudioClick: (() -> Unit)? = null
 ) {
-    val isDark = isSystemInDarkTheme()
-    // Modern Google Keep Material 3 surface colors
-    val dockBg = if (isDark) Color(0xFF1E2023) else Color(0xFFFFFFFF)
-    val borderColor = if (isDark) Color(0xFF32353A) else Color(0xFFE0E2E6)
-    val placeholderColor = if (isDark) Color(0xFF9AA0A6) else Color(0xFF5F6368)
-    val iconColor = if (isDark) Color(0xFFE2E3E5) else Color(0xFF444746)
+    // Follow app theme color scheme
+    val dockBg = MaterialTheme.colorScheme.surfaceVariant
+    val borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
+    val placeholderColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
+    val iconColor = MaterialTheme.colorScheme.onSurfaceVariant
 
     Surface(
         modifier = modifier
