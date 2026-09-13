@@ -51,9 +51,9 @@ fun DailyQuestsCard(
     ) {
         // ================= 1. EARLY BIRD CHEST CARD =================
         Surface(
-            shape = RoundedCornerShape(20.dp),
+            shape = RoundedCornerShape(16.dp),
             color = Color(0xFF131F24),
-            border = BorderStroke(2.dp, Color(0xFF20333D)),
+            border = BorderStroke(1.dp, Color(0xFF20333D)),
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable(enabled = questState.isEarlyBirdAvailable) {
@@ -65,37 +65,37 @@ fun DailyQuestsCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 18.dp),
+                    .padding(horizontal = 14.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 EarlyBirdChestGraphic(
-                    modifier = Modifier.size(76.dp)
+                    modifier = Modifier.size(56.dp)
                 )
 
-                Spacer(modifier = Modifier.width(16.dp))
+                Spacer(modifier = Modifier.width(14.dp))
 
                 Column(
                     modifier = Modifier.weight(1f)
                 ) {
                     Text(
                         text = "Early Bird Chest",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Black,
-                            fontSize = 19.sp,
-                            letterSpacing = 0.2.sp
+                        style = MaterialTheme.typography.titleSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp,
+                            letterSpacing = 0.sp
                         ),
                         color = Color.White
                     )
 
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(2.dp))
 
                     when {
                         questState.morningChestClaimed -> {
                             Text(
                                 text = "Claimed today ✓",
-                                style = MaterialTheme.typography.bodyMedium.copy(
+                                style = MaterialTheme.typography.bodySmall.copy(
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 15.sp
+                                    fontSize = 12.sp
                                 ),
                                 color = Color(0xFF58CC02)
                             )
@@ -103,18 +103,18 @@ fun DailyQuestsCard(
                         questState.isEarlyBirdAvailable -> {
                             Text(
                                 text = "Your reward chest is ready!",
-                                style = MaterialTheme.typography.bodyMedium.copy(
+                                style = MaterialTheme.typography.bodySmall.copy(
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 14.5.sp
+                                    fontSize = 12.sp
                                 ),
                                 color = Color(0xFFFF9600)
                             )
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(6.dp))
                             Duolingo3DButton(
                                 text = "CLAIM",
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(42.dp),
+                                    .height(36.dp),
                                 buttonColor = Color(0xFFFF9600),
                                 bevelColor = Color(0xFFD47800),
                                 textColor = Color.White,
@@ -128,10 +128,10 @@ fun DailyQuestsCard(
                         else -> {
                             Text(
                                 text = "Do a test between 6:00am and 6:00pm to earn this chest.",
-                                style = MaterialTheme.typography.bodyMedium.copy(
+                                style = MaterialTheme.typography.bodySmall.copy(
                                     fontWeight = FontWeight.Normal,
-                                    fontSize = 14.sp,
-                                    lineHeight = 19.sp
+                                    fontSize = 12.sp,
+                                    lineHeight = 16.sp
                                 ),
                                 color = Color(0xFFCBD5E1)
                             )
@@ -141,13 +141,13 @@ fun DailyQuestsCard(
             }
         }
 
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
         // ================= 2. NIGHT OWL CHEST CARD =================
         Surface(
-            shape = RoundedCornerShape(20.dp),
+            shape = RoundedCornerShape(16.dp),
             color = Color(0xFF131F24),
-            border = BorderStroke(2.dp, Color(0xFF20333D)),
+            border = BorderStroke(1.dp, Color(0xFF20333D)),
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable(enabled = questState.isNightOwlAvailable) {
@@ -159,37 +159,37 @@ fun DailyQuestsCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 18.dp),
+                    .padding(horizontal = 14.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 NightOwlChestGraphic(
-                    modifier = Modifier.size(76.dp)
+                    modifier = Modifier.size(56.dp)
                 )
 
-                Spacer(modifier = Modifier.width(16.dp))
+                Spacer(modifier = Modifier.width(14.dp))
 
                 Column(
                     modifier = Modifier.weight(1f)
                 ) {
                     Text(
                         text = "Night Owl Chest",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Black,
-                            fontSize = 19.sp,
-                            letterSpacing = 0.2.sp
+                        style = MaterialTheme.typography.titleSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp,
+                            letterSpacing = 0.sp
                         ),
                         color = Color.White
                     )
 
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(2.dp))
 
                     when {
                         questState.eveningChestClaimed -> {
                             Text(
                                 text = "Claimed today ✓",
-                                style = MaterialTheme.typography.bodyMedium.copy(
+                                style = MaterialTheme.typography.bodySmall.copy(
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 15.sp
+                                    fontSize = 12.sp
                                 ),
                                 color = Color(0xFF58CC02)
                             )
@@ -197,18 +197,18 @@ fun DailyQuestsCard(
                         questState.isNightOwlAvailable -> {
                             Text(
                                 text = "Your reward chest is ready!",
-                                style = MaterialTheme.typography.bodyMedium.copy(
+                                style = MaterialTheme.typography.bodySmall.copy(
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 14.5.sp
+                                    fontSize = 12.sp
                                 ),
                                 color = Color(0xFF1CB0F6)
                             )
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(6.dp))
                             Duolingo3DButton(
                                 text = "CLAIM",
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(42.dp),
+                                    .height(36.dp),
                                 buttonColor = Color(0xFF1CB0F6),
                                 bevelColor = Color(0xFF1899D6),
                                 textColor = Color.White,
@@ -221,27 +221,15 @@ fun DailyQuestsCard(
                         }
                         else -> {
                             val nightOwlDescription = buildAnnotatedString {
-                                append("Do a ")
-                                withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = Color.White)) {
-                                    append("test")
-                                }
-                                append(" between ")
-                                withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = Color.White)) {
-                                    append("6:00pm")
-                                }
-                                append(" and ")
-                                withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = Color.White)) {
-                                    append("6:00am")
-                                }
-                                append(" to unlock this chest.")
+                                append("Do a test between 6:00pm and 6:00am to unlock this chest.")
                             }
 
                             Text(
                                 text = nightOwlDescription,
-                                style = MaterialTheme.typography.bodyMedium.copy(
+                                style = MaterialTheme.typography.bodySmall.copy(
                                     fontWeight = FontWeight.Normal,
-                                    fontSize = 14.sp,
-                                    lineHeight = 19.sp
+                                    fontSize = 12.sp,
+                                    lineHeight = 16.sp
                                 ),
                                 color = Color(0xFFCBD5E1)
                             )

@@ -912,32 +912,6 @@ fun NotesScreen(
                             }
                         }
 
-                        // Streak Flame Pill (matching main TopAppBar style)
-                        if (activeStreakDays > 0) {
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Surface(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(16.dp))
-                                    .clickable(onClick = onOpenAccount),
-                                shape = RoundedCornerShape(16.dp),
-                                color = MaterialTheme.colorScheme.surfaceVariant,
-                                border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(text = "🔥", fontSize = 12.sp)
-                                    Spacer(modifier = Modifier.width(3.dp))
-                                    Text(
-                                        text = "${activeStreakDays}d",
-                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                }
-                            }
-                        }
-
                         // Account Profile Avatar - matching MainActivity TopAppBar profile avatar alignment & border
                         val avatarRes = ProfileAvatarManager.getAvatarImageRes(economyProfile.selectedAvatar, economyProfile.avatarTier)
                         val avatarBorder = ProfileAvatarManager.getAvatarBorderColor(economyProfile.selectedAvatar, economyProfile.avatarTier)

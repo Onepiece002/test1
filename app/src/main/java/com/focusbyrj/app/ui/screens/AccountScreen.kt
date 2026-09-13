@@ -316,14 +316,14 @@ fun ProfileCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(24.dp))
+            .clip(RoundedCornerShape(20.dp))
             .background(MaterialTheme.colorScheme.surface)
             .border(
                 1.dp, 
                 MaterialTheme.colorScheme.outline.copy(alpha = 0.15f), 
-                RoundedCornerShape(24.dp)
+                RoundedCornerShape(20.dp)
             )
-            .padding(22.dp)
+            .padding(16.dp)
     ) {
         
         Row(
@@ -374,14 +374,14 @@ fun ProfileCard(
                 }
             }
             
-            Spacer(modifier = Modifier.width(20.dp))
+            Spacer(modifier = Modifier.width(16.dp))
             
             Column(modifier = Modifier.weight(1f)) {
                 if (isEditingName) {
                     BasicTextField(
                         value = tempName,
                         onValueChange = { tempName = it },
-                        textStyle = MaterialTheme.typography.titleLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+                        textStyle = MaterialTheme.typography.titleMedium.copy(color = MaterialTheme.colorScheme.onSurface),
                         cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                         singleLine = true,
                         modifier = Modifier
@@ -403,19 +403,19 @@ fun ProfileCard(
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { isEditingName = true }) {
                         Text(
                             text = profile.name,
-                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, fontSize = 22.sp),
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.onSurface
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Icon(Icons.Filled.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Icon(Icons.Filled.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(12.dp))
                     }
                 }
                 
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(2.dp))
                 
                 Text(
                     text = currentAvatar.title.uppercase(),
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp),
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp),
                     color = currentAvatar.borderColor
                 )
             }
@@ -424,31 +424,32 @@ fun ProfileCard(
                 Icon(
                     imageVector = Icons.Filled.Info,
                     contentDescription = "Economy Rules",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp)
                 )
             }
         }
         
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(16.dp))
         
         
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Level ${profile.level}", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface)
+            Text("Level ${profile.level}", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface)
             if (profile.level >= 200) {
                 Text("MAX LEVEL", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary)
             } else {
                 Text("${profile.xp} / $nextLevelXp XP", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(6.dp))
         LinearProgressIndicator(
             progress = { xpProgress },
-            modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
+            modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
             color = MaterialTheme.colorScheme.primary,
             trackColor = MaterialTheme.colorScheme.surfaceVariant
         )
         
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(16.dp))
         
         
         val unlockedCount = getAchievements(profile, com.focusbyrj.app.util.FocusStats(0,0, emptyMap())).count { it.isUnlocked }
@@ -456,10 +457,10 @@ fun ProfileCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(18.dp))
+                .clip(RoundedCornerShape(16.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f), RoundedCornerShape(18.dp))
-                .padding(vertical = 16.dp, horizontal = 12.dp),
+                .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f), RoundedCornerShape(16.dp))
+                .padding(vertical = 12.dp, horizontal = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -514,9 +515,9 @@ fun ProfileCard(
 fun ProfileStatItem(icon: ImageVector, value: String, label: String, color: Color, modifier: Modifier = Modifier) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(16.dp))
+            Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(14.dp))
             Spacer(modifier = Modifier.width(4.dp))
-            Text(value, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            Text(value, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
         }
         Spacer(modifier = Modifier.height(2.dp))
         Text(label, style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
