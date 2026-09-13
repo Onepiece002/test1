@@ -78,7 +78,7 @@ fun FocusBottomBar(
         modifier = modifier
             .fillMaxWidth()
             .navigationBarsPadding()
-            .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
+            .padding(start = 16.dp, end = 16.dp, bottom = 4.dp),
         contentAlignment = Alignment.Center
     ) {
         Surface(

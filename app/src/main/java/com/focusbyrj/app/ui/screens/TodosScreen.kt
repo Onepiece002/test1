@@ -130,7 +130,7 @@ fun TodosScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
+                .padding(bottom = innerPadding.calculateBottomPadding())
         ) {
             Column(
                 modifier = Modifier
