@@ -49,6 +49,9 @@ interface NoteDao {
     @Query("SELECT * FROM keep_notes WHERE isTrashed = 0 AND isArchived = 0 AND isChecklist = 1 ORDER BY isPinned DESC, updatedAt DESC")
     suspend fun getChecklistNotesSync(): List<NoteEntity>
 
+    @Query("SELECT * FROM keep_notes WHERE isTrashed = 0 AND isArchived = 0 AND isChecklist = 0 ORDER BY isPinned DESC, updatedAt DESC")
+    suspend fun getTextNotesSync(): List<NoteEntity>
+
     @Query("SELECT * FROM keep_notes WHERE isTrashed = 0 AND isArchived = 0 AND isPinned = 1 ORDER BY updatedAt DESC")
     suspend fun getPinnedNotesSync(): List<NoteEntity>
 

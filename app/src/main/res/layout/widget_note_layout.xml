@@ -30,28 +30,30 @@
             android:gravity="center_vertical"
             android:paddingBottom="6dp">
 
-            <!-- Title & Type Icon clickable to open note in app -->
+            <ImageView
+                android:id="@+id/widget_note_type_icon"
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:padding="2dp"
+                android:src="@drawable/ic_widget_checklist"
+                android:contentDescription="Open Notes in App"
+                android:clickable="true" />
+
+            <!-- Title & Pinned Badge clickable to open note in quick edit -->
             <LinearLayout
                 android:id="@+id/widget_note_header_clickable"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
+                android:layout_marginStart="6dp"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
                 android:clickable="true">
-
-                <ImageView
-                    android:id="@+id/widget_note_type_icon"
-                    android:layout_width="18dp"
-                    android:layout_height="18dp"
-                    android:src="@drawable/ic_widget_checklist"
-                    android:contentDescription="Note Type" />
 
                 <TextView
                     android:id="@+id/widget_note_title"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
                     android:text="Groceries"
                     android:textColor="#FFFFFF"
                     android:textSize="16sp"

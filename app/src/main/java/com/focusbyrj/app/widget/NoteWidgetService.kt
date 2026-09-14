@@ -70,6 +70,7 @@ class NoteWidgetRemoteViewsFactory(
                     noteDao.getNoteByIdSync(widgetConfig.specificNoteId!!)
                 } else {
                     val notes = when (widgetConfig.filterMode) {
+                        NoteWidgetFilterMode.NOTES -> noteDao.getTextNotesSync()
                         NoteWidgetFilterMode.CHECKLISTS -> noteDao.getChecklistNotesSync()
                         NoteWidgetFilterMode.PINNED -> noteDao.getPinnedNotesSync()
                         else -> noteDao.getAllActiveNotesSync()

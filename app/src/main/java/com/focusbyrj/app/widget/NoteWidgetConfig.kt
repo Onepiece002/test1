@@ -22,13 +22,15 @@ import android.graphics.Color
 
 enum class NoteWidgetFilterMode(val displayName: String, val shortLabel: String) {
     ALL("All Notes", "All"),
+    NOTES("Notes Only", "Notes"),
     CHECKLISTS("Checklists", "Lists"),
     PINNED("Pinned", "Pin"),
     SPECIFIC("Single Note", "Lock");
 
     fun next(): NoteWidgetFilterMode {
         return when (this) {
-            ALL -> CHECKLISTS
+            ALL -> NOTES
+            NOTES -> CHECKLISTS
             CHECKLISTS -> PINNED
             PINNED -> ALL
             SPECIFIC -> ALL
@@ -44,11 +46,37 @@ enum class NoteWidgetSortBy(val displayName: String) {
 }
 
 enum class NoteWidgetTextSize(val spValue: Float, val displayName: String) {
-    TINY(11.5f, "Tiny"),
-    COMPACT(13f, "Compact"),
-    STANDARD(15f, "Standard"),
-    LARGE(17.5f, "Large"),
-    EXTRA_LARGE(20.5f, "Huge")
+    SIZE_12(12f, "12 sp"),
+    SIZE_14(14f, "14 sp"),
+    SIZE_16(16f, "16 sp"),
+    SIZE_18(18f, "18 sp"),
+    SIZE_20(20f, "20 sp"),
+    SIZE_22(22f, "22 sp"),
+    SIZE_24(24f, "24 sp"),
+    SIZE_26(26f, "26 sp"),
+    SIZE_28(28f, "28 sp"),
+    SIZE_30(30f, "30 sp"),
+    SIZE_32(32f, "32 sp"),
+    SIZE_34(34f, "34 sp"),
+    SIZE_36(36f, "36 sp");
+
+    companion object {
+        fun fromNameOrDefault(name: String?): NoteWidgetTextSize {
+            if (name == null) return SIZE_16
+            return try {
+                NoteWidgetTextSize.valueOf(name)
+            } catch (_: Exception) {
+                when (name) {
+                    "TINY" -> SIZE_14
+                    "COMPACT" -> SIZE_16
+                    "STANDARD" -> SIZE_18
+                    "LARGE" -> SIZE_22
+                    "EXTRA_LARGE" -> SIZE_26
+                    else -> SIZE_16
+                }
+            }
+        }
+    }
 }
 
 enum class NoteWidgetPadding(val dpValue: Int, val displayName: String) {
@@ -67,7 +95,7 @@ data class NoteWidgetConfig(
     val filterMode: NoteWidgetFilterMode = NoteWidgetFilterMode.ALL,
     val specificNoteId: Long? = null,
     val sortBy: NoteWidgetSortBy = NoteWidgetSortBy.RECENTLY_UPDATED,
-    val textSize: NoteWidgetTextSize = NoteWidgetTextSize.STANDARD,
+    val textSize: NoteWidgetTextSize = NoteWidgetTextSize.SIZE_16,
     val padding: NoteWidgetPadding = NoteWidgetPadding.STANDARD,
     val showTitle: Boolean = true,
     val showQuickAddBar: Boolean = true,
@@ -133,8 +161,8 @@ object NoteWidgetConfigHelper {
         val sortStr = prefs.getString(KEY_SORT_BY + appWidgetId, NoteWidgetSortBy.RECENTLY_UPDATED.name)
         val sortBy = runCatching { NoteWidgetSortBy.valueOf(sortStr ?: "") }.getOrDefault(NoteWidgetSortBy.RECENTLY_UPDATED)
 
-        val textStr = prefs.getString(KEY_TEXT_SIZE + appWidgetId, NoteWidgetTextSize.STANDARD.name)
-        val textSize = runCatching { NoteWidgetTextSize.valueOf(textStr ?: "") }.getOrDefault(NoteWidgetTextSize.STANDARD)
+        val textStr = prefs.getString(KEY_TEXT_SIZE + appWidgetId, NoteWidgetTextSize.SIZE_16.name)
+        val textSize = NoteWidgetTextSize.fromNameOrDefault(textStr)
 
         val padStr = prefs.getString(KEY_PADDING + appWidgetId, NoteWidgetPadding.STANDARD.name)
         val padding = runCatching { NoteWidgetPadding.valueOf(padStr ?: "") }.getOrDefault(NoteWidgetPadding.STANDARD)

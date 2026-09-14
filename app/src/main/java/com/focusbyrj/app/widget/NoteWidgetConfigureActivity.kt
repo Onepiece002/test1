@@ -49,6 +49,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckBox
 import androidx.compose.material.icons.filled.CheckBoxOutlineBlank
@@ -62,6 +63,8 @@ import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.Widgets
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -626,33 +629,79 @@ fun NoteWidgetConfigScreen(
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
 
-                // Text Size Selector
+                // Dropdown Font Size Selector
+                var fontSizeDropdownExpanded by remember { mutableStateOf(false) }
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "Font Size",
-                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
-                    )
+                    Column {
+                        Text(
+                            text = "Font Size",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
+                        )
+                        Text(
+                            text = "Note content & list item text size",
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        NoteWidgetTextSize.values().forEach { size ->
-                            val isSelected = textSize == size
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = if (isSelected) Color(currentConfig.accentColorInt) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-                                modifier = Modifier.clickable { textSize = size }
+                    Box {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                            modifier = Modifier.clickable { fontSizeDropdownExpanded = true }
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
                             ) {
                                 Text(
-                                    text = size.displayName,
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        fontSize = 11.sp,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                                    ),
-                                    color = if (isSelected) Color(0xFF121516) else MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                    text = textSize.displayName,
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Icon(
+                                    imageVector = Icons.Default.ArrowDropDown,
+                                    contentDescription = "Select Font Size",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+
+                        DropdownMenu(
+                            expanded = fontSizeDropdownExpanded,
+                            onDismissRequest = { fontSizeDropdownExpanded = false }
+                        ) {
+                            NoteWidgetTextSize.values().forEach { size ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = size.displayName,
+                                            fontWeight = if (size == textSize) FontWeight.Bold else FontWeight.Normal,
+                                            color = if (size == textSize) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                        )
+                                    },
+                                    onClick = {
+                                        textSize = size
+                                        fontSizeDropdownExpanded = false
+                                    },
+                                    leadingIcon = if (size == textSize) {
+                                        {
+                                            Icon(
+                                                imageVector = Icons.Default.Check,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                    } else null
                                 )
                             }
                         }
@@ -1062,7 +1111,10 @@ fun NoteWidgetLivePreview(
                     if (config.showTitle) {
                         Text(
                             text = sampleNote?.title?.ifBlank { "Project Roadmap" } ?: "Project Roadmap",
-                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                            style = MaterialTheme.typography.titleSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = (config.textSize.spValue + 2f).sp
+                            ),
                             color = primaryTextColor,
                             maxLines = 1
                         )
@@ -1144,7 +1196,7 @@ fun NoteWidgetLivePreview(
                             Text(
                                 text = "Review Q3 product sprint milestones",
                                 style = MaterialTheme.typography.bodySmall.copy(
-                                    fontSize = (config.textSize.spValue - 1.5f).sp
+                                    fontSize = config.textSize.spValue.sp
                                 ),
                                 color = primaryTextColor,
                                 maxLines = 1
@@ -1163,7 +1215,7 @@ fun NoteWidgetLivePreview(
                             Text(
                                 text = "Sync with engineering team on widget design",
                                 style = MaterialTheme.typography.bodySmall.copy(
-                                    fontSize = (config.textSize.spValue - 1.5f).sp
+                                    fontSize = config.textSize.spValue.sp
                                 ),
                                 color = primaryTextColor,
                                 maxLines = 1
@@ -1175,8 +1227,8 @@ fun NoteWidgetLivePreview(
                         text = sampleNote?.content?.ifBlank { "Deep work sessions planned for this week. Focus on core architecture." }
                             ?: "Deep work sessions planned for this week. Focus on core architecture.",
                         style = MaterialTheme.typography.bodySmall.copy(
-                            fontSize = (config.textSize.spValue - 1.5f).sp,
-                            lineHeight = ((config.textSize.spValue - 1.5f) * 1.35f).sp
+                            fontSize = config.textSize.spValue.sp,
+                            lineHeight = (config.textSize.spValue * 1.35f).sp
                         ),
                         color = primaryTextColor,
                         maxLines = 3

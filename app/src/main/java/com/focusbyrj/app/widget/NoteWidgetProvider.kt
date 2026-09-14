@@ -84,6 +84,7 @@ class NoteWidgetProvider : AppWidgetProvider() {
                         if (single != null) listOf(single) else emptyList()
                     } else {
                         when (config.filterMode) {
+                            NoteWidgetFilterMode.NOTES -> noteDao.getTextNotesSync()
                             NoteWidgetFilterMode.CHECKLISTS -> noteDao.getChecklistNotesSync()
                             NoteWidgetFilterMode.PINNED -> noteDao.getPinnedNotesSync()
                             else -> noteDao.getAllActiveNotesSync()
@@ -178,7 +179,7 @@ class NoteWidgetProvider : AppWidgetProvider() {
                 if (currentNote != null) {
                     val displayTitle = if (currentNote.title.isNotBlank()) currentNote.title else if (currentNote.isChecklist) "Checklist" else "Note"
                     views.setTextViewText(R.id.widget_note_title, displayTitle)
-                    views.setTextViewTextSize(R.id.widget_note_title, TypedValue.COMPLEX_UNIT_SP, (config.textSize.spValue + 1.5f).coerceIn(14f, 22f))
+                    views.setTextViewTextSize(R.id.widget_note_title, TypedValue.COMPLEX_UNIT_SP, (config.textSize.spValue + 2f).coerceAtLeast(14f))
 
                     // Pin badge
                     if (currentNote.isPinned) {
@@ -316,6 +317,17 @@ class NoteWidgetProvider : AppWidgetProvider() {
                 )
 
                 // Header click -> open note editor floating dialog directly on home screen
+                // Click note icon -> opens MainActivity directly at Notes tab
+                val openNotesTabIntent = Intent(context, MainActivity::class.java).apply {
+                    putExtra("navigate_to", com.focusbyrj.app.ui.navigation.Screen.Empty.route)
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    data = Uri.parse("widget://$appWidgetId/open_notes_tab")
+                }
+                views.setOnClickPendingIntent(
+                    R.id.widget_note_type_icon,
+                    PendingIntent.getActivity(context, 7000 + appWidgetId, openNotesTabIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+                )
+
                 val openNoteIntent = Intent(context, QuickEditNoteActivity::class.java).apply {
                     if (currentNote != null) {
                         putExtra(QuickEditNoteActivity.EXTRA_NOTE_ID, currentNote.id)
@@ -502,6 +514,7 @@ class NoteWidgetProvider : AppWidgetProvider() {
                         val config = NoteWidgetConfigHelper.getConfig(context, appWidgetId)
                         val noteDao = NoteDatabase.getInstance(context).noteDao()
                         val totalNotes = when (config.filterMode) {
+                            NoteWidgetFilterMode.NOTES -> noteDao.getTextNotesSync().size
                             NoteWidgetFilterMode.CHECKLISTS -> noteDao.getChecklistNotesSync().size
                             NoteWidgetFilterMode.PINNED -> noteDao.getPinnedNotesSync().size
                             else -> noteDao.getAllActiveNotesSync().size
@@ -527,6 +540,7 @@ class NoteWidgetProvider : AppWidgetProvider() {
                         val config = NoteWidgetConfigHelper.getConfig(context, appWidgetId)
                         val noteDao = NoteDatabase.getInstance(context).noteDao()
                         val totalNotes = when (config.filterMode) {
+                            NoteWidgetFilterMode.NOTES -> noteDao.getTextNotesSync().size
                             NoteWidgetFilterMode.CHECKLISTS -> noteDao.getChecklistNotesSync().size
                             NoteWidgetFilterMode.PINNED -> noteDao.getPinnedNotesSync().size
                             else -> noteDao.getAllActiveNotesSync().size
