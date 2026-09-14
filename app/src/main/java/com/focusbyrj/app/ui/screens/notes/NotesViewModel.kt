@@ -129,7 +129,7 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
             reorderedNotes.forEachIndexed { index, note ->
                 val newTimestamp = baseTime - (index * 1000L)
                 if (note.updatedAt != newTimestamp) {
-                    repository.saveNote(note.copy(updatedAt = newTimestamp))
+                    repository.updateNoteOrder(note.id, newTimestamp)
                 }
             }
         }

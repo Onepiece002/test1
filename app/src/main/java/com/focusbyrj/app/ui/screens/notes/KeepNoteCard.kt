@@ -267,7 +267,9 @@ fun KeepNoteCard(
 
             // Body: Plain text or Checklist items
             if (note.isChecklist) {
-                val items = note.getChecklistItems()
+                val rawItems = note.getChecklistItems()
+                val (uncompleted, completed) = rawItems.partition { !it.isChecked }
+                val items = uncompleted + completed
                 val visibleItems = items.take(5)
                 val remainingCount = items.size - visibleItems.size
 

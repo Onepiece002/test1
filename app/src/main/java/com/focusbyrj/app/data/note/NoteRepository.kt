@@ -42,6 +42,10 @@ class NoteRepository(private val noteDao: NoteDao) {
         }
     }
 
+    suspend fun updateNoteOrder(id: Long, updatedAt: Long) {
+        noteDao.updateNoteOrder(id, updatedAt)
+    }
+
     suspend fun deletePermanently(note: NoteEntity) {
         noteDao.deleteNote(note)
     }

@@ -23,6 +23,7 @@ import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.Paint
+import android.util.TypedValue
 import android.widget.RemoteViews
 import android.widget.RemoteViewsService
 import com.focusbyrj.app.R
@@ -85,7 +86,9 @@ class NoteWidgetRemoteViewsFactory(
             }
 
             currentNote = targetNote
-            checklistItems = targetNote?.getChecklistItems() ?: emptyList()
+            val rawItems = targetNote?.getChecklistItems() ?: emptyList()
+            val (uncompleted, completed) = rawItems.partition { !it.isChecked }
+            checklistItems = uncompleted + completed
         } catch (e: Exception) {
             e.printStackTrace()
             checklistItems = emptyList()
@@ -133,7 +136,7 @@ class NoteWidgetRemoteViewsFactory(
 
         // Render Text & Strike-through
         views.setTextViewText(R.id.widget_note_item_text, item.text)
-        views.setFloat(R.id.widget_note_item_text, "setTextSize", widgetConfig.textSize.spValue)
+        views.setTextViewTextSize(R.id.widget_note_item_text, TypedValue.COMPLEX_UNIT_SP, widgetConfig.textSize.spValue)
         if (item.isChecked) {
             views.setTextColor(R.id.widget_note_item_text, bgColors.secondaryTextColor)
             views.setInt(

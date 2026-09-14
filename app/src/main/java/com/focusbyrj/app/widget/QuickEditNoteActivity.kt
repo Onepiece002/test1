@@ -55,6 +55,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
@@ -175,6 +176,7 @@ fun QuickEditNoteOverlay(
     var isPinned by remember { mutableStateOf(false) }
     var showColorPicker by remember { mutableStateOf(false) }
     var newChecklistInput by remember { mutableStateOf("") }
+    var targetFocusItemId by remember { mutableStateOf<String?>(null) }
 
     val titleFocusRequester = remember { FocusRequester() }
     val contentFocusRequester = remember { FocusRequester() }
@@ -593,133 +595,41 @@ fun QuickEditNoteOverlay(
                                 .weight(1f, fill = false)
                         ) {
                             itemsIndexed(checklistItems, key = { _, item -> item.id }) { index, item ->
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 3.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    // Drag Indicator (6 dots)
-                                    Icon(
-                                        imageVector = Icons.Filled.DragIndicator,
-                                        contentDescription = "Reorder",
-                                        tint = secondaryTextColor.copy(alpha = 0.38f),
-                                        modifier = Modifier.size(20.dp)
-                                    )
-
-                                    Spacer(modifier = Modifier.width(4.dp))
-
-                                    // Square Checkbox
-                                    IconButton(
-                                        onClick = {
-                                            checklistItems[index] = item.copy(isChecked = !item.isChecked)
-                                            saveNote(andFinish = false)
-                                        },
-                                        modifier = Modifier.size(28.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = if (item.isChecked) Icons.Default.CheckBox else Icons.Default.CheckBoxOutlineBlank,
-                                            contentDescription = null,
-                                            tint = if (item.isChecked) Color(0xFF8AB4F8) else secondaryTextColor.copy(alpha = 0.7f),
-                                            modifier = Modifier.size(20.dp)
+                                QuickEditChecklistRow(
+                                    item = item,
+                                    primaryTextColor = primaryTextColor,
+                                    secondaryTextColor = secondaryTextColor,
+                                    isTargetFocus = item.id == targetFocusItemId,
+                                    onFocused = { if (targetFocusItemId == item.id) targetFocusItemId = null },
+                                    onToggle = {
+                                        checklistItems[index] = item.copy(isChecked = !item.isChecked)
+                                        val (uncompleted, completed) = checklistItems.partition { !it.isChecked }
+                                        checklistItems.clear()
+                                        checklistItems.addAll(uncompleted + completed)
+                                        saveNote(andFinish = false)
+                                    },
+                                    onTextChange = { newTxt ->
+                                        checklistItems[index] = item.copy(text = newTxt)
+                                    },
+                                    onEnterPressed = { extraText ->
+                                        val newId = UUID.randomUUID().toString()
+                                        targetFocusItemId = newId
+                                        checklistItems.add(
+                                            index + 1,
+                                            ChecklistItem(
+                                                id = newId,
+                                                text = extraText,
+                                                isChecked = false
+                                            )
                                         )
-                                    }
-
-                                    Spacer(modifier = Modifier.width(6.dp))
-
-                                    // Item text
-                                    BasicTextField(
-                                        value = item.text,
-                                        onValueChange = { newTxt ->
-                                            if (newTxt.contains('\n')) {
-                                                val split = newTxt.split('\n', limit = 2)
-                                                checklistItems[index] = item.copy(text = split[0])
-                                                checklistItems.add(
-                                                    index + 1,
-                                                    ChecklistItem(
-                                                        id = UUID.randomUUID().toString(),
-                                                        text = if (split.size > 1) split[1] else "",
-                                                        isChecked = false
-                                                    )
-                                                )
-                                            } else {
-                                                checklistItems[index] = item.copy(text = newTxt)
-                                            }
-                                        },
-                                        textStyle = TextStyle(
-                                            fontSize = 15.sp,
-                                            color = if (item.isChecked) secondaryTextColor.copy(alpha = 0.5f) else primaryTextColor,
-                                            textDecoration = if (item.isChecked) TextDecoration.LineThrough else null
-                                        ),
-                                        cursorBrush = SolidColor(Color(0xFF8AB4F8)),
-                                        decorationBox = { inner ->
-                                            Box {
-                                                if (item.text.isEmpty()) {
-                                                    Text(
-                                                        text = "List item",
-                                                        fontSize = 15.sp,
-                                                        color = secondaryTextColor.copy(alpha = 0.4f)
-                                                    )
-                                                }
-                                                inner()
-                                            }
-                                        },
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .onKeyEvent { keyEvent ->
-                                                if (keyEvent.type == KeyEventType.KeyDown) {
-                                                    if (keyEvent.key == Key.Enter || keyEvent.key == Key.NumPadEnter) {
-                                                        checklistItems.add(
-                                                            index + 1,
-                                                            ChecklistItem(
-                                                                id = UUID.randomUUID().toString(),
-                                                                text = "",
-                                                                isChecked = false
-                                                            )
-                                                        )
-                                                        true
-                                                    } else if (keyEvent.key == Key.Backspace && item.text.isEmpty() && checklistItems.size > 1) {
-                                                        checklistItems.removeAt(index)
-                                                        true
-                                                    } else {
-                                                        false
-                                                    }
-                                                } else {
-                                                    false
-                                                }
-                                            },
-                                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                                        keyboardActions = KeyboardActions(
-                                            onNext = {
-                                                checklistItems.add(
-                                                    index + 1,
-                                                    ChecklistItem(
-                                                        id = UUID.randomUUID().toString(),
-                                                        text = "",
-                                                        isChecked = false
-                                                    )
-                                                )
-                                            }
-                                        ),
-                                        singleLine = true
-                                    )
-
-                                    // Delete 'x' icon
-                                    IconButton(
-                                        onClick = {
+                                    },
+                                    onDelete = {
+                                        if (checklistItems.size > 1) {
                                             checklistItems.removeAt(index)
                                             saveNote(andFinish = false)
-                                        },
-                                        modifier = Modifier.size(26.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Close,
-                                            contentDescription = "Delete item",
-                                            tint = secondaryTextColor.copy(alpha = 0.5f),
-                                            modifier = Modifier.size(16.dp)
-                                        )
+                                        }
                                     }
-                                }
+                                )
                             }
                         }
 
@@ -731,9 +641,11 @@ fun QuickEditNoteOverlay(
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(8.dp))
                                 .clickable {
+                                    val newId = UUID.randomUUID().toString()
+                                    targetFocusItemId = newId
                                     checklistItems.add(
                                         ChecklistItem(
-                                            id = UUID.randomUUID().toString(),
+                                            id = newId,
                                             text = "",
                                             isChecked = false
                                         )
@@ -823,6 +735,144 @@ fun QuickEditNoteOverlay(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun QuickEditChecklistRow(
+    item: ChecklistItem,
+    primaryTextColor: Color,
+    secondaryTextColor: Color,
+    isTargetFocus: Boolean,
+    onFocused: () -> Unit,
+    onToggle: () -> Unit,
+    onTextChange: (String) -> Unit,
+    onEnterPressed: (String) -> Unit,
+    onDelete: () -> Unit
+) {
+    val focusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(isTargetFocus) {
+        if (isTargetFocus) {
+            kotlinx.coroutines.delay(40)
+            try {
+                focusRequester.requestFocus()
+                onFocused()
+            } catch (e: Exception) {
+                kotlinx.coroutines.delay(80)
+                runCatching {
+                    focusRequester.requestFocus()
+                    onFocused()
+                }
+            }
+        }
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Drag Indicator (6 dots)
+        Icon(
+            imageVector = Icons.Filled.DragIndicator,
+            contentDescription = "Reorder",
+            tint = secondaryTextColor.copy(alpha = 0.38f),
+            modifier = Modifier.size(20.dp)
+        )
+
+        Spacer(modifier = Modifier.width(4.dp))
+
+        // Square Checkbox
+        IconButton(
+            onClick = onToggle,
+            modifier = Modifier.size(28.dp)
+        ) {
+            Icon(
+                imageVector = if (item.isChecked) Icons.Default.CheckBox else Icons.Default.CheckBoxOutlineBlank,
+                contentDescription = null,
+                tint = if (item.isChecked) Color(0xFF8AB4F8) else secondaryTextColor.copy(alpha = 0.7f),
+                modifier = Modifier.size(20.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.width(6.dp))
+
+        // Item text (Multi-line enabled so large text wraps)
+        BasicTextField(
+            value = item.text,
+            onValueChange = { newTxt ->
+                if (newTxt.contains('\n')) {
+                    val split = newTxt.split('\n', limit = 2)
+                    onTextChange(split[0])
+                    val nextItemText = if (split.size > 1) split[1] else ""
+                    onEnterPressed(nextItemText)
+                } else {
+                    onTextChange(newTxt)
+                }
+            },
+            textStyle = TextStyle(
+                fontSize = 15.sp,
+                lineHeight = 21.sp,
+                color = if (item.isChecked) secondaryTextColor.copy(alpha = 0.5f) else primaryTextColor,
+                textDecoration = if (item.isChecked) TextDecoration.LineThrough else null
+            ),
+            cursorBrush = SolidColor(Color(0xFF8AB4F8)),
+            singleLine = false,
+            maxLines = 20,
+            decorationBox = { inner ->
+                Box {
+                    if (item.text.isEmpty()) {
+                        Text(
+                            text = "List item",
+                            fontSize = 15.sp,
+                            color = secondaryTextColor.copy(alpha = 0.4f)
+                        )
+                    }
+                    inner()
+                }
+            },
+            modifier = Modifier
+                .weight(1f)
+                .focusRequester(focusRequester)
+                .onKeyEvent { keyEvent ->
+                    if (keyEvent.type == KeyEventType.KeyDown) {
+                        if (keyEvent.key == Key.Enter || keyEvent.key == Key.NumPadEnter) {
+                            onEnterPressed("")
+                            true
+                        } else if (keyEvent.key == Key.Backspace && item.text.isEmpty()) {
+                            onDelete()
+                            true
+                        } else {
+                            false
+                        }
+                    } else {
+                        false
+                    }
+                },
+            keyboardOptions = KeyboardOptions(
+                capitalization = KeyboardCapitalization.Sentences,
+                imeAction = ImeAction.Next
+            ),
+            keyboardActions = KeyboardActions(
+                onNext = { onEnterPressed("") },
+                onDone = { onEnterPressed("") }
+            )
+        )
+
+        // Delete 'x' icon
+        IconButton(
+            onClick = onDelete,
+            modifier = Modifier.size(26.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Close,
+                contentDescription = "Delete item",
+                tint = secondaryTextColor.copy(alpha = 0.5f),
+                modifier = Modifier.size(16.dp)
+            )
         }
     }
 }

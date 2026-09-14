@@ -50,6 +50,7 @@ import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
 import androidx.compose.foundation.lazy.staggeredgrid.items
+import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -236,6 +237,7 @@ fun NotesScreen(
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val coroutineScope = rememberCoroutineScope()
 
+    val gridState = rememberLazyStaggeredGridState()
     val haptic = LocalHapticFeedback.current
     val pinnedNotes = remember(allNotes) { allNotes.filter { it.isPinned } }
     val otherNotes = remember(allNotes) { allNotes.filter { !it.isPinned } }
@@ -288,7 +290,7 @@ fun NotesScreen(
                     if (b != null) {
                         val dist = (b.center - fingerRootPosition).getDistance()
                         if (b.contains(fingerRootPosition)) dist
-                        else if (dist < 240f) dist + 450f
+                        else if (dist < 320f) dist + 300f
                         else Float.MAX_VALUE
                     } else Float.MAX_VALUE
                 }
@@ -1191,6 +1193,7 @@ fun NotesScreen(
                     }
                 } else {
                     LazyVerticalStaggeredGrid(
+                        state = gridState,
                         columns = StaggeredGridCells.Fixed(if (isGridView) 2 else 1),
                         contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 8.dp, bottom = 88.dp),
                         horizontalArrangement = Arrangement.spacedBy(10.dp),

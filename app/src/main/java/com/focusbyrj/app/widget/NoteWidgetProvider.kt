@@ -25,6 +25,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
 import android.net.Uri
+import android.util.TypedValue
 import android.view.View
 import android.widget.RemoteViews
 import com.focusbyrj.app.MainActivity
@@ -177,6 +178,7 @@ class NoteWidgetProvider : AppWidgetProvider() {
                 if (currentNote != null) {
                     val displayTitle = if (currentNote.title.isNotBlank()) currentNote.title else if (currentNote.isChecklist) "Checklist" else "Note"
                     views.setTextViewText(R.id.widget_note_title, displayTitle)
+                    views.setTextViewTextSize(R.id.widget_note_title, TypedValue.COMPLEX_UNIT_SP, (config.textSize.spValue + 1.5f).coerceIn(14f, 22f))
 
                     // Pin badge
                     if (currentNote.isPinned) {
@@ -231,7 +233,7 @@ class NoteWidgetProvider : AppWidgetProvider() {
                         views.setViewVisibility(R.id.widget_note_list_view, View.GONE)
                         views.setViewVisibility(R.id.widget_note_text_content, View.VISIBLE)
                         views.setTextColor(R.id.widget_note_text_content, bgColors.primaryTextColor)
-                        views.setFloat(R.id.widget_note_text_content, "setTextSize", config.textSize.spValue)
+                        views.setTextViewTextSize(R.id.widget_note_text_content, TypedValue.COMPLEX_UNIT_SP, config.textSize.spValue)
                         val text = if (currentNote.content.isNotBlank()) currentNote.content else "(Empty note - tap to write)"
                         views.setTextViewText(R.id.widget_note_text_content, text)
 
@@ -305,7 +307,7 @@ class NoteWidgetProvider : AppWidgetProvider() {
                 // Settings button (opens NoteWidgetConfigureActivity)
                 val settingsIntent = Intent(context, NoteWidgetConfigureActivity::class.java).apply {
                     putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                     data = Uri.parse("widget://$appWidgetId/settings")
                 }
                 views.setOnClickPendingIntent(
@@ -372,6 +374,9 @@ class NoteWidgetProvider : AppWidgetProvider() {
                 )
 
                 appWidgetManager.updateAppWidget(appWidgetId, views)
+                kotlin.runCatching {
+                    appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.widget_note_list_view)
+                }
             }
         }
     }
@@ -425,8 +430,9 @@ class NoteWidgetProvider : AppWidgetProvider() {
                             }
                             if (note != null && note.isChecklist) {
                                 val remainingItems = note.getChecklistItems().filterNot { it.id == itemId }
+                                val (uncompleted, completed) = remainingItems.partition { !it.isChecked }
                                 val updatedNote = note.copy(
-                                    checklistJson = ChecklistItem.listToJson(remainingItems),
+                                    checklistJson = ChecklistItem.listToJson(uncompleted + completed),
                                     updatedAt = System.currentTimeMillis()
                                 )
                                 noteDao.updateNote(updatedNote)
@@ -464,8 +470,9 @@ class NoteWidgetProvider : AppWidgetProvider() {
                                 if (idx != -1) {
                                     val current = items[idx]
                                     items[idx] = current.copy(isChecked = !current.isChecked)
+                                    val (uncompleted, completed) = items.partition { !it.isChecked }
                                     val updatedNote = note.copy(
-                                        checklistJson = ChecklistItem.listToJson(items),
+                                        checklistJson = ChecklistItem.listToJson(uncompleted + completed),
                                         updatedAt = System.currentTimeMillis()
                                     )
                                     noteDao.updateNote(updatedNote)

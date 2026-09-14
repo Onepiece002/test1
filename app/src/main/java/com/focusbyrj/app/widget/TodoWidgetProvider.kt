@@ -165,7 +165,7 @@ class TodoWidgetProvider : AppWidgetProvider() {
 
                 // Settings Button Intent (Opens Widget Customization)
                 val settingsIntent = Intent(context, TodoWidgetConfigureActivity::class.java).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                     putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
                 }
                 val settingsPendingIntent = PendingIntent.getActivity(

@@ -307,7 +307,8 @@ fun QuickAddNoteItemDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .focusRequester(focusRequester),
-                    singleLine = true,
+                    singleLine = false,
+                    maxLines = 5,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                     keyboardActions = KeyboardActions(onDone = { performSubmit() }),
                     trailingIcon = {

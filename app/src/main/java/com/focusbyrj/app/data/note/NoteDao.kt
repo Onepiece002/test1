@@ -69,6 +69,9 @@ interface NoteDao {
     @Delete
     suspend fun deleteNote(note: NoteEntity)
 
+    @Query("UPDATE keep_notes SET updatedAt = :updatedAt WHERE id = :id")
+    suspend fun updateNoteOrder(id: Long, updatedAt: Long)
+
     @Query("UPDATE keep_notes SET isPinned = :isPinned, updatedAt = :updatedAt WHERE id = :id")
     suspend fun updatePinStatus(id: Long, isPinned: Boolean, updatedAt: Long = System.currentTimeMillis())
 

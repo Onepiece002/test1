@@ -39,8 +39,52 @@ object KeepNoteShareParser {
     private val BULLET_REGEX = Regex("""^(\s*[-*•]\s+)(.*)$""")
 
     fun parseIntent(intent: Intent): ParsedSharedNote {
-        val rawSubject = intent.getStringExtra(Intent.EXTRA_SUBJECT)?.trim()
-        val rawText = (intent.getCharSequenceExtra(Intent.EXTRA_TEXT) ?: intent.getStringExtra(Intent.EXTRA_TEXT))?.toString()?.trim()
+        val rawSubject = (
+            intent.getStringExtra(Intent.EXTRA_SUBJECT)
+                ?: intent.getStringExtra(Intent.EXTRA_TITLE)
+                ?: intent.getCharSequenceExtra(Intent.EXTRA_SUBJECT)?.toString()
+                ?: intent.getCharSequenceExtra(Intent.EXTRA_TITLE)?.toString()
+        )?.trim()
+
+        var rawText: String? = null
+
+        // 1. Check EXTRA_TEXT (String or CharSequence)
+        val extraText = intent.getCharSequenceExtra(Intent.EXTRA_TEXT) ?: intent.getStringExtra(Intent.EXTRA_TEXT)
+        if (extraText != null && extraText.isNotBlank()) {
+            rawText = extraText.toString().trim()
+        }
+
+        // 2. Check EXTRA_HTML_TEXT
+        if (rawText.isNullOrBlank()) {
+            val htmlText = intent.getStringExtra(Intent.EXTRA_HTML_TEXT)
+            if (!htmlText.isNullOrBlank()) {
+                rawText = android.text.Html.fromHtml(htmlText, android.text.Html.FROM_HTML_MODE_LEGACY).toString().trim()
+            }
+        }
+
+        // 3. Check ClipData item text or HTML
+        if (rawText.isNullOrBlank()) {
+            intent.clipData?.let { clipData ->
+                for (i in 0 until clipData.itemCount) {
+                    val item = clipData.getItemAt(i)
+                    val itemText = item.text?.toString() ?: item.htmlText?.let {
+                        android.text.Html.fromHtml(it, android.text.Html.FROM_HTML_MODE_LEGACY).toString()
+                    }
+                    if (!itemText.isNullOrBlank()) {
+                        rawText = itemText.trim()
+                        break
+                    }
+                }
+            }
+        }
+
+        // 4. Check data string if it's not a content/file URI
+        if (rawText.isNullOrBlank() && intent.data != null) {
+            val scheme = intent.data?.scheme
+            if (scheme != "content" && scheme != "file") {
+                rawText = intent.dataString
+            }
+        }
 
         val imageUris = extractImageUris(intent)
 
@@ -84,25 +128,50 @@ object KeepNoteShareParser {
         val lines = rawText?.lines()?.map { it.trimEnd() } ?: emptyList()
         val nonEmptyLines = lines.filter { it.isNotBlank() }
 
-        var finalTitle = rawSubject.orEmpty()
+        var finalTitle = rawSubject.orEmpty().trim()
         var remainingLines = lines
 
-        // If no explicit subject was provided, check if the first line is a heading/title
-        if (finalTitle.isBlank() && nonEmptyLines.isNotEmpty()) {
-            val firstLine = nonEmptyLines.first().trim()
-            val isFirstLineChecklist = isChecklistLine(firstLine)
-
-            if (!isFirstLineChecklist && firstLine.length <= 80 && nonEmptyLines.size > 1) {
-                finalTitle = firstLine
-                // Remove first non-empty line from remaining lines
-                var found = false
+        // If an explicit subject was provided:
+        // Google Keep often sets EXTRA_SUBJECT = Title and EXTRA_TEXT = "Title\n\nBody" OR EXTRA_TEXT = "Body"
+        if (finalTitle.isNotBlank()) {
+            if (nonEmptyLines.isNotEmpty() && nonEmptyLines.first().trim() == finalTitle) {
+                // The first non-empty line duplicates the subject/title, remove it from body
+                var removed = false
                 remainingLines = lines.filter { line ->
-                    if (!found && line.trim() == firstLine) {
-                        found = true
+                    if (!removed && line.trim() == finalTitle) {
+                        removed = true
                         false
                     } else {
                         true
                     }
+                }
+            }
+        } else if (nonEmptyLines.isNotEmpty()) {
+            // No explicit subject provided: extract title from first line if it looks like a heading or if there are multiple lines
+            val firstLine = nonEmptyLines.first().trim()
+            val isFirstLineChecklist = isChecklistLine(firstLine)
+
+            if (!isFirstLineChecklist && nonEmptyLines.size > 1 && firstLine.length <= 100) {
+                finalTitle = firstLine
+                // Remove the first non-empty line
+                var removed = false
+                remainingLines = lines.filter { line ->
+                    if (!removed && line.trim() == firstLine) {
+                        removed = true
+                        false
+                    } else {
+                        true
+                    }
+                }
+            } else if (!isFirstLineChecklist && nonEmptyLines.size == 1) {
+                // Only 1 single line shared. If it's short and images exist, treat as title; otherwise treat as note content
+                if (firstLine.length <= 60 && imageUris.isNotEmpty()) {
+                    finalTitle = firstLine
+                    remainingLines = emptyList()
+                } else {
+                    // Let it be the body content
+                    finalTitle = ""
+                    remainingLines = lines
                 }
             }
         }

@@ -45,6 +45,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -107,8 +108,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -116,8 +119,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -437,7 +442,7 @@ fun KeepNoteEditor(
                         onValueChange = onContentChange,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .weight(1f, fill = false)
+                            .defaultMinSize(minHeight = 260.dp)
                             .testTag("editor_content_input"),
                         textStyle = TextStyle(
                             color = textColor,
@@ -476,34 +481,36 @@ fun KeepNoteEditor(
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         // Uncompleted items
                         uncompletedItems.forEachIndexed { posInList, (globalIndex, item) ->
-                            ChecklistRow(
-                                item = item,
-                                textColor = textColor,
-                                canMoveUp = posInList > 0,
-                                canMoveDown = posInList < uncompletedItems.size - 1,
-                                isTargetFocus = item.id == targetFocusItemId,
-                                onFocused = { if (targetFocusItemId == item.id) targetFocusItemId = null },
-                                onToggle = { onToggleChecklistItem(globalIndex) },
-                                onTextChange = { onUpdateChecklistItemText(globalIndex, it) },
-                                onEnterPressed = { extraText ->
-                                    val newId = java.util.UUID.randomUUID().toString()
-                                    targetFocusItemId = newId
-                                    onAddChecklistItem(globalIndex, extraText, newId)
-                                },
-                                onDelete = { onRemoveChecklistItem(globalIndex) },
-                                onMoveUp = {
-                                    if (posInList > 0) {
-                                        val targetGlobalIndex = uncompletedItems[posInList - 1].first
-                                        onMoveChecklistItem(globalIndex, targetGlobalIndex)
+                            key(item.id) {
+                                ChecklistRow(
+                                    item = item,
+                                    textColor = textColor,
+                                    canMoveUp = posInList > 0,
+                                    canMoveDown = posInList < uncompletedItems.size - 1,
+                                    isTargetFocus = item.id == targetFocusItemId,
+                                    onFocused = { if (targetFocusItemId == item.id) targetFocusItemId = null },
+                                    onToggle = { onToggleChecklistItem(globalIndex) },
+                                    onTextChange = { onUpdateChecklistItemText(globalIndex, it) },
+                                    onEnterPressed = { extraText ->
+                                        val newId = java.util.UUID.randomUUID().toString()
+                                        targetFocusItemId = newId
+                                        onAddChecklistItem(globalIndex, extraText, newId)
+                                    },
+                                    onDelete = { onRemoveChecklistItem(globalIndex) },
+                                    onMoveUp = {
+                                        if (posInList > 0) {
+                                            val targetGlobalIndex = uncompletedItems[posInList - 1].first
+                                            onMoveChecklistItem(globalIndex, targetGlobalIndex)
+                                        }
+                                    },
+                                    onMoveDown = {
+                                        if (posInList < uncompletedItems.size - 1) {
+                                            val targetGlobalIndex = uncompletedItems[posInList + 1].first
+                                            onMoveChecklistItem(globalIndex, targetGlobalIndex)
+                                        }
                                     }
-                                },
-                                onMoveDown = {
-                                    if (posInList < uncompletedItems.size - 1) {
-                                        val targetGlobalIndex = uncompletedItems[posInList + 1].first
-                                        onMoveChecklistItem(globalIndex, targetGlobalIndex)
-                                    }
-                                }
-                            )
+                                )
+                            }
                         }
 
                         // Add new list item button row
@@ -569,34 +576,36 @@ fun KeepNoteEditor(
                             ) {
                                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                     completedItems.forEachIndexed { posInList, (globalIndex, item) ->
-                                        ChecklistRow(
-                                            item = item,
-                                            textColor = textColor,
-                                            canMoveUp = posInList > 0,
-                                            canMoveDown = posInList < completedItems.size - 1,
-                                            isTargetFocus = item.id == targetFocusItemId,
-                                            onFocused = { if (targetFocusItemId == item.id) targetFocusItemId = null },
-                                            onToggle = { onToggleChecklistItem(globalIndex) },
-                                            onTextChange = { onUpdateChecklistItemText(globalIndex, it) },
-                                            onEnterPressed = { extraText ->
-                                                val newId = java.util.UUID.randomUUID().toString()
-                                                targetFocusItemId = newId
-                                                onAddChecklistItem(globalIndex, extraText, newId)
-                                            },
-                                            onDelete = { onRemoveChecklistItem(globalIndex) },
-                                            onMoveUp = {
-                                                if (posInList > 0) {
-                                                    val targetGlobalIndex = completedItems[posInList - 1].first
-                                                    onMoveChecklistItem(globalIndex, targetGlobalIndex)
+                                        key(item.id) {
+                                            ChecklistRow(
+                                                item = item,
+                                                textColor = textColor,
+                                                canMoveUp = posInList > 0,
+                                                canMoveDown = posInList < completedItems.size - 1,
+                                                isTargetFocus = item.id == targetFocusItemId,
+                                                onFocused = { if (targetFocusItemId == item.id) targetFocusItemId = null },
+                                                onToggle = { onToggleChecklistItem(globalIndex) },
+                                                onTextChange = { onUpdateChecklistItemText(globalIndex, it) },
+                                                onEnterPressed = { extraText ->
+                                                    val newId = java.util.UUID.randomUUID().toString()
+                                                    targetFocusItemId = newId
+                                                    onAddChecklistItem(globalIndex, extraText, newId)
+                                                },
+                                                onDelete = { onRemoveChecklistItem(globalIndex) },
+                                                onMoveUp = {
+                                                    if (posInList > 0) {
+                                                        val targetGlobalIndex = completedItems[posInList - 1].first
+                                                        onMoveChecklistItem(globalIndex, targetGlobalIndex)
+                                                    }
+                                                },
+                                                onMoveDown = {
+                                                    if (posInList < completedItems.size - 1) {
+                                                        val targetGlobalIndex = completedItems[posInList + 1].first
+                                                        onMoveChecklistItem(globalIndex, targetGlobalIndex)
+                                                    }
                                                 }
-                                            },
-                                            onMoveDown = {
-                                                if (posInList < completedItems.size - 1) {
-                                                    val targetGlobalIndex = completedItems[posInList + 1].first
-                                                    onMoveChecklistItem(globalIndex, targetGlobalIndex)
-                                                }
-                                            }
-                                        )
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -690,7 +699,7 @@ fun KeepNoteEditor(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(80.dp))
+                Spacer(modifier = Modifier.height(120.dp))
             }
 
             // ==========================================
@@ -975,100 +984,80 @@ fun KeepNoteEditor(
                             )
                         }
 
-                        Box {
-                            IconButton(
-                                onClick = { showMoreMenu = true },
-                                modifier = Modifier.size(36.dp).testTag("editor_more_options_button")
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.MoreVert,
-                                    contentDescription = "More options",
-                                    tint = textColor.copy(alpha = 0.85f),
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-
-                            DropdownMenu(
-                                expanded = showMoreMenu,
-                                onDismissRequest = { showMoreMenu = false }
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text("Delete") },
-                                    leadingIcon = {
-                                        Icon(
-                                            imageVector = Icons.Outlined.Delete,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                    },
-                                    onClick = {
-                                        showMoreMenu = false
-                                        onDelete()
-                                    }
-                                )
-
-                                DropdownMenuItem(
-                                    text = { Text("Make a copy") },
-                                    leadingIcon = {
-                                        Icon(
-                                            imageVector = Icons.Outlined.ContentCopy,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                    },
-                                    onClick = {
-                                        showMoreMenu = false
-                                        onDuplicate()
-                                    }
-                                )
-
-                                DropdownMenuItem(
-                                    text = { Text("Send") },
-                                    leadingIcon = {
-                                        Icon(
-                                            imageVector = Icons.Outlined.Share,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                    },
-                                    onClick = {
-                                        showMoreMenu = false
-                                        onShare()
-                                    }
-                                )
-
-                                DropdownMenuItem(
-                                    text = { Text("Copy text") },
-                                    leadingIcon = {
-                                        Icon(
-                                            imageVector = Icons.Outlined.ContentCopy,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                    },
-                                    onClick = {
-                                        showMoreMenu = false
-                                        onCopyText()
-                                    }
-                                )
-
-                                DropdownMenuItem(
-                                    text = { Text("Labels") },
-                                    leadingIcon = {
-                                        Icon(
-                                            imageVector = Icons.Outlined.Label,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                    },
-                                    onClick = {
-                                        showMoreMenu = false
-                                        showLabelDialog = true
-                                    }
-                                )
-                            }
+                        IconButton(
+                            onClick = { showMoreMenu = true },
+                            modifier = Modifier.size(36.dp).testTag("editor_more_options_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.MoreVert,
+                                contentDescription = "More options",
+                                tint = textColor.copy(alpha = 0.85f),
+                                modifier = Modifier.size(20.dp)
+                            )
                         }
                     }
+                }
+            }
+        }
+
+        // ==========================================
+        // GOOGLE KEEP "MORE" 3-DOT OVERFLOW SHEET
+        // ==========================================
+        if (showMoreMenu) {
+            ModalBottomSheet(
+                onDismissRequest = { showMoreMenu = false },
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 28.dp, top = 4.dp)
+                ) {
+                    KeepAddOptionRow(
+                        icon = Icons.Outlined.Delete,
+                        title = "Delete",
+                        onClick = {
+                            showMoreMenu = false
+                            onDelete()
+                        }
+                    )
+
+                    KeepAddOptionRow(
+                        icon = Icons.Outlined.ContentCopy,
+                        title = "Make a copy",
+                        onClick = {
+                            showMoreMenu = false
+                            onDuplicate()
+                        }
+                    )
+
+                    KeepAddOptionRow(
+                        icon = Icons.Outlined.Share,
+                        title = "Send",
+                        onClick = {
+                            showMoreMenu = false
+                            onShare()
+                        }
+                    )
+
+                    KeepAddOptionRow(
+                        icon = Icons.Outlined.ContentCopy,
+                        title = "Copy text",
+                        onClick = {
+                            showMoreMenu = false
+                            onCopyText()
+                        }
+                    )
+
+                    KeepAddOptionRow(
+                        icon = Icons.Outlined.Label,
+                        title = "Labels",
+                        onClick = {
+                            showMoreMenu = false
+                            showLabelDialog = true
+                        }
+                    )
                 }
             }
         }
@@ -1409,15 +1398,26 @@ private fun ChecklistRow(
     var isDragging by remember { mutableStateOf(false) }
     var dragOffsetY by remember { mutableFloatStateOf(0f) }
     val density = LocalDensity.current
+    val haptic = LocalHapticFeedback.current
     val rowThresholdPx = remember(density) { with(density) { 44.dp.toPx() } }
+
+    val currentCanMoveUp by rememberUpdatedState(canMoveUp)
+    val currentCanMoveDown by rememberUpdatedState(canMoveDown)
+    val currentOnMoveUp by rememberUpdatedState(onMoveUp)
+    val currentOnMoveDown by rememberUpdatedState(onMoveDown)
 
     LaunchedEffect(isTargetFocus) {
         if (isTargetFocus) {
+            kotlinx.coroutines.delay(40)
             try {
                 focusRequester.requestFocus()
                 onFocused()
             } catch (e: Exception) {
-                // Ignore if not attached yet
+                kotlinx.coroutines.delay(80)
+                runCatching {
+                    focusRequester.requestFocus()
+                    onFocused()
+                }
             }
         }
     }
@@ -1438,11 +1438,14 @@ private fun ChecklistRow(
         Box(
             modifier = Modifier
                 .size(34.dp)
-                .pointerInput(item.id, canMoveUp, canMoveDown) {
+                .pointerInput(item.id) {
                     detectVerticalDragGestures(
                         onDragStart = {
                             isDragging = true
                             dragOffsetY = 0f
+                            try {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            } catch (_: Exception) {}
                         },
                         onDragEnd = {
                             isDragging = false
@@ -1455,12 +1458,22 @@ private fun ChecklistRow(
                         onVerticalDrag = { change, dragAmount ->
                             change.consume()
                             dragOffsetY += dragAmount
-                            if (dragOffsetY > rowThresholdPx && canMoveDown) {
-                                onMoveDown()
-                                dragOffsetY -= rowThresholdPx
-                            } else if (dragOffsetY < -rowThresholdPx && canMoveUp) {
-                                onMoveUp()
-                                dragOffsetY += rowThresholdPx
+                            if (dragOffsetY > rowThresholdPx) {
+                                if (currentCanMoveDown) {
+                                    currentOnMoveDown()
+                                    dragOffsetY -= rowThresholdPx
+                                    try {
+                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    } catch (_: Exception) {}
+                                }
+                            } else if (dragOffsetY < -rowThresholdPx) {
+                                if (currentCanMoveUp) {
+                                    currentOnMoveUp()
+                                    dragOffsetY += rowThresholdPx
+                                    try {
+                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    } catch (_: Exception) {}
+                                }
                             }
                         }
                     )
@@ -1490,7 +1503,7 @@ private fun ChecklistRow(
 
         Spacer(modifier = Modifier.width(4.dp))
 
-        // Checklist Text Field (Single line like Google Keep)
+        // Checklist Text Field (Multi-line wrapping with full content display)
         BasicTextField(
             value = item.text,
             onValueChange = { newText ->
@@ -1503,7 +1516,8 @@ private fun ChecklistRow(
                     onTextChange(newText)
                 }
             },
-            singleLine = true,
+            singleLine = false,
+            maxLines = 20,
             modifier = Modifier
                 .weight(1f)
                 .focusRequester(focusRequester)

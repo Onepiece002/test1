@@ -264,6 +264,8 @@
             android:name=".ui.screens.QuickAddTaskActivity"
             android:theme="@android:style/Theme.Translucent.NoTitleBar"
             android:launchMode="singleInstance"
+            android:taskAffinity=""
+            android:excludeFromRecents="true"
             android:exported="true" />
 
         <!-- Floating Quick Add Dialog Activity for Notes & Checklists -->
@@ -271,6 +273,8 @@
             android:name=".widget.QuickAddNoteItemActivity"
             android:theme="@android:style/Theme.Translucent.NoTitleBar"
             android:launchMode="singleInstance"
+            android:taskAffinity=""
+            android:excludeFromRecents="true"
             android:exported="true" />
 
         <!-- Floating Home Screen Direct Note Editor Dialog Activity -->
@@ -278,6 +282,8 @@
             android:name=".widget.QuickEditNoteActivity"
             android:theme="@android:style/Theme.Translucent.NoTitleBar"
             android:launchMode="singleInstance"
+            android:taskAffinity=""
+            android:excludeFromRecents="true"
             android:windowSoftInputMode="adjustResize"
             android:exported="true" />
 
@@ -319,6 +325,8 @@
         <activity
             android:name=".widget.NoteWidgetConfigureActivity"
             android:exported="true"
+            android:taskAffinity=""
+            android:excludeFromRecents="true"
             android:theme="@style/Theme.FocusByRj">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
@@ -351,6 +359,8 @@
         <activity
             android:name=".widget.TodoWidgetConfigureActivity"
             android:exported="true"
+            android:taskAffinity=""
+            android:excludeFromRecents="true"
             android:theme="@style/Theme.FocusByRj">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
