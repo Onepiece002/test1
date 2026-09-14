@@ -35,6 +35,31 @@ data class ActionColorTheme(
     val badgeBg: Color
 )
 
+fun cleanLabelAndEmoji(rawLabel: String, rawEmoji: String): Pair<String, String> {
+    var label = rawLabel.trim()
+    var emoji = rawEmoji.trim()
+
+    // Regex to match leading emoji / pictograph / symbols
+    val emojiRegex = Regex("""^([\p{So}\p{Sk}\p{Sc}\p{Sm}\uD800-\uDBFF\uDC00-\uDFFF\u2600-\u27BF\u2B50-\u2B55\uFE0F]+)\s*(.*)""", RegexOption.DOT_MATCHES_ALL)
+    val match = emojiRegex.find(label)
+    if (match != null) {
+        val extractedEmoji = match.groupValues[1].trim()
+        val restText = match.groupValues[2].trim()
+        if (restText.isNotBlank()) {
+            label = restText
+            if (emoji.isBlank() || emoji == "💬" || emoji == "⚡") {
+                emoji = extractedEmoji
+            }
+        }
+    }
+
+    if (emoji.isBlank()) {
+        emoji = "⚡"
+    }
+
+    return Pair(label, emoji)
+}
+
 fun resolveActionColorTheme(
     action: TalkAction,
     isDark: Boolean,
@@ -124,34 +149,35 @@ fun TalkActionChips(
             for (i in 0 until arr.length()) {
                 val obj = arr.getJSONObject(i)
                 val type = obj.optString("type")
-                val label = obj.optString("label")
-                val emoji = obj.optString("emoji", "⚡")
+                val rawLabel = obj.optString("label")
+                val rawEmoji = obj.optString("emoji", "")
+                val (cleanLabel, cleanEmoji) = cleanLabelAndEmoji(rawLabel, rawEmoji)
                 when (type) {
                     "navigate" -> {
                         val route = obj.optString("route")
-                        list.add(TalkAction.NavigateAppScreen(route, label, emoji))
+                        list.add(TalkAction.NavigateAppScreen(route, cleanLabel, cleanEmoji))
                     }
                     "ask_query" -> {
                         val query = obj.optString("query")
-                        list.add(TalkAction.AskQuery(query, label, emoji))
+                        list.add(TalkAction.AskQuery(query, cleanLabel, cleanEmoji))
                     }
                     "system_setting" -> {
                         val action = obj.optString("action")
                         val packageUri = obj.optBoolean("packageUri", false)
-                        list.add(TalkAction.OpenSystemSetting(action, label, emoji, packageUri))
+                        list.add(TalkAction.OpenSystemSetting(action, cleanLabel, cleanEmoji, packageUri))
                     }
                     "pref_update" -> {
                         val key = obj.optString("prefKey")
                         val prefType = obj.optString("prefType")
                         val targetVal = obj.optString("targetValue")
                         val dispVal = obj.optString("displayValue")
-                        list.add(TalkAction.DirectPrefUpdate(key, prefType, targetVal, dispVal, label, emoji))
+                        list.add(TalkAction.DirectPrefUpdate(key, prefType, targetVal, dispVal, cleanLabel, cleanEmoji))
                     }
                     "routine_toggle" -> {
                         val scheduleId = obj.optInt("scheduleId")
                         val isEnabled = obj.optBoolean("isEnabled", true)
-                        val routineName = obj.optString("routineName", label)
-                        list.add(TalkAction.RoutineToggle(scheduleId, isEnabled, routineName, label, emoji))
+                        val routineName = obj.optString("routineName", cleanLabel)
+                        list.add(TalkAction.RoutineToggle(scheduleId, isEnabled, routineName, cleanLabel, cleanEmoji))
                     }
                 }
             }
@@ -161,7 +187,7 @@ fun TalkActionChips(
 
     if (parsedActions.isEmpty()) return
 
-    val isConflictOrChoice = topicId == "conflict" || parsedActions.size in 2..4
+    val isConflictOrChoice = topicId == "conflict" || topicId == "tasks" || parsedActions.size in 2..4
     val isDark = androidx.compose.foundation.isSystemInDarkTheme()
     val primaryColor = MaterialTheme.colorScheme.primary
 
@@ -193,53 +219,26 @@ fun TalkActionChips(
             .padding(top = 8.dp, bottom = 4.dp)
     ) {
         if (isConflictOrChoice) {
-            // Check if 2 short options can fit side-by-side in a 2-column row
-            val canFitTwoColumns = parsedActions.size == 2 && parsedActions.all { it.label.length <= 16 }
-
-            if (canFitTwoColumns) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    parsedActions.forEach { action ->
-                        val isSelected = when (action) {
-                            is TalkAction.DirectPrefUpdate -> appliedActionKey == "${action.prefKey}_${action.targetValue}"
-                            is TalkAction.RoutineToggle -> appliedActionKey == "routine_${action.scheduleId}_${action.isEnabled}"
-                            else -> false
-                        }
-                        val theme = resolveActionColorTheme(action, isDark, primaryColor)
-                        Tactile3DChoiceButton(
-                            action = action,
-                            isSelected = isSelected,
-                            theme = theme,
-                            fontSizeSp = fontSizeSp,
-                            modifier = Modifier.weight(1f),
-                            onClick = { onActionClick(action) }
-                        )
+            // Stacked tactile prompt cards full-width for maximum readability and zero text clipping
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                parsedActions.forEach { action ->
+                    val isSelected = when (action) {
+                        is TalkAction.DirectPrefUpdate -> appliedActionKey == "${action.prefKey}_${action.targetValue}"
+                        is TalkAction.RoutineToggle -> appliedActionKey == "routine_${action.scheduleId}_${action.isEnabled}"
+                        else -> false
                     }
-                }
-            } else {
-                // Stacked tactile prompt cards
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    parsedActions.forEach { action ->
-                        val isSelected = when (action) {
-                            is TalkAction.DirectPrefUpdate -> appliedActionKey == "${action.prefKey}_${action.targetValue}"
-                            is TalkAction.RoutineToggle -> appliedActionKey == "routine_${action.scheduleId}_${action.isEnabled}"
-                            else -> false
-                        }
-                        val theme = resolveActionColorTheme(action, isDark, primaryColor)
-                        Tactile3DChoiceButton(
-                            action = action,
-                            isSelected = isSelected,
-                            theme = theme,
-                            fontSizeSp = fontSizeSp,
-                            modifier = Modifier.fillMaxWidth(),
-                            onClick = { onActionClick(action) }
-                        )
-                    }
+                    val theme = resolveActionColorTheme(action, isDark, primaryColor)
+                    Tactile3DChoiceButton(
+                        action = action,
+                        isSelected = isSelected,
+                        theme = theme,
+                        fontSizeSp = fontSizeSp,
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = { onActionClick(action) }
+                    )
                 }
             }
         } else {
@@ -281,17 +280,17 @@ fun Tactile3DChoiceButton(
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val pressOffsetY by animateFloatAsState(
-        targetValue = if (isPressed) 3.5f else 0f,
+        targetValue = if (isPressed) 3f else 0f,
         animationSpec = tween(durationMillis = 60),
         label = "choice_btn_press"
     )
 
-    val heightDp = 50.dp
     val bevelDepthDp = 4.dp
 
     Box(
         modifier = modifier
-            .height(heightDp + bevelDepthDp)
+            .fillMaxWidth()
+            .padding(bottom = bevelDepthDp)
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
@@ -301,8 +300,7 @@ fun Tactile3DChoiceButton(
         // 3D Bevel Shadow / Lip
         Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(heightDp)
+                .matchParentSize()
                 .offset(y = bevelDepthDp)
                 .clip(RoundedCornerShape(14.dp))
                 .background(theme.bevelColor)
@@ -312,11 +310,10 @@ fun Tactile3DChoiceButton(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(heightDp)
                 .offset(y = pressOffsetY.dp)
                 .clip(RoundedCornerShape(14.dp))
                 .background(theme.faceColor)
-                .padding(horizontal = 12.dp),
+                .padding(horizontal = 12.dp, vertical = 9.dp),
             contentAlignment = Alignment.CenterStart
         ) {
             Row(
@@ -327,28 +324,29 @@ fun Tactile3DChoiceButton(
                 // Round Emoji Badge
                 Box(
                     modifier = Modifier
-                        .size(32.dp)
+                        .size(30.dp)
                         .clip(CircleShape)
                         .background(theme.badgeBg),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = action.emoji,
-                        fontSize = 16.sp,
+                        fontSize = 15.sp,
                         textAlign = TextAlign.Center
                     )
                 }
 
-                // Label Text
+                // Label Text - supports 2 lines, legible sizing and lineHeight
                 Text(
                     text = action.label,
                     style = MaterialTheme.typography.labelLarge.copy(
                         fontWeight = FontWeight.Bold,
-                        fontSize = (fontSizeSp * 0.92f).coerceIn(13f, 15.5f).sp,
-                        letterSpacing = 0.2.sp
+                        fontSize = (fontSizeSp * 0.90f).coerceIn(12.5f, 15f).sp,
+                        lineHeight = (fontSizeSp * 1.18f).coerceIn(15.5f, 18.5f).sp,
+                        letterSpacing = 0.15.sp
                     ),
                     color = theme.textColor,
-                    maxLines = 1,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f)
                 )
@@ -364,7 +362,7 @@ fun Tactile3DChoiceButton(
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                         contentDescription = "Select",
-                        tint = theme.textColor.copy(alpha = 0.75f),
+                        tint = theme.textColor.copy(alpha = 0.8f),
                         modifier = Modifier.size(15.dp)
                     )
                 }
@@ -385,17 +383,16 @@ fun TactilePillActionChip(
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val pressOffsetY by animateFloatAsState(
-        targetValue = if (isPressed) 2.5f else 0f,
+        targetValue = if (isPressed) 2f else 0f,
         animationSpec = tween(durationMillis = 60),
         label = "pill_chip_press"
     )
 
-    val heightDp = 38.dp
     val bevelDepthDp = 3.dp
 
     Box(
         modifier = modifier
-            .height(heightDp + bevelDepthDp)
+            .padding(bottom = bevelDepthDp)
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
@@ -405,7 +402,7 @@ fun TactilePillActionChip(
         // Bottom shadow bevel
         Box(
             modifier = Modifier
-                .height(heightDp)
+                .matchParentSize()
                 .offset(y = bevelDepthDp)
                 .clip(RoundedCornerShape(12.dp))
                 .background(theme.bevelColor.copy(alpha = if (isSelected) 0.9f else 0.45f))
@@ -414,14 +411,13 @@ fun TactilePillActionChip(
         // Top tactile pill
         Box(
             modifier = Modifier
-                .height(heightDp)
                 .offset(y = pressOffsetY.dp)
                 .clip(RoundedCornerShape(12.dp))
                 .background(
                     if (isSelected) theme.faceColor 
                     else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.85f)
                 )
-                .padding(horizontal = 10.dp),
+                .padding(horizontal = 11.dp, vertical = 7.dp),
             contentAlignment = Alignment.CenterStart
         ) {
             Row(

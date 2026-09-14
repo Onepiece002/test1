@@ -10,8 +10,9 @@
     android:targetCellHeight="2"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen"
-    android:configure="com.focusbyrj.app.widget.TodoWidgetConfigureActivity"
+    android:configure="com.focusbyrj.app.widget.NoteWidgetConfigureActivity"
     android:widgetFeatures="reconfigurable|configuration_optional"
-    android:initialLayout="@layout/widget_todo_layout"
-    android:previewLayout="@layout/widget_todo_layout"
+    android:initialLayout="@layout/widget_note_layout"
+    android:previewLayout="@layout/widget_note_layout"
     android:updatePeriodMillis="1800000" />
+

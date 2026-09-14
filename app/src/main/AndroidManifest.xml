@@ -259,12 +259,93 @@
             android:taskAffinity=":bubble"
             android:exported="false" />
 
-        <!-- Floating Quick Add Dialog Activity -->
+        <!-- Floating Quick Add Dialog Activity for Tasks -->
         <activity
             android:name=".ui.screens.QuickAddTaskActivity"
             android:theme="@android:style/Theme.Translucent.NoTitleBar"
             android:launchMode="singleInstance"
             android:exported="true" />
+
+        <!-- Floating Quick Add Dialog Activity for Notes & Checklists -->
+        <activity
+            android:name=".widget.QuickAddNoteItemActivity"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:launchMode="singleInstance"
+            android:exported="true" />
+
+        <!-- Floating Home Screen Direct Note Editor Dialog Activity -->
+        <activity
+            android:name=".widget.QuickEditNoteActivity"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:launchMode="singleInstance"
+            android:windowSoftInputMode="adjustResize"
+            android:exported="true" />
+
+        <!-- Share Target for Google Keep Notes, Checklists & Images -->
+        <activity
+            android:name=".ui.screens.notes.ShareToNoteActivity"
+            android:exported="true"
+            android:label="@string/share_to_focus_notes"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter android:label="@string/share_to_focus_notes">
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+            <intent-filter android:label="@string/share_to_focus_notes">
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+            <intent-filter android:label="@string/share_to_focus_notes">
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+            <intent-filter android:label="@string/share_to_focus_notes">
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+            <intent-filter android:label="@string/share_to_focus_notes">
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+        </activity>
+
+        <!-- Notes & Checklists Widget Configuration Activity -->
+        <activity
+            android:name=".widget.NoteWidgetConfigureActivity"
+            android:exported="true"
+            android:theme="@style/Theme.FocusByRj">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
+        <!-- Notes & Checklists Interactive Home Screen Widget -->
+        <receiver
+            android:name=".widget.NoteWidgetProvider"
+            android:label="Focus Notes &amp; Lists"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.focusbyrj.app.widget.ACTION_PREV_NOTE" />
+                <action android:name="com.focusbyrj.app.widget.ACTION_NEXT_NOTE" />
+                <action android:name="com.focusbyrj.app.widget.ACTION_CYCLE_FILTER" />
+                <action android:name="com.focusbyrj.app.widget.ACTION_TOGGLE_ITEM" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/note_widget_info" />
+        </receiver>
+
+        <service
+            android:name=".widget.NoteWidgetService"
+            android:permission="android.permission.BIND_REMOTEVIEWS"
+            android:exported="false" />
 
         <!-- Todoist Style Widget Configuration Activity -->
         <activity

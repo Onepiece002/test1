@@ -34,7 +34,8 @@ object WidgetDrawableGenerator {
             strokeWidth = 1.2f
         }
 
-        val radius = (config.cornerRadiusDp.toFloat()).coerceIn(0f, 32f)
+        // Scale dp to bitmap dimensions (160px canvas representing ~360dp widget)
+        val radius = (config.cornerRadiusDp.toFloat() * 0.45f).coerceIn(0f, 24f)
         val rect = RectF(0.6f, 0.6f, size - 0.6f, size - 0.6f)
 
         if (radius <= 0f) {

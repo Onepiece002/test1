@@ -79,4 +79,53 @@ class KeepNotesFeatureTest {
         assertEquals("default", defaultColor.key)
         assertEquals("Default", defaultColor.name)
     }
+
+    @Test
+    fun testKeepNoteShareParser_ChecklistWithSubject() {
+        val rawSubject = "Weekend Groceries"
+        val rawText = "☐ Milk 2L\n☑ Whole wheat bread\n☐ Cheddar cheese"
+
+        val parsed = com.focusbyrj.app.ui.screens.notes.KeepNoteShareParser.parseContent(rawSubject, rawText)
+
+        assertEquals("Weekend Groceries", parsed.title)
+        assertTrue(parsed.isChecklist)
+        assertEquals(3, parsed.checklistItems.size)
+        assertEquals("Milk 2L", parsed.checklistItems[0].text)
+        assertFalse(parsed.checklistItems[0].isChecked)
+        assertEquals("Whole wheat bread", parsed.checklistItems[1].text)
+        assertTrue(parsed.checklistItems[1].isChecked)
+        assertEquals("Cheddar cheese", parsed.checklistItems[2].text)
+        assertFalse(parsed.checklistItems[2].isChecked)
+    }
+
+    @Test
+    fun testKeepNoteShareParser_ChecklistWithoutSubjectFirstLineHeading() {
+        val rawSubject = null
+        val rawText = "Trip Prep\n- [ ] Passport\n- [x] Flight Tickets\n- [ ] Currency exchange"
+
+        val parsed = com.focusbyrj.app.ui.screens.notes.KeepNoteShareParser.parseContent(rawSubject, rawText)
+
+        assertEquals("Trip Prep", parsed.title)
+        assertTrue(parsed.isChecklist)
+        assertEquals(3, parsed.checklistItems.size)
+        assertEquals("Passport", parsed.checklistItems[0].text)
+        assertFalse(parsed.checklistItems[0].isChecked)
+        assertEquals("Flight Tickets", parsed.checklistItems[1].text)
+        assertTrue(parsed.checklistItems[1].isChecked)
+    }
+
+    @Test
+    fun testKeepNoteShareParser_PlainNoteWithImages() {
+        val rawSubject = "Meeting Summary"
+        val rawText = "Discussed Q4 roadmaps and deliverables.\nNext sync on Monday 10am."
+        val fakeUri = android.net.Uri.parse("content://keep/attachments/12345")
+
+        val parsed = com.focusbyrj.app.ui.screens.notes.KeepNoteShareParser.parseContent(rawSubject, rawText, listOf(fakeUri))
+
+        assertEquals("Meeting Summary", parsed.title)
+        assertFalse(parsed.isChecklist)
+        assertTrue(parsed.content.contains("Discussed Q4 roadmaps"))
+        assertEquals(1, parsed.imageUris.size)
+        assertEquals(fakeUri, parsed.imageUris[0])
+    }
 }

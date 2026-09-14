@@ -40,6 +40,18 @@ interface NoteDao {
     @Query("SELECT * FROM keep_notes WHERE id = :id")
     fun getNoteById(id: Long): Flow<NoteEntity?>
 
+    @Query("SELECT * FROM keep_notes WHERE id = :id")
+    suspend fun getNoteByIdSync(id: Long): NoteEntity?
+
+    @Query("SELECT * FROM keep_notes WHERE isTrashed = 0 AND isArchived = 0 ORDER BY isPinned DESC, updatedAt DESC")
+    suspend fun getAllActiveNotesSync(): List<NoteEntity>
+
+    @Query("SELECT * FROM keep_notes WHERE isTrashed = 0 AND isArchived = 0 AND isChecklist = 1 ORDER BY isPinned DESC, updatedAt DESC")
+    suspend fun getChecklistNotesSync(): List<NoteEntity>
+
+    @Query("SELECT * FROM keep_notes WHERE isTrashed = 0 AND isArchived = 0 AND isPinned = 1 ORDER BY updatedAt DESC")
+    suspend fun getPinnedNotesSync(): List<NoteEntity>
+
     @Query("""
         SELECT * FROM keep_notes 
         WHERE isTrashed = 0 AND isArchived = 0 
@@ -68,6 +80,9 @@ interface NoteDao {
 
     @Query("UPDATE keep_notes SET colorKey = :colorKey, updatedAt = :updatedAt WHERE id = :id")
     suspend fun updateColor(id: Long, colorKey: String, updatedAt: Long = System.currentTimeMillis())
+
+    @Query("SELECT * FROM keep_notes WHERE isTrashed = 1")
+    suspend fun getTrashedNotesSync(): List<NoteEntity>
 
     @Query("DELETE FROM keep_notes WHERE isTrashed = 1")
     suspend fun emptyTrash()

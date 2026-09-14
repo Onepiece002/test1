@@ -53,9 +53,11 @@ class TodoWidgetProvider : AppWidgetProvider() {
                 val componentName = ComponentName(context, TodoWidgetProvider::class.java)
                 val appWidgetIds = appWidgetManager.getAppWidgetIds(componentName)
                 if (appWidgetIds != null && appWidgetIds.isNotEmpty()) {
-                    appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetIds, R.id.widget_list_view)
                     for (widgetId in appWidgetIds) {
                         updateWidget(context, appWidgetManager, widgetId)
+                    }
+                    kotlin.runCatching {
+                        appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetIds, R.id.widget_list_view)
                     }
                 }
             }
@@ -244,6 +246,16 @@ class TodoWidgetProvider : AppWidgetProvider() {
         }
     }
 
+    override fun onAppWidgetOptionsChanged(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetId: Int,
+        newOptions: android.os.Bundle
+    ) {
+        super.onAppWidgetOptionsChanged(context, appWidgetManager, appWidgetId, newOptions)
+        updateWidget(context, appWidgetManager, appWidgetId)
+    }
+
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
         val appWidgetManager = AppWidgetManager.getInstance(context)
@@ -254,16 +266,20 @@ class TodoWidgetProvider : AppWidgetProvider() {
                 val tabIndex = intent.getIntExtra(EXTRA_TAB_INDEX, 0)
                 if (appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
                     setSelectedTab(context, appWidgetId, tabIndex)
-                    appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.widget_list_view)
                     updateWidget(context, appWidgetManager, appWidgetId)
+                    kotlin.runCatching {
+                        appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.widget_list_view)
+                    }
                 }
             }
 
             ACTION_REFRESH -> {
                 val appWidgetId = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
                 if (appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
-                    appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.widget_list_view)
                     updateWidget(context, appWidgetManager, appWidgetId)
+                    kotlin.runCatching {
+                        appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.widget_list_view)
+                    }
                 } else {
                     updateAllWidgets(context)
                 }

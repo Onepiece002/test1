@@ -1101,7 +1101,7 @@ object AyvaTalkEngine {
                                         if (hasQuery && nluResult.matchingTasks.isEmpty()) {
                                             // User searched for a keyword that did not match any task
                                             val actions = pending.take(3).mapIndexed { idx, t ->
-                                                TalkAction.AskQuery("/talk $verb ${t.title}$whenSuffix", "⏰ ${idx + 1}. ${t.title.take(15)}")
+                                                TalkAction.AskQuery("/talk $verb ${t.title}$whenSuffix", "⏰ ${idx + 1}. ${t.title.take(30)}")
                                             }
                                             val listText = pending.take(5).mapIndexed { idx, t -> "${idx + 1}. **${t.title}**" }.joinToString("\n")
                                             return TalkResponse(
@@ -1120,14 +1120,14 @@ object AyvaTalkEngine {
 
                                         val actions = when (nluResult.intent) {
                                             NluIntent.COMPLETE -> candidateList.take(3).mapIndexed { idx, t ->
-                                                TalkAction.AskQuery("/talk complete ${t.title}", "✅ ${idx + 1}. ${t.title.take(15)}")
+                                                TalkAction.AskQuery("/talk complete ${t.title}", "✅ ${idx + 1}. ${t.title.take(30)}")
                                             } + listOf(TalkAction.AskQuery("/talk complete all", "✅ Complete All"))
                                             NluIntent.RESCHEDULE -> candidateList.take(3).mapIndexed { idx, t ->
                                                 val targetWhen = if (whenSuffix.isNotBlank()) whenSuffix else " tomorrow"
-                                                TalkAction.AskQuery("/talk reschedule ${t.title}$targetWhen", "⏰ ${idx + 1}. ${t.title.take(12)}")
+                                                TalkAction.AskQuery("/talk reschedule ${t.title}$targetWhen", "⏰ ${idx + 1}. ${t.title.take(30)}")
                                             } + listOf(TalkAction.AskQuery("/talk reschedule all${if (whenSuffix.isNotBlank()) whenSuffix else " tomorrow"}", "⏰ All Tomorrow"))
                                             NluIntent.DELETE -> candidateList.take(3).mapIndexed { idx, t ->
-                                                TalkAction.AskQuery("/talk delete ${t.title}", "🗑️ ${idx + 1}. ${t.title.take(15)}")
+                                                TalkAction.AskQuery("/talk delete ${t.title}", "🗑️ ${idx + 1}. ${t.title.take(30)}")
                                             }
                                             else -> emptyList()
                                         }

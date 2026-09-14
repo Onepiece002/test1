@@ -60,6 +60,8 @@ class AudioMemoManager(private val context: Context) {
     private var recordingJob: Job? = null
     private var speechRecognizer: SpeechRecognizer? = null
     private val scope = CoroutineScope(Dispatchers.Main)
+    private val accumulatedTranscript = StringBuilder()
+    private var onTranscriptCallback: ((String) -> Unit)? = null
 
     fun startRecording(onTranscriptUpdate: (String) -> Unit = {}) {
         stopPlayback()
@@ -97,11 +99,12 @@ class AudioMemoManager(private val context: Context) {
                 currentOutputFile = file
             )
 
-            // Live timer and amplitude poller
+            // High-precision live timer and amplitude poller
+            val startTimeMs = System.currentTimeMillis()
             recordingJob = scope.launch {
-                var seconds = 0
                 while (isActive && _recordingState.value.isRecording) {
-                    delay(100)
+                    delay(60)
+                    val elapsed = ((System.currentTimeMillis() - startTimeMs) / 1000).toInt()
                     val maxAmp = try {
                         mediaRecorder?.maxAmplitude ?: 0
                     } catch (_: Exception) {
@@ -109,18 +112,14 @@ class AudioMemoManager(private val context: Context) {
                     }
                     val normalizedAmp = (maxAmp / 32767f).coerceIn(0f, 1f)
 
-                    if (System.currentTimeMillis() % 1000 < 150) {
-                        seconds++
-                    }
-
                     _recordingState.value = _recordingState.value.copy(
-                        elapsedSeconds = seconds,
+                        elapsedSeconds = elapsed,
                         currentAmplitude = normalizedAmp
                     )
                 }
             }
 
-            // Optional On-Device Speech Recognition
+            // Continuous On-Device Speech Recognition
             initSpeechRecognizer(onTranscriptUpdate)
 
         } catch (e: Exception) {
@@ -131,34 +130,77 @@ class AudioMemoManager(private val context: Context) {
 
     private fun initSpeechRecognizer(onTranscriptUpdate: (String) -> Unit) {
         if (!SpeechRecognizer.isRecognitionAvailable(context)) return
+        accumulatedTranscript.clear()
+        onTranscriptCallback = onTranscriptUpdate
+        startSpeechRecognitionSession()
+    }
+
+    private fun startSpeechRecognitionSession() {
+        if (!_recordingState.value.isRecording) return
         try {
             speechRecognizer?.destroy()
             speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context).apply {
                 setRecognitionListener(object : RecognitionListener {
                     override fun onReadyForSpeech(params: Bundle?) {}
                     override fun onBeginningOfSpeech() {}
-                    override fun onRmsChanged(rmsdB: Float) {}
+                    override fun onRmsChanged(rmsdB: Float) {
+                        if (rmsdB > 0) {
+                            val speechAmp = (rmsdB / 10f).coerceIn(0f, 1f)
+                            val current = _recordingState.value.currentAmplitude
+                            _recordingState.value = _recordingState.value.copy(
+                                currentAmplitude = maxOf(current, speechAmp)
+                            )
+                        }
+                    }
                     override fun onBufferReceived(buffer: ByteArray?) {}
                     override fun onEndOfSpeech() {}
                     override fun onError(error: Int) {
-                        // Offline or recognition not possible; audio recording still proceeds safely
+                        // In Android SpeechRecognizer, brief silences or timeouts trigger onError.
+                        // Seamlessly restart recognition if user is still actively recording.
+                        if (_recordingState.value.isRecording) {
+                            scope.launch(Dispatchers.Main) {
+                                delay(200)
+                                startSpeechRecognitionSession()
+                            }
+                        }
                     }
 
                     override fun onResults(results: Bundle?) {
                         val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                         val text = matches?.firstOrNull()?.trim() ?: ""
                         if (text.isNotBlank()) {
-                            _recordingState.value = _recordingState.value.copy(liveTranscript = text)
-                            onTranscriptUpdate(text)
+                            if (accumulatedTranscript.isNotEmpty()) {
+                                accumulatedTranscript.append(" ")
+                            }
+                            val formatted = text.replaceFirstChar {
+                                if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString()
+                            }
+                            accumulatedTranscript.append(formatted)
+                            if (!formatted.endsWith(".") && !formatted.endsWith("?") && !formatted.endsWith("!")) {
+                                accumulatedTranscript.append(".")
+                            }
+                            val full = accumulatedTranscript.toString().trim()
+                            _recordingState.value = _recordingState.value.copy(liveTranscript = full)
+                            onTranscriptCallback?.invoke(full)
+                        }
+                        if (_recordingState.value.isRecording) {
+                            scope.launch(Dispatchers.Main) {
+                                startSpeechRecognitionSession()
+                            }
                         }
                     }
 
                     override fun onPartialResults(partialResults: Bundle?) {
                         val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                        val text = matches?.firstOrNull()?.trim() ?: ""
-                        if (text.isNotBlank()) {
-                            _recordingState.value = _recordingState.value.copy(liveTranscript = text)
-                            onTranscriptUpdate(text)
+                        val partial = matches?.firstOrNull()?.trim() ?: ""
+                        if (partial.isNotBlank()) {
+                            val full = if (accumulatedTranscript.isNotEmpty()) {
+                                "${accumulatedTranscript.toString().trim()} $partial"
+                            } else {
+                                partial
+                            }
+                            _recordingState.value = _recordingState.value.copy(liveTranscript = full)
+                            onTranscriptCallback?.invoke(full)
                         }
                     }
 
@@ -169,6 +211,8 @@ class AudioMemoManager(private val context: Context) {
                     putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                     putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault().toString())
                     putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+                    putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
+                    putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
                 }
                 startListening(intent)
             }
@@ -242,7 +286,8 @@ class AudioMemoManager(private val context: Context) {
         val currentPath: String? = null,
         val isPlaying: Boolean = false,
         val currentPositionMs: Int = 0,
-        val durationMs: Int = 0
+        val durationMs: Int = 0,
+        val speed: Float = 1.0f
     )
 
     private val _playbackState = MutableStateFlow(PlaybackState())
@@ -270,6 +315,13 @@ class AudioMemoManager(private val context: Context) {
             val player = MediaPlayer().apply {
                 setDataSource(audioPath)
                 prepare()
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && _playbackState.value.speed != 1.0f) {
+                    try {
+                        val params = playbackParams
+                        params.speed = _playbackState.value.speed
+                        playbackParams = params
+                    } catch (_: Exception) {}
+                }
                 setOnCompletionListener {
                     _playbackState.value = _playbackState.value.copy(
                         isPlaying = false,
@@ -281,7 +333,7 @@ class AudioMemoManager(private val context: Context) {
             }
             mediaPlayer = player
 
-            _playbackState.value = PlaybackState(
+            _playbackState.value = _playbackState.value.copy(
                 currentPath = audioPath,
                 isPlaying = true,
                 currentPositionMs = 0,
@@ -316,6 +368,26 @@ class AudioMemoManager(private val context: Context) {
             mediaPlayer?.seekTo(positionMs)
             _playbackState.value = _playbackState.value.copy(currentPositionMs = positionMs)
         } catch (_: Exception) {}
+    }
+
+    fun setPlaybackSpeed(speed: Float) {
+        try {
+            mediaPlayer?.let { player ->
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    val params = player.playbackParams
+                    params.speed = speed
+                    player.playbackParams = params
+                }
+            }
+            _playbackState.value = _playbackState.value.copy(speed = speed)
+        } catch (_: Exception) {}
+    }
+
+    fun skip(deltaMs: Int) {
+        val current = _playbackState.value.currentPositionMs
+        val dur = _playbackState.value.durationMs
+        val target = (current + deltaMs).coerceIn(0, if (dur > 0) dur else Int.MAX_VALUE)
+        seekTo(target)
     }
 
     fun stopPlayback() {

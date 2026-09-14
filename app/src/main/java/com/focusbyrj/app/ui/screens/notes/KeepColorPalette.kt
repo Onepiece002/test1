@@ -17,10 +17,35 @@
 
 package com.focusbyrj.app.ui.screens.notes
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Celebration
+import androidx.compose.material.icons.filled.EditNote
+import androidx.compose.material.icons.filled.Headphones
+import androidx.compose.material.icons.filled.Landscape
+import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.NotInterested
+import androidx.compose.material.icons.filled.Restaurant
+import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.filled.SelfImprovement
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+
+enum class KeepThemeType {
+    NONE,
+    GROCERIES,
+    FOOD,
+    MUSIC,
+    RECIPES,
+    NOTES,
+    PLACES,
+    CELEBRATION,
+    STUDY,
+    FOCUS
+}
 
 data class KeepColorTheme(
     val key: String,
@@ -31,7 +56,10 @@ data class KeepColorTheme(
     val darkBorder: Color,
     val lightText: Color,
     val darkText: Color,
-    val swatchColor: Color
+    val swatchColor: Color,
+    val isIllustratedTheme: Boolean = false,
+    val themeType: KeepThemeType = KeepThemeType.NONE,
+    val icon: ImageVector? = null
 ) {
     fun getBackgroundColor(isDark: Boolean): Color = if (isDark) darkBg else lightBg
     fun getBorderColor(isDark: Boolean): Color = if (isDark) darkBorder else lightBorder
@@ -41,7 +69,7 @@ data class KeepColorTheme(
     @ReadOnlyComposable
     fun resolveBackgroundColor(isDark: Boolean): Color {
         return if (key.equals("default", ignoreCase = true)) {
-            MaterialTheme.colorScheme.surface
+            if (isDark) darkBg else lightBg
         } else {
             getBackgroundColor(isDark)
         }
@@ -51,7 +79,7 @@ data class KeepColorTheme(
     @ReadOnlyComposable
     fun resolveBorderColor(isDark: Boolean): Color {
         return if (key.equals("default", ignoreCase = true)) {
-            MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
+            if (isDark) darkBorder else lightBorder
         } else {
             getBorderColor(isDark)
         }
@@ -61,7 +89,7 @@ data class KeepColorTheme(
     @ReadOnlyComposable
     fun resolveTextColor(isDark: Boolean): Color {
         return if (key.equals("default", ignoreCase = true)) {
-            MaterialTheme.colorScheme.onSurface
+            if (isDark) darkText else lightText
         } else {
             getTextColor(isDark)
         }
@@ -71,7 +99,7 @@ data class KeepColorTheme(
     @ReadOnlyComposable
     fun resolveSecondaryTextColor(isDark: Boolean): Color {
         return if (key.equals("default", ignoreCase = true)) {
-            MaterialTheme.colorScheme.onSurfaceVariant
+            if (isDark) darkText.copy(alpha = 0.70f) else lightText.copy(alpha = 0.70f)
         } else {
             getTextColor(isDark).copy(alpha = 0.75f)
         }
@@ -79,16 +107,20 @@ data class KeepColorTheme(
 }
 
 object KeepColorPalette {
+    // =========================================================================
+    // GOOGLE KEEP SOLID COLOR PALETTE (12 Authentic Pastel Colors)
+    // =========================================================================
     val Default = KeepColorTheme(
         key = "default",
         name = "Default",
         lightBg = Color(0xFFFFFFFF),
-        darkBg = Color(0xFF151921),
+        darkBg = Color(0xFF131314),
         lightBorder = Color(0xFFE0E0E0),
-        darkBorder = Color(0xFF2E3138),
+        darkBorder = Color(0xFF333538),
         lightText = Color(0xFF202124),
         darkText = Color(0xFFE8EAED),
-        swatchColor = Color(0xFF9AA0A6)
+        swatchColor = Color(0xFF9AA0A6),
+        icon = Icons.Filled.NotInterested
     )
 
     val Coral = KeepColorTheme(
@@ -223,11 +255,157 @@ object KeepColorPalette {
         swatchColor = Color(0xFFB0BEC5)
     )
 
+    // =========================================================================
+    // GOOGLE KEEP ILLUSTRATED BACKGROUND THEMES (9 Signature Visual Themes)
+    // =========================================================================
+    val ThemeGroceries = KeepColorTheme(
+        key = "theme_groceries",
+        name = "Groceries",
+        lightBg = Color(0xFFF1F8E9),
+        darkBg = Color(0xFF1E3320),
+        lightBorder = Color(0xFF81C784).copy(alpha = 0.5f),
+        darkBorder = Color(0xFF2E5E35),
+        lightText = Color(0xFF1B381E),
+        darkText = Color(0xFFE8F5E9),
+        swatchColor = Color(0xFFAED581),
+        isIllustratedTheme = true,
+        themeType = KeepThemeType.GROCERIES,
+        icon = Icons.Filled.ShoppingCart
+    )
+
+    val ThemeFood = KeepColorTheme(
+        key = "theme_food",
+        name = "Food",
+        lightBg = Color(0xFFFFF3E0),
+        darkBg = Color(0xFF3E2723),
+        lightBorder = Color(0xFFFFB74D).copy(alpha = 0.5f),
+        darkBorder = Color(0xFF6D3B1E),
+        lightText = Color(0xFF381F12),
+        darkText = Color(0xFFFFF3E0),
+        swatchColor = Color(0xFFFFB74D),
+        isIllustratedTheme = true,
+        themeType = KeepThemeType.FOOD,
+        icon = Icons.Filled.Restaurant
+    )
+
+    val ThemeMusic = KeepColorTheme(
+        key = "theme_music",
+        name = "Music",
+        lightBg = Color(0xFFEDE7F6),
+        darkBg = Color(0xFF251B38),
+        lightBorder = Color(0xFFB39DDB).copy(alpha = 0.5f),
+        darkBorder = Color(0xFF4A346E),
+        lightText = Color(0xFF231538),
+        darkText = Color(0xFFEDE7F6),
+        swatchColor = Color(0xFFB39DDB),
+        isIllustratedTheme = true,
+        themeType = KeepThemeType.MUSIC,
+        icon = Icons.Filled.Headphones
+    )
+
+    val ThemeRecipes = KeepColorTheme(
+        key = "theme_recipes",
+        name = "Recipes",
+        lightBg = Color(0xFFFBE9E7),
+        darkBg = Color(0xFF3E221B),
+        lightBorder = Color(0xFFFF8A65).copy(alpha = 0.5f),
+        darkBorder = Color(0xFF6E3628),
+        lightText = Color(0xFF3A1A14),
+        darkText = Color(0xFFFBE9E7),
+        swatchColor = Color(0xFFFFAB91),
+        isIllustratedTheme = true,
+        themeType = KeepThemeType.RECIPES,
+        icon = Icons.Filled.MenuBook
+    )
+
+    val ThemeNotes = KeepColorTheme(
+        key = "theme_notes",
+        name = "Notes",
+        lightBg = Color(0xFFFFFDE7),
+        darkBg = Color(0xFF363219),
+        lightBorder = Color(0xFFFFF176).copy(alpha = 0.55f),
+        darkBorder = Color(0xFF665E24),
+        lightText = Color(0xFF332F11),
+        darkText = Color(0xFFFFFDE7),
+        swatchColor = Color(0xFFFFF59D),
+        isIllustratedTheme = true,
+        themeType = KeepThemeType.NOTES,
+        icon = Icons.Filled.EditNote
+    )
+
+    val ThemePlaces = KeepColorTheme(
+        key = "theme_places",
+        name = "Places",
+        lightBg = Color(0xFFE0F7FA),
+        darkBg = Color(0xFF13363B),
+        lightBorder = Color(0xFF4DD0E1).copy(alpha = 0.5f),
+        darkBorder = Color(0xFF225B63),
+        lightText = Color(0xFF0F2E33),
+        darkText = Color(0xFFE0F7FA),
+        swatchColor = Color(0xFF80DEEA),
+        isIllustratedTheme = true,
+        themeType = KeepThemeType.PLACES,
+        icon = Icons.Filled.Landscape
+    )
+
+    val ThemeCelebration = KeepColorTheme(
+        key = "theme_celebration",
+        name = "Celebration",
+        lightBg = Color(0xFFFCE4EC),
+        darkBg = Color(0xFF3E1C2B),
+        lightBorder = Color(0xFFF48FB1).copy(alpha = 0.5f),
+        darkBorder = Color(0xFF6E2847),
+        lightText = Color(0xFF381323),
+        darkText = Color(0xFFFCE4EC),
+        swatchColor = Color(0xFFF48FB1),
+        isIllustratedTheme = true,
+        themeType = KeepThemeType.CELEBRATION,
+        icon = Icons.Filled.Celebration
+    )
+
+    val ThemeStudy = KeepColorTheme(
+        key = "theme_study",
+        name = "Study",
+        lightBg = Color(0xFFE8EAF6),
+        darkBg = Color(0xFF1E2640),
+        lightBorder = Color(0xFF9FA8DA).copy(alpha = 0.5f),
+        darkBorder = Color(0xFF35426E),
+        lightText = Color(0xFF1B2138),
+        darkText = Color(0xFFE8EAF6),
+        swatchColor = Color(0xFF9FA8DA),
+        isIllustratedTheme = true,
+        themeType = KeepThemeType.STUDY,
+        icon = Icons.Filled.School
+    )
+
+    val ThemeFocus = KeepColorTheme(
+        key = "theme_focus",
+        name = "Focus",
+        lightBg = Color(0xFFE0F2F1),
+        darkBg = Color(0xFF143834),
+        lightBorder = Color(0xFF80CBC4).copy(alpha = 0.5f),
+        darkBorder = Color(0xFF225852),
+        lightText = Color(0xFF102D2A),
+        darkText = Color(0xFFE0F2F1),
+        swatchColor = Color(0xFF80CBC4),
+        isIllustratedTheme = true,
+        themeType = KeepThemeType.FOCUS,
+        icon = Icons.Filled.SelfImprovement
+    )
+
     val allColors: List<KeepColorTheme> = listOf(
         Default, Coral, Peach, Sand, Mint, Sage, Fog, Storm, Dusk, Blossom, Clay, Chalk
     )
 
+    val allThemes: List<KeepColorTheme> = listOf(
+        ThemeGroceries, ThemeFood, ThemeMusic, ThemeRecipes, ThemeNotes,
+        ThemePlaces, ThemeCelebration, ThemeStudy, ThemeFocus
+    )
+
+    val allItems: List<KeepColorTheme> = allColors + allThemes
+
     fun getColor(key: String?): KeepColorTheme {
-        return allColors.firstOrNull { it.key.equals(key, ignoreCase = true) } ?: Default
+        if (key.isNullOrBlank()) return Default
+        return allItems.firstOrNull { it.key.equals(key, ignoreCase = true) } ?: Default
     }
 }

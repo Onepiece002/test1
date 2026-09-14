@@ -42,6 +42,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -68,6 +69,8 @@ import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Archive
+import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckBox
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DragIndicator
@@ -187,8 +190,11 @@ fun KeepNoteEditor(
     isAudioPlaying: Boolean = false,
     audioPositionMs: Int = 0,
     audioDurationMs: Int = 0,
+    audioPlaybackSpeed: Float = 1.0f,
     onToggleAudioPlay: (String) -> Unit = {},
     onSeekAudio: (Int) -> Unit = {},
+    onSetAudioPlaybackSpeed: (Float) -> Unit = {},
+    onSkipAudio: (Int) -> Unit = {},
     onRemoveAudio: (String) -> Unit = {},
     onClose: () -> Unit
 ) {
@@ -271,6 +277,18 @@ fun KeepNoteEditor(
             .navigationBarsPadding()
             .imePadding()
     ) {
+        // Google Keep style background illustration theme
+        if (theme.isIllustratedTheme) {
+            KeepThemeIllustration(
+                themeType = theme.themeType,
+                isDark = isDark,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(bottom = 60.dp, end = 12.dp)
+                    .size(width = 175.dp, height = 145.dp)
+            )
+        }
+
         Column(modifier = Modifier.fillMaxSize()) {
             // ==========================================
             // TOP ACTION BAR (Google Keep Style)
@@ -343,53 +361,13 @@ fun KeepNoteEditor(
                     .verticalScroll(scrollState)
                     .padding(horizontal = 20.dp, vertical = 8.dp)
             ) {
-                // ATTACHED IMAGES
+                // ATTACHED IMAGES (Google Keep style image collage)
                 if (state.imageUris.isNotEmpty()) {
-                    LazyRow(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 14.dp),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        items(state.imageUris) { uri ->
-                            Box(
-                                modifier = Modifier
-                                    .size(width = 200.dp, height = 150.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .border(1.dp, borderColor.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
-                                    .clickable { viewingImageUri = uri }
-                            ) {
-                                AsyncImage(
-                                    model = ImageRequest.Builder(LocalContext.current)
-                                        .data(uri)
-                                        .crossfade(true)
-                                        .build(),
-                                    contentDescription = "Attached image",
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Crop
-                                )
-
-                                // Remove image button
-                                Box(
-                                    modifier = Modifier
-                                        .align(Alignment.TopEnd)
-                                        .padding(6.dp)
-                                        .size(26.dp)
-                                        .clip(CircleShape)
-                                        .background(Color.Black.copy(alpha = 0.6f))
-                                        .clickable { onRemoveImage(uri) },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Close,
-                                        contentDescription = "Remove image",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
+                    KeepEditorImageCollage(
+                        imageUris = state.imageUris,
+                        onImageClick = { uri -> viewingImageUri = uri },
+                        onRemoveImage = onRemoveImage
+                    )
                 }
 
                 // AUDIO ATTACHMENTS
@@ -409,9 +387,13 @@ fun KeepNoteEditor(
                                 isPlaying = isPlaying,
                                 currentPositionMs = curPos,
                                 durationMs = dur,
+                                playbackSpeed = audioPlaybackSpeed,
                                 onTogglePlay = { onToggleAudioPlay(audioUri) },
                                 onSeek = onSeekAudio,
-                                onDelete = { onRemoveAudio(audioUri) }
+                                onSpeedChange = onSetAudioPlaybackSpeed,
+                                onSkip = onSkipAudio,
+                                onDelete = { onRemoveAudio(audioUri) },
+                                textColor = textColor
                             )
                         }
                     }
@@ -721,32 +703,196 @@ fun KeepNoteEditor(
             ) {
                 Surface(
                     color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
+                    tonalElevation = 6.dp,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("editor_theme_palette_drawer")
                 ) {
-                    LazyRow(
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 12.dp, horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            .padding(vertical = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        items(KeepColorPalette.allColors) { colorTheme ->
-                            val isSelected = colorTheme.key.equals(state.colorKey, ignoreCase = true)
-                            val isDefault = colorTheme.key.equals("default", ignoreCase = true)
-                            val swatchBg = if (isDefault) MaterialTheme.colorScheme.surfaceVariant else colorTheme.swatchColor
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .background(swatchBg)
-                                    .border(
-                                        width = if (isSelected) 3.dp else 1.dp,
-                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
-                                        shape = CircleShape
-                                    )
-                                    .clickable { onColorChange(colorTheme.key) }
-                                    .testTag("color_picker_${colorTheme.key}")
+                        // SECTION 1: COLOUR
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "COLOUR",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.8.sp,
+                                    fontSize = 11.sp
+                                ),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                        }
+
+                        LazyRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            contentPadding = PaddingValues(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(KeepColorPalette.allColors) { colorTheme ->
+                                val isSelected = colorTheme.key.equals(state.colorKey, ignoreCase = true)
+                                val isDefault = colorTheme.key.equals("default", ignoreCase = true)
+                                val swatchBg = if (isDefault) MaterialTheme.colorScheme.surfaceVariant else colorTheme.swatchColor
+                                Box(
+                                    modifier = Modifier
+                                        .size(38.dp)
+                                        .clip(CircleShape)
+                                        .background(swatchBg)
+                                        .border(
+                                            width = if (isSelected) 3.dp else 1.2.dp,
+                                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.45f),
+                                            shape = CircleShape
+                                        )
+                                        .clickable { onColorChange(colorTheme.key) }
+                                        .testTag("color_picker_${colorTheme.key}"),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (isSelected) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Check,
+                                            contentDescription = "Selected",
+                                            tint = if (isDefault) MaterialTheme.colorScheme.onSurfaceVariant else Color.White,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    } else if (isDefault) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Block,
+                                            contentDescription = "No color",
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // SECTION 2: BACKGROUND THEMES
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "BACKGROUND",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.8.sp,
+                                    fontSize = 11.sp
+                                ),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        LazyRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            contentPadding = PaddingValues(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            // "None" option to reset theme to default
+                            item {
+                                val isNoneSelected = state.colorKey.equals("default", ignoreCase = true)
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .clickable { onColorChange("default") }
+                                        .testTag("theme_picker_none")
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(42.dp)
+                                            .clip(CircleShape)
+                                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                                            .border(
+                                                width = if (isNoneSelected) 3.dp else 1.2.dp,
+                                                color = if (isNoneSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.45f),
+                                                shape = CircleShape
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        if (isNoneSelected) {
+                                            Icon(
+                                                imageVector = Icons.Filled.Check,
+                                                contentDescription = "None selected",
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        } else {
+                                            Icon(
+                                                imageVector = Icons.Filled.Block,
+                                                contentDescription = "None",
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = "None",
+                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+
+                            items(KeepColorPalette.allThemes) { themeItem ->
+                                val isSelected = themeItem.key.equals(state.colorKey, ignoreCase = true)
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .clickable { onColorChange(themeItem.key) }
+                                        .testTag("theme_picker_${themeItem.key}")
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(42.dp)
+                                            .clip(CircleShape)
+                                            .background(themeItem.swatchColor)
+                                            .border(
+                                                width = if (isSelected) 3.dp else 1.2.dp,
+                                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.45f),
+                                                shape = CircleShape
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        if (isSelected) {
+                                            Icon(
+                                                imageVector = Icons.Filled.Check,
+                                                contentDescription = "${themeItem.name} selected",
+                                                tint = Color.White,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        } else if (themeItem.icon != null) {
+                                            Icon(
+                                                imageVector = themeItem.icon,
+                                                contentDescription = themeItem.name,
+                                                tint = Color.White.copy(alpha = 0.9f),
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = themeItem.name,
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontSize = 10.sp,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                        ),
+                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
                         }
                     }
                 }

@@ -31,6 +31,8 @@ class NoteRepository(private val noteDao: NoteDao) {
 
     fun getNoteById(id: Long): Flow<NoteEntity?> = noteDao.getNoteById(id)
 
+    suspend fun getNoteByIdSync(id: Long): NoteEntity? = noteDao.getNoteByIdSync(id)
+
     suspend fun saveNote(note: NoteEntity): Long {
         return if (note.id == 0L) {
             noteDao.insertNote(note)
@@ -63,6 +65,8 @@ class NoteRepository(private val noteDao: NoteDao) {
     suspend fun setColor(id: Long, colorKey: String) {
         noteDao.updateColor(id, colorKey)
     }
+
+    suspend fun getTrashedNotesSync(): List<NoteEntity> = noteDao.getTrashedNotesSync()
 
     suspend fun emptyTrash() {
         noteDao.emptyTrash()

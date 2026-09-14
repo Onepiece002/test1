@@ -163,7 +163,7 @@ fun KeepNoteCard(
                         }
                     } else if (isLongPress) {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        if (!isSelectionMode) {
+                        if (!isSelected) {
                             onToggleSelect()
                         }
                         onLongClick?.invoke()
@@ -196,38 +196,22 @@ fun KeepNoteCard(
         )
     ) {
         Box(modifier = Modifier.fillMaxWidth()) {
+            // Google Keep style background decorative illustration motif
+            if (theme.isIllustratedTheme) {
+                KeepThemeIllustration(
+                    themeType = theme.themeType,
+                    isDark = isDark,
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .size(width = 100.dp, height = 85.dp)
+                        .padding(end = 4.dp, bottom = 4.dp)
+                )
+            }
+
             Column(modifier = Modifier.fillMaxWidth()) {
             val images = note.getImageUris()
             if (images.isNotEmpty()) {
-                Box(modifier = Modifier.fillMaxWidth()) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(LocalContext.current)
-                            .data(images.first())
-                            .crossfade(true)
-                            .build(),
-                        contentDescription = "Note attachment",
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = 90.dp, max = 220.dp),
-                        contentScale = ContentScale.Crop
-                    )
-                    if (images.size > 1) {
-                        Surface(
-                            color = Color.Black.copy(alpha = 0.65f),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier
-                                .align(Alignment.BottomEnd)
-                                .padding(8.dp)
-                        ) {
-                            Text(
-                                text = "+${images.size - 1}",
-                                color = Color.White,
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                        }
-                    }
-                }
+                KeepCardImageCollage(imageUris = images)
             }
 
             Column(
@@ -356,7 +340,8 @@ fun KeepNoteCard(
                         AudioPlayerCardCompact(
                             audioUri = uri,
                             isPlaying = isThisPlaying,
-                            onTogglePlay = { onToggleAudioPlay?.invoke(uri) }
+                            onTogglePlay = { onToggleAudioPlay?.invoke(uri) },
+                            textColor = textColor
                         )
                     }
                 }

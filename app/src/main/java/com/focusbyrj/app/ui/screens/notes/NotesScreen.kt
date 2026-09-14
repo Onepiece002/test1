@@ -21,8 +21,12 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -60,6 +64,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.EditNote
@@ -70,10 +75,13 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Unarchive
 import androidx.compose.material.icons.filled.ViewAgenda
 import androidx.compose.material.icons.outlined.Archive
+import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.Label
@@ -173,7 +181,10 @@ fun NotesScreen(
 
     var showSelectionColorPicker by remember { mutableStateOf(false) }
     var showSelectionReminderDialog by remember { mutableStateOf(false) }
+    var showSelectionLabelsDialog by remember { mutableStateOf(false) }
     var showSelectionMoreMenu by remember { mutableStateOf(false) }
+    val selectedNotes = remember(allNotes, selectedNoteIds) { allNotes.filter { it.id in selectedNoteIds } }
+    val allSelectedPinned = remember(selectedNotes) { selectedNotes.isNotEmpty() && selectedNotes.all { it.isPinned } }
 
     BackHandler(enabled = isSelectionMode) {
         viewModel.clearSelection()
@@ -232,10 +243,14 @@ fun NotesScreen(
     val cardBounds = remember { mutableStateMapOf<Long, Rect>() }
     var draggedNoteId by remember { mutableStateOf<Long?>(null) }
     var dragOffset by remember { mutableStateOf(Offset.Zero) }
-    var dragStartCenter by remember { mutableStateOf(Offset.Zero) }
+    var touchPointInCard by remember { mutableStateOf(Offset.Zero) }
+    var fingerRootPosition by remember { mutableStateOf(Offset.Zero) }
 
     var localPinnedNotes by remember(pinnedNotes) { mutableStateOf(pinnedNotes) }
     var localOtherNotes by remember(otherNotes) { mutableStateOf(otherNotes) }
+
+    val effectivePinnedNotes = if (draggedNoteId != null) localPinnedNotes else pinnedNotes
+    val effectiveOtherNotes = if (draggedNoteId != null) localOtherNotes else otherNotes
 
     LaunchedEffect(pinnedNotes) {
         if (draggedNoteId == null) localPinnedNotes = pinnedNotes
@@ -244,16 +259,22 @@ fun NotesScreen(
         if (draggedNoteId == null) localOtherNotes = otherNotes
     }
 
-    val handleDragStart: (Long) -> Unit = { noteId ->
+    val handleDragStart: (Long, Offset) -> Unit = { noteId, downPos ->
         draggedNoteId = noteId
-        dragOffset = Offset.Zero
+        touchPointInCard = downPos
         val bounds = cardBounds[noteId]
-        dragStartCenter = bounds?.center ?: Offset.Zero
+        val origin = bounds?.topLeft ?: Offset.Zero
+        fingerRootPosition = origin + downPos
+        dragOffset = Offset.Zero
     }
 
     val handleDrag: (NoteEntity, Offset) -> Unit = { note, delta ->
-        dragOffset += delta
-        val currentCenter = dragStartCenter + dragOffset
+        fingerRootPosition += delta
+        val bounds = cardBounds[note.id]
+        if (bounds != null) {
+            dragOffset = (fingerRootPosition - touchPointInCard) - bounds.topLeft
+        }
+
         val isPinned = note.isPinned
         val targetList = if (isPinned) localPinnedNotes else localOtherNotes
         val fromIndex = targetList.indexOfFirst { it.id == note.id }
@@ -265,9 +286,9 @@ fun NotesScreen(
                 } else {
                     val b = cardBounds[other.id]
                     if (b != null) {
-                        val dist = (b.center - currentCenter).getDistance()
-                        if (b.contains(currentCenter)) dist
-                        else if (dist < 260f) dist + 600f
+                        val dist = (b.center - fingerRootPosition).getDistance()
+                        if (b.contains(fingerRootPosition)) dist
+                        else if (dist < 240f) dist + 450f
                         else Float.MAX_VALUE
                     } else Float.MAX_VALUE
                 }
@@ -647,21 +668,15 @@ fun NotesScreen(
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
-                            .shadow(
-                                elevation = 3.dp,
-                                shape = CircleShape,
-                                ambientColor = Color.Black.copy(alpha = 0.12f),
-                                spotColor = Color.Black.copy(alpha = 0.08f)
-                            ),
-                        shape = CircleShape,
+                            .height(64.dp),
                         color = MaterialTheme.colorScheme.surfaceVariant,
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
+                        tonalElevation = 4.dp,
+                        shadowElevation = 3.dp
                     ) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(48.dp)
+                                .height(64.dp)
                                 .padding(horizontal = 8.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
@@ -669,140 +684,203 @@ fun NotesScreen(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 IconButton(
                                     onClick = { viewModel.clearSelection() },
-                                    modifier = Modifier.size(36.dp).testTag("selection_close_button")
+                                    modifier = Modifier.size(48.dp).testTag("selection_close_button")
                                 ) {
                                     Icon(
                                         imageVector = Icons.Filled.Close,
                                         contentDescription = "Close selection",
                                         tint = contentTextColor,
-                                        modifier = Modifier.size(20.dp)
+                                        modifier = Modifier.size(24.dp)
                                     )
                                 }
 
-                                Spacer(modifier = Modifier.width(6.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
 
                                 Text(
                                     text = "${selectedNoteIds.size}",
                                     style = MaterialTheme.typography.titleMedium.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 17.sp
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 19.sp
                                     ),
                                     color = contentTextColor
                                 )
                             }
 
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                // Pin selected notes
-                                IconButton(
-                                    onClick = { viewModel.pinSelectedNotes() },
-                                    modifier = Modifier.size(36.dp).testTag("selection_pin_button")
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.PushPin,
-                                        contentDescription = "Pin selected notes",
-                                        tint = contentTextColor,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-
-                                // Add reminder for selected notes
-                                IconButton(
-                                    onClick = { showSelectionReminderDialog = true },
-                                    modifier = Modifier.size(36.dp).testTag("selection_reminder_button")
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.Notifications,
-                                        contentDescription = "Set reminder",
-                                        tint = contentTextColor,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-
-                                // Recolor selected notes
-                                IconButton(
-                                    onClick = { showSelectionColorPicker = true },
-                                    modifier = Modifier.size(36.dp).testTag("selection_color_button")
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.Palette,
-                                        contentDescription = "Color selected notes",
-                                        tint = contentTextColor,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-
-                                // More overflow options (Archive, Delete, Select all)
-                                Box {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(2.dp)
+                            ) {
+                                if (currentFolder == NoteFolder.TRASH) {
+                                    // Restore selected notes from trash
                                     IconButton(
-                                        onClick = { showSelectionMoreMenu = true },
-                                        modifier = Modifier.size(36.dp).testTag("selection_more_button")
+                                        onClick = { viewModel.restoreSelectedNotes() },
+                                        modifier = Modifier.size(44.dp).testTag("selection_restore_button")
                                     ) {
                                         Icon(
-                                            imageVector = Icons.Filled.MoreVert,
-                                            contentDescription = "More selection actions",
+                                            imageVector = Icons.Filled.Restore,
+                                            contentDescription = "Restore",
                                             tint = contentTextColor,
-                                            modifier = Modifier.size(20.dp)
+                                            modifier = Modifier.size(22.dp)
                                         )
                                     }
 
-                                    DropdownMenu(
-                                        expanded = showSelectionMoreMenu,
-                                        onDismissRequest = { showSelectionMoreMenu = false }
+                                    // Permanently delete selected notes
+                                    IconButton(
+                                        onClick = { viewModel.deleteSelectedNotesPermanently() },
+                                        modifier = Modifier.size(44.dp).testTag("selection_delete_forever_button")
                                     ) {
-                                        DropdownMenuItem(
-                                            text = { Text("Share") },
-                                            leadingIcon = {
-                                                Icon(Icons.Filled.Share, contentDescription = null, modifier = Modifier.size(20.dp))
-                                            },
-                                            onClick = {
-                                                showSelectionMoreMenu = false
-                                                viewModel.shareSelectedNotes(context)
-                                            }
+                                        Icon(
+                                            imageVector = Icons.Filled.DeleteForever,
+                                            contentDescription = "Delete forever",
+                                            tint = MaterialTheme.colorScheme.error,
+                                            modifier = Modifier.size(22.dp)
                                         )
-
-                                        DropdownMenuItem(
-                                            text = { Text("Copy to clipboard") },
-                                            leadingIcon = {
-                                                Icon(Icons.Filled.ContentCopy, contentDescription = null, modifier = Modifier.size(20.dp))
-                                            },
-                                            onClick = {
-                                                showSelectionMoreMenu = false
-                                                viewModel.copySelectedNotesToClipboard(context)
-                                            }
+                                    }
+                                } else {
+                                    // Pin / unpin selected notes
+                                    IconButton(
+                                        onClick = { viewModel.pinSelectedNotes() },
+                                        modifier = Modifier.size(44.dp).testTag("selection_pin_button")
+                                    ) {
+                                        Icon(
+                                            imageVector = if (allSelectedPinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
+                                            contentDescription = if (allSelectedPinned) "Unpin selected notes" else "Pin selected notes",
+                                            tint = if (allSelectedPinned) MaterialTheme.colorScheme.primary else contentTextColor,
+                                            modifier = Modifier.size(22.dp)
                                         )
+                                    }
 
-                                        DropdownMenuItem(
-                                            text = { Text("Archive") },
-                                            leadingIcon = {
-                                                Icon(Icons.Outlined.Archive, contentDescription = null, modifier = Modifier.size(20.dp))
-                                            },
-                                            onClick = {
-                                                showSelectionMoreMenu = false
+                                    // Set reminder for selected notes
+                                    IconButton(
+                                        onClick = { showSelectionReminderDialog = true },
+                                        modifier = Modifier.size(44.dp).testTag("selection_reminder_button")
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Outlined.Notifications,
+                                            contentDescription = "Set reminder",
+                                            tint = contentTextColor,
+                                            modifier = Modifier.size(22.dp)
+                                        )
+                                    }
+
+                                    // Recolor selected notes
+                                    IconButton(
+                                        onClick = { showSelectionColorPicker = true },
+                                        modifier = Modifier.size(44.dp).testTag("selection_color_button")
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Outlined.Palette,
+                                            contentDescription = "Color selected notes",
+                                            tint = contentTextColor,
+                                            modifier = Modifier.size(22.dp)
+                                        )
+                                    }
+
+                                    // Label selected notes
+                                    IconButton(
+                                        onClick = { showSelectionLabelsDialog = true },
+                                        modifier = Modifier.size(44.dp).testTag("selection_label_button")
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Outlined.Label,
+                                            contentDescription = "Label selected notes",
+                                            tint = contentTextColor,
+                                            modifier = Modifier.size(22.dp)
+                                        )
+                                    }
+
+                                    // Archive / unarchive selected notes
+                                    IconButton(
+                                        onClick = {
+                                            if (currentFolder == NoteFolder.ARCHIVE) {
+                                                viewModel.unarchiveSelectedNotes()
+                                            } else {
                                                 viewModel.archiveSelectedNotes()
                                             }
+                                        },
+                                        modifier = Modifier.size(44.dp).testTag("selection_archive_button")
+                                    ) {
+                                        Icon(
+                                            imageVector = if (currentFolder == NoteFolder.ARCHIVE) Icons.Filled.Unarchive else Icons.Outlined.Archive,
+                                            contentDescription = if (currentFolder == NoteFolder.ARCHIVE) "Unarchive notes" else "Archive notes",
+                                            tint = contentTextColor,
+                                            modifier = Modifier.size(22.dp)
                                         )
+                                    }
 
-                                        DropdownMenuItem(
-                                            text = { Text("Delete") },
-                                            leadingIcon = {
-                                                Icon(Icons.Outlined.Delete, contentDescription = null, modifier = Modifier.size(20.dp))
-                                            },
-                                            onClick = {
-                                                showSelectionMoreMenu = false
-                                                viewModel.trashSelectedNotes()
-                                            }
-                                        )
+                                    // More overflow menu
+                                    Box {
+                                        IconButton(
+                                            onClick = { showSelectionMoreMenu = true },
+                                            modifier = Modifier.size(44.dp).testTag("selection_more_button")
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Filled.MoreVert,
+                                                contentDescription = "More selection actions",
+                                                tint = contentTextColor,
+                                                modifier = Modifier.size(22.dp)
+                                            )
+                                        }
 
-                                        DropdownMenuItem(
-                                            text = { Text("Select all") },
-                                            leadingIcon = {
-                                                Icon(Icons.Outlined.SelectAll, contentDescription = null, modifier = Modifier.size(20.dp))
-                                            },
-                                            onClick = {
-                                                showSelectionMoreMenu = false
-                                                viewModel.selectAllNotes(allNotes)
-                                            }
-                                        )
+                                        DropdownMenu(
+                                            expanded = showSelectionMoreMenu,
+                                            onDismissRequest = { showSelectionMoreMenu = false }
+                                        ) {
+                                            DropdownMenuItem(
+                                                text = { Text("Delete") },
+                                                leadingIcon = {
+                                                    Icon(Icons.Outlined.Delete, contentDescription = null, modifier = Modifier.size(20.dp))
+                                                },
+                                                onClick = {
+                                                    showSelectionMoreMenu = false
+                                                    viewModel.trashSelectedNotes()
+                                                }
+                                            )
+
+                                            DropdownMenuItem(
+                                                text = { Text("Make a copy") },
+                                                leadingIcon = {
+                                                    Icon(Icons.Outlined.ContentCopy, contentDescription = null, modifier = Modifier.size(20.dp))
+                                                },
+                                                onClick = {
+                                                    showSelectionMoreMenu = false
+                                                    viewModel.duplicateSelectedNotes()
+                                                }
+                                            )
+
+                                            DropdownMenuItem(
+                                                text = { Text("Send") },
+                                                leadingIcon = {
+                                                    Icon(Icons.Filled.Share, contentDescription = null, modifier = Modifier.size(20.dp))
+                                                },
+                                                onClick = {
+                                                    showSelectionMoreMenu = false
+                                                    viewModel.shareSelectedNotes(context)
+                                                }
+                                            )
+
+                                            DropdownMenuItem(
+                                                text = { Text("Copy to clipboard") },
+                                                leadingIcon = {
+                                                    Icon(Icons.Filled.ContentCopy, contentDescription = null, modifier = Modifier.size(20.dp))
+                                                },
+                                                onClick = {
+                                                    showSelectionMoreMenu = false
+                                                    viewModel.copySelectedNotesToClipboard(context)
+                                                }
+                                            )
+
+                                            DropdownMenuItem(
+                                                text = { Text("Select all") },
+                                                leadingIcon = {
+                                                    Icon(Icons.Outlined.SelectAll, contentDescription = null, modifier = Modifier.size(20.dp))
+                                                },
+                                                onClick = {
+                                                    showSelectionMoreMenu = false
+                                                    viewModel.selectAllNotes()
+                                                }
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -1001,8 +1079,9 @@ fun NotesScreen(
                                         verticalAlignment = Alignment.CenterVertically,
                                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
                                     ) {
+                                        val themeName = KeepColorPalette.getColor(selectedColorFilter).name
                                         Text(
-                                            text = "Color: ${selectedColorFilter}",
+                                            text = "Theme: $themeName",
                                             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
                                             color = MaterialTheme.colorScheme.primary
                                         )
@@ -1135,7 +1214,7 @@ fun NotesScreen(
                                 )
                             }
 
-                            items(localPinnedNotes, key = { it.id }) { note ->
+                            items(effectivePinnedNotes, key = { it.id }) { note ->
                                 val isSelected = selectedNoteIds.contains(note.id)
                                 val isDragging = draggedNoteId == note.id
                                 KeepNoteCard(
@@ -1144,7 +1223,7 @@ fun NotesScreen(
                                     isSelectionMode = isSelectionMode,
                                     isDragging = isDragging,
                                     dragOffset = if (isDragging) dragOffset else Offset.Zero,
-                                    onStartDrag = { handleDragStart(note.id) },
+                                    onStartDrag = { pos -> handleDragStart(note.id, pos) },
                                     onDrag = { delta -> handleDrag(note, delta) },
                                     onEndDrag = { handleDragEnd(note) },
                                     onToggleSelect = { viewModel.toggleNoteSelection(note.id) },
@@ -1155,20 +1234,20 @@ fun NotesScreen(
                                             viewModel.openExistingNote(note)
                                         }
                                     },
-                                    onLongClick = {
-                                        viewModel.toggleNoteSelection(note.id)
-                                    },
+                                    onLongClick = null,
                                     onTogglePin = { viewModel.togglePin(note) },
                                     activePlayingAudioPath = playbackState.currentPath,
                                     isAudioPlaying = playbackState.isPlaying,
                                     onToggleAudioPlay = { uri -> viewModel.toggleAudioPlayback(uri) },
-                                    modifier = Modifier.onGloballyPositioned { coords ->
-                                        cardBounds[note.id] = coords.boundsInRoot()
-                                    }
+                                    modifier = Modifier
+                                        .animateItem()
+                                        .onGloballyPositioned { coords ->
+                                            cardBounds[note.id] = coords.boundsInRoot()
+                                        }
                                 )
                             }
 
-                            if (localOtherNotes.isNotEmpty()) {
+                            if (effectiveOtherNotes.isNotEmpty()) {
                                 item(span = StaggeredGridItemSpan.FullLine) {
                                     Text(
                                         text = "OTHERS",
@@ -1185,7 +1264,7 @@ fun NotesScreen(
                         }
 
                         // UNPINNED / REGULAR / ARCHIVED / TRASHED NOTES
-                        val displayList = if (currentFolder == NoteFolder.NOTES && localPinnedNotes.isNotEmpty()) localOtherNotes else localOtherNotes
+                        val displayList = if (currentFolder == NoteFolder.NOTES && effectivePinnedNotes.isNotEmpty()) effectiveOtherNotes else effectiveOtherNotes
                         items(displayList, key = { it.id }) { note ->
                             val isSelected = selectedNoteIds.contains(note.id)
                             val isDragging = draggedNoteId == note.id
@@ -1195,7 +1274,7 @@ fun NotesScreen(
                                 isSelectionMode = isSelectionMode,
                                 isDragging = isDragging,
                                 dragOffset = if (isDragging) dragOffset else Offset.Zero,
-                                onStartDrag = { handleDragStart(note.id) },
+                                onStartDrag = { pos -> handleDragStart(note.id, pos) },
                                 onDrag = { delta -> handleDrag(note, delta) },
                                 onEndDrag = { handleDragEnd(note) },
                                 onToggleSelect = { viewModel.toggleNoteSelection(note.id) },
@@ -1206,11 +1285,7 @@ fun NotesScreen(
                                         viewModel.openExistingNote(note)
                                     }
                                 },
-                                onLongClick = {
-                                    if (currentFolder != NoteFolder.TRASH) {
-                                        viewModel.toggleNoteSelection(note.id)
-                                    }
-                                },
+                                onLongClick = null,
                                 onTogglePin = { viewModel.togglePin(note) },
                                 onRestore = if (currentFolder == NoteFolder.TRASH) { { viewModel.restoreNote(note) } } else null,
                                 onDeletePermanently = if (currentFolder == NoteFolder.TRASH) { { viewModel.deletePermanently(note) } } else null,
@@ -1218,9 +1293,11 @@ fun NotesScreen(
                                 activePlayingAudioPath = playbackState.currentPath,
                                 isAudioPlaying = playbackState.isPlaying,
                                 onToggleAudioPlay = { uri -> viewModel.toggleAudioPlayback(uri) },
-                                modifier = Modifier.onGloballyPositioned { coords ->
-                                    cardBounds[note.id] = coords.boundsInRoot()
-                                }
+                                modifier = Modifier
+                                    .animateItem()
+                                    .onGloballyPositioned { coords ->
+                                        cardBounds[note.id] = coords.boundsInRoot()
+                                    }
                             )
                         }
                     }
@@ -1246,12 +1323,28 @@ fun NotesScreen(
             }
 
             // =========================================================
-            // FULL SCREEN NOTE EDITOR OVERLAY
+            // FULL SCREEN NOTE EDITOR OVERLAY (Google Keep Container Transform Style)
             // =========================================================
             AnimatedVisibility(
                 visible = editingState != null,
-                enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
-                exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
+                enter = fadeIn(animationSpec = tween(220, easing = FastOutSlowInEasing)) +
+                        scaleIn(
+                            initialScale = 0.92f,
+                            animationSpec = tween(240, easing = FastOutSlowInEasing)
+                        ) +
+                        slideInVertically(
+                            initialOffsetY = { fullHeight -> (fullHeight * 0.08f).toInt() },
+                            animationSpec = tween(240, easing = FastOutSlowInEasing)
+                        ),
+                exit = fadeOut(animationSpec = tween(180, easing = FastOutSlowInEasing)) +
+                        scaleOut(
+                            targetScale = 0.94f,
+                            animationSpec = tween(200, easing = FastOutSlowInEasing)
+                        ) +
+                        slideOutVertically(
+                            targetOffsetY = { fullHeight -> (fullHeight * 0.06f).toInt() },
+                            animationSpec = tween(200, easing = FastOutSlowInEasing)
+                        )
             ) {
                 editingState?.let { state ->
                     KeepNoteEditor(
@@ -1300,6 +1393,9 @@ fun NotesScreen(
                         isAudioPlaying = playbackState.isPlaying,
                         audioPositionMs = playbackState.currentPositionMs,
                         audioDurationMs = playbackState.durationMs,
+                        audioPlaybackSpeed = playbackState.speed,
+                        onSetAudioPlaybackSpeed = { speed -> viewModel.setAudioPlaybackSpeed(speed) },
+                        onSkipAudio = { delta -> viewModel.skipAudioPlayback(delta) },
                         onToggleAudioPlay = { uri -> viewModel.toggleAudioPlayback(uri) },
                         onSeekAudio = { pos -> viewModel.seekAudio(pos) },
                         onRemoveAudio = { uri -> viewModel.removeAudioFromEditor(uri) },
@@ -1357,6 +1453,31 @@ fun NotesScreen(
                         viewModel.setSelectedNotesReminder(timestamp)
                     },
                     hasExistingReminder = false
+                )
+            }
+
+            // =========================================================
+            // SELECTION MODE LABELS DIALOG
+            // =========================================================
+            if (showSelectionLabelsDialog) {
+                val commonLabels = remember(selectedNotes) {
+                    if (selectedNotes.isEmpty()) emptyList()
+                    else {
+                        val labelSets = selectedNotes.map { it.getLabels().toSet() }
+                        labelSets.reduce { acc, set -> acc.intersect(set) }.toList()
+                    }
+                }
+                NoteLabelsDialog(
+                    allLabels = allLabels,
+                    selectedLabels = commonLabels,
+                    onToggleLabel = { label ->
+                        viewModel.toggleLabelForSelectedNotes(label)
+                    },
+                    onCreateAndAddLabel = { newLabel ->
+                        viewModel.addCustomLabel(newLabel)
+                        viewModel.toggleLabelForSelectedNotes(newLabel)
+                    },
+                    onDismiss = { showSelectionLabelsDialog = false }
                 )
             }
 

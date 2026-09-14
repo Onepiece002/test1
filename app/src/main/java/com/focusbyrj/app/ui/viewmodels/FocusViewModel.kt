@@ -36,6 +36,15 @@ class FocusViewModel(private val repository: AppRepository, application: Applica
     private val _pendingOpenAddDialog = MutableStateFlow(false)
     val pendingOpenAddDialog: StateFlow<Boolean> = _pendingOpenAddDialog
 
+    private val _pendingOpenNoteId = MutableStateFlow<Long?>(null)
+    val pendingOpenNoteId: StateFlow<Long?> = _pendingOpenNoteId
+
+    private val _pendingOpenNewNote = MutableStateFlow<Boolean?>(null) // true if checklist, false if standard note
+    val pendingOpenNewNote: StateFlow<Boolean?> = _pendingOpenNewNote
+
+    private val _pendingOpenVoiceNote = MutableStateFlow(false)
+    val pendingOpenVoiceNote: StateFlow<Boolean> = _pendingOpenVoiceNote
+
     fun triggerNavigation(route: String) {
         _pendingNavigationRoute.value = route
     }
@@ -50,6 +59,33 @@ class FocusViewModel(private val repository: AppRepository, application: Applica
 
     fun clearOpenAddDialog() {
         _pendingOpenAddDialog.value = false
+    }
+
+    fun triggerOpenNote(noteId: Long) {
+        _pendingNavigationRoute.value = "empty"
+        _pendingOpenNoteId.value = noteId
+    }
+
+    fun clearOpenNote() {
+        _pendingOpenNoteId.value = null
+    }
+
+    fun triggerOpenNewNote(asChecklist: Boolean = false) {
+        _pendingNavigationRoute.value = "empty"
+        _pendingOpenNewNote.value = asChecklist
+    }
+
+    fun clearOpenNewNote() {
+        _pendingOpenNewNote.value = null
+    }
+
+    fun triggerOpenVoiceNote() {
+        _pendingNavigationRoute.value = "empty"
+        _pendingOpenVoiceNote.value = true
+    }
+
+    fun clearOpenVoiceNote() {
+        _pendingOpenVoiceNote.value = false
     }
 
     

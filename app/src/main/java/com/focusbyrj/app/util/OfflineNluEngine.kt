@@ -443,12 +443,12 @@ object OfflineNluEngine {
                 val dateStr = if (dueDate != null) " ${SmartDateParser.formatDueDate(dueDate)}" else " tomorrow"
                 val options = listOf(
                     ConflictOption(
-                        label = if (dueDate != null) "Update Time" else "Reschedule '${matchingExisting.title.take(16)}'",
+                        label = if (dueDate != null) "Update Time" else "Reschedule '${matchingExisting.title.take(32)}'",
                         emoji = "⏰",
                         command = "/talk reschedule ${matchingExisting.title}$dateStr"
                     ),
                     ConflictOption(
-                        label = "Mark Done: '${matchingExisting.title.take(16)}'",
+                        label = "Mark Done: '${matchingExisting.title.take(32)}'",
                         emoji = "✅",
                         command = "/talk complete ${matchingExisting.title}"
                     ),
@@ -701,7 +701,7 @@ object OfflineNluEngine {
                 val dateStr = if (timeMs != null) " ${SmartDateParser.formatDueDate(timeMs)}" else ""
                 val options = targetInfo.candidateTasks.take(3).map { t ->
                     ConflictOption(
-                        label = "Reschedule '${t.title.take(16)}'",
+                        label = "Reschedule '${t.title.take(32)}'",
                         emoji = "⏰",
                         command = "/talk reschedule ${t.title}$dateStr"
                     )
@@ -724,12 +724,12 @@ object OfflineNluEngine {
                     val (newTitle, _) = extractTaskCreationDetails(trimmed)
                     val options = listOf(
                         ConflictOption(
-                            label = "Reschedule '${targetInfo.targetTask.title.take(16)}'",
+                            label = "Reschedule '${targetInfo.targetTask.title.take(32)}'",
                             emoji = "⏰",
                             command = "/talk reschedule ${targetInfo.targetTask.title} $dateStr"
                         ),
                         ConflictOption(
-                            label = "Create New: '${newTitle.take(16)}'",
+                            label = "Create New: '${newTitle.take(32)}'",
                             emoji = "➕",
                             command = "/create $trimmed"
                         )
@@ -758,7 +758,7 @@ object OfflineNluEngine {
                     val kw = targetInfo.extractedKeyword ?: trimmed
                     val options = listOf(
                         ConflictOption(
-                            label = "Create Task: '${kw.take(16)}'",
+                            label = "Create Task: '${kw.take(32)}'",
                             emoji = "➕",
                             command = "/create $kw$dateStr".trim()
                         ),
@@ -794,7 +794,7 @@ object OfflineNluEngine {
             if (targetInfo.candidateTasks.size > 1) {
                 val options = targetInfo.candidateTasks.take(3).map { t ->
                     ConflictOption(
-                        label = "Complete '${t.title.take(16)}'",
+                        label = "Complete '${t.title.take(32)}'",
                         emoji = "✅",
                         command = "/talk complete ${t.title}"
                     )
@@ -816,7 +816,7 @@ object OfflineNluEngine {
                     val dateStr = if (timeMs != null) SmartDateParser.formatDueDate(timeMs) else ""
                     val options = mutableListOf(
                         ConflictOption(
-                            label = "Complete '${targetInfo.targetTask.title.take(16)}'",
+                            label = "Complete '${targetInfo.targetTask.title.take(32)}'",
                             emoji = "✅",
                             command = "/talk complete ${targetInfo.targetTask.title}"
                         )
@@ -824,7 +824,7 @@ object OfflineNluEngine {
                     if (timeMs != null) {
                         options.add(
                             ConflictOption(
-                                label = "Reschedule '${targetInfo.targetTask.title.take(16)}'",
+                                label = "Reschedule '${targetInfo.targetTask.title.take(32)}'",
                                 emoji = "⏰",
                                 command = "/talk reschedule ${targetInfo.targetTask.title} $dateStr"
                             )
@@ -832,7 +832,7 @@ object OfflineNluEngine {
                     }
                     options.add(
                         ConflictOption(
-                            label = "Create New: '${newTitle.take(16)}'",
+                            label = "Create New: '${newTitle.take(32)}'",
                             emoji = "➕",
                             command = "/create $trimmed"
                         )
@@ -865,7 +865,7 @@ object OfflineNluEngine {
             if (targetInfo.candidateTasks.size > 1) {
                 val options = targetInfo.candidateTasks.take(3).map { t ->
                     ConflictOption(
-                        label = "Delete '${t.title.take(16)}'",
+                        label = "Delete '${t.title.take(32)}'",
                         emoji = "🗑️",
                         command = "/talk delete ${t.title}"
                     )
@@ -884,7 +884,7 @@ object OfflineNluEngine {
             } else if (pendingTasks.size > 1 && targetInfo.targetTask == null && !targetInfo.isAll) {
                 val options = pendingTasks.take(3).map { t ->
                     ConflictOption(
-                        label = "Delete '${t.title.take(16)}'",
+                        label = "Delete '${t.title.take(32)}'",
                         emoji = "🗑️",
                         command = "/talk delete ${t.title}"
                     )
@@ -911,12 +911,12 @@ object OfflineNluEngine {
             if (!isQuestion && targetInfo.targetTask != null && timeMs == null) {
                 val options = listOf(
                     ConflictOption(
-                        label = "Mark Done: '${targetInfo.targetTask.title.take(16)}'",
+                        label = "Mark Done: '${targetInfo.targetTask.title.take(32)}'",
                         emoji = "✅",
                         command = "/talk complete ${targetInfo.targetTask.title}"
                     ),
                     ConflictOption(
-                        label = "Reschedule '${targetInfo.targetTask.title.take(16)}'",
+                        label = "Reschedule '${targetInfo.targetTask.title.take(32)}'",
                         emoji = "⏰",
                         command = "/talk reschedule ${targetInfo.targetTask.title} tomorrow"
                     ),
@@ -940,7 +940,7 @@ object OfflineNluEngine {
                     val dateStr = " ${SmartDateParser.formatDueDate(timeMs)}"
                     val options = targetInfo.candidateTasks.take(3).map { t ->
                         ConflictOption(
-                            label = "Reschedule '${t.title.take(16)}'",
+                            label = "Reschedule '${t.title.take(32)}'",
                             emoji = "⏰",
                             command = "/talk reschedule ${t.title}$dateStr"
                         )
@@ -966,7 +966,7 @@ object OfflineNluEngine {
                             command = "/talk reschedule ${targetInfo.targetTask.title} $dateStr"
                         ),
                         ConflictOption(
-                            label = "Create New: '${newTitle.take(16)}'",
+                            label = "Create New: '${newTitle.take(32)}'",
                             emoji = "➕",
                             command = "/create $trimmed"
                         )

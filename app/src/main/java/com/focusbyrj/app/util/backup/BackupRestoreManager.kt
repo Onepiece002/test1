@@ -17,8 +17,12 @@
 
 package com.focusbyrj.app.util.backup
 
+import android.app.AlarmManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.util.Log
 import com.focusbyrj.app.FocusApplication
 import com.focusbyrj.app.data.*
@@ -26,6 +30,9 @@ import com.focusbyrj.app.data.drill.DrillDatabase
 import com.focusbyrj.app.data.drill.DrillSessionEntity
 import com.focusbyrj.app.data.note.NoteDatabase
 import com.focusbyrj.app.data.note.NoteEntity
+import com.focusbyrj.app.receiver.NoteReminderReceiver
+import com.focusbyrj.app.ui.screens.notes.NotesViewModel
+import com.focusbyrj.app.widget.NoteWidgetProvider
 import com.focusbyrj.app.util.AptitudeManager
 import com.focusbyrj.app.util.BubbleChatManager
 import com.focusbyrj.app.util.DailyQuestManager
@@ -465,9 +472,37 @@ object BackupRestoreManager {
                 )
             }
 
+            NotesViewModel.latestNotesCache.clear()
+            val now = System.currentTimeMillis()
+            val alarmMgr = app.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
+
             noteEntities.forEach { note ->
-                noteDb.noteDao().insertNote(note)
+                val insertedId = noteDb.noteDao().insertNote(note)
+                val finalId = if (note.id != 0L) note.id else insertedId
+                if (!note.isTrashed && note.reminderTimestamp != null && note.reminderTimestamp > now && alarmMgr != null) {
+                    try {
+                        val reminderIntent = Intent(app, NoteReminderReceiver::class.java).apply {
+                            putExtra(NoteReminderReceiver.EXTRA_NOTE_ID, finalId)
+                            putExtra(NoteReminderReceiver.EXTRA_NOTE_TITLE, note.title)
+                            putExtra(NoteReminderReceiver.EXTRA_NOTE_CONTENT, note.content)
+                        }
+                        val pendingIntent = PendingIntent.getBroadcast(
+                            app,
+                            finalId.toInt(),
+                            reminderIntent,
+                            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                        )
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                            alarmMgr.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, note.reminderTimestamp, pendingIntent)
+                        } else {
+                            alarmMgr.setExact(AlarmManager.RTC_WAKEUP, note.reminderTimestamp, pendingIntent)
+                        }
+                    } catch (_: Exception) {}
+                }
             }
+            try {
+                NoteWidgetProvider.updateAllWidgets(app)
+            } catch (_: Exception) {}
 
             // 5. Restore Restrictions
             val restrArray = rootJson.optJSONArray("restrictions") ?: JSONArray()

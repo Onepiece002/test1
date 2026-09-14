@@ -1,0 +1,197 @@
+/*
+ * Copyright (C) 2024-2026 Focus by Rj
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+package com.focusbyrj.app.widget
+
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.Path
+import android.graphics.RectF
+import com.focusbyrj.app.ui.screens.notes.KeepColorPalette
+
+object NoteWidgetDrawableGenerator {
+
+    fun createWidgetBackground(
+        context: Context,
+        config: NoteWidgetConfig,
+        noteColorKey: String?,
+        isSystemDark: Boolean,
+        targetWidthDp: Int = 320,
+        targetHeightDp: Int = 200
+    ): BackgroundColors {
+        val hasKeepColor = config.matchNoteColor && !noteColorKey.isNullOrEmpty() && noteColorKey != "default"
+        val keepTheme = if (hasKeepColor) KeepColorPalette.getColor(noteColorKey!!) else null
+
+        val isDark = if (hasKeepColor) isSystemDark else config.theme.isDark
+
+        val bgColorInt: Int
+        val borderColorInt: Int
+        val primaryTextInt: Int
+        val secondaryTextInt: Int
+        val pillBgInt: Int
+        val pillBorderInt: Int
+        val accentColorInt: Int
+
+        val alpha = ((config.opacityPercent / 100f) * 255).toInt().coerceIn(0, 255)
+
+        if (hasKeepColor && keepTheme != null) {
+            val bgCompose = keepTheme.getBackgroundColor(isDark)
+            val borderCompose = keepTheme.getBorderColor(isDark)
+            val textCompose = keepTheme.getTextColor(isDark)
+
+            bgColorInt = Color.argb(
+                alpha,
+                (bgCompose.red * 255).toInt(),
+                (bgCompose.green * 255).toInt(),
+                (bgCompose.blue * 255).toInt()
+            )
+            borderColorInt = Color.argb(
+                (borderCompose.alpha * 255).toInt().coerceAtLeast(35),
+                (borderCompose.red * 255).toInt(),
+                (borderCompose.green * 255).toInt(),
+                (borderCompose.blue * 255).toInt()
+            )
+            primaryTextInt = Color.argb(
+                (textCompose.alpha * 255).toInt(),
+                (textCompose.red * 255).toInt(),
+                (textCompose.green * 255).toInt(),
+                (textCompose.blue * 255).toInt()
+            )
+            secondaryTextInt = if (isDark) Color.parseColor("#9AA0A6") else Color.parseColor("#5F6368")
+            pillBgInt = if (isDark) Color.argb(25, 255, 255, 255) else Color.argb(18, 0, 0, 0)
+            pillBorderInt = if (isDark) Color.argb(35, 255, 255, 255) else Color.argb(28, 0, 0, 0)
+            accentColorInt = config.accentColorInt
+        } else {
+            val baseColor = Color.parseColor(config.theme.baseColorHex)
+            bgColorInt = Color.argb(alpha, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor))
+
+            borderColorInt = if (isDark) {
+                if (config.theme == WidgetTheme.OLED) Color.parseColor("#26292B") else Color.parseColor("#2E3338")
+            } else {
+                Color.parseColor("#D6D9DC")
+            }
+
+            primaryTextInt = if (isDark) Color.parseColor("#F0F2F5") else Color.parseColor("#1F1F24")
+            secondaryTextInt = if (isDark) Color.parseColor("#9AA0A6") else Color.parseColor("#6B7280")
+            pillBgInt = if (isDark) Color.argb(25, 255, 255, 255) else Color.argb(16, 0, 0, 0)
+            pillBorderInt = if (isDark) Color.argb(35, 255, 255, 255) else Color.argb(25, 0, 0, 0)
+            accentColorInt = config.accentColorInt
+        }
+
+        // Render crisp bitmap matching target dimensions
+        val w = (targetWidthDp * 2).coerceIn(120, 800)
+        val h = (targetHeightDp * 2).coerceIn(120, 800)
+        val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+
+        val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = bgColorInt
+            style = Paint.Style.FILL
+        }
+
+        val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = if (config.opacityPercent <= 5) Color.TRANSPARENT else borderColorInt
+            style = Paint.Style.STROKE
+            strokeWidth = 2.0f
+        }
+
+        val cornerRadiusPx = (config.cornerRadiusDp * 2f).coerceIn(0f, minOf(w, h) / 2f)
+        val rect = RectF(1f, 1f, w - 1f, h - 1f)
+
+        if (cornerRadiusPx <= 0f) {
+            canvas.drawRect(rect, fillPaint)
+            if (config.opacityPercent > 5) canvas.drawRect(rect, strokePaint)
+        } else {
+            canvas.drawRoundRect(rect, cornerRadiusPx, cornerRadiusPx, fillPaint)
+            if (config.opacityPercent > 5) canvas.drawRoundRect(rect, cornerRadiusPx, cornerRadiusPx, strokePaint)
+        }
+
+        return BackgroundColors(
+            bitmap = bitmap,
+            bgColor = bgColorInt,
+            borderColor = borderColorInt,
+            primaryTextColor = primaryTextInt,
+            secondaryTextColor = secondaryTextInt,
+            pillBgColor = pillBgInt,
+            pillBorderColor = pillBorderInt,
+            accentColor = accentColorInt
+        )
+    }
+
+    fun createCheckboxBitmap(
+        isChecked: Boolean,
+        accentColorInt: Int,
+        secondaryTextColorInt: Int,
+        isDark: Boolean
+    ): Bitmap {
+        val size = 48
+        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+
+        val margin = size * 0.18f
+        val rect = RectF(margin, margin, size - margin, size - margin)
+        val rx = size * 0.12f
+
+        if (isChecked) {
+            // Filled rounded square with checkmark
+            val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = accentColorInt
+                style = Paint.Style.FILL
+            }
+            canvas.drawRoundRect(rect, rx, rx, fillPaint)
+
+            val checkPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = if (isDark) Color.parseColor("#121516") else Color.WHITE
+                style = Paint.Style.STROKE
+                strokeWidth = 3.2f
+                strokeCap = Paint.Cap.ROUND
+                strokeJoin = Paint.Join.ROUND
+            }
+
+            val path = Path().apply {
+                moveTo(size * 0.32f, size * 0.50f)
+                lineTo(size * 0.44f, size * 0.63f)
+                lineTo(size * 0.68f, size * 0.37f)
+            }
+            canvas.drawPath(path, checkPaint)
+        } else {
+            // Unchecked outline rounded square
+            val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = secondaryTextColorInt
+                style = Paint.Style.STROKE
+                strokeWidth = 2.5f
+            }
+            canvas.drawRoundRect(rect, rx, rx, strokePaint)
+        }
+
+        return bitmap
+    }
+
+    data class BackgroundColors(
+        val bitmap: Bitmap,
+        val bgColor: Int,
+        val borderColor: Int,
+        val primaryTextColor: Int,
+        val secondaryTextColor: Int,
+        val pillBgColor: Int,
+        val pillBorderColor: Int,
+        val accentColor: Int
+    )
+}

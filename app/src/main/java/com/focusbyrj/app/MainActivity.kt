@@ -17,6 +17,11 @@
 
 package com.focusbyrj.app
 
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.text.style.TextOverflow
 import android.content.Context
@@ -151,15 +156,35 @@ class MainActivity : FragmentActivity() {
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        handleIncomingIntent(intent)
+    }
+
+    private fun handleIncomingIntent(intent: android.content.Intent?) {
+        if (intent == null) return
         val navigateTo = intent.getStringExtra("navigate_to") ?: intent.getStringExtra("NAV_DESTINATION")
         val openAddDialog = intent.getBooleanExtra("open_add_dialog", false)
-        if (navigateTo != null) {
+        val openNoteId = intent.getLongExtra("open_note_id", -1L).takeIf { it != -1L }
+        val openNewNote = intent.getBooleanExtra("open_new_note", false)
+        val asChecklist = intent.getBooleanExtra("as_checklist", false)
+        val openVoiceNote = intent.getBooleanExtra("open_voice_note", false)
+
+        if (openNoteId != null) {
+            viewModel.triggerOpenNote(openNoteId)
+            viewModel.triggerNavigation(Screen.Empty.route)
+        } else if (openNewNote) {
+            viewModel.triggerOpenNewNote(asChecklist)
+            viewModel.triggerNavigation(Screen.Empty.route)
+        } else if (openVoiceNote) {
+            viewModel.triggerOpenVoiceNote()
+            viewModel.triggerNavigation(Screen.Empty.route)
+        } else if (navigateTo != null) {
             viewModel.triggerNavigation(navigateTo)
         }
         if (openAddDialog) {
             viewModel.triggerOpenAddDialog()
         }
     }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -186,6 +211,10 @@ class MainActivity : FragmentActivity() {
         kotlin.runCatching { com.focusbyrj.app.service.AptitudeReminderReceiver.scheduleRandomDrillReminders(this) }
         kotlin.runCatching { com.focusbyrj.app.util.TaskReminderHelper.scheduleAllPendingReminders(this) }
         kotlin.runCatching { com.focusbyrj.app.util.HabitAlarmScheduler.rescheduleAllHabits(this) }
+        kotlin.runCatching { com.focusbyrj.app.widget.TodoWidgetProvider.updateAllWidgets(this) }
+        kotlin.runCatching { com.focusbyrj.app.widget.NoteWidgetProvider.updateAllWidgets(this) }
+
+        handleIncomingIntent(intent)
 
         val navigateTo = intent?.getStringExtra("navigate_to") ?: intent?.getStringExtra("NAV_DESTINATION")
         val openAddDialog = intent?.getBooleanExtra("open_add_dialog", false) ?: false
@@ -201,6 +230,12 @@ class MainActivity : FragmentActivity() {
                 )
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        kotlin.runCatching { com.focusbyrj.app.widget.TodoWidgetProvider.updateAllWidgets(this) }
+        kotlin.runCatching { com.focusbyrj.app.widget.NoteWidgetProvider.updateAllWidgets(this) }
     }
 }
 
@@ -220,16 +255,28 @@ fun MainAppScreen(
 
     val pendingRoute by viewModel.pendingNavigationRoute.collectAsStateWithLifecycle()
     val pendingOpenAdd by viewModel.pendingOpenAddDialog.collectAsStateWithLifecycle()
+    val pendingOpenNoteId by viewModel.pendingOpenNoteId.collectAsStateWithLifecycle()
+    val pendingOpenNewNote by viewModel.pendingOpenNewNote.collectAsStateWithLifecycle()
+    val pendingOpenVoiceNote by viewModel.pendingOpenVoiceNote.collectAsStateWithLifecycle()
 
-    LaunchedEffect(initialNavigateTo) {
-        if (initialNavigateTo != null) {
-            navController.navigate(initialNavigateTo) {
-                popUpTo(navController.graph.findStartDestination().id) {
-                    saveState = true
-                }
-                launchSingleTop = true
-                restoreState = true
-            }
+    LaunchedEffect(pendingOpenNoteId) {
+        pendingOpenNoteId?.let { noteId ->
+            notesViewModel.openNoteById(noteId)
+            viewModel.clearOpenNote()
+        }
+    }
+
+    LaunchedEffect(pendingOpenNewNote) {
+        pendingOpenNewNote?.let { asChecklist ->
+            notesViewModel.openNewNote(asChecklist = asChecklist)
+            viewModel.clearOpenNewNote()
+        }
+    }
+
+    LaunchedEffect(pendingOpenVoiceNote) {
+        if (pendingOpenVoiceNote) {
+            notesViewModel.startVoiceRecording()
+            viewModel.clearOpenVoiceNote()
         }
     }
 
@@ -604,10 +651,38 @@ fun MainAppScreen(
                 NavHost(
                     navController = navController,
                     startDestination = startDest,
-                    enterTransition = { androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(0)) },
-                    exitTransition = { androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(0)) },
-                    popEnterTransition = { androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(0)) },
-                    popExitTransition = { androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(0)) }
+                    enterTransition = {
+                        fadeIn(
+                            animationSpec = tween(
+                                durationMillis = 200,
+                                easing = LinearOutSlowInEasing
+                            )
+                        )
+                    },
+                    exitTransition = {
+                        fadeOut(
+                            animationSpec = tween(
+                                durationMillis = 150,
+                                easing = FastOutSlowInEasing
+                            )
+                        )
+                    },
+                    popEnterTransition = {
+                        fadeIn(
+                            animationSpec = tween(
+                                durationMillis = 200,
+                                easing = LinearOutSlowInEasing
+                            )
+                        )
+                    },
+                    popExitTransition = {
+                        fadeOut(
+                            animationSpec = tween(
+                                durationMillis = 150,
+                                easing = FastOutSlowInEasing
+                            )
+                        )
+                    }
                 ) {
                 composable(Screen.Dashboard.route) {
                     val restrictions by viewModel.combinedRestrictions.collectAsStateWithLifecycle()
