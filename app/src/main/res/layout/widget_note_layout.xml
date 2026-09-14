@@ -176,39 +176,34 @@
                 android:scrollbars="vertical" />
 
             <!-- Plain Text Note Content View -->
-            <ScrollView
+            <LinearLayout
                 android:id="@+id/widget_note_scroll_view"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:visibility="gone"
-                android:fillViewport="true">
-                <LinearLayout
+                android:orientation="vertical"
+                android:visibility="gone">
+                
+                <ImageView
+                    android:id="@+id/widget_note_image"
+                    android:layout_width="match_parent"
+                    android:layout_height="160dp"
+                    android:layout_marginTop="8dp"
+                    android:scaleType="centerCrop"
+                    android:visibility="gone"
+                    android:layout_marginBottom="8dp"/>
+
+                <TextView
+                    android:id="@+id/widget_note_text_content"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical">
-                    
-                    <ImageView
-                        android:id="@+id/widget_note_image"
-                        android:layout_width="match_parent"
-                        android:layout_height="160dp"
-                        android:layout_marginTop="8dp"
-                        android:scaleType="centerCrop"
-                        android:visibility="gone"
-                        android:layout_marginBottom="8dp"/>
-
-                    <TextView
-                        android:id="@+id/widget_note_text_content"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:paddingLeft="6dp"
-                        android:paddingRight="6dp"
-                        android:paddingTop="8dp"
-                        android:paddingBottom="8dp"
-                        android:textColor="#E8EAED"
-                        android:textSize="14.5sp"
-                        android:lineSpacingExtra="3.5dp" />
-                </LinearLayout>
-            </ScrollView>
+                    android:paddingLeft="6dp"
+                    android:paddingRight="6dp"
+                    android:paddingTop="8dp"
+                    android:paddingBottom="8dp"
+                    android:textColor="#E8EAED"
+                    android:textSize="14.5sp"
+                    android:lineSpacingExtra="3.5dp" />
+            </LinearLayout>
 
             <!-- Empty State -->
             <LinearLayout

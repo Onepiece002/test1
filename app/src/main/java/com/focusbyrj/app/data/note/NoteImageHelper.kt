@@ -86,22 +86,30 @@ object NoteImageHelper {
         return paths
     }
 
-    fun loadBitmapForWidget(path: String): Bitmap? {
+    fun loadBitmapForWidget(context: Context, pathOrUri: String): Bitmap? {
         return try {
-            val file = File(path)
-            if (!file.exists()) return null
-
-            val boundsOptions = BitmapFactory.Options().apply {
-                inJustDecodeBounds = true
+            val maxDim = 260
+            fun openStream(): java.io.InputStream? {
+                return try {
+                    if (pathOrUri.startsWith("content://") || pathOrUri.startsWith("file://")) {
+                        context.contentResolver.openInputStream(android.net.Uri.parse(pathOrUri))
+                    } else {
+                        val file = File(pathOrUri)
+                        if (file.exists()) file.inputStream() else null
+                    }
+                } catch (_: Exception) {
+                    null
+                }
             }
-            BitmapFactory.decodeFile(path, boundsOptions)
+
+            val boundsOptions = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            openStream()?.use { BitmapFactory.decodeStream(it, null, boundsOptions) } ?: return null
 
             var sampleSize = 1
-            val maxDim = 600 // Good size for widget while avoiding memory issues
             if (boundsOptions.outWidth > maxDim || boundsOptions.outHeight > maxDim) {
                 val halfHeight = boundsOptions.outHeight / 2
                 val halfWidth = boundsOptions.outWidth / 2
-                while ((halfHeight / sampleSize) >= maxDim && (halfWidth / sampleSize) >= maxDim) {
+                while ((halfHeight / sampleSize) >= maxDim || (halfWidth / sampleSize) >= maxDim) {
                     sampleSize *= 2
                 }
             }
@@ -110,7 +118,7 @@ object NoteImageHelper {
                 inSampleSize = sampleSize
                 inPreferredConfig = Bitmap.Config.RGB_565
             }
-            BitmapFactory.decodeFile(path, decodeOptions)
+            openStream()?.use { BitmapFactory.decodeStream(it, null, decodeOptions) }
         } catch (e: Exception) {
             e.printStackTrace()
             null

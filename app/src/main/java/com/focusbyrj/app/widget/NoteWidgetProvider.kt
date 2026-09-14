@@ -206,63 +206,30 @@ class NoteWidgetProvider : AppWidgetProvider() {
                     // Empty View GONE
                     views.setViewVisibility(R.id.widget_note_empty_view, View.GONE)
 
-                    if (currentNote.isChecklist) {
-                        // Checklist: show ListView
-                        views.setViewVisibility(R.id.widget_note_list_view, View.VISIBLE)
-                        views.setViewVisibility(R.id.widget_note_scroll_view, View.GONE)
-                        views.setViewVisibility(R.id.widget_note_text_content, View.GONE)
-                        views.setViewVisibility(R.id.widget_note_image, View.GONE)
+                    // Show ListView for both checklists and text notes so scrolling works smoothly
+                    views.setViewVisibility(R.id.widget_note_list_view, View.VISIBLE)
+                    views.setViewVisibility(R.id.widget_note_scroll_view, View.GONE)
+                    views.setViewVisibility(R.id.widget_note_text_content, View.GONE)
+                    views.setViewVisibility(R.id.widget_note_image, View.GONE)
 
-                        val serviceIntent = Intent(context, NoteWidgetService::class.java).apply {
-                            putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
-                            data = Uri.parse("widget://$appWidgetId/${currentNote.id}/checklist/${System.currentTimeMillis()}")
-                        }
-                        views.setRemoteAdapter(R.id.widget_note_list_view, serviceIntent)
-
-                        // PendingIntent template for clicking on items (toggle checkbox!)
-                        val itemToggleIntent = Intent(context, NoteWidgetProvider::class.java).apply {
-                            action = ACTION_TOGGLE_ITEM
-                            putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
-                        }
-                        val itemTogglePendingIntent = PendingIntent.getBroadcast(
-                            context,
-                            appWidgetId,
-                            itemToggleIntent,
-                            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
-                        )
-                        views.setPendingIntentTemplate(R.id.widget_note_list_view, itemTogglePendingIntent)
-                    } else {
-                        // Text Note: show TextView
-                        views.setViewVisibility(R.id.widget_note_list_view, View.GONE)
-                        views.setViewVisibility(R.id.widget_note_scroll_view, View.VISIBLE)
-                        views.setViewVisibility(R.id.widget_note_text_content, View.VISIBLE)
-                        views.setTextColor(R.id.widget_note_text_content, bgColors.primaryTextColor)
-                        views.setTextViewTextSize(R.id.widget_note_text_content, TypedValue.COMPLEX_UNIT_SP, config.textSize.spValue)
-                        val text = if (currentNote.content.isNotBlank()) currentNote.content else "(Empty note - tap to write)"
-                        views.setTextViewText(R.id.widget_note_text_content, text)
-
-                        if (currentNote.getImageUris().isNotEmpty()) {
-                            views.setViewVisibility(R.id.widget_note_image, View.VISIBLE)
-                            val bmp = com.focusbyrj.app.data.note.NoteImageHelper.loadBitmapForWidget(currentNote.getImageUris().first())
-                            if (bmp != null) {
-                                views.setImageViewBitmap(R.id.widget_note_image, bmp)
-                            } else {
-                                views.setViewVisibility(R.id.widget_note_image, View.GONE)
-                            }
-                        } else {
-                            views.setViewVisibility(R.id.widget_note_image, View.GONE)
-                        }
-
-                        // Direct edit note click on text body -> opens QuickEditNoteActivity floating dialog right on home screen!
-                        val textClickIntent = Intent(context, QuickEditNoteActivity::class.java).apply {
-                            putExtra(QuickEditNoteActivity.EXTRA_NOTE_ID, currentNote.id)
-                            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                            data = Uri.parse("widget://$appWidgetId/text_body/${currentNote.id}")
-                        }
-                        val textClickPendingIntent = PendingIntent.getActivity(context, 5500 + appWidgetId, textClickIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-                        views.setOnClickPendingIntent(R.id.widget_note_text_content, textClickPendingIntent)
-                        views.setOnClickPendingIntent(R.id.widget_note_image, textClickPendingIntent)
+                    val serviceIntent = Intent(context, NoteWidgetService::class.java).apply {
+                        putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+                        data = Uri.parse("widget://$appWidgetId/${currentNote.id}/${if (currentNote.isChecklist) "checklist" else "text"}/${System.currentTimeMillis()}")
                     }
+                    views.setRemoteAdapter(R.id.widget_note_list_view, serviceIntent)
+
+                    // PendingIntent template for clicking on items
+                    val itemToggleIntent = Intent(context, NoteWidgetProvider::class.java).apply {
+                        action = ACTION_TOGGLE_ITEM
+                        putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+                    }
+                    val itemTogglePendingIntent = PendingIntent.getBroadcast(
+                        context,
+                        appWidgetId,
+                        itemToggleIntent,
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+                    )
+                    views.setPendingIntentTemplate(R.id.widget_note_list_view, itemTogglePendingIntent)
                 } else {
                     // Empty state
                     views.setTextViewText(R.id.widget_note_title, "No Notes")
@@ -404,6 +371,23 @@ class NoteWidgetProvider : AppWidgetProvider() {
                 appWidgetManager.updateAppWidget(appWidgetId, views)
                 kotlin.runCatching {
                     appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.widget_note_list_view)
+                }
+            }.onFailure { e ->
+                e.printStackTrace()
+                kotlin.runCatching {
+                    val fallbackViews = RemoteViews(context.packageName, R.layout.widget_note_layout)
+                    fallbackViews.setTextViewText(R.id.widget_note_title, "Notes")
+                    fallbackViews.setViewVisibility(R.id.widget_note_empty_view, View.VISIBLE)
+                    fallbackViews.setViewVisibility(R.id.widget_note_list_view, View.GONE)
+                    fallbackViews.setViewVisibility(R.id.widget_note_scroll_view, View.GONE)
+                    val openIntent = Intent(context, MainActivity::class.java).apply {
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    }
+                    fallbackViews.setOnClickPendingIntent(
+                        R.id.widget_note_empty_view,
+                        PendingIntent.getActivity(context, 9000 + appWidgetId, openIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+                    )
+                    appWidgetManager.updateAppWidget(appWidgetId, fallbackViews)
                 }
             }
         }

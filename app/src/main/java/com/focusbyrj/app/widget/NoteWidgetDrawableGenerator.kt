@@ -28,17 +28,14 @@ import com.focusbyrj.app.ui.screens.notes.KeepColorPalette
 
 object NoteWidgetDrawableGenerator {
 
-    fun createWidgetBackground(
+    fun getWidgetColors(
         context: Context,
         config: NoteWidgetConfig,
         noteColorKey: String?,
-        isSystemDark: Boolean,
-        targetWidthDp: Int = 320,
-        targetHeightDp: Int = 200
+        isSystemDark: Boolean
     ): BackgroundColors {
         val hasKeepColor = config.matchNoteColor && !noteColorKey.isNullOrEmpty() && noteColorKey != "default"
         val keepTheme = if (hasKeepColor) KeepColorPalette.getColor(noteColorKey!!) else null
-
         val isDark = if (hasKeepColor) isSystemDark else config.theme.isDark
 
         val bgColorInt: Int
@@ -95,25 +92,49 @@ object NoteWidgetDrawableGenerator {
             accentColorInt = config.accentColorInt
         }
 
-        // Render crisp bitmap matching target dimensions
-        val w = (targetWidthDp * 2).coerceIn(120, 800)
-        val h = (targetHeightDp * 2).coerceIn(120, 800)
+        val emptyBitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ALPHA_8)
+        return BackgroundColors(
+            bitmap = emptyBitmap,
+            bgColor = bgColorInt,
+            borderColor = borderColorInt,
+            primaryTextColor = primaryTextInt,
+            secondaryTextColor = secondaryTextInt,
+            pillBgColor = pillBgInt,
+            pillBorderColor = pillBorderInt,
+            accentColor = accentColorInt
+        )
+    }
+
+    fun createWidgetBackground(
+        context: Context,
+        config: NoteWidgetConfig,
+        noteColorKey: String?,
+        isSystemDark: Boolean,
+        targetWidthDp: Int = 320,
+        targetHeightDp: Int = 200
+    ): BackgroundColors {
+        val colors = getWidgetColors(context, config, noteColorKey, isSystemDark)
+
+        // Small, fast bitmap (180x180) stretched with fitXY.
+        // Keeps IPC parcel size minimal (< 100KB) while rendering crisp rounded corners and stroke.
+        val w = 180
+        val h = 180
         val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
 
         val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = bgColorInt
+            color = colors.bgColor
             style = Paint.Style.FILL
         }
 
         val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = if (config.opacityPercent <= 5) Color.TRANSPARENT else borderColorInt
+            color = if (config.opacityPercent <= 5) Color.TRANSPARENT else colors.borderColor
             style = Paint.Style.STROKE
-            strokeWidth = 2.0f
+            strokeWidth = 1.5f
         }
 
-        val cornerRadiusPx = (config.cornerRadiusDp * 2f).coerceIn(0f, minOf(w, h) / 2f)
-        val rect = RectF(1f, 1f, w - 1f, h - 1f)
+        val cornerRadiusPx = (config.cornerRadiusDp * 0.5f).coerceIn(0f, 24f)
+        val rect = RectF(0.8f, 0.8f, w - 0.8f, h - 0.8f)
 
         if (cornerRadiusPx <= 0f) {
             canvas.drawRect(rect, fillPaint)
@@ -123,16 +144,7 @@ object NoteWidgetDrawableGenerator {
             if (config.opacityPercent > 5) canvas.drawRoundRect(rect, cornerRadiusPx, cornerRadiusPx, strokePaint)
         }
 
-        return BackgroundColors(
-            bitmap = bitmap,
-            bgColor = bgColorInt,
-            borderColor = borderColorInt,
-            primaryTextColor = primaryTextInt,
-            secondaryTextColor = secondaryTextInt,
-            pillBgColor = pillBgInt,
-            pillBorderColor = pillBorderInt,
-            accentColor = accentColorInt
-        )
+        return colors.copy(bitmap = bitmap)
     }
 
     fun createCheckboxBitmap(

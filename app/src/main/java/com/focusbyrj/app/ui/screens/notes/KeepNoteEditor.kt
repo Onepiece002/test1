@@ -24,6 +24,7 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
+import kotlinx.coroutines.launch
 
 import android.app.Activity
 import android.content.Intent
@@ -65,6 +66,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -74,6 +76,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Add
@@ -118,6 +121,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
@@ -151,6 +155,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableFloatStateOf
 import kotlin.math.roundToInt
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
@@ -277,6 +287,8 @@ fun KeepNoteEditor(
     }
 
     val scrollState = rememberScrollState()
+    val contentBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val coroutineScope = rememberCoroutineScope()
 
     val formattedTime = remember(state.updatedAt) {
         val sdf = SimpleDateFormat("h:mm a", Locale.getDefault())
@@ -448,10 +460,31 @@ fun KeepNoteEditor(
                     // Plain Text Note
                     BasicTextField(
                         value = state.content,
-                        onValueChange = onContentChange,
+                        onValueChange = { newContent ->
+                            onContentChange(newContent)
+                            coroutineScope.launch {
+                                contentBringIntoViewRequester.bringIntoView()
+                            }
+                        },
+                        onTextLayout = { textLayoutResult ->
+                            coroutineScope.launch {
+                                val cursorOffset = textLayoutResult.layoutInput.text.length
+                                val cursorRect = try {
+                                    textLayoutResult.getCursorRect(cursorOffset)
+                                } catch (_: Exception) {
+                                    null
+                                }
+                                if (cursorRect != null) {
+                                    contentBringIntoViewRequester.bringIntoView(cursorRect)
+                                } else {
+                                    contentBringIntoViewRequester.bringIntoView()
+                                }
+                            }
+                        },
                         modifier = Modifier
                             .fillMaxWidth()
                             .defaultMinSize(minHeight = 260.dp)
+                            .bringIntoViewRequester(contentBringIntoViewRequester)
                             .testTag("editor_content_input"),
                         textStyle = TextStyle(
                             color = textColor,
@@ -504,6 +537,9 @@ fun KeepNoteEditor(
                                         val newId = java.util.UUID.randomUUID().toString()
                                         targetFocusItemId = newId
                                         onAddChecklistItem(globalIndex, extraText, newId)
+                                        coroutineScope.launch {
+                                            scrollState.animateScrollTo(scrollState.maxValue)
+                                        }
                                     },
                                     onDelete = { onRemoveChecklistItem(globalIndex) },
                                     onMoveUp = {
@@ -533,6 +569,9 @@ fun KeepNoteEditor(
                                     targetFocusItemId = newId
                                     val lastUncompletedGlobalIndex = uncompletedItems.lastOrNull()?.first
                                     onAddChecklistItem(lastUncompletedGlobalIndex, "", newId)
+                                    coroutineScope.launch {
+                                        scrollState.animateScrollTo(scrollState.maxValue)
+                                    }
                                 }
                                 .padding(vertical = 8.dp, horizontal = 4.dp)
                         ) {
@@ -1359,6 +1398,7 @@ private fun ReminderPresetRow(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ChecklistRow(
     item: com.focusbyrj.app.data.note.ChecklistItem,
@@ -1375,6 +1415,9 @@ private fun ChecklistRow(
     onMoveDown: () -> Unit
 ) {
     val focusRequester = remember { FocusRequester() }
+    val bringIntoViewRequester = remember { BringIntoViewRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val coroutineScope = rememberCoroutineScope()
     var isDragging by remember { mutableStateOf(false) }
     var dragOffsetY by remember { mutableFloatStateOf(0f) }
     val density = LocalDensity.current
@@ -1388,14 +1431,18 @@ private fun ChecklistRow(
 
     LaunchedEffect(isTargetFocus) {
         if (isTargetFocus) {
+            bringIntoViewRequester.bringIntoView()
             kotlinx.coroutines.delay(40)
             try {
                 focusRequester.requestFocus()
+                keyboardController?.show()
                 onFocused()
             } catch (e: Exception) {
                 kotlinx.coroutines.delay(80)
                 runCatching {
+                    bringIntoViewRequester.bringIntoView()
                     focusRequester.requestFocus()
+                    keyboardController?.show()
                     onFocused()
                 }
             }
@@ -1406,6 +1453,7 @@ private fun ChecklistRow(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
+            .bringIntoViewRequester(bringIntoViewRequester)
             .zIndex(if (isDragging) 10f else 1f)
             .offset { IntOffset(0, dragOffsetY.roundToInt()) }
             .background(
@@ -1495,6 +1543,24 @@ private fun ChecklistRow(
                 } else {
                     onTextChange(newText)
                 }
+                coroutineScope.launch {
+                    bringIntoViewRequester.bringIntoView()
+                }
+            },
+            onTextLayout = { textLayoutResult ->
+                coroutineScope.launch {
+                    val cursorOffset = textLayoutResult.layoutInput.text.length
+                    val cursorRect = try {
+                        textLayoutResult.getCursorRect(cursorOffset)
+                    } catch (_: Exception) {
+                        null
+                    }
+                    if (cursorRect != null) {
+                        bringIntoViewRequester.bringIntoView(cursorRect)
+                    } else {
+                        bringIntoViewRequester.bringIntoView()
+                    }
+                }
             },
             singleLine = false,
             maxLines = 20,
@@ -1573,6 +1639,7 @@ fun ZoomableImagePager(
         initialPage = initialPage,
         pageCount = { imageUris.size }
     )
+    val coroutineScope = rememberCoroutineScope()
     var isZooming by remember { mutableStateOf(false) }
 
     Dialog(
@@ -1606,7 +1673,7 @@ fun ZoomableImagePager(
                 
                 LaunchedEffect(scale) {
                     if (pagerState.currentPage == page) {
-                        isZooming = scale > 1f
+                        isZooming = scale > 1.05f
                     }
                 }
 
@@ -1614,46 +1681,35 @@ fun ZoomableImagePager(
                     modifier = Modifier
                         .fillMaxSize()
                         .clipToBounds()
-                        .pointerInput(Unit) {
-                            detectTransformGestures { centroid, pan, zoom, _ ->
-                                val oldScale = scale
-                                scale = (scale * zoom).coerceIn(1f, 5f)
-                                if (scale > 1f) {
-                                    val fractionalX = (centroid.x - offset.x) / oldScale
-                                    val fractionalY = (centroid.y - offset.y) / oldScale
-                                    var newOffsetX = centroid.x - (fractionalX * scale)
-                                    var newOffsetY = centroid.y - (fractionalY * scale)
-                                    newOffsetX += pan.x
-                                    newOffsetY += pan.y
-                                    
-                                    val maxX = (size.width.toFloat() * scale - size.width.toFloat()) / 2f
-                                    val maxY = (size.height.toFloat() * scale - size.height.toFloat()) / 2f
-                                    offset = Offset(
-                                        newOffsetX.coerceIn(-maxX, maxX),
-                                        newOffsetY.coerceIn(-maxY, maxY)
-                                    )
-                                } else {
-                                    offset = Offset.Zero
-                                }
-                            }
-                        }
-                        .pointerInput(Unit) {
-                            detectDragGestures(
-                                onDrag = { change, dragAmount ->
-                                    if (scale > 1f) {
-                                        change.consume()
-                                        val newOffsetX = offset.x + dragAmount.x
-                                        val newOffsetY = offset.y + dragAmount.y
-                                        val maxX = (size.width.toFloat() * scale - size.width.toFloat()) / 2f
-                                        val maxY = (size.height.toFloat() * scale - size.height.toFloat()) / 2f
-                                        offset = Offset(
-                                            newOffsetX.coerceIn(-maxX, maxX),
-                                            newOffsetY.coerceIn(-maxY, maxY)
-                                        )
+                        .then(
+                            if (scale > 1.05f) {
+                                Modifier.pointerInput(scale) {
+                                    detectTransformGestures { centroid, pan, zoom, _ ->
+                                        val oldScale = scale
+                                        scale = (scale * zoom).coerceIn(1f, 5f)
+                                        if (scale > 1f) {
+                                            val fractionalX = (centroid.x - offset.x) / oldScale
+                                            val fractionalY = (centroid.y - offset.y) / oldScale
+                                            var newOffsetX = centroid.x - (fractionalX * scale)
+                                            var newOffsetY = centroid.y - (fractionalY * scale)
+                                            newOffsetX += pan.x
+                                            newOffsetY += pan.y
+                                            
+                                            val maxX = (size.width.toFloat() * scale - size.width.toFloat()) / 2f
+                                            val maxY = (size.height.toFloat() * scale - size.height.toFloat()) / 2f
+                                            offset = Offset(
+                                                newOffsetX.coerceIn(-maxX, maxX),
+                                                newOffsetY.coerceIn(-maxY, maxY)
+                                            )
+                                        } else {
+                                            offset = Offset.Zero
+                                        }
                                     }
                                 }
-                            )
-                        }
+                            } else {
+                                Modifier
+                            }
+                        )
                         .pointerInput(Unit) {
                             detectTapGestures(
                                 onDoubleTap = { tapOffset ->
@@ -1664,8 +1720,8 @@ fun ZoomableImagePager(
                                         scale = 2.5f
                                         val newOffsetX = -(tapOffset.x * 2.5f - size.width.toFloat() / 2f)
                                         val newOffsetY = -(tapOffset.y * 2.5f - size.height.toFloat() / 2f)
-                                        val maxX = (size.width.toFloat() * scale - size.width.toFloat()) / 2f
-                                        val maxY = (size.height.toFloat() * scale - size.height.toFloat()) / 2f
+                                        val maxX = (size.width.toFloat() * 2.5f - size.width.toFloat()) / 2f
+                                        val maxY = (size.height.toFloat() * 2.5f - size.height.toFloat()) / 2f
                                         offset = Offset(
                                             newOffsetX.coerceIn(-maxX, maxX),
                                             newOffsetY.coerceIn(-maxY, maxY)
@@ -1673,7 +1729,8 @@ fun ZoomableImagePager(
                                     }
                                 }
                             )
-                        }
+                        },
+                    contentAlignment = Alignment.Center
                 ) {
                     coil.compose.AsyncImage(
                         model = coil.request.ImageRequest.Builder(LocalContext.current)
@@ -1691,6 +1748,49 @@ fun ZoomableImagePager(
                             },
                         contentScale = ContentScale.Fit
                     )
+                }
+            }
+
+            // Bottom Thumbnail Gallery Strip (Quick Jump)
+            if (imageUris.size > 1) {
+                LazyRow(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .navigationBarsPadding()
+                        .padding(bottom = 16.dp)
+                        .background(Color.Black.copy(alpha = 0.65f), RoundedCornerShape(20.dp))
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    itemsIndexed(imageUris) { index, uri ->
+                        val isSelected = index == pagerState.currentPage
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .border(
+                                    width = if (isSelected) 2.dp else 0.dp,
+                                    color = if (isSelected) Color.White else Color.Transparent,
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                                .clickable {
+                                    coroutineScope.launch {
+                                        pagerState.animateScrollToPage(index)
+                                    }
+                                }
+                        ) {
+                            coil.compose.AsyncImage(
+                                model = coil.request.ImageRequest.Builder(LocalContext.current)
+                                    .data(uri)
+                                    .crossfade(true)
+                                    .build(),
+                                contentDescription = "Thumbnail ${index + 1}",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
+                        }
+                    }
                 }
             }
 
