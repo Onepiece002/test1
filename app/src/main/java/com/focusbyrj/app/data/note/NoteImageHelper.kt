@@ -85,4 +85,35 @@ object NoteImageHelper {
         }
         return paths
     }
+
+    fun loadBitmapForWidget(path: String): Bitmap? {
+        return try {
+            val file = File(path)
+            if (!file.exists()) return null
+
+            val boundsOptions = BitmapFactory.Options().apply {
+                inJustDecodeBounds = true
+            }
+            BitmapFactory.decodeFile(path, boundsOptions)
+
+            var sampleSize = 1
+            val maxDim = 600 // Good size for widget while avoiding memory issues
+            if (boundsOptions.outWidth > maxDim || boundsOptions.outHeight > maxDim) {
+                val halfHeight = boundsOptions.outHeight / 2
+                val halfWidth = boundsOptions.outWidth / 2
+                while ((halfHeight / sampleSize) >= maxDim && (halfWidth / sampleSize) >= maxDim) {
+                    sampleSize *= 2
+                }
+            }
+
+            val decodeOptions = BitmapFactory.Options().apply {
+                inSampleSize = sampleSize
+                inPreferredConfig = Bitmap.Config.RGB_565
+            }
+            BitmapFactory.decodeFile(path, decodeOptions)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
 }

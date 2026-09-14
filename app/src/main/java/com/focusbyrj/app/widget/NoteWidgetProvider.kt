@@ -209,7 +209,9 @@ class NoteWidgetProvider : AppWidgetProvider() {
                     if (currentNote.isChecklist) {
                         // Checklist: show ListView
                         views.setViewVisibility(R.id.widget_note_list_view, View.VISIBLE)
+                        views.setViewVisibility(R.id.widget_note_scroll_view, View.GONE)
                         views.setViewVisibility(R.id.widget_note_text_content, View.GONE)
+                        views.setViewVisibility(R.id.widget_note_image, View.GONE)
 
                         val serviceIntent = Intent(context, NoteWidgetService::class.java).apply {
                             putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
@@ -232,11 +234,24 @@ class NoteWidgetProvider : AppWidgetProvider() {
                     } else {
                         // Text Note: show TextView
                         views.setViewVisibility(R.id.widget_note_list_view, View.GONE)
+                        views.setViewVisibility(R.id.widget_note_scroll_view, View.VISIBLE)
                         views.setViewVisibility(R.id.widget_note_text_content, View.VISIBLE)
                         views.setTextColor(R.id.widget_note_text_content, bgColors.primaryTextColor)
                         views.setTextViewTextSize(R.id.widget_note_text_content, TypedValue.COMPLEX_UNIT_SP, config.textSize.spValue)
                         val text = if (currentNote.content.isNotBlank()) currentNote.content else "(Empty note - tap to write)"
                         views.setTextViewText(R.id.widget_note_text_content, text)
+
+                        if (currentNote.getImageUris().isNotEmpty()) {
+                            views.setViewVisibility(R.id.widget_note_image, View.VISIBLE)
+                            val bmp = com.focusbyrj.app.data.note.NoteImageHelper.loadBitmapForWidget(currentNote.getImageUris().first())
+                            if (bmp != null) {
+                                views.setImageViewBitmap(R.id.widget_note_image, bmp)
+                            } else {
+                                views.setViewVisibility(R.id.widget_note_image, View.GONE)
+                            }
+                        } else {
+                            views.setViewVisibility(R.id.widget_note_image, View.GONE)
+                        }
 
                         // Direct edit note click on text body -> opens QuickEditNoteActivity floating dialog right on home screen!
                         val textClickIntent = Intent(context, QuickEditNoteActivity::class.java).apply {
@@ -244,10 +259,9 @@ class NoteWidgetProvider : AppWidgetProvider() {
                             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                             data = Uri.parse("widget://$appWidgetId/text_body/${currentNote.id}")
                         }
-                        views.setOnClickPendingIntent(
-                            R.id.widget_note_text_content,
-                            PendingIntent.getActivity(context, 5500 + appWidgetId, textClickIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-                        )
+                        val textClickPendingIntent = PendingIntent.getActivity(context, 5500 + appWidgetId, textClickIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+                        views.setOnClickPendingIntent(R.id.widget_note_text_content, textClickPendingIntent)
+                        views.setOnClickPendingIntent(R.id.widget_note_image, textClickPendingIntent)
                     }
                 } else {
                     // Empty state
@@ -255,7 +269,9 @@ class NoteWidgetProvider : AppWidgetProvider() {
                     views.setViewVisibility(R.id.widget_note_pinned_badge, View.GONE)
                     views.setTextViewText(R.id.widget_note_page_indicator, "0/0")
                     views.setViewVisibility(R.id.widget_note_list_view, View.GONE)
+                    views.setViewVisibility(R.id.widget_note_scroll_view, View.GONE)
                     views.setViewVisibility(R.id.widget_note_text_content, View.GONE)
+                    views.setViewVisibility(R.id.widget_note_image, View.GONE)
                     views.setViewVisibility(R.id.widget_note_empty_view, View.VISIBLE)
                     views.setTextColor(R.id.widget_note_empty_title, bgColors.primaryTextColor)
                     views.setTextColor(R.id.widget_note_empty_subtext, bgColors.secondaryTextColor)

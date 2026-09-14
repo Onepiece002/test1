@@ -1296,9 +1296,11 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
         addDrawingToEditor(bitmap)
     }
 
-    fun openNewNoteWithImage(uri: android.net.Uri) {
+    fun openNewNoteWithImages(uris: List<android.net.Uri>) {
         openNewNote(asChecklist = false)
-        addImageUriToEditor(uri)
+        uris.forEach { uri ->
+            addImageUriToEditor(uri)
+        }
     }
 
     fun closeEditor() {

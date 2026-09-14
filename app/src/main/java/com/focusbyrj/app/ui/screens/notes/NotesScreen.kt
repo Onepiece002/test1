@@ -214,10 +214,10 @@ fun NotesScreen(
     }
 
     val dockPhotoPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickVisualMedia(),
-        onResult = { uri ->
-            if (uri != null) {
-                viewModel.openNewNoteWithImage(uri)
+        contract = ActivityResultContracts.PickMultipleVisualMedia(),
+        onResult = { uris ->
+            if (uris.isNotEmpty()) {
+                viewModel.openNewNoteWithImages(uris)
             }
         }
     )

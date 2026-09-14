@@ -16,6 +16,14 @@
  */
 
 package com.focusbyrj.app.ui.screens.notes
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.graphicsLayer
 
 import android.app.Activity
 import android.content.Intent
@@ -156,8 +164,9 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
-@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
+
 fun KeepNoteEditor(
     state: NotesViewModel.EditingNoteState,
     allLabels: List<String>,
@@ -226,9 +235,9 @@ fun KeepNoteEditor(
     var targetFocusItemId by remember { mutableStateOf<String?>(null) }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickVisualMedia(),
-        onResult = { uri ->
-            if (uri != null) {
+        contract = ActivityResultContracts.PickMultipleVisualMedia(),
+        onResult = { uris ->
+            uris.forEach { uri ->
                 onAddImageUri(uri)
             }
         }
@@ -1156,40 +1165,11 @@ fun KeepNoteEditor(
         // FULL SCREEN IMAGE VIEWER
         // ==========================================
         if (viewingImageUri != null) {
-            Dialog(
-                onDismissRequest = { viewingImageUri = null },
-                properties = DialogProperties(usePlatformDefaultWidth = false)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black)
-                ) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(LocalContext.current)
-                            .data(viewingImageUri)
-                            .crossfade(true)
-                            .build(),
-                        contentDescription = "Full view image",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Fit
-                    )
-                    IconButton(
-                        onClick = { viewingImageUri = null },
-                        modifier = Modifier
-                            .statusBarsPadding()
-                            .padding(16.dp)
-                            .size(40.dp)
-                            .align(Alignment.TopEnd)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Close,
-                            contentDescription = "Close preview",
-                            tint = Color.White
-                        )
-                    }
-                }
-            }
+            ZoomableImagePager(
+                imageUris = state.imageUris,
+                initialUri = viewingImageUri!!,
+                onDismiss = { viewingImageUri = null }
+            )
         }
 
         // ==========================================
@@ -1573,6 +1553,173 @@ private fun ChecklistRow(
                 tint = textColor.copy(alpha = 0.35f),
                 modifier = Modifier.size(18.dp)
             )
+        }
+    }
+}
+
+
+
+@Composable
+@kotlin.OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+fun ZoomableImagePager(
+    imageUris: List<String>,
+    initialUri: String,
+    onDismiss: () -> Unit
+) {
+    val initialPage = remember(initialUri, imageUris) {
+        imageUris.indexOf(initialUri).coerceAtLeast(0)
+    }
+    val pagerState = rememberPagerState(
+        initialPage = initialPage,
+        pageCount = { imageUris.size }
+    )
+    var isZooming by remember { mutableStateOf(false) }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black)
+        ) {
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize(),
+                userScrollEnabled = !isZooming
+            ) { page ->
+                val uri = imageUris.getOrNull(page) ?: return@HorizontalPager
+                
+                var scale by remember { mutableFloatStateOf(1f) }
+                var offset by remember { mutableStateOf(Offset.Zero) }
+
+                LaunchedEffect(pagerState.currentPage) {
+                    if (pagerState.currentPage != page) {
+                        scale = 1f
+                        offset = Offset.Zero
+                    }
+                }
+                
+                LaunchedEffect(scale) {
+                    if (pagerState.currentPage == page) {
+                        isZooming = scale > 1f
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clipToBounds()
+                        .pointerInput(Unit) {
+                            detectTransformGestures { centroid, pan, zoom, _ ->
+                                val oldScale = scale
+                                scale = (scale * zoom).coerceIn(1f, 5f)
+                                if (scale > 1f) {
+                                    val fractionalX = (centroid.x - offset.x) / oldScale
+                                    val fractionalY = (centroid.y - offset.y) / oldScale
+                                    var newOffsetX = centroid.x - (fractionalX * scale)
+                                    var newOffsetY = centroid.y - (fractionalY * scale)
+                                    newOffsetX += pan.x
+                                    newOffsetY += pan.y
+                                    
+                                    val maxX = (size.width.toFloat() * scale - size.width.toFloat()) / 2f
+                                    val maxY = (size.height.toFloat() * scale - size.height.toFloat()) / 2f
+                                    offset = Offset(
+                                        newOffsetX.coerceIn(-maxX, maxX),
+                                        newOffsetY.coerceIn(-maxY, maxY)
+                                    )
+                                } else {
+                                    offset = Offset.Zero
+                                }
+                            }
+                        }
+                        .pointerInput(Unit) {
+                            detectDragGestures(
+                                onDrag = { change, dragAmount ->
+                                    if (scale > 1f) {
+                                        change.consume()
+                                        val newOffsetX = offset.x + dragAmount.x
+                                        val newOffsetY = offset.y + dragAmount.y
+                                        val maxX = (size.width.toFloat() * scale - size.width.toFloat()) / 2f
+                                        val maxY = (size.height.toFloat() * scale - size.height.toFloat()) / 2f
+                                        offset = Offset(
+                                            newOffsetX.coerceIn(-maxX, maxX),
+                                            newOffsetY.coerceIn(-maxY, maxY)
+                                        )
+                                    }
+                                }
+                            )
+                        }
+                        .pointerInput(Unit) {
+                            detectTapGestures(
+                                onDoubleTap = { tapOffset ->
+                                    if (scale > 1f) {
+                                        scale = 1f
+                                        offset = Offset.Zero
+                                    } else {
+                                        scale = 2.5f
+                                        val newOffsetX = -(tapOffset.x * 2.5f - size.width.toFloat() / 2f)
+                                        val newOffsetY = -(tapOffset.y * 2.5f - size.height.toFloat() / 2f)
+                                        val maxX = (size.width.toFloat() * scale - size.width.toFloat()) / 2f
+                                        val maxY = (size.height.toFloat() * scale - size.height.toFloat()) / 2f
+                                        offset = Offset(
+                                            newOffsetX.coerceIn(-maxX, maxX),
+                                            newOffsetY.coerceIn(-maxY, maxY)
+                                        )
+                                    }
+                                }
+                            )
+                        }
+                ) {
+                    coil.compose.AsyncImage(
+                        model = coil.request.ImageRequest.Builder(LocalContext.current)
+                            .data(uri)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = "Full view image",
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .graphicsLayer {
+                                scaleX = scale
+                                scaleY = scale
+                                translationX = offset.x
+                                translationY = offset.y
+                            },
+                        contentScale = ContentScale.Fit
+                    )
+                }
+            }
+
+            // Top Bar
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "${pagerState.currentPage + 1} / ${imageUris.size}",
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(start = 8.dp)
+                )
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Close,
+                        contentDescription = "Close preview",
+                        tint = Color.White
+                    )
+                }
+            }
         }
     }
 }
