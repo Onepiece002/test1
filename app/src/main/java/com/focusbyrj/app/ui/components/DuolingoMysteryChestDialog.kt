@@ -11,8 +11,10 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,11 +27,11 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -116,30 +118,24 @@ enum class ChestRarity(
     }
 
     companion object {
-        /**
-         * Dynamic weighted RNG roll to determine rarity.
-         * Higher prize tiers have lower odds, lower prize tiers have higher odds.
-         */
         fun rollRarity(baseTier: ChestRarity? = null): ChestRarity {
-            val roll = Random.nextInt(1, 101) // 1..100
+            val roll = Random.nextInt(1, 101)
             return when (baseTier) {
                 RARE -> {
-                    // Night Owl boosted odds
                     when {
-                        roll <= 50 -> RARE       // 50%
-                        roll <= 85 -> EPIC       // 35%
-                        else -> LEGENDARY       // 15%
+                        roll <= 50 -> RARE
+                        roll <= 85 -> EPIC
+                        else -> LEGENDARY
                     }
                 }
                 EPIC -> {
                     when {
-                        roll <= 70 -> EPIC       // 70%
-                        else -> LEGENDARY       // 30%
+                        roll <= 70 -> EPIC
+                        else -> LEGENDARY
                     }
                 }
                 LEGENDARY -> LEGENDARY
                 else -> {
-                    // Standard Mystery Drop: 55% Common, 28% Rare, 13% Epic, 4% Legendary
                     when {
                         roll <= 55 -> COMMON
                         roll <= 83 -> RARE
@@ -175,7 +171,7 @@ fun DuolingoChest3DGraphic(
             ),
         contentAlignment = Alignment.Center
     ) {
-        Canvas(modifier = Modifier.fillMaxSize(0.72f)) {
+        Canvas(modifier = Modifier.fillMaxSize(0.75f)) {
             val w = size.width
             val h = size.height
             val cx = w / 2
@@ -268,18 +264,17 @@ fun DuolingoMysteryChestDialog(
     var isOpening by remember { mutableStateOf(false) }
     var claimedReward by remember { mutableStateOf<MysteryReward?>(null) }
     
-    // Dynamic Rarity State - rolls and cycles through tiers during decryption
     var wonRarity by remember { mutableStateOf(initialRarity) }
     var displayedRarity by remember { mutableStateOf(initialRarity) }
 
     // Ambient floating particles
     val ambientParticles = remember {
-        List(32) {
+        List(28) {
             AmbientParticle(
                 x = Random.nextFloat(),
                 y = Random.nextFloat(),
-                size = Random.nextFloat() * 3.5f + 1.5f,
-                alpha = Random.nextFloat() * 0.6f + 0.2f,
+                size = Random.nextFloat() * 3f + 1.5f,
+                alpha = Random.nextFloat() * 0.5f + 0.2f,
                 speed = Random.nextFloat() * 0.0003f + 0.0001f
             )
         }
@@ -288,14 +283,14 @@ fun DuolingoMysteryChestDialog(
     // Dynamic Spark burst particles generated on detonation
     val sparkParticles = remember(wonRarity) {
         val particleCount = when (wonRarity) {
-            ChestRarity.LEGENDARY -> 80
-            ChestRarity.EPIC -> 60
-            ChestRarity.RARE -> 45
-            ChestRarity.COMMON -> 32
+            ChestRarity.LEGENDARY -> 70
+            ChestRarity.EPIC -> 50
+            ChestRarity.RARE -> 38
+            ChestRarity.COMMON -> 28
         }
         List(particleCount) {
             val angle = Random.nextDouble(0.0, Math.PI * 2)
-            val dist = Random.nextFloat() * 260f + 70f
+            val dist = Random.nextFloat() * 240f + 60f
             val col = when (wonRarity) {
                 ChestRarity.LEGENDARY -> listOf(Color(0xFFFFD700), Color(0xFFFBBF24), Color(0xFFFFF59D), Color.White).random()
                 ChestRarity.EPIC -> listOf(Color(0xFFE879F9), Color(0xFFC084FC), Color(0xFFF472B6), Color.White).random()
@@ -308,15 +303,15 @@ fun DuolingoMysteryChestDialog(
                 angle = angle,
                 distance = dist,
                 color = col,
-                size = Random.nextFloat() * 4.5f + 2f
+                size = Random.nextFloat() * 4f + 2f
             )
         }
     }
 
     val infiniteTransition = rememberInfiniteTransition(label = "vault_ambient")
     val hoverOffset by infiniteTransition.animateFloat(
-        initialValue = -12f,
-        targetValue = 12f,
+        initialValue = -10f,
+        targetValue = 10f,
         animationSpec = infiniteRepeatable(
             animation = tween(2200, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
@@ -328,7 +323,7 @@ fun DuolingoMysteryChestDialog(
         initialValue = 0f,
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
-            animation = tween(if (wonRarity == ChestRarity.LEGENDARY) 4000 else 7000, easing = LinearEasing),
+            animation = tween(if (wonRarity == ChestRarity.LEGENDARY) 4500 else 7500, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "gyroX"
@@ -338,26 +333,25 @@ fun DuolingoMysteryChestDialog(
         initialValue = 360f,
         targetValue = 0f,
         animationSpec = infiniteRepeatable(
-            animation = tween(if (wonRarity == ChestRarity.LEGENDARY) 5000 else 9000, easing = LinearEasing),
+            animation = tween(if (wonRarity == ChestRarity.LEGENDARY) 5500 else 9500, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "gyroY"
     )
 
-    // Sunburst / Celestial Ray rotation for Epic & Legendary
     val rayRotation by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
-            animation = tween(12000, easing = LinearEasing),
+            animation = tween(14000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "ray_rot"
     )
 
     val corePulse by infiniteTransition.animateFloat(
-        initialValue = 0.8f,
-        targetValue = 1.25f,
+        initialValue = 0.85f,
+        targetValue = 1.2f,
         animationSpec = infiniteRepeatable(
             animation = tween(1400, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
@@ -367,14 +361,13 @@ fun DuolingoMysteryChestDialog(
 
     // Unboxing physics
     val boxScale = remember { Animatable(1f) }
-    val boxShake = remember { Animatable(0f) }
     val lidElevation = remember { Animatable(0f) }
     val flashAlpha = remember { Animatable(0f) }
     val shockwaveProgress = remember { Animatable(0f) }
     val shockwaveAlpha = remember { Animatable(0f) }
     val burstProgress = remember { Animatable(0f) }
-    val cardScale = remember { Animatable(0.7f) }
-    val cardOffsetY = remember { Animatable(120f) }
+    val cardScale = remember { Animatable(0.8f) }
+    val cardOffsetY = remember { Animatable(80f) }
 
     fun openVault() {
         if (isOpening || isRevealed) return
@@ -383,36 +376,36 @@ fun DuolingoMysteryChestDialog(
         coroutineScope.launch {
             GamificationHaptics.playLight(context)
 
-            // Determine Rarity with True Dynamic Probability
             val finalRarity = ChestRarity.rollRarity(initialRarity)
             wonRarity = finalRarity
 
-            // 1. Charge Up, Rapid Roulette Decryption & Tremor
+            // 1. Anticipation squash & energy resonance
             launch {
-                boxScale.animateTo(0.85f, animationSpec = tween(650, easing = FastOutSlowInEasing))
+                boxScale.animateTo(
+                    targetValue = 0.9f,
+                    animationSpec = tween(500, easing = FastOutSlowInEasing)
+                )
             }
+            
             launch {
-                // High frequency vibration tremor + Roulette cycling
                 val allTiers = listOf(ChestRarity.COMMON, ChestRarity.RARE, ChestRarity.EPIC, ChestRarity.LEGENDARY)
                 var elapsed = 0
                 var cycleIdx = 0
-                while (elapsed < 650) {
-                    boxShake.snapTo((Random.nextFloat() - 0.5f) * 14f)
-                    if (elapsed % 70 == 0) {
+                while (elapsed < 500) {
+                    if (elapsed % 80 == 0) {
                         displayedRarity = allTiers[cycleIdx % allTiers.size]
                         cycleIdx++
                         GamificationHaptics.playLight(context)
                     }
-                    delay(25)
-                    elapsed += 25
+                    delay(40)
+                    elapsed += 40
                 }
                 displayedRarity = finalRarity
-                boxShake.snapTo(0f)
             }
             
-            delay(650)
+            delay(520)
 
-            // 2. Detonation & Vault Fracture
+            // 2. Detonation, Lid Burst & Shockwave
             if (finalRarity == ChestRarity.LEGENDARY) {
                 GamificationHaptics.playCelebration(context)
             } else {
@@ -420,49 +413,49 @@ fun DuolingoMysteryChestDialog(
             }
 
             launch {
-                lidElevation.animateTo(1f, animationSpec = tween(300, easing = FastOutSlowInEasing))
-                boxScale.animateTo(0f, animationSpec = tween(250, easing = FastOutLinearInEasing))
+                lidElevation.animateTo(1f, animationSpec = spring(dampingRatio = 0.65f, stiffness = Spring.StiffnessMediumLow))
+                boxScale.animateTo(0f, animationSpec = tween(300, easing = FastOutSlowInEasing))
             }
 
             launch {
-                flashAlpha.snapTo(1f)
-                flashAlpha.animateTo(0f, animationSpec = tween(800, easing = FastOutSlowInEasing))
+                flashAlpha.snapTo(0.85f)
+                flashAlpha.animateTo(0f, animationSpec = tween(600, easing = FastOutSlowInEasing))
             }
 
             launch {
                 shockwaveProgress.snapTo(0f)
                 shockwaveAlpha.snapTo(1f)
-                shockwaveProgress.animateTo(1f, animationSpec = tween(700, easing = FastOutSlowInEasing))
-                shockwaveAlpha.animateTo(0f, animationSpec = tween(400, easing = LinearEasing))
+                shockwaveProgress.animateTo(1f, animationSpec = tween(650, easing = FastOutSlowInEasing))
+                shockwaveAlpha.animateTo(0f, animationSpec = tween(350, easing = LinearEasing))
             }
 
             launch {
                 burstProgress.snapTo(0f)
-                burstProgress.animateTo(1f, animationSpec = tween(900, easing = FastOutSlowInEasing))
+                burstProgress.animateTo(1f, animationSpec = tween(800, easing = FastOutSlowInEasing))
             }
 
-            // 3. Calculate Tier-Scaled Rewards with Weighted Chances
+            // 3. Rewards Calculation
             val currentFreezes = AptitudeManager.getStreakFreezesCount()
             val (baseXp, baseGold, freezeChance, maxFreezes) = when (finalRarity) {
                 ChestRarity.COMMON -> {
                     val xp = Random.nextInt(120, 260)
                     val gold = Random.nextInt(150, 320)
-                    Tuple4(xp, gold, 25, 1) // 25% freeze chance
+                    Tuple4(xp, gold, 25, 1)
                 }
                 ChestRarity.RARE -> {
                     val xp = Random.nextInt(320, 650)
                     val gold = Random.nextInt(400, 800)
-                    Tuple4(xp, gold, 60, 1) // 60% freeze chance
+                    Tuple4(xp, gold, 60, 1)
                 }
                 ChestRarity.EPIC -> {
                     val xp = Random.nextInt(800, 1600)
                     val gold = Random.nextInt(1000, 2200)
-                    Tuple4(xp, gold, 100, 1) // 100% Guaranteed Freeze
+                    Tuple4(xp, gold, 100, 1)
                 }
                 ChestRarity.LEGENDARY -> {
                     val xp = Random.nextInt(2500, 5000)
                     val gold = Random.nextInt(3000, 6000)
-                    Tuple4(xp, gold, 100, 2) // 100% Guaranteed Jackpot (+2 Freezes)
+                    Tuple4(xp, gold, 100, 2)
                 }
             }
 
@@ -486,7 +479,6 @@ fun DuolingoMysteryChestDialog(
                         ChestRarity.COMMON -> 100
                     }
                 } else {
-                    // Freeze inventory already full (3/3)
                     bonusGold = maxFreezes * when (finalRarity) {
                         ChestRarity.LEGENDARY -> 300
                         ChestRarity.EPIC -> 250
@@ -510,14 +502,15 @@ fun DuolingoMysteryChestDialog(
             )
             claimedReward = reward
 
+            delay(200)
             isRevealed = true
 
             // 4. Smooth Card Entrance with Spring Physics
             launch {
-                cardScale.animateTo(1f, animationSpec = spring(dampingRatio = 0.72f, stiffness = Spring.StiffnessMediumLow))
+                cardScale.animateTo(1f, animationSpec = spring(dampingRatio = 0.75f, stiffness = Spring.StiffnessMediumLow))
             }
             launch {
-                cardOffsetY.animateTo(0f, animationSpec = spring(dampingRatio = 0.72f, stiffness = Spring.StiffnessMediumLow))
+                cardOffsetY.animateTo(0f, animationSpec = spring(dampingRatio = 0.75f, stiffness = Spring.StiffnessMediumLow))
             }
         }
     }
@@ -566,7 +559,7 @@ fun DuolingoMysteryChestDialog(
                 val w = size.width
                 val h = size.height
                 val cx = w / 2
-                val cy = h * 0.45f
+                val cy = h * 0.42f
 
                 // Ambient drifting background stars
                 ambientParticles.forEach { p ->
@@ -582,7 +575,6 @@ fun DuolingoMysteryChestDialog(
                 // Tier-Specific Luxury Backdrops
                 when (activeRarity) {
                     ChestRarity.LEGENDARY -> {
-                        // 12 Rotating Solar God Rays
                         rotate(degrees = rayRotation, pivot = Offset(cx, cy)) {
                             val rayCount = 12
                             for (i in 0 until rayCount) {
@@ -612,7 +604,6 @@ fun DuolingoMysteryChestDialog(
                         }
                     }
                     ChestRarity.EPIC -> {
-                        // Pulsing Celestial Ring Nebulas
                         drawCircle(
                             brush = Brush.radialGradient(
                                 colors = listOf(
@@ -628,7 +619,6 @@ fun DuolingoMysteryChestDialog(
                         )
                     }
                     ChestRarity.RARE -> {
-                        // Aurora Light Waves
                         drawRect(
                             brush = Brush.verticalGradient(
                                 colors = listOf(
@@ -642,7 +632,6 @@ fun DuolingoMysteryChestDialog(
                         )
                     }
                     ChestRarity.COMMON -> {
-                        // Quantum Cyber Grid Glow
                         drawCircle(
                             brush = Brush.radialGradient(
                                 colors = listOf(
@@ -711,7 +700,7 @@ fun DuolingoMysteryChestDialog(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(24.dp),
+                        .padding(horizontal = 20.dp, vertical = 24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
@@ -720,60 +709,60 @@ fun DuolingoMysteryChestDialog(
                         text = if (isOpening) "⚡ DECRYPTING VAULT..." else "MYSTERY QUANTUM VAULT",
                         style = MaterialTheme.typography.labelMedium.copy(
                             fontWeight = FontWeight.Black,
-                            letterSpacing = 2.8.sp,
-                            fontSize = 12.sp
+                            letterSpacing = 2.4.sp,
+                            fontSize = 11.5.sp
                         ),
                         color = activeRarity.primaryColor
                     )
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
                         text = if (isOpening) "Rolling Odds & Tier Buffs" else "Tap To Unbox Core Rewards",
                         style = MaterialTheme.typography.headlineMedium.copy(
                             fontWeight = FontWeight.Black,
                             letterSpacing = (-0.5).sp,
-                            fontSize = 24.sp
+                            fontSize = 22.sp,
+                            textAlign = TextAlign.Center
                         ),
                         color = Color.White
                     )
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
 
                     // Dynamic Rarity & Odds Badge
                     Surface(
                         shape = RoundedCornerShape(20.dp),
                         color = activeRarity.primaryColor.copy(alpha = 0.15f),
                         border = BorderStroke(1.2.dp, activeRarity.primaryColor.copy(alpha = 0.6f)),
-                        modifier = Modifier.padding(bottom = 32.dp)
+                        modifier = Modifier.padding(bottom = 24.dp)
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 7.dp)
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
                         ) {
-                            Text(text = activeRarity.iconSymbol, fontSize = 14.sp)
-                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(text = activeRarity.iconSymbol, fontSize = 13.sp)
+                            Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = activeRarity.badgeLabel,
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontWeight = FontWeight.Black,
-                                    letterSpacing = 1.5.sp,
-                                    fontSize = 11.sp
+                                    letterSpacing = 1.2.sp,
+                                    fontSize = 10.5.sp
                                 ),
                                 color = activeRarity.primaryColor
                             )
                         }
                     }
 
-                    // 3D Vault Box Container with Hover & Shake
+                    // 3D Vault Box Container with Smooth Physics Hover
                     Box(
                         modifier = Modifier
                             .offset(
-                                x = boxShake.value.dp,
-                                y = (hoverOffset + if (isOpening) 15f else 0f).dp
+                                y = (hoverOffset + if (isOpening) 8f else 0f).dp
                             )
                             .scale(boxScale.value)
-                            .size(240.dp),
+                            .size(210.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Canvas(modifier = Modifier.fillMaxSize()) {
@@ -783,7 +772,7 @@ fun DuolingoMysteryChestDialog(
                             val cy = h / 2
 
                             // 1. Dynamic Ground Pedestal Shadow
-                            val shadowScale = (1f - (hoverOffset / 24f)).coerceIn(0.7f, 1.3f)
+                            val shadowScale = (1f - (hoverOffset / 20f)).coerceIn(0.7f, 1.3f)
                             drawOval(
                                 brush = Brush.radialGradient(
                                     colors = listOf(
@@ -845,7 +834,7 @@ fun DuolingoMysteryChestDialog(
                             )
 
                             // 4. 3D Isometric Obsidian Vault Body
-                            val lidOffsetPx = lidElevation.value * 40.dp.toPx()
+                            val lidOffsetPx = lidElevation.value * 35.dp.toPx()
 
                             val topPath = Path().apply {
                                 moveTo(cx, cy - h * 0.38f - lidOffsetPx)
@@ -892,9 +881,9 @@ fun DuolingoMysteryChestDialog(
                             )
 
                             // High-Tech Cybernetic Wireframe Highlights
-                            drawPath(topPath, Color.White.copy(alpha = 0.75f), style = Stroke(width = 2.dp.toPx()))
-                            drawPath(leftPath, Color.White.copy(alpha = 0.4f), style = Stroke(width = 1.5.dp.toPx()))
-                            drawPath(rightPath, Color.White.copy(alpha = 0.4f), style = Stroke(width = 1.5.dp.toPx()))
+                            drawPath(topPath, Color.White.copy(alpha = 0.75f), style = Stroke(width = 1.8.dp.toPx()))
+                            drawPath(leftPath, Color.White.copy(alpha = 0.4f), style = Stroke(width = 1.4.dp.toPx()))
+                            drawPath(rightPath, Color.White.copy(alpha = 0.4f), style = Stroke(width = 1.4.dp.toPx()))
 
                             // Laser Seam Lines
                             drawLine(
@@ -907,40 +896,41 @@ fun DuolingoMysteryChestDialog(
                             // Glowing Reactor Node at center
                             drawCircle(
                                 color = Color.White,
-                                radius = 4.dp.toPx(),
+                                radius = 3.5.dp.toPx(),
                                 center = Offset(cx, cy + h * 0.10f - lidOffsetPx)
                             )
                             drawCircle(
                                 color = activeRarity.primaryColor,
-                                radius = 9.dp.toPx() * corePulse,
+                                radius = 8.dp.toPx() * corePulse,
                                 center = Offset(cx, cy + h * 0.10f - lidOffsetPx),
-                                style = Stroke(width = 2.dp.toPx())
+                                style = Stroke(width = 1.8.dp.toPx())
                             )
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(32.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
 
                     // Bottom Call-to-action
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.padding(horizontal = 24.dp)
+                        modifier = Modifier.padding(horizontal = 16.dp)
                     ) {
                         Text(
                             text = if (isOpening) "DECRYPTING QUANTUM CORE..." else "TAP ANYWHERE TO UNBOX",
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.Black,
-                                letterSpacing = 2.5.sp,
-                                fontSize = 14.sp
+                                letterSpacing = 2.sp,
+                                fontSize = 13.5.sp
                             ),
                             color = if (isOpening) activeRarity.primaryColor else Color.White
                         )
-                        Spacer(modifier = Modifier.height(6.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Weighted Odds: Common 55% • Rare 28% • Epic 13% • Legendary 4%",
+                            text = "Common 55% • Rare 28% • Epic 13% • Legendary 4%",
                             style = MaterialTheme.typography.bodySmall.copy(
-                                fontSize = 11.5.sp,
-                                letterSpacing = 0.4.sp
+                                fontSize = 11.sp,
+                                letterSpacing = 0.3.sp,
+                                textAlign = TextAlign.Center
                             ),
                             color = Color(0xFF94A3B8)
                         )
@@ -949,21 +939,22 @@ fun DuolingoMysteryChestDialog(
             }
 
             // -----------------------------------------------------------------
-            // STAGE 2: VAULT REVEALED - LUXURY GLASS REWARD PEDESTAL
+            // STAGE 2: VAULT REVEALED - SCROLLABLE LUXURY GLASS REWARD PEDESTAL
             // -----------------------------------------------------------------
             AnimatedVisibility(
                 visible = isRevealed,
-                enter = fadeIn(animationSpec = tween(400)),
-                exit = fadeOut(animationSpec = tween(200)),
+                enter = fadeIn(animationSpec = tween(350)),
+                exit = fadeOut(animationSpec = tween(150)),
                 modifier = Modifier.align(Alignment.Center)
             ) {
                 claimedReward?.let { reward ->
                     Surface(
                         modifier = Modifier
-                            .fillMaxWidth(0.88f)
+                            .fillMaxWidth(0.92f)
+                            .padding(vertical = 16.dp)
                             .offset(y = cardOffsetY.value.dp)
                             .scale(cardScale.value),
-                        shape = RoundedCornerShape(28.dp),
+                        shape = RoundedCornerShape(26.dp),
                         color = Color(0xFF0C1322),
                         border = BorderStroke(
                             1.5.dp,
@@ -989,10 +980,12 @@ fun DuolingoMysteryChestDialog(
                                         )
                                     )
                                 )
-                                .padding(28.dp)
+                                .padding(horizontal = 20.dp, vertical = 22.dp)
                         ) {
                             Column(
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .verticalScroll(rememberScrollState()),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 // Decrypted Rarity Badge
@@ -1003,7 +996,7 @@ fun DuolingoMysteryChestDialog(
                                 ) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp)
                                     ) {
                                         Text(text = wonRarity.iconSymbol, fontSize = 13.sp)
                                         Spacer(modifier = Modifier.width(6.dp))
@@ -1011,32 +1004,33 @@ fun DuolingoMysteryChestDialog(
                                             text = wonRarity.badgeLabel,
                                             style = MaterialTheme.typography.labelSmall.copy(
                                                 fontWeight = FontWeight.Black,
-                                                letterSpacing = 1.5.sp,
-                                                fontSize = 11.sp
+                                                letterSpacing = 1.2.sp,
+                                                fontSize = 10.5.sp
                                             ),
                                             color = wonRarity.primaryColor
                                         )
                                     }
                                 }
 
-                                Spacer(modifier = Modifier.height(16.dp))
+                                Spacer(modifier = Modifier.height(12.dp))
 
                                 Text(
                                     text = if (wonRarity == ChestRarity.LEGENDARY) "Legendary Jackpot!" else "Rewards Claimed!",
                                     style = MaterialTheme.typography.headlineSmall.copy(
                                         fontWeight = FontWeight.Black,
-                                        fontSize = 24.sp,
-                                        letterSpacing = (-0.5).sp
+                                        fontSize = 22.sp,
+                                        letterSpacing = (-0.5).sp,
+                                        textAlign = TextAlign.Center
                                     ),
                                     color = if (wonRarity == ChestRarity.LEGENDARY) Color(0xFFFFD700) else Color.White
                                 )
 
-                                Spacer(modifier = Modifier.height(24.dp))
+                                Spacer(modifier = Modifier.height(18.dp))
 
                                 // Dual Stat Cards (XP & Gold)
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
                                     ModernRewardCard(
                                         modifier = Modifier.weight(1f),
@@ -1057,16 +1051,16 @@ fun DuolingoMysteryChestDialog(
 
                                 // Streak Freeze Drop
                                 if (reward.streakFreezeAwarded) {
-                                    Spacer(modifier = Modifier.height(14.dp))
+                                    Spacer(modifier = Modifier.height(12.dp))
                                     Surface(
-                                        shape = RoundedCornerShape(16.dp),
+                                        shape = RoundedCornerShape(14.dp),
                                         color = Color(0xFF10B981).copy(alpha = 0.12f),
                                         border = BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.35f)),
                                         modifier = Modifier.fillMaxWidth()
                                     ) {
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
-                                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
                                         ) {
                                             Text(
                                                 text = if (reward.freezesCount > 1) "👑" else "🛡️",
@@ -1078,29 +1072,30 @@ fun DuolingoMysteryChestDialog(
                                                     text = if (reward.freezesCount > 1) "+${reward.freezesCount} STREAK FREEZES (JACKPOT!)" else "+1 STREAK FREEZE",
                                                     style = MaterialTheme.typography.labelMedium.copy(
                                                         fontWeight = FontWeight.Black,
-                                                        letterSpacing = 1.sp
+                                                        letterSpacing = 0.8.sp,
+                                                        fontSize = 11.sp
                                                     ),
                                                     color = Color(0xFF34D399)
                                                 )
                                                 Text(
                                                     text = "Protects your streak from missed days",
-                                                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.5.sp),
+                                                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
                                                     color = Color(0xFF94A3B8)
                                                 )
                                             }
                                         }
                                     }
                                 } else if (reward.bonusGoldInsteadOfFreeze > 0) {
-                                    Spacer(modifier = Modifier.height(14.dp))
+                                    Spacer(modifier = Modifier.height(12.dp))
                                     Surface(
-                                        shape = RoundedCornerShape(16.dp),
+                                        shape = RoundedCornerShape(14.dp),
                                         color = Color(0xFFF59E0B).copy(alpha = 0.12f),
                                         border = BorderStroke(1.dp, Color(0xFFF59E0B).copy(alpha = 0.35f)),
                                         modifier = Modifier.fillMaxWidth()
                                     ) {
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
-                                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
                                         ) {
                                             Text(text = "💎", style = MaterialTheme.typography.titleMedium)
                                             Spacer(modifier = Modifier.width(10.dp))
@@ -1109,13 +1104,14 @@ fun DuolingoMysteryChestDialog(
                                                     text = "+${reward.bonusGoldInsteadOfFreeze} MAX VAULT BONUS",
                                                     style = MaterialTheme.typography.labelMedium.copy(
                                                         fontWeight = FontWeight.Black,
-                                                        letterSpacing = 1.sp
+                                                        letterSpacing = 0.8.sp,
+                                                        fontSize = 11.sp
                                                     ),
                                                     color = Color(0xFFFBBF24)
                                                 )
                                                 Text(
                                                     text = "Streak freezes full (3/3) - Converted to gold",
-                                                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.5.sp),
+                                                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
                                                     color = Color(0xFF94A3B8)
                                                 )
                                             }
@@ -1123,7 +1119,7 @@ fun DuolingoMysteryChestDialog(
                                     }
                                 }
 
-                                Spacer(modifier = Modifier.height(28.dp))
+                                Spacer(modifier = Modifier.height(20.dp))
 
                                 // Claim & Continue Action Button
                                 Button(
@@ -1134,8 +1130,8 @@ fun DuolingoMysteryChestDialog(
                                     },
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .height(52.dp),
-                                    shape = RoundedCornerShape(16.dp),
+                                        .height(48.dp),
+                                    shape = RoundedCornerShape(14.dp),
                                     colors = ButtonDefaults.buttonColors(
                                         containerColor = Color.Transparent
                                     ),
@@ -1158,8 +1154,8 @@ fun DuolingoMysteryChestDialog(
                                             text = "COLLECT ALL REWARDS",
                                             style = MaterialTheme.typography.titleSmall.copy(
                                                 fontWeight = FontWeight.Black,
-                                                letterSpacing = 1.2.sp,
-                                                fontSize = 13.sp
+                                                letterSpacing = 1.sp,
+                                                fontSize = 12.5.sp
                                             ),
                                             color = Color.White
                                         )
@@ -1185,23 +1181,23 @@ fun ModernRewardCard(
     modifier: Modifier = Modifier
 ) {
     Surface(
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(16.dp),
         color = Color(0xFF0F182A),
         border = BorderStroke(1.dp, accentColor.copy(alpha = 0.3f)),
         modifier = modifier
     ) {
         Column(
-            modifier = Modifier.padding(vertical = 16.dp, horizontal = 12.dp),
+            modifier = Modifier.padding(vertical = 14.dp, horizontal = 10.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(text = iconEmoji, fontSize = 20.sp)
-            Spacer(modifier = Modifier.height(6.dp))
+            Text(text = iconEmoji, fontSize = 18.sp)
+            Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = value,
                 style = MaterialTheme.typography.titleLarge.copy(
                     fontWeight = FontWeight.Black,
                     letterSpacing = (-0.5).sp,
-                    fontSize = 20.sp
+                    fontSize = 18.sp
                 ),
                 color = accentColor
             )
@@ -1210,8 +1206,8 @@ fun ModernRewardCard(
                 text = label,
                 style = MaterialTheme.typography.labelSmall.copy(
                     fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.sp,
-                    fontSize = 10.sp
+                    letterSpacing = 0.8.sp,
+                    fontSize = 9.5.sp
                 ),
                 color = Color(0xFF94A3B8)
             )

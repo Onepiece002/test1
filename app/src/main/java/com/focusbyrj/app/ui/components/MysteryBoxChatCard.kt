@@ -9,24 +9,26 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlin.math.cos
-import kotlin.math.sin
 
 @Composable
 fun MysteryBoxChatCard(
@@ -37,10 +39,10 @@ fun MysteryBoxChatCard(
     val infiniteTransition = rememberInfiniteTransition(label = "mystery_card_anim")
     
     val pulse by infiniteTransition.animateFloat(
-        initialValue = 0.85f,
+        initialValue = 0.88f,
         targetValue = 1.15f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1800, easing = FastOutSlowInEasing),
+            animation = tween(1600, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "pulse"
@@ -50,27 +52,17 @@ fun MysteryBoxChatCard(
         initialValue = 0f,
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
-            animation = tween(6000, easing = LinearEasing),
+            animation = tween(5000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "orbit_rot"
     )
 
-    val shimmerOffset by infiniteTransition.animateFloat(
-        initialValue = -1f,
-        targetValue = 2f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2800, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "shimmer"
-    )
-
     val hoverOffset by infiniteTransition.animateFloat(
-        initialValue = -4f,
-        targetValue = 4f,
+        initialValue = -3f,
+        targetValue = 3f,
         animationSpec = infiniteRepeatable(
-            animation = tween(2000, easing = FastOutSlowInEasing),
+            animation = tween(1800, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "card_box_hover"
@@ -83,22 +75,22 @@ fun MysteryBoxChatCard(
 
     Card(
         modifier = modifier
-            .fillMaxWidth(0.94f)
-            .padding(vertical = 8.dp),
-        shape = RoundedCornerShape(22.dp),
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF0B101B)
+            containerColor = Color(0xFF0C1322)
         ),
         border = BorderStroke(
-            1.dp,
+            1.2.dp,
             if (isAvailable) {
                 Brush.sweepGradient(
                     colors = listOf(
-                        primaryCyan.copy(alpha = 0.6f),
-                        royalIndigo.copy(alpha = 0.3f),
-                        deepPurple.copy(alpha = 0.7f),
-                        goldAccent.copy(alpha = 0.4f),
-                        primaryCyan.copy(alpha = 0.6f)
+                        primaryCyan.copy(alpha = 0.7f),
+                        royalIndigo.copy(alpha = 0.35f),
+                        deepPurple.copy(alpha = 0.8f),
+                        goldAccent.copy(alpha = 0.5f),
+                        primaryCyan.copy(alpha = 0.7f)
                     )
                 )
             } else {
@@ -107,7 +99,7 @@ fun MysteryBoxChatCard(
                 )
             }
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (isAvailable) 10.dp else 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isAvailable) 8.dp else 2.dp)
     ) {
         Box(
             modifier = Modifier
@@ -115,42 +107,42 @@ fun MysteryBoxChatCard(
                 .background(
                     Brush.radialGradient(
                         colors = listOf(
-                            if (isAvailable) primaryCyan.copy(alpha = 0.08f) else Color.Transparent,
-                            Color(0xFF0B101B)
+                            if (isAvailable) primaryCyan.copy(alpha = 0.12f) else Color.Transparent,
+                            Color(0xFF0C1322)
                         ),
-                        center = Offset(80f, 80f),
-                        radius = 400f
+                        center = Offset(100f, 60f),
+                        radius = 450f
                     )
                 )
                 .clickable(enabled = isAvailable, onClick = onOpenBox)
-                .padding(16.dp)
+                .padding(14.dp)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 // -------------------------------------------------------------
-                // 1. 3D QUANTUM VAULT ICON WITH ORBIT RINGS
+                // 1. 3D GLOWING QUANTUM VAULT ICON WITH ORBIT RING
                 // -------------------------------------------------------------
                 Box(
                     modifier = Modifier
-                        .size(68.dp)
-                        .clip(RoundedCornerShape(18.dp))
+                        .size(56.dp)
+                        .clip(RoundedCornerShape(16.dp))
                         .background(
                             Brush.verticalGradient(
-                                colors = listOf(Color(0xFF131B2E), Color(0xFF080C14))
+                                colors = listOf(Color(0xFF142038), Color(0xFF090F1C))
                             )
                         )
                         .border(
                             1.dp,
-                            if (isAvailable) primaryCyan.copy(alpha = 0.35f) else Color.White.copy(alpha = 0.08f),
-                            RoundedCornerShape(18.dp)
+                            if (isAvailable) primaryCyan.copy(alpha = 0.45f) else Color.White.copy(alpha = 0.08f),
+                            RoundedCornerShape(16.dp)
                         ),
                     contentAlignment = Alignment.Center
                 ) {
                     Canvas(
                         modifier = Modifier
-                            .size(54.dp)
+                            .size(46.dp)
                             .offset(y = if (isAvailable) hoverOffset.dp else 0.dp)
                     ) {
                         val w = size.width
@@ -164,13 +156,13 @@ fun MysteryBoxChatCard(
                                 drawOval(
                                     brush = Brush.linearGradient(
                                         colors = listOf(
-                                            primaryCyan.copy(alpha = 0.85f),
-                                            royalIndigo.copy(alpha = 0.1f),
-                                            deepPurple.copy(alpha = 0.75f)
+                                            primaryCyan.copy(alpha = 0.9f),
+                                            royalIndigo.copy(alpha = 0.15f),
+                                            deepPurple.copy(alpha = 0.85f)
                                         )
                                     ),
-                                    topLeft = Offset(cx - w * 0.42f, cy - h * 0.22f),
-                                    size = androidx.compose.ui.geometry.Size(w * 0.84f, h * 0.44f),
+                                    topLeft = Offset(cx - w * 0.44f, cy - h * 0.22f),
+                                    size = Size(w * 0.88f, h * 0.44f),
                                     style = Stroke(width = 1.6.dp.toPx())
                                 )
                             }
@@ -179,8 +171,8 @@ fun MysteryBoxChatCard(
                         // Core ambient glow
                         if (isAvailable) {
                             drawCircle(
-                                color = primaryCyan.copy(alpha = 0.25f * pulse),
-                                radius = w * 0.35f,
+                                color = primaryCyan.copy(alpha = 0.28f * pulse),
+                                radius = w * 0.38f,
                                 center = Offset(cx, cy)
                             )
                         }
@@ -193,24 +185,24 @@ fun MysteryBoxChatCard(
 
                         val topPath = Path().apply {
                             moveTo(cx, cy - h * 0.36f)
-                            lineTo(cx + w * 0.32f, cy - h * 0.14f)
+                            lineTo(cx + w * 0.34f, cy - h * 0.14f)
                             lineTo(cx, cy + h * 0.08f)
-                            lineTo(cx - w * 0.32f, cy - h * 0.14f)
+                            lineTo(cx - w * 0.34f, cy - h * 0.14f)
                             close()
                         }
 
                         val leftPath = Path().apply {
-                            moveTo(cx - w * 0.32f, cy - h * 0.14f)
+                            moveTo(cx - w * 0.34f, cy - h * 0.14f)
                             lineTo(cx, cy + h * 0.08f)
                             lineTo(cx, cy + h * 0.38f)
-                            lineTo(cx - w * 0.32f, cy + h * 0.16f)
+                            lineTo(cx - w * 0.34f, cy + h * 0.16f)
                             close()
                         }
 
                         val rightPath = Path().apply {
                             moveTo(cx, cy + h * 0.08f)
-                            lineTo(cx + w * 0.32f, cy - h * 0.14f)
-                            lineTo(cx + w * 0.32f, cy + h * 0.16f)
+                            lineTo(cx + w * 0.34f, cy - h * 0.14f)
+                            lineTo(cx + w * 0.34f, cy + h * 0.16f)
                             lineTo(cx, cy + h * 0.38f)
                             close()
                         }
@@ -220,9 +212,9 @@ fun MysteryBoxChatCard(
                         drawPath(rightPath, rightColor)
 
                         // Glowing Bevel Highlights
-                        drawPath(topPath, seamColor.copy(alpha = 0.5f), style = Stroke(width = 1.2.dp.toPx()))
-                        drawPath(leftPath, seamColor.copy(alpha = 0.3f), style = Stroke(width = 1.2.dp.toPx()))
-                        drawPath(rightPath, seamColor.copy(alpha = 0.3f), style = Stroke(width = 1.2.dp.toPx()))
+                        drawPath(topPath, seamColor.copy(alpha = 0.6f), style = Stroke(width = 1.2.dp.toPx()))
+                        drawPath(leftPath, seamColor.copy(alpha = 0.35f), style = Stroke(width = 1.2.dp.toPx()))
+                        drawPath(rightPath, seamColor.copy(alpha = 0.35f), style = Stroke(width = 1.2.dp.toPx()))
 
                         // Glowing Center Reactor Node
                         if (isAvailable) {
@@ -241,67 +233,87 @@ fun MysteryBoxChatCard(
                     }
                 }
 
-                Spacer(modifier = Modifier.width(14.dp))
+                Spacer(modifier = Modifier.width(12.dp))
 
                 // -------------------------------------------------------------
-                // 2. VAULT DETAILS & REWARDS TAGS
+                // 2. VAULT DETAILS & DESCRIPTIONS (Adaptive & Non-Truncating)
                 // -------------------------------------------------------------
-                Column(modifier = Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(bottom = 3.dp)
+                    ) {
                         Surface(
                             shape = RoundedCornerShape(6.dp),
-                            color = if (isAvailable) primaryCyan.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.08f)
+                            color = if (isAvailable) primaryCyan.copy(alpha = 0.18f) else Color.White.copy(alpha = 0.08f),
+                            border = BorderStroke(0.8.dp, if (isAvailable) primaryCyan.copy(alpha = 0.4f) else Color.Transparent)
                         ) {
-                            Text(
-                                text = if (isAvailable) "⚡ READY TO UNLOCK" else "✓ CLAIMED",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontWeight = FontWeight.Black,
-                                    fontSize = 9.sp,
-                                    letterSpacing = 1.sp
-                                ),
-                                color = if (isAvailable) primaryCyan else Color(0xFF94A3B8),
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
+                            ) {
+                                if (isAvailable) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(5.dp)
+                                            .clip(CircleShape)
+                                            .background(primaryCyan)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                }
+                                Text(
+                                    text = if (isAvailable) "READY TO UNLOCK" else "CLAIMED",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 9.sp,
+                                        letterSpacing = 0.8.sp
+                                    ),
+                                    color = if (isAvailable) primaryCyan else Color(0xFF94A3B8)
+                                )
+                            }
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(4.dp))
-
                     Text(
                         text = if (isAvailable) "Quantum Mystery Vault" else "Daily Vault Claimed",
-                        style = MaterialTheme.typography.titleMedium.copy(
+                        style = MaterialTheme.typography.titleSmall.copy(
                             fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp,
+                            fontSize = 14.5.sp,
                             letterSpacing = (-0.2).sp
                         ),
-                        color = Color.White
+                        color = Color.White,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
 
-                    Spacer(modifier = Modifier.height(3.dp))
+                    Spacer(modifier = Modifier.height(2.dp))
 
                     Text(
-                        text = if (isAvailable) "Tap to unbox XP, Gold & Streak Freezes" else "New drop available tomorrow",
+                        text = if (isAvailable) "Unbox XP, Gold & Streak Freezes" else "New drop available tomorrow",
                         style = MaterialTheme.typography.bodySmall.copy(
-                            fontSize = 11.5.sp,
+                            fontSize = 11.sp,
+                            lineHeight = 14.sp,
                             color = if (isAvailable) Color(0xFF94A3B8) else Color(0xFF64748B)
-                        )
+                        ),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
 
-                Spacer(modifier = Modifier.width(10.dp))
+                Spacer(modifier = Modifier.width(8.dp))
 
                 // -------------------------------------------------------------
-                // 3. UNLOCK ACTION BUTTON
+                // 3. ACTION BUTTON / STATUS INDICATOR
                 // -------------------------------------------------------------
                 if (isAvailable) {
                     Surface(
                         shape = RoundedCornerShape(12.dp),
                         color = Color.Transparent,
                         border = BorderStroke(
-                            1.2.dp,
-                            Brush.linearGradient(
-                                listOf(primaryCyan, royalIndigo)
-                            )
+                            1.dp,
+                            Brush.linearGradient(listOf(primaryCyan, royalIndigo))
                         ),
                         modifier = Modifier.clip(RoundedCornerShape(12.dp))
                     ) {
@@ -310,28 +322,53 @@ fun MysteryBoxChatCard(
                                 .background(
                                     Brush.horizontalGradient(
                                         colors = listOf(
-                                            primaryCyan.copy(alpha = 0.22f),
-                                            royalIndigo.copy(alpha = 0.28f)
+                                            primaryCyan.copy(alpha = 0.25f),
+                                            royalIndigo.copy(alpha = 0.35f)
                                         )
                                     )
                                 )
-                                .padding(horizontal = 14.dp, vertical = 9.dp),
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = "UNLOCK",
-                                style = MaterialTheme.typography.labelMedium.copy(
-                                    fontWeight = FontWeight.Black,
-                                    letterSpacing = 1.sp,
-                                    fontSize = 11.sp
-                                ),
-                                color = Color.White
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(
+                                    text = "OPEN",
+                                    style = MaterialTheme.typography.labelMedium.copy(
+                                        fontWeight = FontWeight.Black,
+                                        letterSpacing = 0.8.sp,
+                                        fontSize = 11.sp
+                                    ),
+                                    color = Color.White
+                                )
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                    contentDescription = "Open",
+                                    tint = primaryCyan,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                            }
                         }
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.08f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = "Claimed",
+                            tint = Color(0xFF34D399),
+                            modifier = Modifier.size(16.dp)
+                        )
                     }
                 }
             }
         }
     }
 }
-
