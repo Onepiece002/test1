@@ -62,10 +62,12 @@ class AudioMemoManager(private val context: Context) {
     private val scope = CoroutineScope(Dispatchers.Main)
     private val accumulatedTranscript = StringBuilder()
     private var onTranscriptCallback: ((String) -> Unit)? = null
+    private var consecutiveSpeechErrors = 0
 
     fun startRecording(onTranscriptUpdate: (String) -> Unit = {}) {
         stopPlayback()
         cancelRecording()
+        consecutiveSpeechErrors = 0
 
         try {
             val audioDir = File(context.filesDir, "keep_audio").apply { if (!exists()) mkdirs() }
@@ -155,17 +157,24 @@ class AudioMemoManager(private val context: Context) {
                     override fun onBufferReceived(buffer: ByteArray?) {}
                     override fun onEndOfSpeech() {}
                     override fun onError(error: Int) {
+                        consecutiveSpeechErrors++
+                        if (error == SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS ||
+                            error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY ||
+                            consecutiveSpeechErrors >= 3) {
+                            return
+                        }
                         // In Android SpeechRecognizer, brief silences or timeouts trigger onError.
                         // Seamlessly restart recognition if user is still actively recording.
                         if (_recordingState.value.isRecording) {
                             scope.launch(Dispatchers.Main) {
-                                delay(200)
+                                delay(300)
                                 startSpeechRecognitionSession()
                             }
                         }
                     }
 
                     override fun onResults(results: Bundle?) {
+                        consecutiveSpeechErrors = 0
                         val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                         val text = matches?.firstOrNull()?.trim() ?: ""
                         if (text.isNotBlank()) {
@@ -449,6 +458,21 @@ class AudioMemoManager(private val context: Context) {
                 durationStr?.toLongOrNull() ?: 0L
             } catch (_: Exception) {
                 0L
+            }
+        }
+
+        fun copyAudioFile(context: Context, originalPath: String): String? {
+            return try {
+                val src = File(originalPath)
+                if (!src.exists()) return null
+                val audioDir = File(context.filesDir, "keep_audio").apply { if (!exists()) mkdirs() }
+                val ext = src.extension.ifEmpty { "m4a" }
+                val dest = File(audioDir, "audio_${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(6)}.$ext")
+                src.copyTo(dest, overwrite = true)
+                dest.absolutePath
+            } catch (e: Exception) {
+                e.printStackTrace()
+                null
             }
         }
     }

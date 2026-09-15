@@ -674,7 +674,12 @@ object HabitFloatingOverlayManager {
                         val xpReward = if (isGoalMet) 35 else 15
                         val goldReward = if (isGoalMet) 20 else 5
                         com.focusbyrj.app.util.FocusEconomyManager.addRewards(xpReward, goldReward)
-                        HabitAlarmScheduler.scheduleHabitReminder(context, habit)
+                        HabitAlarmScheduler.scheduleHabitReminder(
+                            context,
+                            habit,
+                            updatedLog.lastCompletedTimestamp,
+                            isGoalCompletedToday = isGoalMet
+                        )
                     } catch (e: Exception) {
                         e.printStackTrace()
                     }

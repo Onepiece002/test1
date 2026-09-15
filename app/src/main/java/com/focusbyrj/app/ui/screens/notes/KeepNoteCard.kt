@@ -94,7 +94,7 @@ import java.util.Locale
 fun KeepNoteCard(
     note: NoteEntity,
     onClick: () -> Unit,
-    onTogglePin: () -> Unit,
+    onTogglePin: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     isSelected: Boolean = false,
     isSelectionMode: Boolean = false,
@@ -247,7 +247,7 @@ fun KeepNoteCard(
                     Spacer(modifier = Modifier.weight(1f))
                 }
 
-                if (note.isPinned) {
+                if (note.isPinned && onTogglePin != null) {
                     IconButton(
                         onClick = onTogglePin,
                         modifier = Modifier
@@ -349,49 +349,14 @@ fun KeepNoteCard(
                 }
             }
 
-            // Labels and Reminder Badges
+            // Labels Badges
             val labels = note.getLabels()
-            if (labels.isNotEmpty() || note.reminderTimestamp != null) {
+            if (labels.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(10.dp))
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    if (note.reminderTimestamp != null) {
-                        val reminderFormatted = remember(note.reminderTimestamp) {
-                            val sdf = SimpleDateFormat("MMM d, h:mm a", Locale.getDefault())
-                            sdf.format(Date(note.reminderTimestamp))
-                        }
-                        val isOverdue = note.reminderTimestamp < System.currentTimeMillis()
-
-                        Surface(
-                            shape = CircleShape,
-                            color = if (isOverdue) textColor.copy(alpha = 0.05f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                            border = BorderStroke(0.6.dp, if (isOverdue) textColor.copy(alpha = 0.15f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.Notifications,
-                                    contentDescription = "Reminder",
-                                    tint = if (isOverdue) textColor.copy(alpha = 0.5f) else MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(12.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = reminderFormatted,
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Medium
-                                    ),
-                                    color = if (isOverdue) textColor.copy(alpha = 0.6f) else MaterialTheme.colorScheme.primary
-                                )
-                            }
-                        }
-                    }
-
                     labels.forEach { label ->
                         Surface(
                             shape = CircleShape,

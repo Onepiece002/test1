@@ -54,14 +54,19 @@ object HabitAlarmScheduler {
         return (500_000L + (habitId % 400_000L)).toInt()
     }
 
-    fun scheduleHabitReminder(context: Context, habit: Habit, lastCompletedTimestamp: Long? = null) {
+    fun scheduleHabitReminder(
+        context: Context,
+        habit: Habit,
+        lastCompletedTimestamp: Long? = null,
+        isGoalCompletedToday: Boolean = false
+    ) {
         if (!habit.isReminderEnabled || habit.isArchived) {
             cancelHabitReminder(context, habit.id)
             return
         }
 
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
-        val nextTriggerTime = calculateNextTriggerTime(habit, lastCompletedTimestamp) ?: return
+        val nextTriggerTime = calculateNextTriggerTime(habit, lastCompletedTimestamp, isGoalCompletedToday) ?: return
 
         val pendingIntent = getPendingIntent(context, habit.id, getRequestCode(habit.id))
 
@@ -144,7 +149,11 @@ object HabitAlarmScheduler {
     /**
      * Computes next timestamp in epoch milliseconds.
      */
-    fun calculateNextTriggerTime(habit: Habit, lastCompletedTimestamp: Long? = null): Long? {
+    fun calculateNextTriggerTime(
+        habit: Habit,
+        lastCompletedTimestamp: Long? = null,
+        isGoalCompletedToday: Boolean = false
+    ): Long? {
         val now = System.currentTimeMillis()
 
         return when (habit.type) {
@@ -155,7 +164,7 @@ object HabitAlarmScheduler {
                     set(Calendar.SECOND, 0)
                     set(Calendar.MILLISECOND, 0)
                 }
-                if (cal.timeInMillis <= now) {
+                if (cal.timeInMillis <= now || isGoalCompletedToday) {
                     cal.add(Calendar.DAY_OF_YEAR, 1)
                 }
                 cal.timeInMillis
@@ -179,6 +188,25 @@ object HabitAlarmScheduler {
                 val intervalMs = (habit.totalIntervalMinutes.coerceAtLeast(5) * 60 * 1000L)
                 val isOvernight = habit.windowEndHour < habit.windowStartHour ||
                         (habit.windowEndHour == habit.windowStartHour && habit.windowEndMinute <= habit.windowStartMinute)
+
+                // If daily goal is already achieved today, roll over to the next day's active window start
+                if (isGoalCompletedToday) {
+                    if (!isOvernight) {
+                        todayStartCal.add(Calendar.DAY_OF_YEAR, 1)
+                        return todayStartCal.timeInMillis
+                    } else {
+                        val tomorrowStart = Calendar.getInstance().apply {
+                            if (now >= todayStartCal.timeInMillis) {
+                                add(Calendar.DAY_OF_YEAR, 1)
+                            }
+                            set(Calendar.HOUR_OF_DAY, habit.windowStartHour)
+                            set(Calendar.MINUTE, habit.windowStartMinute)
+                            set(Calendar.SECOND, 0)
+                            set(Calendar.MILLISECOND, 0)
+                        }
+                        return tomorrowStart.timeInMillis
+                    }
+                }
 
                 // If user logged recently within today's window, anchor next interval from that completion
                 val anchorTime = if (lastCompletedTimestamp != null && lastCompletedTimestamp in (now - intervalMs)..now) {

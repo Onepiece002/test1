@@ -25,9 +25,10 @@ import java.util.*
 
 class HabitRepository(private val habitDao: HabitDao) {
 
-    private val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+    private val dateFormatLocal = ThreadLocal.withInitial { SimpleDateFormat("yyyy-MM-dd", Locale.US) }
+    private fun getDateFormat(): SimpleDateFormat = dateFormatLocal.get() ?: SimpleDateFormat("yyyy-MM-dd", Locale.US)
 
-    fun getTodayDateString(): String = dateFormat.format(Date())
+    fun getTodayDateString(): String = getDateFormat().format(Date())
 
     fun getAllActiveHabits(): Flow<List<Habit>> = habitDao.getAllActiveHabits()
 
@@ -37,9 +38,10 @@ class HabitRepository(private val habitDao: HabitDao) {
         val list = mutableListOf<Pair<String, String>>()
         val dayLetters = listOf("S", "M", "T", "W", "T", "F", "S")
         val cal = Calendar.getInstance()
+        val df = getDateFormat()
         cal.add(Calendar.DAY_OF_YEAR, -6)
         for (i in 0 until 7) {
-            val dateStr = dateFormat.format(cal.time)
+            val dateStr = df.format(cal.time)
             val dayOfWeek = cal.get(Calendar.DAY_OF_WEEK) // 1 = Sunday, 2 = Monday, ...
             val letter = dayLetters[(dayOfWeek - 1).coerceIn(0, 6)]
             list.add(Pair(dateStr, letter))
@@ -219,7 +221,8 @@ class HabitRepository(private val habitDao: HabitDao) {
         }
 
         val calendar = Calendar.getInstance()
-        val todayStr = dateFormat.format(calendar.time)
+        val df = getDateFormat()
+        val todayStr = df.format(calendar.time)
 
         // Calculate current streak
         var currentStreak = 0
@@ -228,14 +231,14 @@ class HabitRepository(private val habitDao: HabitDao) {
         if (isTodayCompleted) {
             currentStreak++
             calendar.add(Calendar.DAY_OF_YEAR, -1)
-            while (completedDates.contains(dateFormat.format(calendar.time))) {
+            while (completedDates.contains(df.format(calendar.time))) {
                 currentStreak++
                 calendar.add(Calendar.DAY_OF_YEAR, -1)
             }
         } else {
             // Check if yesterday was completed (streak alive, but today pending)
             calendar.add(Calendar.DAY_OF_YEAR, -1)
-            while (completedDates.contains(dateFormat.format(calendar.time))) {
+            while (completedDates.contains(df.format(calendar.time))) {
                 currentStreak++
                 calendar.add(Calendar.DAY_OF_YEAR, -1)
             }
@@ -243,7 +246,7 @@ class HabitRepository(private val habitDao: HabitDao) {
 
         // Calculate best streak historically
         val sortedDates = completedDates.mapNotNull {
-            try { dateFormat.parse(it) } catch (e: Exception) { null }
+            try { df.parse(it) } catch (e: Exception) { null }
         }.sorted()
 
         var bestStreak = 0

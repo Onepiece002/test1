@@ -36,7 +36,6 @@ data class NoteEntity(
     val isArchived: Boolean = false,
     val isTrashed: Boolean = false,
     val labelsJson: String = "[]",
-    val reminderTimestamp: Long? = null,
     val imageUrisJson: String = "[]",
     val audioUrisJson: String = "[]",
     val createdAt: Long = System.currentTimeMillis(),
@@ -118,6 +117,7 @@ data class NoteEntity(
         if (title.isNotBlank()) return false
         if (getImageUris().isNotEmpty()) return false
         if (getAudioUris().isNotEmpty()) return false
+        if (getLabels().isNotEmpty()) return false
         if (isChecklist) {
             val items = getChecklistItems()
             return items.none { it.text.isNotBlank() }

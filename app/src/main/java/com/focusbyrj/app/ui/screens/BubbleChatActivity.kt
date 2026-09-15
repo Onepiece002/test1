@@ -75,6 +75,7 @@ import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.withStyle
 import android.content.pm.PackageManager
+import com.airbnb.lottie.RenderMode
 import com.airbnb.lottie.compose.LottieAnimation
 import com.airbnb.lottie.compose.LottieCompositionSpec
 import com.airbnb.lottie.compose.LottieConstants
@@ -2043,13 +2044,26 @@ fun ChatInterface() {
                             .padding(horizontal = 16.dp),
                         reverseLayout = true
                     ) {
+                        val isScrolling = listState.isScrollInProgress
                         item(key = "cat_bottom_spacer") {
                             Spacer(modifier = Modifier.height(catSpacerHeight))
                         }
                         items(
                             count = reversedMessages.size,
                             key = { index -> reversedMessages[index].id },
-                            contentType = { index -> if (reversedMessages[index].isUser) "user_msg" else "ayva_msg" }
+                            contentType = { index ->
+                                val m = reversedMessages[index]
+                                when {
+                                    m.isUser -> "user_msg"
+                                    m.isMorningBrief || m.id.startsWith("morning_") -> "morning_brief"
+                                    m.isEveningBrief || m.id.startsWith("evening_") -> "evening_brief"
+                                    m.isVocabBrief -> "vocab_brief"
+                                    m.isArithmetic -> "arithmetic_msg"
+                                    m.isHabitsSummary -> "habits_msg"
+                                    m.isTaskSummary -> "task_msg"
+                                    else -> "text_msg"
+                                }
+                            }
                         ) { index ->
                             val msg = reversedMessages[index]
                             val isLatest = index == 0
@@ -2064,6 +2078,7 @@ fun ChatInterface() {
                             ChatBubble(
                                 message = msg, 
                                 fontSizeSp = chatFontSizeSp,
+                                isScrolling = isScrolling,
                                 isActiveDrill = isActiveDrill,
                                 isActiveDrillRunning = activeDrillSession != null,
                                 currentCombo = currentCombo,
@@ -2197,10 +2212,8 @@ fun ChatInterface() {
                                 sendMessage(cmd)
                             },
                             onHabitLog = { habitId ->
-                                coroutineScope.launch(Dispatchers.IO) {
-                                    val app = context.applicationContext as com.focusbyrj.app.FocusApplication
-                                    app.habitRepository.incrementHabitProgress(habitId)
-                                }
+                                // Habit progress already incremented and rewards awarded in HabitsChatCard
+                                com.focusbyrj.app.util.GamificationHaptics.playLight(context)
                             }
                         )
                         Spacer(modifier = Modifier.height(8.dp))
@@ -2518,11 +2531,18 @@ fun ChatInterface() {
         }
 
         if (showMysteryChestDialog) {
+            val qState = com.focusbyrj.app.util.DailyQuestManager.stateFlow.value
+            val baseRarity = if (qState.isNightOwlAvailable) {
+                com.focusbyrj.app.ui.components.ChestRarity.RARE
+            } else {
+                com.focusbyrj.app.ui.components.ChestRarity.COMMON
+            }
             com.focusbyrj.app.ui.components.DuolingoMysteryChestDialog(
-                initialRarity = com.focusbyrj.app.ui.components.ChestRarity.COMMON,
+                initialRarity = baseRarity,
                 onDismiss = { showMysteryChestDialog = false },
                 onClaimed = {
                     showMysteryChestDialog = false
+                    com.focusbyrj.app.util.DailyQuestManager.refreshState()
                 }
             )
         }
@@ -2674,6 +2694,7 @@ fun ChatTextSizeDialog(
 fun ChatBubble(
     message: ChatMessage, 
     fontSizeSp: Float = 15f,
+    isScrolling: Boolean = false,
     isActiveDrill: Boolean = false,
     isActiveDrillRunning: Boolean = false,
     currentCombo: Int = 0,
@@ -2707,9 +2728,14 @@ fun ChatBubble(
         return
     }
     if (message.isMysteryBox) {
+        val questState by com.focusbyrj.app.util.DailyQuestManager.stateFlow.collectAsState()
+        val isChestAvailable = questState.isEarlyBirdAvailable || questState.isNightOwlAvailable
         com.focusbyrj.app.ui.components.MysteryBoxChatCard(
+            isAvailable = isChestAvailable,
             onOpenBox = {
-                onOpenMysteryChest?.invoke()
+                if (isChestAvailable) {
+                    onOpenMysteryChest?.invoke()
+                }
             }
         )
         return
@@ -2861,7 +2887,8 @@ fun ChatBubble(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(135.dp)
-                                    .padding(bottom = 10.dp)
+                                    .padding(bottom = 10.dp),
+                                isScrolling = isScrolling
                             )
                         } else if (isEvening && !message.isUser) {
                             EveningBriefHeader(
@@ -2869,19 +2896,24 @@ fun ChatBubble(
                                     .fillMaxWidth()
                                     .height(135.dp)
                                     .padding(bottom = 10.dp),
-                                messageId = message.id
+                                messageId = message.id,
+                                isScrolling = isScrolling
                             )
                         } else if (message.isStreakFreezeSkipped && !message.isUser) {
                             CatAngryLottieHeader(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(140.dp)
-                                    .padding(bottom = 10.dp)
+                                    .padding(bottom = 10.dp),
+                                isScrolling = isScrolling
                             )
                         }
 
+                        val parsedFormattedText = remember(message.text) {
+                            parseRichFormattedText(message.text)
+                        }
                         Text(
-                            text = parseRichFormattedText(message.text),
+                            text = parsedFormattedText,
                             style = androidx.compose.material3.MaterialTheme.typography.bodyMedium.copy(
                                 fontSize = fontSizeSp.sp,
                                 lineHeight = (fontSizeSp * 1.45f).sp,
@@ -3935,14 +3967,17 @@ fun CatActionLottieView(
 
 @Composable
 fun MorningBriefLottieHeader(
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isScrolling: Boolean = false
 ) {
     val composition by rememberLottieComposition(
         LottieCompositionSpec.Asset("cat_morning.lottie")
     )
     val progress by animateLottieCompositionAsState(
         composition = composition,
-        iterations = LottieConstants.IterateForever
+        isPlaying = !isScrolling,
+        iterations = LottieConstants.IterateForever,
+        restartOnPlay = false
     )
 
     Box(
@@ -3962,7 +3997,8 @@ fun MorningBriefLottieHeader(
         LottieAnimation(
             composition = composition,
             progress = { progress },
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize(),
+            renderMode = RenderMode.HARDWARE
         )
     }
 }
@@ -3970,21 +4006,25 @@ fun MorningBriefLottieHeader(
 @Composable
 fun EveningBriefHeader(
     modifier: Modifier = Modifier,
-    messageId: String? = null
+    messageId: String? = null,
+    isScrolling: Boolean = false
 ) {
-    EveningBriefLottieHeader(modifier = modifier)
+    EveningBriefLottieHeader(modifier = modifier, isScrolling = isScrolling)
 }
 
 @Composable
 fun EveningBriefLottieHeader(
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isScrolling: Boolean = false
 ) {
     val composition by rememberLottieComposition(
         LottieCompositionSpec.Asset("cat_evening.lottie")
     )
     val progress by animateLottieCompositionAsState(
         composition = composition,
-        iterations = LottieConstants.IterateForever
+        isPlaying = !isScrolling,
+        iterations = LottieConstants.IterateForever,
+        restartOnPlay = false
     )
 
     Box(
@@ -4004,21 +4044,25 @@ fun EveningBriefLottieHeader(
         LottieAnimation(
             composition = composition,
             progress = { progress },
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize(),
+            renderMode = RenderMode.HARDWARE
         )
     }
 }
 
 @Composable
 fun CatAngryLottieHeader(
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isScrolling: Boolean = false
 ) {
     val composition by rememberLottieComposition(
         LottieCompositionSpec.Asset("cat_angry.lottie")
     )
     val progress by animateLottieCompositionAsState(
         composition = composition,
-        iterations = LottieConstants.IterateForever
+        isPlaying = !isScrolling,
+        iterations = LottieConstants.IterateForever,
+        restartOnPlay = false
     )
 
     Box(
@@ -4038,7 +4082,8 @@ fun CatAngryLottieHeader(
         LottieAnimation(
             composition = composition,
             progress = { progress },
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize(),
+            renderMode = RenderMode.HARDWARE
         )
     }
 }

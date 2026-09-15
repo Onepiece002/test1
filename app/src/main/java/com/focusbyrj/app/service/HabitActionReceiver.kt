@@ -105,8 +105,13 @@ class HabitActionReceiver : BroadcastReceiver() {
                             notificationManager.notify(notificationId, updatedNotification)
                         }
 
-                        // Reschedule next reminder for interval habit or next day for once daily
-                        HabitAlarmScheduler.scheduleHabitReminder(appContext, habit, updatedLog.lastCompletedTimestamp)
+                        // Reschedule next reminder for interval habit or next day if goal is completed
+                        HabitAlarmScheduler.scheduleHabitReminder(
+                            appContext,
+                            habit,
+                            updatedLog.lastCompletedTimestamp,
+                            isGoalCompletedToday = isGoalMet
+                        )
                     }
 
                     ACTION_SNOOZE_HABIT -> {

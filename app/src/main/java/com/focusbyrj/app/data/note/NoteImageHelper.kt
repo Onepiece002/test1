@@ -20,6 +20,8 @@ package com.focusbyrj.app.data.note
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Matrix
+import android.media.ExifInterface
 import android.net.Uri
 import java.io.File
 import java.io.FileOutputStream
@@ -32,7 +34,20 @@ object NoteImageHelper {
             val imagesDir = File(context.filesDir, "keep_images").apply { if (!exists()) mkdirs() }
             val outputFile = File(imagesDir, "img_${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(6)}.jpg")
 
-            // 1. Decode bounds only to calculate sample size
+            // 1. Read EXIF orientation before decoding
+            val orientation = try {
+                context.contentResolver.openInputStream(contentUri)?.use { input ->
+                    val exif = ExifInterface(input)
+                    exif.getAttributeInt(
+                        ExifInterface.TAG_ORIENTATION,
+                        ExifInterface.ORIENTATION_NORMAL
+                    )
+                } ?: ExifInterface.ORIENTATION_NORMAL
+            } catch (_: Exception) {
+                ExifInterface.ORIENTATION_NORMAL
+            }
+
+            // 2. Decode bounds only to calculate sample size
             val boundsOptions = BitmapFactory.Options().apply {
                 inJustDecodeBounds = true
             }
@@ -53,22 +68,70 @@ object NoteImageHelper {
                 }
             }
 
-            // 2. Decode bitmap with inSampleSize
+            // 3. Decode bitmap with inSampleSize
             val decodeOptions = BitmapFactory.Options().apply {
                 inSampleSize = sampleSize
                 inPreferredConfig = Bitmap.Config.ARGB_8888
             }
-            val bitmap = context.contentResolver.openInputStream(contentUri)?.use { input ->
+            val rawBitmap = context.contentResolver.openInputStream(contentUri)?.use { input ->
                 BitmapFactory.decodeStream(input, null, decodeOptions)
             } ?: return null
 
-            // 3. Save as high-quality compressed JPEG (85%)
-            FileOutputStream(outputFile).use { out ->
-                bitmap.compress(Bitmap.CompressFormat.JPEG, 85, out)
+            // 4. Adjust orientation if required
+            val orientedBitmap = when (orientation) {
+                ExifInterface.ORIENTATION_ROTATE_90 -> rotateBitmap(rawBitmap, 90f)
+                ExifInterface.ORIENTATION_ROTATE_180 -> rotateBitmap(rawBitmap, 180f)
+                ExifInterface.ORIENTATION_ROTATE_270 -> rotateBitmap(rawBitmap, 270f)
+                ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> flipBitmap(rawBitmap, horizontal = true)
+                ExifInterface.ORIENTATION_FLIP_VERTICAL -> flipBitmap(rawBitmap, horizontal = false)
+                else -> rawBitmap
             }
-            bitmap.recycle()
+
+            // 5. Save as high-quality compressed JPEG (85%)
+            FileOutputStream(outputFile).use { out ->
+                orientedBitmap.compress(Bitmap.CompressFormat.JPEG, 85, out)
+            }
+            if (orientedBitmap != rawBitmap) {
+                rawBitmap.recycle()
+            }
+            orientedBitmap.recycle()
 
             outputFile.absolutePath
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    private fun rotateBitmap(src: Bitmap, degrees: Float): Bitmap {
+        return try {
+            val matrix = Matrix().apply { postRotate(degrees) }
+            Bitmap.createBitmap(src, 0, 0, src.width, src.height, matrix, true)
+        } catch (_: Exception) {
+            src
+        }
+    }
+
+    private fun flipBitmap(src: Bitmap, horizontal: Boolean): Bitmap {
+        return try {
+            val matrix = Matrix().apply {
+                postScale(if (horizontal) -1f else 1f, if (horizontal) 1f else -1f)
+            }
+            Bitmap.createBitmap(src, 0, 0, src.width, src.height, matrix, true)
+        } catch (_: Exception) {
+            src
+        }
+    }
+
+    fun copyImageFile(context: Context, originalPath: String): String? {
+        return try {
+            val src = File(originalPath)
+            if (!src.exists()) return null
+            val imagesDir = File(context.filesDir, "keep_images").apply { if (!exists()) mkdirs() }
+            val ext = src.extension.ifEmpty { "jpg" }
+            val dest = File(imagesDir, "img_${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(6)}.$ext")
+            src.copyTo(dest, overwrite = true)
+            dest.absolutePath
         } catch (e: Exception) {
             e.printStackTrace()
             null

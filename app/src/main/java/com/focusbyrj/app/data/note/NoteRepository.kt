@@ -54,6 +54,10 @@ class NoteRepository(private val noteDao: NoteDao) {
         noteDao.updatePinStatus(id, !currentPinned)
     }
 
+    suspend fun setPinned(id: Long, isPinned: Boolean) {
+        noteDao.updatePinStatus(id, isPinned)
+    }
+
     suspend fun setArchived(id: Long, isArchived: Boolean) {
         noteDao.updateArchiveStatus(id, isArchived)
     }

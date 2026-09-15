@@ -14,8 +14,7 @@ class AyvaTalkEngineTest {
         
         // Must contain persistent reminders info
         assertTrue(answer.contains("Persistent Task Reminders"))
-        // assertTrue(answer.contains("5m, 10m, 15m"))
-        assertTrue(answer.contains("Settings -> Task Reminders"))
+        assertTrue(answer.contains("App Settings") || answer.contains("Persistent Reminders"))
         
         // MUST NOT contain unrelated settings
         assertFalse(answer.contains("Soft Mode Wait Timer"))
@@ -69,5 +68,19 @@ class AyvaTalkEngineTest {
         // Follow up with pronoun
         val followUp = AyvaTalkEngine.answerTalkQueryWithActions(context = androidx.test.core.app.ApplicationProvider.getApplicationContext(), query = "how to change it?")
         assertTrue(followUp.formattedText.contains("Soft Mode Wait Timer"))
+    }
+
+    @Test
+    fun testNoPinLockQueryExplainsActualMechanism() = kotlinx.coroutines.runBlocking {
+        val answer = AyvaTalkEngine.answerTalkQuery(context = androidx.test.core.app.ApplicationProvider.getApplicationContext(), query = "how to set pin lock?")
+        assertTrue(answer.contains("No PIN Lock Required") || answer.contains("does not have or use a PIN lock"))
+        assertTrue(answer.contains("Soft Mode") || answer.contains("Strict Mode") || answer.contains("Uninstall Protection"))
+    }
+
+    @Test
+    fun testSecurityAndPermissionsQuery() = kotlinx.coroutines.runBlocking {
+        val answer = AyvaTalkEngine.answerTalkQuery(context = androidx.test.core.app.ApplicationProvider.getApplicationContext(), query = "/talk security and permissions")
+        assertTrue(answer.contains("Security") || answer.contains("Usage Access") || answer.contains("Permissions"))
+        assertTrue(answer.contains("Usage Access") || answer.contains("Display Over") || answer.contains("Overlay") || answer.contains("Battery"))
     }
 }

@@ -30,13 +30,6 @@ fun VocabBriefContent(
     onQuizClick: () -> Unit
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    var showButtons by remember { mutableStateOf(false) }
-
-    LaunchedEffect(Unit) {
-        delay(5000)
-        showButtons = true
-    }
-
     val jsonObj = remember(vocabJson) {
         try {
             JSONObject(vocabJson)
@@ -45,10 +38,21 @@ fun VocabBriefContent(
         }
     }
 
-    val idiomObj = jsonObj.optJSONObject("idiom")
-    val owsObj = jsonObj.optJSONObject("ows")
-    val revIdiomObj = jsonObj.optJSONObject("rev_idiom")
-    val revOwsObj = jsonObj.optJSONObject("rev_ows")
+    val idiomObj = remember(jsonObj) { jsonObj.optJSONObject("idiom") }
+    val owsObj = remember(jsonObj) { jsonObj.optJSONObject("ows") }
+    val revIdiomObj = remember(jsonObj) { jsonObj.optJSONObject("rev_idiom") }
+    val revOwsObj = remember(jsonObj) { jsonObj.optJSONObject("rev_ows") }
+
+    var showButtons by remember(messageId) {
+        mutableStateOf(isLearnMoreSession || (messageId != null && !messageId.startsWith("temp_")))
+    }
+
+    LaunchedEffect(messageId) {
+        if (!showButtons) {
+            delay(2000)
+            showButtons = true
+        }
+    }
 
     // Confirm words learned and cycle revision items when the user actually views this card
     // Guarded to only execute once per card instance so scrolling chat list does not bump spaced repetition repeatedly

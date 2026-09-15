@@ -175,7 +175,6 @@ fun QuickEditNoteOverlay(
     var colorKey by remember { mutableStateOf("default") }
     var isPinned by remember { mutableStateOf(false) }
     var showColorPicker by remember { mutableStateOf(false) }
-    var newChecklistInput by remember { mutableStateOf("") }
     var targetFocusItemId by remember { mutableStateOf<String?>(null) }
 
     val titleFocusRequester = remember { FocusRequester() }
@@ -248,9 +247,29 @@ fun QuickEditNoteOverlay(
             val trimmedContent = content.trim()
             val hasChecklistItems = checklistItems.any { it.text.isNotBlank() }
 
-            if (trimmedTitle.isBlank() && trimmedContent.isBlank() && !hasChecklistItems) {
-                // If it was already in DB, delete it if empty
-                if (loadedNote != null) {
+            val jsonChecklist = ChecklistItem.listToJson(checklistItems.toList())
+            val candidate = loadedNote?.copy(
+                title = trimmedTitle,
+                content = trimmedContent,
+                isChecklist = isChecklistMode,
+                checklistJson = jsonChecklist,
+                colorKey = colorKey,
+                isPinned = isPinned,
+                updatedAt = System.currentTimeMillis()
+            ) ?: NoteEntity(
+                title = trimmedTitle,
+                content = trimmedContent,
+                isChecklist = isChecklistMode,
+                checklistJson = jsonChecklist,
+                colorKey = colorKey,
+                isPinned = isPinned,
+                createdAt = System.currentTimeMillis(),
+                updatedAt = System.currentTimeMillis()
+            )
+
+            if (candidate.isEmptyNote()) {
+                // If it was already in DB and completely empty (no text, checklist, images, audio, labels), delete it
+                if (loadedNote != null && loadedNote!!.id > 0) {
                     val toDelete = loadedNote!!
                     try {
                         toDelete.getImageUris().forEach { path ->
@@ -264,47 +283,16 @@ fun QuickEditNoteOverlay(
                     } catch (_: Exception) {}
                     noteDao.deleteNote(toDelete)
                     NotesViewModel.latestNotesCache.remove(toDelete.id)
-                    try {
-                        val alarmMgr = context.getSystemService(Context.ALARM_SERVICE) as? android.app.AlarmManager
-                        val reminderIntent = Intent(context, com.focusbyrj.app.receiver.NoteReminderReceiver::class.java)
-                        val pendingIntent = android.app.PendingIntent.getBroadcast(
-                            context,
-                            toDelete.id.toInt(),
-                            reminderIntent,
-                            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
-                        )
-                        alarmMgr?.cancel(pendingIntent)
-                    } catch (_: Exception) {}
                     loadedNote = null
                 }
             } else {
-                val jsonChecklist = ChecklistItem.listToJson(checklistItems.toList())
-                if (loadedNote != null) {
-                    val updated = loadedNote!!.copy(
-                        title = trimmedTitle,
-                        content = trimmedContent,
-                        isChecklist = isChecklistMode,
-                        checklistJson = jsonChecklist,
-                        colorKey = colorKey,
-                        isPinned = isPinned,
-                        updatedAt = System.currentTimeMillis()
-                    )
-                    noteDao.updateNote(updated)
-                    loadedNote = updated
-                    NotesViewModel.latestNotesCache[updated.id] = updated
+                if (loadedNote != null && loadedNote!!.id > 0) {
+                    noteDao.updateNote(candidate)
+                    loadedNote = candidate
+                    NotesViewModel.latestNotesCache[candidate.id] = candidate
                 } else {
-                    val newEntity = NoteEntity(
-                        title = trimmedTitle,
-                        content = trimmedContent,
-                        isChecklist = isChecklistMode,
-                        checklistJson = jsonChecklist,
-                        colorKey = colorKey,
-                        isPinned = isPinned,
-                        createdAt = System.currentTimeMillis(),
-                        updatedAt = System.currentTimeMillis()
-                    )
-                    val newId = noteDao.insertNote(newEntity)
-                    val inserted = newEntity.copy(id = newId)
+                    val newId = noteDao.insertNote(candidate)
+                    val inserted = candidate.copy(id = newId)
                     loadedNote = inserted
                     NotesViewModel.latestNotesCache[newId] = inserted
                 }
@@ -321,7 +309,11 @@ fun QuickEditNoteOverlay(
     }
 
     BackHandler {
-        saveNote(andFinish = true)
+        if (showColorPicker) {
+            showColorPicker = false
+        } else {
+            saveNote(andFinish = true)
+        }
     }
 
     // Determine card background color
@@ -428,20 +420,21 @@ fun QuickEditNoteOverlay(
                     IconButton(
                         onClick = {
                             if (isChecklistMode) {
-                                // Convert checklist to text
-                                if (content.isBlank() && checklistItems.isNotEmpty()) {
-                                    content = checklistItems.joinToString("\n") { it.text }
-                                }
+                                // Convert checklist to plain text
+                                val converted = checklistItems.map { it.text }.filter { it.isNotBlank() }.joinToString("\n")
+                                content = converted
+                                checklistItems.clear()
                                 isChecklistMode = false
                             } else {
-                                // Convert text to checklist
-                                if (checklistItems.isEmpty() && content.isNotBlank()) {
-                                    checklistItems.addAll(
-                                        content.lines()
-                                            .filter { it.isNotBlank() }
-                                            .map { ChecklistItem(text = it, isChecked = false) }
-                                    )
+                                // Convert plain text to checklist
+                                val lines = content.lines().filter { it.isNotBlank() }
+                                checklistItems.clear()
+                                if (lines.isNotEmpty()) {
+                                    checklistItems.addAll(lines.map { ChecklistItem(text = it, isChecked = false) })
+                                } else {
+                                    checklistItems.add(ChecklistItem(text = "", isChecked = false))
                                 }
+                                content = ""
                                 isChecklistMode = true
                             }
                         },
@@ -627,6 +620,9 @@ fun QuickEditNoteOverlay(
                                         if (checklistItems.size > 1) {
                                             checklistItems.removeAt(index)
                                             saveNote(andFinish = false)
+                                        } else if (checklistItems.size == 1) {
+                                            checklistItems[0] = checklistItems[0].copy(text = "")
+                                            saveNote(andFinish = false)
                                         }
                                     }
                                 )
@@ -709,10 +705,6 @@ fun QuickEditNoteOverlay(
 
                         Button(
                             onClick = {
-                                if (isChecklistMode && newChecklistInput.isNotBlank()) {
-                                    checklistItems.add(ChecklistItem(id = UUID.randomUUID().toString(), text = newChecklistInput.trim(), isChecked = false))
-                                    newChecklistInput = ""
-                                }
                                 saveNote(andFinish = true)
                             },
                             shape = RoundedCornerShape(12.dp),

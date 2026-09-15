@@ -90,6 +90,7 @@ import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.SelectAll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -103,6 +104,7 @@ import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -181,7 +183,6 @@ fun NotesScreen(
     val economyProfile by FocusEconomyManager.profileFlow.collectAsState()
 
     var showSelectionColorPicker by remember { mutableStateOf(false) }
-    var showSelectionReminderDialog by remember { mutableStateOf(false) }
     var showSelectionLabelsDialog by remember { mutableStateOf(false) }
     var showSelectionMoreMenu by remember { mutableStateOf(false) }
     val selectedNotes = remember(allNotes, selectedNoteIds) { allNotes.filter { it.id in selectedNoteIds } }
@@ -193,6 +194,7 @@ fun NotesScreen(
 
     var showEditLabelsDialog by remember { mutableStateOf(false) }
     var showSketchDialogFromDock by remember { mutableStateOf(false) }
+    var showEmptyTrashDialog by remember { mutableStateOf(false) }
 
     val recordAudioPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
@@ -385,37 +387,6 @@ fun NotesScreen(
                     onClick = {
                         viewModel.setLabelFilter(null)
                         viewModel.setFolder(NoteFolder.NOTES)
-                        coroutineScope.launch { drawerState.close() }
-                    },
-                    colors = NavigationDrawerItemDefaults.colors(
-                        selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                        unselectedContainerColor = Color.Transparent
-                    ),
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
-                )
-
-                // 2. REMINDERS FOLDER
-                val isRemindersSelected = currentFolder == NoteFolder.REMINDERS
-                NavigationDrawerItem(
-                    icon = {
-                        Icon(
-                            imageVector = if (isRemindersSelected) Icons.Filled.Notifications else Icons.Outlined.Notifications,
-                            contentDescription = "Reminders",
-                            tint = if (isRemindersSelected) MaterialTheme.colorScheme.primary else contentTextColor.copy(alpha = 0.7f)
-                        )
-                    },
-                    label = {
-                        Text(
-                            text = "Reminders",
-                            style = MaterialTheme.typography.bodyLarge.copy(
-                                fontWeight = if (isRemindersSelected) FontWeight.Bold else FontWeight.Medium
-                            ),
-                            color = if (isRemindersSelected) MaterialTheme.colorScheme.primary else contentTextColor
-                        )
-                    },
-                    selected = isRemindersSelected,
-                    onClick = {
-                        viewModel.setFolder(NoteFolder.REMINDERS)
                         coroutineScope.launch { drawerState.close() }
                     },
                     colors = NavigationDrawerItemDefaults.colors(
@@ -752,19 +723,6 @@ fun NotesScreen(
                                         )
                                     }
 
-                                    // Set reminder for selected notes
-                                    IconButton(
-                                        onClick = { showSelectionReminderDialog = true },
-                                        modifier = Modifier.size(44.dp).testTag("selection_reminder_button")
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Outlined.Notifications,
-                                            contentDescription = "Set reminder",
-                                            tint = contentTextColor,
-                                            modifier = Modifier.size(22.dp)
-                                        )
-                                    }
-
                                     // Recolor selected notes
                                     IconButton(
                                         onClick = { showSelectionColorPicker = true },
@@ -947,7 +905,6 @@ fun NotesScreen(
                                             Text(
                                                 text = when (currentFolder) {
                                                     NoteFolder.NOTES -> "Search your notes"
-                                                    NoteFolder.REMINDERS -> "Search reminders"
                                                     NoteFolder.ARCHIVE -> "Search archive"
                                                     NoteFolder.TRASH -> "Search trash"
                                                 },
@@ -1018,7 +975,7 @@ fun NotesScreen(
                     }
                 }
 
-                // Header title if in Reminders, Archive, or Trash
+                // Header title if in Archive or Trash
                 if (currentFolder != NoteFolder.NOTES) {
                     Row(
                         modifier = Modifier
@@ -1038,7 +995,7 @@ fun NotesScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(8.dp))
-                                    .clickable { viewModel.emptyTrash() }
+                                    .clickable { showEmptyTrashDialog = true }
                                     .padding(horizontal = 8.dp, vertical = 4.dp)
                             ) {
                                 Icon(
@@ -1144,7 +1101,6 @@ fun NotesScreen(
                                     Icon(
                                         imageVector = when (currentFolder) {
                                             NoteFolder.NOTES -> Icons.AutoMirrored.Outlined.StickyNote2
-                                            NoteFolder.REMINDERS -> Icons.Outlined.Notifications
                                             NoteFolder.ARCHIVE -> Icons.Outlined.Archive
                                             NoteFolder.TRASH -> Icons.Outlined.Delete
                                         },
@@ -1163,7 +1119,6 @@ fun NotesScreen(
                                 } else {
                                     when (currentFolder) {
                                         NoteFolder.NOTES -> "Notes you add appear here"
-                                        NoteFolder.REMINDERS -> "Notes with upcoming reminders appear here"
                                         NoteFolder.ARCHIVE -> "Archived notes appear here"
                                         NoteFolder.TRASH -> "No notes in Trash"
                                     }
@@ -1181,7 +1136,6 @@ fun NotesScreen(
                             Text(
                                 text = when (currentFolder) {
                                     NoteFolder.NOTES -> "Capture ideas, quick checklists, and thoughts seamlessly."
-                                    NoteFolder.REMINDERS -> "Set reminders to never miss a note or checklist item."
                                     NoteFolder.ARCHIVE -> "Your saved archive is safely kept out of sight."
                                     NoteFolder.TRASH -> "Deleted notes can be restored anytime before emptying trash."
                                 },
@@ -1203,7 +1157,7 @@ fun NotesScreen(
                             .fillMaxWidth()
                     ) {
                         // PINNED SECTION (Only in Notes folder)
-                        if (currentFolder == NoteFolder.NOTES && localPinnedNotes.isNotEmpty()) {
+                        if (currentFolder == NoteFolder.NOTES && effectivePinnedNotes.isNotEmpty()) {
                             item(span = StaggeredGridItemSpan.FullLine) {
                                 Text(
                                     text = "PINNED",
@@ -1233,7 +1187,7 @@ fun NotesScreen(
                                     onClick = {
                                         if (isSelectionMode) {
                                             viewModel.toggleNoteSelection(note.id)
-                                        } else {
+                                        } else if (currentFolder != NoteFolder.TRASH) {
                                             viewModel.openExistingNote(note)
                                         }
                                     },
@@ -1267,7 +1221,11 @@ fun NotesScreen(
                         }
 
                         // UNPINNED / REGULAR / ARCHIVED / TRASHED NOTES
-                        val displayList = if (currentFolder == NoteFolder.NOTES && effectivePinnedNotes.isNotEmpty()) effectiveOtherNotes else effectiveOtherNotes
+                        val displayList = if (currentFolder == NoteFolder.NOTES) {
+                            effectiveOtherNotes
+                        } else {
+                            allNotes
+                        }
                         items(displayList, key = { it.id }) { note ->
                             val isSelected = selectedNoteIds.contains(note.id)
                             val isDragging = draggedNoteId == note.id
@@ -1289,7 +1247,7 @@ fun NotesScreen(
                                     }
                                 },
                                 onLongClick = null,
-                                onTogglePin = { viewModel.togglePin(note) },
+                                onTogglePin = if (currentFolder == NoteFolder.NOTES) { { viewModel.togglePin(note) } } else null,
                                 onRestore = if (currentFolder == NoteFolder.TRASH) { { viewModel.restoreNote(note) } } else null,
                                 onDeletePermanently = if (currentFolder == NoteFolder.TRASH) { { viewModel.deletePermanently(note) } } else null,
                                 onUnarchive = if (currentFolder == NoteFolder.ARCHIVE) { { viewModel.unarchiveNote(note) } } else null,
@@ -1308,9 +1266,9 @@ fun NotesScreen(
             }
 
             // =========================================================
-            // SPEED DIAL FLOATING ACTION BUTTON (Notes & Reminders)
+            // SPEED DIAL FLOATING ACTION BUTTON (Notes)
             // =========================================================
-            if ((currentFolder == NoteFolder.NOTES || currentFolder == NoteFolder.REMINDERS) && !isSelectionMode) {
+            if (currentFolder == NoteFolder.NOTES && !isSelectionMode) {
                 NotesSpeedDialFab(
                     onNewTextNote = { viewModel.openNewNote(asChecklist = false) },
                     onNewChecklist = { viewModel.openNewNote(asChecklist = true) },
@@ -1365,7 +1323,6 @@ fun NotesScreen(
                         onAddChecklistItem = { afterIdx, text, customId -> viewModel.addChecklistItem(afterIdx, text, customId) },
                         onRemoveChecklistItem = { viewModel.removeChecklistItem(it) },
                         onMoveChecklistItem = { from, to -> viewModel.moveChecklistItem(from, to) },
-                        onSetReminder = { viewModel.setEditorReminder(it) },
                         onAddImageUri = { viewModel.addImageUriToEditor(it) },
                         onAddDrawing = { viewModel.addDrawingToEditor(it) },
                         onRemoveImage = { viewModel.removeImageFromEditor(it) },
@@ -1447,19 +1404,6 @@ fun NotesScreen(
             }
 
             // =========================================================
-            // SELECTION MODE REMINDER DIALOG
-            // =========================================================
-            if (showSelectionReminderDialog) {
-                KeepReminderDialog(
-                    onDismiss = { showSelectionReminderDialog = false },
-                    onSetReminder = { timestamp ->
-                        viewModel.setSelectedNotesReminder(timestamp)
-                    },
-                    hasExistingReminder = false
-                )
-            }
-
-            // =========================================================
             // SELECTION MODE LABELS DIALOG
             // =========================================================
             if (showSelectionLabelsDialog) {
@@ -1494,6 +1438,45 @@ fun NotesScreen(
                     liveTranscript = recordingState.liveTranscript,
                     onCancel = { viewModel.cancelVoiceRecording() },
                     onDone = { viewModel.stopVoiceRecordingAndAttach() }
+                )
+            }
+
+            // =========================================================
+            // EMPTY TRASH CONFIRMATION DIALOG
+            // =========================================================
+            if (showEmptyTrashDialog) {
+                AlertDialog(
+                    onDismissRequest = { showEmptyTrashDialog = false },
+                    icon = {
+                        Icon(
+                            imageVector = Icons.Filled.DeleteSweep,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                    },
+                    title = {
+                        Text("Empty trash?")
+                    },
+                    text = {
+                        Text("All notes in Trash will be permanently deleted. This action cannot be undone.")
+                    },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                showEmptyTrashDialog = false
+                                viewModel.emptyTrash()
+                            }
+                        ) {
+                            Text("Empty Trash", color = MaterialTheme.colorScheme.error)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(
+                            onClick = { showEmptyTrashDialog = false }
+                        ) {
+                            Text("Cancel")
+                        }
+                    }
                 )
             }
         }

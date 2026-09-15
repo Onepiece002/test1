@@ -587,7 +587,6 @@ private suspend fun saveImportedNote(
         isArchived = false,
         isTrashed = false,
         labelsJson = "[]",
-        reminderTimestamp = null,
         imageUrisJson = imagesJson,
         audioUrisJson = "[]",
         createdAt = System.currentTimeMillis(),

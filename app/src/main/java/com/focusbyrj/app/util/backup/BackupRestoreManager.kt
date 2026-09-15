@@ -30,7 +30,6 @@ import com.focusbyrj.app.data.drill.DrillDatabase
 import com.focusbyrj.app.data.drill.DrillSessionEntity
 import com.focusbyrj.app.data.note.NoteDatabase
 import com.focusbyrj.app.data.note.NoteEntity
-import com.focusbyrj.app.receiver.NoteReminderReceiver
 import com.focusbyrj.app.ui.screens.notes.NotesViewModel
 import com.focusbyrj.app.widget.NoteWidgetProvider
 import com.focusbyrj.app.util.AptitudeManager
@@ -171,7 +170,6 @@ object BackupRestoreManager {
                         put("isPinned", note.isPinned)
                         put("isArchived", note.isArchived)
                         put("isTrashed", note.isTrashed)
-                        put("reminderTimestamp", note.reminderTimestamp ?: JSONObject.NULL)
                         put("createdAt", note.createdAt)
                         put("updatedAt", note.updatedAt)
                     })
@@ -465,7 +463,6 @@ object BackupRestoreManager {
                         isPinned = obj.optBoolean("isPinned", false),
                         isArchived = obj.optBoolean("isArchived", false),
                         isTrashed = obj.optBoolean("isTrashed", false),
-                        reminderTimestamp = if (obj.isNull("reminderTimestamp")) null else obj.optLong("reminderTimestamp"),
                         createdAt = obj.optLong("createdAt", System.currentTimeMillis()),
                         updatedAt = obj.optLong("updatedAt", System.currentTimeMillis())
                     )
@@ -473,32 +470,9 @@ object BackupRestoreManager {
             }
 
             NotesViewModel.latestNotesCache.clear()
-            val now = System.currentTimeMillis()
-            val alarmMgr = app.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
 
             noteEntities.forEach { note ->
-                val insertedId = noteDb.noteDao().insertNote(note)
-                val finalId = if (note.id != 0L) note.id else insertedId
-                if (!note.isTrashed && note.reminderTimestamp != null && note.reminderTimestamp > now && alarmMgr != null) {
-                    try {
-                        val reminderIntent = Intent(app, NoteReminderReceiver::class.java).apply {
-                            putExtra(NoteReminderReceiver.EXTRA_NOTE_ID, finalId)
-                            putExtra(NoteReminderReceiver.EXTRA_NOTE_TITLE, note.title)
-                            putExtra(NoteReminderReceiver.EXTRA_NOTE_CONTENT, note.content)
-                        }
-                        val pendingIntent = PendingIntent.getBroadcast(
-                            app,
-                            finalId.toInt(),
-                            reminderIntent,
-                            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                        )
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                            alarmMgr.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, note.reminderTimestamp, pendingIntent)
-                        } else {
-                            alarmMgr.setExact(AlarmManager.RTC_WAKEUP, note.reminderTimestamp, pendingIntent)
-                        }
-                    } catch (_: Exception) {}
-                }
+                noteDb.noteDao().insertNote(note)
             }
             try {
                 NoteWidgetProvider.updateAllWidgets(app)

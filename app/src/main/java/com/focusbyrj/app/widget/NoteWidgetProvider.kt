@@ -65,9 +65,6 @@ class NoteWidgetProvider : AppWidgetProvider() {
                     for (widgetId in appWidgetIds) {
                         updateWidget(context, appWidgetManager, widgetId)
                     }
-                    kotlin.runCatching {
-                        appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetIds, R.id.widget_note_list_view)
-                    }
                 }
             }
         }
@@ -101,11 +98,28 @@ class NoteWidgetProvider : AppWidgetProvider() {
                 }
 
                 val currentIndex = NoteWidgetConfigHelper.getCurrentIndex(context, appWidgetId)
-                val currentNote = if (allMatchingNotes.isNotEmpty()) {
-                    val safeIndex = currentIndex % allMatchingNotes.size
-                    allMatchingNotes[safeIndex]
+                val targetNoteId = NoteWidgetConfigHelper.getCurrentNoteId(context, appWidgetId)
+                val safeIndex: Int
+                val currentNote: NoteEntity?
+                if (allMatchingNotes.isNotEmpty()) {
+                    val foundIndex = if (targetNoteId != null) {
+                        allMatchingNotes.indexOfFirst { it.id == targetNoteId }
+                    } else -1
+
+                    safeIndex = if (foundIndex != -1) {
+                        foundIndex
+                    } else {
+                        currentIndex % allMatchingNotes.size
+                    }
+                    NoteWidgetConfigHelper.setCurrentIndex(context, appWidgetId, safeIndex)
+                    val rawNote = allMatchingNotes[safeIndex]
+                    NoteWidgetConfigHelper.setCurrentNoteId(context, appWidgetId, rawNote.id)
+                    val cached = NotesViewModel.latestNotesCache[rawNote.id]
+                    currentNote = if (cached != null && cached.updatedAt >= rawNote.updatedAt) cached else rawNote
                 } else {
-                    null
+                    safeIndex = 0
+                    NoteWidgetConfigHelper.setCurrentNoteId(context, appWidgetId, null)
+                    currentNote = null
                 }
 
                 // Query runtime widget dimensions for responsive resizing
@@ -176,6 +190,26 @@ class NoteWidgetProvider : AppWidgetProvider() {
                 views.setTextViewText(R.id.widget_note_btn_filter_mode, config.filterMode.shortLabel)
                 views.setTextColor(R.id.widget_note_btn_filter_mode, bgColors.secondaryTextColor)
 
+                // Common Remote Adapter & PendingIntent template setup for ListView
+                val serviceIntent = Intent(context, NoteWidgetService::class.java).apply {
+                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+                    data = Uri.parse("widget://$appWidgetId")
+                }
+                views.setRemoteAdapter(R.id.widget_note_list_view, serviceIntent)
+                views.setEmptyView(R.id.widget_note_list_view, R.id.widget_note_empty_view)
+
+                val itemToggleIntent = Intent(context, NoteWidgetProvider::class.java).apply {
+                    action = ACTION_TOGGLE_ITEM
+                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+                }
+                val itemTogglePendingIntent = PendingIntent.getBroadcast(
+                    context,
+                    appWidgetId,
+                    itemToggleIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+                )
+                views.setPendingIntentTemplate(R.id.widget_note_list_view, itemTogglePendingIntent)
+
                 if (currentNote != null) {
                     val displayTitle = if (currentNote.title.isNotBlank()) currentNote.title else if (currentNote.isChecklist) "Checklist" else "Note"
                     views.setTextViewText(R.id.widget_note_title, displayTitle)
@@ -190,7 +224,7 @@ class NoteWidgetProvider : AppWidgetProvider() {
                     }
 
                     // Page indicator: e.g. 2/5
-                    val currentDisplayIndex = (currentIndex % allMatchingNotes.size) + 1
+                    val currentDisplayIndex = (safeIndex % allMatchingNotes.size) + 1
                     views.setTextViewText(
                         R.id.widget_note_page_indicator,
                         "$currentDisplayIndex/${allMatchingNotes.size}"
@@ -203,33 +237,12 @@ class NoteWidgetProvider : AppWidgetProvider() {
                     )
                     views.setInt(R.id.widget_note_type_icon, "setColorFilter", bgColors.primaryTextColor)
 
-                    // Empty View GONE
+                    // Empty View GONE, List View VISIBLE
                     views.setViewVisibility(R.id.widget_note_empty_view, View.GONE)
-
-                    // Show ListView for both checklists and text notes so scrolling works smoothly
                     views.setViewVisibility(R.id.widget_note_list_view, View.VISIBLE)
                     views.setViewVisibility(R.id.widget_note_scroll_view, View.GONE)
                     views.setViewVisibility(R.id.widget_note_text_content, View.GONE)
                     views.setViewVisibility(R.id.widget_note_image, View.GONE)
-
-                    val serviceIntent = Intent(context, NoteWidgetService::class.java).apply {
-                        putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
-                        data = Uri.parse("widget://$appWidgetId/${currentNote.id}/${if (currentNote.isChecklist) "checklist" else "text"}/${System.currentTimeMillis()}")
-                    }
-                    views.setRemoteAdapter(R.id.widget_note_list_view, serviceIntent)
-
-                    // PendingIntent template for clicking on items
-                    val itemToggleIntent = Intent(context, NoteWidgetProvider::class.java).apply {
-                        action = ACTION_TOGGLE_ITEM
-                        putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
-                    }
-                    val itemTogglePendingIntent = PendingIntent.getBroadcast(
-                        context,
-                        appWidgetId,
-                        itemToggleIntent,
-                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
-                    )
-                    views.setPendingIntentTemplate(R.id.widget_note_list_view, itemTogglePendingIntent)
                 } else {
                     // Empty state
                     views.setTextViewText(R.id.widget_note_title, "No Notes")
@@ -354,7 +367,7 @@ class NoteWidgetProvider : AppWidgetProvider() {
                 }
                 views.setOnClickPendingIntent(
                     R.id.widget_note_btn_voice,
-                    PendingIntent.getActivity(context, 7000 + appWidgetId, voiceIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+                    PendingIntent.getActivity(context, 8500 + appWidgetId, voiceIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
                 )
 
                 // New note button -> opens QuickEditNoteActivity for a fresh note directly on home screen
@@ -365,7 +378,7 @@ class NoteWidgetProvider : AppWidgetProvider() {
                 }
                 views.setOnClickPendingIntent(
                     R.id.widget_note_btn_new_note,
-                    PendingIntent.getActivity(context, 8000 + appWidgetId, newNoteIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+                    PendingIntent.getActivity(context, 9000 + appWidgetId, newNoteIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
                 )
 
                 appWidgetManager.updateAppWidget(appWidgetId, views)
@@ -426,82 +439,87 @@ class NoteWidgetProvider : AppWidgetProvider() {
                             putExtra(QuickEditNoteActivity.EXTRA_NOTE_ID, noteId)
                             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                         }
-                        context.startActivity(editIntent)
+                        val options = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                            android.app.ActivityOptions.makeBasic().setPendingIntentBackgroundActivityStartMode(
+                                android.app.ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+                            )
+                        } else {
+                            null
+                        }
+                        context.startActivity(editIntent, options?.toBundle())
                     }
                 } else if (actionType == ACTION_TYPE_REMOVE) {
                     if (noteId != -1L && !itemId.isNullOrBlank()) {
+                        val pendingResult = goAsync()
                         CoroutineScope(Dispatchers.IO).launch {
-                            val noteDao = NoteDatabase.getInstance(context).noteDao()
-                            val cached = NotesViewModel.latestNotesCache[noteId]
-                            val dbNote = noteDao.getNoteByIdSync(noteId)
-                            val note = when {
-                                cached != null && dbNote != null -> if (cached.updatedAt >= dbNote.updatedAt) cached else dbNote
-                                dbNote != null -> dbNote
-                                cached != null -> cached
-                                else -> null
-                            }
-                            if (note != null && note.isChecklist) {
-                                val remainingItems = note.getChecklistItems().filterNot { it.id == itemId }
-                                val (uncompleted, completed) = remainingItems.partition { !it.isChecked }
-                                val updatedNote = note.copy(
-                                    checklistJson = ChecklistItem.listToJson(uncompleted + completed),
-                                    updatedAt = System.currentTimeMillis()
-                                )
-                                noteDao.updateNote(updatedNote)
-                                NotesViewModel.latestNotesCache[updatedNote.id] = updatedNote
-
-                                // Refresh widgets immediately
-                                val componentName = ComponentName(context, NoteWidgetProvider::class.java)
-                                val widgetIds = appWidgetManager.getAppWidgetIds(componentName)
-                                if (widgetIds != null && widgetIds.isNotEmpty()) {
-                                    for (wid in widgetIds) {
-                                        updateWidget(context, appWidgetManager, wid)
-                                    }
-                                    kotlin.runCatching {
-                                        appWidgetManager.notifyAppWidgetViewDataChanged(widgetIds, R.id.widget_note_list_view)
-                                    }
+                            try {
+                                val noteDao = NoteDatabase.getInstance(context).noteDao()
+                                val cached = NotesViewModel.latestNotesCache[noteId]
+                                val dbNote = noteDao.getNoteByIdSync(noteId)
+                                val note = when {
+                                    cached != null && dbNote != null -> if (cached.updatedAt >= dbNote.updatedAt) cached else dbNote
+                                    dbNote != null -> dbNote
+                                    cached != null -> cached
+                                    else -> null
                                 }
-                            }
-                        }
-                    }
-                } else {
-                    if (noteId != -1L && !itemId.isNullOrBlank()) {
-                        CoroutineScope(Dispatchers.IO).launch {
-                            val noteDao = NoteDatabase.getInstance(context).noteDao()
-                            val cached = NotesViewModel.latestNotesCache[noteId]
-                            val dbNote = noteDao.getNoteByIdSync(noteId)
-                            val note = when {
-                                cached != null && dbNote != null -> if (cached.updatedAt >= dbNote.updatedAt) cached else dbNote
-                                dbNote != null -> dbNote
-                                cached != null -> cached
-                                else -> null
-                            }
-                            if (note != null && note.isChecklist) {
-                                val items = note.getChecklistItems().toMutableList()
-                                val idx = items.indexOfFirst { it.id == itemId }
-                                if (idx != -1) {
-                                    val current = items[idx]
-                                    items[idx] = current.copy(isChecked = !current.isChecked)
-                                    val (uncompleted, completed) = items.partition { !it.isChecked }
+                                if (note != null && note.isChecklist) {
+                                    val remainingItems = note.getChecklistItems().filterNot { it.id == itemId }
+                                    val (uncompleted, completed) = remainingItems.partition { !it.isChecked }
                                     val updatedNote = note.copy(
                                         checklistJson = ChecklistItem.listToJson(uncompleted + completed),
                                         updatedAt = System.currentTimeMillis()
                                     )
                                     noteDao.updateNote(updatedNote)
                                     NotesViewModel.latestNotesCache[updatedNote.id] = updatedNote
+                                    if (appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+                                        NoteWidgetConfigHelper.setCurrentNoteId(context, appWidgetId, updatedNote.id)
+                                    }
 
-                                    // Refresh widgets immediately
-                                    val componentName = ComponentName(context, NoteWidgetProvider::class.java)
-                                    val widgetIds = appWidgetManager.getAppWidgetIds(componentName)
-                                    if (widgetIds != null && widgetIds.isNotEmpty()) {
-                                        for (wid in widgetIds) {
-                                            updateWidget(context, appWidgetManager, wid)
+                                    // Refresh all widgets cleanly
+                                    updateAllWidgets(context)
+                                }
+                            } finally {
+                                pendingResult.finish()
+                            }
+                        }
+                    }
+                } else {
+                    if (noteId != -1L && !itemId.isNullOrBlank()) {
+                        val pendingResult = goAsync()
+                        CoroutineScope(Dispatchers.IO).launch {
+                            try {
+                                val noteDao = NoteDatabase.getInstance(context).noteDao()
+                                val cached = NotesViewModel.latestNotesCache[noteId]
+                                val dbNote = noteDao.getNoteByIdSync(noteId)
+                                val note = when {
+                                    cached != null && dbNote != null -> if (cached.updatedAt >= dbNote.updatedAt) cached else dbNote
+                                    dbNote != null -> dbNote
+                                    cached != null -> cached
+                                    else -> null
+                                }
+                                if (note != null && note.isChecklist) {
+                                    val items = note.getChecklistItems().toMutableList()
+                                    val idx = items.indexOfFirst { it.id == itemId }
+                                    if (idx != -1) {
+                                        val current = items[idx]
+                                        items[idx] = current.copy(isChecked = !current.isChecked)
+                                        val (uncompleted, completed) = items.partition { !it.isChecked }
+                                        val updatedNote = note.copy(
+                                            checklistJson = ChecklistItem.listToJson(uncompleted + completed),
+                                            updatedAt = System.currentTimeMillis()
+                                        )
+                                        noteDao.updateNote(updatedNote)
+                                        NotesViewModel.latestNotesCache[updatedNote.id] = updatedNote
+                                        if (appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+                                            NoteWidgetConfigHelper.setCurrentNoteId(context, appWidgetId, updatedNote.id)
                                         }
-                                        kotlin.runCatching {
-                                            appWidgetManager.notifyAppWidgetViewDataChanged(widgetIds, R.id.widget_note_list_view)
-                                        }
+
+                                        // Refresh all widgets cleanly
+                                        updateAllWidgets(context)
                                     }
                                 }
+                            } finally {
+                                pendingResult.finish()
                             }
                         }
                     }
@@ -510,25 +528,43 @@ class NoteWidgetProvider : AppWidgetProvider() {
 
             ACTION_PREV_NOTE -> {
                 if (appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+                    val pendingResult = goAsync()
                     CoroutineScope(Dispatchers.IO).launch {
-                        val config = NoteWidgetConfigHelper.getConfig(context, appWidgetId)
-                        val noteDao = NoteDatabase.getInstance(context).noteDao()
-                        val totalNotes = when (config.filterMode) {
-                            NoteWidgetFilterMode.NOTES -> noteDao.getTextNotesSync().size
-                            NoteWidgetFilterMode.CHECKLISTS -> noteDao.getChecklistNotesSync().size
-                            NoteWidgetFilterMode.PINNED -> noteDao.getPinnedNotesSync().size
-                            else -> noteDao.getAllActiveNotesSync().size
-                        }
-                        val currentIdx = NoteWidgetConfigHelper.getCurrentIndex(context, appWidgetId)
-                        val newIdx = if (totalNotes > 0) {
-                            (currentIdx - 1 + totalNotes) % totalNotes
-                        } else {
-                            0
-                        }
-                        NoteWidgetConfigHelper.setCurrentIndex(context, appWidgetId, newIdx)
-                        updateWidget(context, appWidgetManager, appWidgetId)
-                        kotlin.runCatching {
-                            appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.widget_note_list_view)
+                        try {
+                            val config = NoteWidgetConfigHelper.getConfig(context, appWidgetId)
+                            val noteDao = NoteDatabase.getInstance(context).noteDao()
+                            val rawNotes = if (config.filterMode == NoteWidgetFilterMode.SPECIFIC && config.specificNoteId != null) {
+                                val single = noteDao.getNoteByIdSync(config.specificNoteId!!)
+                                if (single != null) listOf(single) else emptyList()
+                            } else {
+                                when (config.filterMode) {
+                                    NoteWidgetFilterMode.NOTES -> noteDao.getTextNotesSync()
+                                    NoteWidgetFilterMode.CHECKLISTS -> noteDao.getChecklistNotesSync()
+                                    NoteWidgetFilterMode.PINNED -> noteDao.getPinnedNotesSync()
+                                    else -> noteDao.getAllActiveNotesSync()
+                                }
+                            }
+                            val sortedNotes = when (config.sortBy) {
+                                NoteWidgetSortBy.RECENTLY_UPDATED -> rawNotes.sortedByDescending { it.updatedAt }
+                                NoteWidgetSortBy.RECENTLY_CREATED -> rawNotes.sortedByDescending { it.createdAt }
+                                NoteWidgetSortBy.PINNED_FIRST -> rawNotes.sortedWith(compareByDescending<NoteEntity> { it.isPinned }.thenByDescending { it.updatedAt })
+                                NoteWidgetSortBy.ALPHABETICAL -> rawNotes.sortedBy { it.title.lowercase() }
+                            }
+                            if (sortedNotes.isNotEmpty()) {
+                                val currentNoteId = NoteWidgetConfigHelper.getCurrentNoteId(context, appWidgetId)
+                                val currentIdx = if (currentNoteId != null) {
+                                    val fIdx = sortedNotes.indexOfFirst { it.id == currentNoteId }
+                                    if (fIdx != -1) fIdx else NoteWidgetConfigHelper.getCurrentIndex(context, appWidgetId)
+                                } else {
+                                    NoteWidgetConfigHelper.getCurrentIndex(context, appWidgetId)
+                                }
+                                val newIdx = (currentIdx - 1 + sortedNotes.size) % sortedNotes.size
+                                NoteWidgetConfigHelper.setCurrentIndex(context, appWidgetId, newIdx)
+                                NoteWidgetConfigHelper.setCurrentNoteId(context, appWidgetId, sortedNotes[newIdx].id)
+                            }
+                            updateWidget(context, appWidgetManager, appWidgetId)
+                        } finally {
+                            pendingResult.finish()
                         }
                     }
                 }
@@ -536,25 +572,43 @@ class NoteWidgetProvider : AppWidgetProvider() {
 
             ACTION_NEXT_NOTE -> {
                 if (appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+                    val pendingResult = goAsync()
                     CoroutineScope(Dispatchers.IO).launch {
-                        val config = NoteWidgetConfigHelper.getConfig(context, appWidgetId)
-                        val noteDao = NoteDatabase.getInstance(context).noteDao()
-                        val totalNotes = when (config.filterMode) {
-                            NoteWidgetFilterMode.NOTES -> noteDao.getTextNotesSync().size
-                            NoteWidgetFilterMode.CHECKLISTS -> noteDao.getChecklistNotesSync().size
-                            NoteWidgetFilterMode.PINNED -> noteDao.getPinnedNotesSync().size
-                            else -> noteDao.getAllActiveNotesSync().size
-                        }
-                        val currentIdx = NoteWidgetConfigHelper.getCurrentIndex(context, appWidgetId)
-                        val newIdx = if (totalNotes > 0) {
-                            (currentIdx + 1) % totalNotes
-                        } else {
-                            0
-                        }
-                        NoteWidgetConfigHelper.setCurrentIndex(context, appWidgetId, newIdx)
-                        updateWidget(context, appWidgetManager, appWidgetId)
-                        kotlin.runCatching {
-                            appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.widget_note_list_view)
+                        try {
+                            val config = NoteWidgetConfigHelper.getConfig(context, appWidgetId)
+                            val noteDao = NoteDatabase.getInstance(context).noteDao()
+                            val rawNotes = if (config.filterMode == NoteWidgetFilterMode.SPECIFIC && config.specificNoteId != null) {
+                                val single = noteDao.getNoteByIdSync(config.specificNoteId!!)
+                                if (single != null) listOf(single) else emptyList()
+                            } else {
+                                when (config.filterMode) {
+                                    NoteWidgetFilterMode.NOTES -> noteDao.getTextNotesSync()
+                                    NoteWidgetFilterMode.CHECKLISTS -> noteDao.getChecklistNotesSync()
+                                    NoteWidgetFilterMode.PINNED -> noteDao.getPinnedNotesSync()
+                                    else -> noteDao.getAllActiveNotesSync()
+                                }
+                            }
+                            val sortedNotes = when (config.sortBy) {
+                                NoteWidgetSortBy.RECENTLY_UPDATED -> rawNotes.sortedByDescending { it.updatedAt }
+                                NoteWidgetSortBy.RECENTLY_CREATED -> rawNotes.sortedByDescending { it.createdAt }
+                                NoteWidgetSortBy.PINNED_FIRST -> rawNotes.sortedWith(compareByDescending<NoteEntity> { it.isPinned }.thenByDescending { it.updatedAt })
+                                NoteWidgetSortBy.ALPHABETICAL -> rawNotes.sortedBy { it.title.lowercase() }
+                            }
+                            if (sortedNotes.isNotEmpty()) {
+                                val currentNoteId = NoteWidgetConfigHelper.getCurrentNoteId(context, appWidgetId)
+                                val currentIdx = if (currentNoteId != null) {
+                                    val fIdx = sortedNotes.indexOfFirst { it.id == currentNoteId }
+                                    if (fIdx != -1) fIdx else NoteWidgetConfigHelper.getCurrentIndex(context, appWidgetId)
+                                } else {
+                                    NoteWidgetConfigHelper.getCurrentIndex(context, appWidgetId)
+                                }
+                                val newIdx = (currentIdx + 1) % sortedNotes.size
+                                NoteWidgetConfigHelper.setCurrentIndex(context, appWidgetId, newIdx)
+                                NoteWidgetConfigHelper.setCurrentNoteId(context, appWidgetId, sortedNotes[newIdx].id)
+                            }
+                            updateWidget(context, appWidgetManager, appWidgetId)
+                        } finally {
+                            pendingResult.finish()
                         }
                     }
                 }
@@ -562,12 +616,18 @@ class NoteWidgetProvider : AppWidgetProvider() {
 
             ACTION_CYCLE_FILTER -> {
                 if (appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
-                    val config = NoteWidgetConfigHelper.getConfig(context, appWidgetId)
-                    val nextMode = config.filterMode.next()
-                    NoteWidgetConfigHelper.setFilterMode(context, appWidgetId, nextMode)
-                    updateWidget(context, appWidgetManager, appWidgetId)
-                    kotlin.runCatching {
-                        appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.widget_note_list_view)
+                    val pendingResult = goAsync()
+                    CoroutineScope(Dispatchers.IO).launch {
+                        try {
+                            val config = NoteWidgetConfigHelper.getConfig(context, appWidgetId)
+                            val nextMode = config.filterMode.next()
+                            NoteWidgetConfigHelper.setFilterMode(context, appWidgetId, nextMode)
+                            NoteWidgetConfigHelper.setCurrentIndex(context, appWidgetId, 0)
+                            NoteWidgetConfigHelper.setCurrentNoteId(context, appWidgetId, null)
+                            updateWidget(context, appWidgetManager, appWidgetId)
+                        } finally {
+                            pendingResult.finish()
+                        }
                     }
                 }
             }

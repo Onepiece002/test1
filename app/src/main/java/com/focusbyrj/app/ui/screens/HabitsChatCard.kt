@@ -155,7 +155,17 @@ fun HabitsChatCard(
                             onLogHabit = { habitId ->
                                 coroutineScope.launch(Dispatchers.IO) {
                                     try {
-                                        habitRepo.incrementHabitProgress(habitId)
+                                        val updatedLog = habitRepo.incrementHabitProgress(habitId)
+                                        val habit = habitRepo.getHabitById(habitId)
+                                        if (habit != null) {
+                                            val isGoalMet = updatedLog.completedCount >= habit.targetPerDay
+                                            HabitAlarmScheduler.scheduleHabitReminder(
+                                                context,
+                                                habit,
+                                                updatedLog.lastCompletedTimestamp,
+                                                isGoalCompletedToday = isGoalMet
+                                            )
+                                        }
                                         withContext(Dispatchers.Main) {
                                             GamificationHaptics.playSuccess(context)
                                             FocusEconomyManager.addRewards(baseXp = 15, baseGold = 5)

@@ -74,7 +74,12 @@ class HabitViewModel(
             com.focusbyrj.app.util.FocusEconomyManager.addRewards(xpReward, goldReward)
 
             // Reschedule interval if applicable
-            HabitAlarmScheduler.scheduleHabitReminder(getApplication(), habit)
+            HabitAlarmScheduler.scheduleHabitReminder(
+                getApplication(),
+                habit,
+                updatedLog.lastCompletedTimestamp,
+                isGoalCompletedToday = isGoalMet
+            )
         }
     }
 

@@ -26,7 +26,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import net.sqlcipher.database.SQLiteDatabase
 import net.sqlcipher.database.SupportFactory
 
-@Database(entities = [NoteEntity::class], version = 2, exportSchema = false)
+@Database(entities = [NoteEntity::class], version = 3, exportSchema = false)
 abstract class NoteDatabase : RoomDatabase() {
     abstract fun noteDao(): NoteDao
 
@@ -43,6 +43,49 @@ abstract class NoteDatabase : RoomDatabase() {
                 try {
                     db.execSQL("ALTER TABLE keep_notes ADD COLUMN audioUrisJson TEXT NOT NULL DEFAULT '[]'")
                 } catch (_: Exception) {}
+            }
+        }
+
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Remove reminderTimestamp column safely across all SQLite versions
+                try {
+                    db.execSQL("""
+                        CREATE TABLE IF NOT EXISTS keep_notes_new (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                            title TEXT NOT NULL,
+                            content TEXT NOT NULL,
+                            isChecklist INTEGER NOT NULL,
+                            checklistJson TEXT NOT NULL,
+                            colorKey TEXT NOT NULL,
+                            isPinned INTEGER NOT NULL,
+                            isArchived INTEGER NOT NULL,
+                            isTrashed INTEGER NOT NULL,
+                            labelsJson TEXT NOT NULL,
+                            imageUrisJson TEXT NOT NULL,
+                            audioUrisJson TEXT NOT NULL,
+                            createdAt INTEGER NOT NULL,
+                            updatedAt INTEGER NOT NULL
+                        )
+                    """.trimIndent())
+
+                    db.execSQL("""
+                        INSERT INTO keep_notes_new (
+                            id, title, content, isChecklist, checklistJson, colorKey,
+                            isPinned, isArchived, isTrashed, labelsJson, imageUrisJson, audioUrisJson,
+                            createdAt, updatedAt
+                        )
+                        SELECT id, title, content, isChecklist, checklistJson, colorKey,
+                               isPinned, isArchived, isTrashed, labelsJson, imageUrisJson, audioUrisJson,
+                               createdAt, updatedAt
+                        FROM keep_notes
+                    """.trimIndent())
+
+                    db.execSQL("DROP TABLE keep_notes")
+                    db.execSQL("ALTER TABLE keep_notes_new RENAME TO keep_notes")
+                } catch (e: Exception) {
+                    android.util.Log.e("NoteDatabase", "Error executing MIGRATION_2_3", e)
+                }
             }
         }
 
@@ -64,7 +107,7 @@ abstract class NoteDatabase : RoomDatabase() {
                     NoteDatabaseMigrationHelper.getEncryptedDatabaseName()
                 )
                     .openHelperFactory(factory)
-                    .addMigrations(MIGRATION_1_2)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                     .fallbackToDestructiveMigration()
                     .build()
 

@@ -229,8 +229,9 @@ class TodoWidgetProvider : AppWidgetProvider() {
                             else -> uncompleted.size
                         }
 
-                        views.setTextViewText(R.id.widget_task_count, count.toString())
-                        appWidgetManager.partiallyUpdateAppWidget(appWidgetId, views)
+                        val countViews = RemoteViews(context.packageName, R.layout.widget_todo_layout)
+                        countViews.setTextViewText(R.id.widget_task_count, count.toString())
+                        appWidgetManager.partiallyUpdateAppWidget(appWidgetId, countViews)
                     } catch (e: Exception) {
                         e.printStackTrace()
                     }

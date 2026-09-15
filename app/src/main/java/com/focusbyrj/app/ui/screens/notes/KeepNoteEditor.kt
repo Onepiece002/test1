@@ -165,6 +165,10 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
@@ -192,7 +196,6 @@ fun KeepNoteEditor(
     onAddChecklistItem: (Int?, String, String?) -> Unit = { _, _, _ -> },
     onRemoveChecklistItem: (Int) -> Unit,
     onMoveChecklistItem: (Int, Int) -> Unit,
-    onSetReminder: (Long?) -> Unit,
     onAddImageUri: (Uri) -> Unit,
     onAddDrawing: (Bitmap) -> Unit,
     onRemoveImage: (String) -> Unit,
@@ -224,10 +227,6 @@ fun KeepNoteEditor(
 ) {
     val context = LocalContext.current
 
-    BackHandler {
-        onClose()
-    }
-
     val isDark = isSystemInDarkTheme()
     val theme = KeepColorPalette.getColor(state.colorKey)
     val bgColor = theme.resolveBackgroundColor(isDark)
@@ -236,13 +235,24 @@ fun KeepNoteEditor(
 
     var showColorPicker by remember { mutableStateOf(false) }
     var showLabelDialog by remember { mutableStateOf(false) }
-    var showReminderDialog by remember { mutableStateOf(false) }
     var showSketchDialog by remember { mutableStateOf(false) }
     var showAddSheet by remember { mutableStateOf(false) }
     var showMoreMenu by remember { mutableStateOf(false) }
     var viewingImageUri by remember { mutableStateOf<String?>(null) }
     var completedExpanded by remember { mutableStateOf(true) }
     var targetFocusItemId by remember { mutableStateOf<String?>(null) }
+
+    BackHandler {
+        when {
+            viewingImageUri != null -> viewingImageUri = null
+            showSketchDialog -> showSketchDialog = false
+            showColorPicker -> showColorPicker = false
+            showAddSheet -> showAddSheet = false
+            showLabelDialog -> showLabelDialog = false
+            showMoreMenu -> showMoreMenu = false
+            else -> onClose()
+        }
+    }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickMultipleVisualMedia(),
@@ -348,18 +358,6 @@ fun KeepNoteEditor(
                             imageVector = if (state.isPinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
                             contentDescription = if (state.isPinned) "Unpin" else "Pin",
                             tint = if (state.isPinned) MaterialTheme.colorScheme.primary else textColor
-                        )
-                    }
-
-                    // Reminder
-                    IconButton(
-                        onClick = { showReminderDialog = true },
-                        modifier = Modifier.testTag("editor_reminder_button")
-                    ) {
-                        Icon(
-                            imageVector = if (state.reminderTimestamp != null) Icons.Filled.Notifications else Icons.Outlined.Notifications,
-                            contentDescription = if (state.reminderTimestamp != null) "Edit reminder" else "Add reminder",
-                            tint = if (state.reminderTimestamp != null) MaterialTheme.colorScheme.primary else textColor
                         )
                     }
 
@@ -537,8 +535,10 @@ fun KeepNoteEditor(
                                         val newId = java.util.UUID.randomUUID().toString()
                                         targetFocusItemId = newId
                                         onAddChecklistItem(globalIndex, extraText, newId)
-                                        coroutineScope.launch {
-                                            scrollState.animateScrollTo(scrollState.maxValue)
+                                        if (posInList == uncompletedItems.size - 1) {
+                                            coroutineScope.launch {
+                                                scrollState.animateScrollTo(scrollState.maxValue)
+                                            }
                                         }
                                     },
                                     onDelete = { onRemoveChecklistItem(globalIndex) },
@@ -662,59 +662,15 @@ fun KeepNoteEditor(
                 }
 
                 // ==========================================
-                // BOTTOM CHIPS: REMINDER & LABELS (Google Keep Layout)
+                // BOTTOM CHIPS: LABELS (Google Keep Layout)
                 // ==========================================
-                if (state.reminderTimestamp != null || state.labels.isNotEmpty()) {
+                if (state.labels.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(24.dp))
                     FlowRow(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        // REMINDER BADGE DISPLAY
-                        if (state.reminderTimestamp != null) {
-                            val reminderFormatted = remember(state.reminderTimestamp) {
-                                val sdf = SimpleDateFormat("EEE, MMM d, h:mm a", Locale.getDefault())
-                                sdf.format(Date(state.reminderTimestamp))
-                            }
-                            val isOverdue = state.reminderTimestamp < System.currentTimeMillis()
-
-                            Surface(
-                                shape = CircleShape,
-                                color = if (isOverdue) textColor.copy(alpha = 0.08f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                                border = BorderStroke(1.dp, if (isOverdue) textColor.copy(alpha = 0.2f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.35f))
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(start = 10.dp, top = 4.dp, end = 6.dp, bottom = 4.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Notifications,
-                                        contentDescription = null,
-                                        tint = if (isOverdue) textColor.copy(alpha = 0.6f) else MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(15.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = reminderFormatted,
-                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                                        color = if (isOverdue) textColor.copy(alpha = 0.7f) else MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.clickable { showReminderDialog = true }
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Icon(
-                                        imageVector = Icons.Filled.Close,
-                                        contentDescription = "Remove reminder",
-                                        tint = textColor.copy(alpha = 0.6f),
-                                        modifier = Modifier
-                                            .size(16.dp)
-                                            .clip(CircleShape)
-                                            .clickable { onSetReminder(null) }
-                                    )
-                                }
-                            }
-                        }
-
                         // LABELS DISPLAY
                         state.labels.forEach { label ->
                             Surface(
@@ -759,7 +715,7 @@ fun KeepNoteEditor(
                 exit = shrinkVertically() + fadeOut()
             ) {
                 Surface(
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    color = if (isDark) Color(0xFF101012) else MaterialTheme.colorScheme.surfaceContainerHigh,
                     shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
                     tonalElevation = 6.dp,
                     modifier = Modifier
@@ -1054,7 +1010,7 @@ fun KeepNoteEditor(
         if (showMoreMenu) {
             ModalBottomSheet(
                 onDismissRequest = { showMoreMenu = false },
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                containerColor = if (isDark) Color(0xFF101012) else MaterialTheme.colorScheme.surfaceContainerHigh,
                 shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
             ) {
                 Column(
@@ -1116,7 +1072,7 @@ fun KeepNoteEditor(
         if (showAddSheet) {
             ModalBottomSheet(
                 onDismissRequest = { showAddSheet = false },
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                containerColor = if (isDark) Color(0xFF101012) else MaterialTheme.colorScheme.surfaceContainerHigh,
                 shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
             ) {
                 Column(
@@ -1204,131 +1160,13 @@ fun KeepNoteEditor(
         // FULL SCREEN IMAGE VIEWER
         // ==========================================
         if (viewingImageUri != null) {
+            val navBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
             ZoomableImagePager(
                 imageUris = state.imageUris,
                 initialUri = viewingImageUri!!,
-                onDismiss = { viewingImageUri = null }
+                onDismiss = { viewingImageUri = null },
+                bottomInset = navBarBottom
             )
-        }
-
-        // ==========================================
-        // REMINDER PICKER DIALOG (Keep Style)
-        // ==========================================
-        if (showReminderDialog) {
-            Dialog(onDismissRequest = { showReminderDialog = false }) {
-                Surface(
-                    shape = RoundedCornerShape(20.dp),
-                    color = MaterialTheme.colorScheme.surface,
-                    tonalElevation = 6.dp,
-                    modifier = Modifier.fillMaxWidth(0.92f)
-                ) {
-                    Column(modifier = Modifier.padding(20.dp)) {
-                        Text(
-                            text = "Add reminder",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        val now = Calendar.getInstance()
-                        val laterToday = Calendar.getInstance().apply {
-                            set(Calendar.HOUR_OF_DAY, 18)
-                            set(Calendar.MINUTE, 0)
-                            set(Calendar.SECOND, 0)
-                            if (before(now)) add(Calendar.DAY_OF_YEAR, 1)
-                        }
-
-                        val tomorrowMorning = Calendar.getInstance().apply {
-                            add(Calendar.DAY_OF_YEAR, 1)
-                            set(Calendar.HOUR_OF_DAY, 8)
-                            set(Calendar.MINUTE, 0)
-                            set(Calendar.SECOND, 0)
-                        }
-
-                        val nextWeek = Calendar.getInstance().apply {
-                            add(Calendar.DAY_OF_YEAR, 7)
-                            set(Calendar.HOUR_OF_DAY, 8)
-                            set(Calendar.MINUTE, 0)
-                            set(Calendar.SECOND, 0)
-                        }
-
-                        ReminderPresetRow(
-                            title = "Later today",
-                            subtitle = SimpleDateFormat("h:mm a", Locale.getDefault()).format(laterToday.time),
-                            onClick = {
-                                onSetReminder(laterToday.timeInMillis)
-                                showReminderDialog = false
-                            }
-                        )
-
-                        ReminderPresetRow(
-                            title = "Tomorrow morning",
-                            subtitle = SimpleDateFormat("EEE, 8:00 AM", Locale.getDefault()).format(tomorrowMorning.time),
-                            onClick = {
-                                onSetReminder(tomorrowMorning.timeInMillis)
-                                showReminderDialog = false
-                            }
-                        )
-
-                        ReminderPresetRow(
-                            title = "Next week",
-                            subtitle = SimpleDateFormat("EEE, MMM d, 8:00 AM", Locale.getDefault()).format(nextWeek.time),
-                            onClick = {
-                                onSetReminder(nextWeek.timeInMillis)
-                                showReminderDialog = false
-                            }
-                        )
-
-                        HorizontalDivider(
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                            modifier = Modifier.padding(vertical = 12.dp)
-                        )
-
-                        if (state.reminderTimestamp != null) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .clickable {
-                                        onSetReminder(null)
-                                        showReminderDialog = false
-                                    }
-                                    .padding(vertical = 10.dp, horizontal = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.Alarm,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.error,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Text(
-                                    text = "Delete reminder",
-                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                                    color = MaterialTheme.colorScheme.error
-                                )
-                            }
-                        }
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.End
-                        ) {
-                            Text(
-                                text = "Cancel",
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .clickable { showReminderDialog = false }
-                                    .padding(8.dp)
-                            )
-                        }
-                    }
-                }
-            }
         }
     }
 }
@@ -1357,43 +1195,6 @@ private fun KeepAddOptionRow(
             text = title,
             style = MaterialTheme.typography.bodyLarge.copy(fontSize = 16.sp),
             color = MaterialTheme.colorScheme.onSurface
-        )
-    }
-}
-
-@Composable
-private fun ReminderPresetRow(
-    title: String,
-    subtitle: String,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .clickable(onClick = onClick)
-            .padding(vertical = 10.dp, horizontal = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                imageVector = Icons.Outlined.Alarm,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(20.dp)
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                color = MaterialTheme.colorScheme.onSurface
-            )
-        }
-        Text(
-            text = subtitle,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
         )
     }
 }
@@ -1630,7 +1431,8 @@ private fun ChecklistRow(
 fun ZoomableImagePager(
     imageUris: List<String>,
     initialUri: String,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    bottomInset: Dp = 0.dp
 ) {
     val initialPage = remember(initialUri, imageUris) {
         imageUris.indexOf(initialUri).coerceAtLeast(0)
@@ -1753,11 +1555,11 @@ fun ZoomableImagePager(
 
             // Bottom Thumbnail Gallery Strip (Quick Jump)
             if (imageUris.size > 1) {
+                val effectiveBottomPadding = maxOf(bottomInset, 28.dp) + 24.dp
                 LazyRow(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .navigationBarsPadding()
-                        .padding(bottom = 16.dp)
+                        .padding(bottom = effectiveBottomPadding)
                         .background(Color.Black.copy(alpha = 0.65f), RoundedCornerShape(20.dp))
                         .padding(horizontal = 12.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),

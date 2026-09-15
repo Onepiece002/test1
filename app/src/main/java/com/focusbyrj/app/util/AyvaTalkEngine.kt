@@ -153,15 +153,18 @@ object AyvaTalkEngine {
 
             if (route != null) {
                 val routeName = when (route) {
-                    "settings" -> "Settings ⚙️"
+                    "preferences_hub" -> "Preferences Hub ⚙️"
+                    "settings" -> "App Settings 🎨"
                     "security" -> "Security 🔒"
                     "dashboard" -> "Focus 🎯"
                     "todos" -> "Tasks 📋"
                     "schedules" -> "Routines 📅"
                     "time" -> "Time Stats 📊"
-                    "account" -> "Account 👤"
-                    "bubble_settings" -> "Bubble 🫧"
-                    else -> "Open Screen"
+                    "account" -> "Account & Profile 👤"
+                    "bubble_settings" -> "Bubble Settings 🫧"
+                    "subscription" -> "Pro Subscription ⭐"
+                    "empty" -> "Notes 📝"
+                    else -> "Open Screen 🚀"
                 }
                 list.add(TalkAction.NavigateAppScreen(route, routeName, "🚀"))
             }
@@ -395,22 +398,47 @@ object AyvaTalkEngine {
             lower.contains("how to") || lower.contains("how do") ||
             lower.contains("why is") || lower.contains("what is")
 
+        val isSettingsLocationQuery = cleanQuery in listOf(
+            "where is settings", "where are settings", "where is preferences", "where did the menu go",
+            "where is the menu", "where did the sidebar go", "where is sidebar", "where is the sidebar",
+            "where is drawer", "how to open settings", "how to access settings", "settings location",
+            "open settings", "preferences hub", "settings hub", "preferences", "menu", "sidebar", "side bar", "drawer"
+        ) || (cleanQuery.contains("where") && (cleanQuery.contains("setting") || cleanQuery.contains("menu") || cleanQuery.contains("sidebar") || cleanQuery.contains("drawer") || cleanQuery.contains("preference")))
+
+        if (isSettingsLocationQuery) {
+            val settingsActions = listOf(
+                TalkAction.NavigateAppScreen("preferences_hub", "Preferences Hub ⚙️", "⚙️"),
+                TalkAction.NavigateAppScreen("settings", "App Settings 🎨", "🎨"),
+                TalkAction.NavigateAppScreen("security", "Security & Permissions 🔒", "🔒"),
+                TalkAction.NavigateAppScreen("bubble_settings", "Bubble Settings 🫧", "🫧"),
+                TalkAction.NavigateAppScreen("account", "Account & Profile 👤", "👤")
+            )
+            val json = serializeActionsJson("preferences_hub_navigation", settingsActions)
+            return TalkResponse(
+                formattedText = "⚙️ **Preferences & Settings Hub**\n\nThe settings menu has moved to the **Preferences & Settings Hub**!\n\n**How to access it:**\n1. Look at the top-right corner of the top header bar on the home screen.\n2. Tap your **Profile Avatar Ring**.\n3. This opens your centralized hub for:\n• **Security & Permissions** — Permissions, Tamper Defense, Anti-Screenshot & Backups\n• **App Settings** — Themes, Accent Colors, Heatmaps, Soft Delays & Reminders\n• **Bubble Settings** — Floating Ayva Bubble & Video Call Auto-Hide\n• **Account & Profile** — Avatar customizer, XP level, Gold economy & Trophies\n• **Subscription** — Lifetime Pro & Cloud Sync\n• **Setup Guide** — Step-by-step permissions onboarding\n\n_Tap any quick button below to jump straight to the screen!_",
+                actions = settingsActions,
+                topicId = "preferences_hub_navigation",
+                jsonPayload = json
+            )
+        }
+
         val isGeneralHelp = cleanQuery.isEmpty() || cleanQuery in listOf(
-            "help", "commands", "menu", "guide", "info", "what can you do", "features", "options", "talk"
+            "help", "commands", "guide", "info", "what can you do", "features", "options", "talk"
         )
         if (isGeneralHelp) {
             val defaultActions = listOf(
+                TalkAction.NavigateAppScreen("preferences_hub", "Preferences Hub ⚙️", "⚙️"),
+                TalkAction.AskQuery("where is settings", "📍 Where is Settings?"),
                 TalkAction.AskQuery("vacation mode", "🏖️ Vacation Mode"),
                 TalkAction.AskQuery("persistent reminders", "⏰ Persistent Reminders"),
                 TalkAction.AskQuery("bubble auto hide", "🫧 Bubble Auto-Hide"),
                 TalkAction.AskQuery("soft mode wait timer", "⏱️ Soft Mode Delay"),
                 TalkAction.AskQuery("why apps not blocking", "🛡️ Troubleshooting"),
-                TalkAction.AskQuery("/summary", "📊 Daily Summary"),
-                TalkAction.NavigateAppScreen("settings", "Open Settings", "⚙️")
+                TalkAction.AskQuery("/summary", "📊 Daily Summary")
             )
             val json = serializeActionsJson("help", defaultActions)
             return TalkResponse(
-                formattedText = "💬 **Ayva Assistant** is ready to help!\n\nYou can ask me questions about any feature, diagnose settings, or manage your focus:\n\n• *\"vacation mode on\"* (freeze streak & pause alerts)\n• *\"persistent reminders\"* (recurring task alarms)\n• *\"bubble auto hide\"* (video call auto-hiding & edge peeking)\n• *\"why are apps not blocking?\"* (troubleshooting permissions)\n• *\"soft mode vs strict mode\"*\n• *\"math drills\"* (mental warm-ups)\n• *\"reschedule all tasks to tomorrow\"*",
+                formattedText = "💬 **Ayva Assistant** is ready to help!\n\nYou can ask me questions about any feature, diagnose settings, or manage your focus:\n\n• *\"where is settings?\"* (Preferences Hub location & guide)\n• *\"vacation mode on\"* (freeze streak & pause alerts)\n• *\"persistent reminders\"* (recurring task alarms)\n• *\"bubble auto hide\"* (video call auto-hiding & edge peeking)\n• *\"why are apps not blocking?\"* (troubleshooting permissions)\n• *\"soft mode vs strict mode\"*\n• *\"math drills\"* (mental warm-ups)\n• *\"reschedule all tasks to tomorrow\"*",
                 actions = defaultActions,
                 topicId = "help",
                 jsonPayload = json
@@ -423,13 +451,14 @@ object AyvaTalkEngine {
         )
         if (isGreeting) {
             val actions = listOf(
+                TalkAction.NavigateAppScreen("preferences_hub", "Preferences Hub ⚙️", "⚙️"),
                 TalkAction.AskQuery("/summary", "📊 Today's Summary"),
                 TalkAction.AskQuery("streak", "⚡ Streak Status"),
                 TalkAction.AskQuery("/drill", "⚡ Math Drill"),
                 TalkAction.AskQuery("vacation mode", "🏖️ Vacation Mode")
             )
             return TalkResponse(
-                formattedText = "👋 **Hello!** I'm Ayva, your intelligent focus companion.\n\nHow can I support your productivity today? You can check your daily summary, test your mental agility with a math drill, or ask me about any app settings.",
+                formattedText = "👋 **Hello!** I'm Ayva, your intelligent focus companion.\n\nHow can I support your productivity today? You can check your daily summary, customize preferences, test your mental agility with a math drill, or ask me about any app settings.",
                 actions = actions,
                 topicId = "greeting",
                 jsonPayload = serializeActionsJson("greeting", actions)
@@ -446,12 +475,12 @@ object AyvaTalkEngine {
         )
         if (isWhoAreYou) {
             val actions = listOf(
+                TalkAction.NavigateAppScreen("preferences_hub", "Preferences Hub ⚙️", "⚙️"),
                 TalkAction.AskQuery("/summary", "📊 Daily Summary"),
-                TalkAction.AskQuery("features", "✨ Features Guide"),
-                TalkAction.NavigateAppScreen("settings", "Open Settings", "⚙️")
+                TalkAction.AskQuery("features", "✨ Features Guide")
             )
             return TalkResponse(
-                formattedText = "🤖 **I am Ayva**, your on-device AI productivity and focus assistant for **FocusByRj**.\n\n• **App Blocker Engine**: Direct window overlay protection for Soft & Strict modes.\n• **Task Manager**: Smart natural language due dates with persistent alarms.\n• **Cognitive Agility**: Daily arithmetic drills and streak tracking.\n• **Floating Bubble**: Omnipresent task radar that intelligently auto-hides during video calls and landscape gaming.",
+                formattedText = "🤖 **I am Ayva**, your on-device AI productivity and focus assistant for **FocusByRj**.\n\n• **Preferences Hub**: Manage all settings, security, and bubble controls from the top header avatar.\n• **App Blocker Engine**: Direct window overlay protection for Soft & Strict modes.\n• **Task Manager**: Smart natural language due dates with persistent alarms.\n• **Cognitive Agility**: Daily arithmetic drills and streak tracking.\n• **Floating Bubble**: Omnipresent task radar that intelligently auto-hides during video calls and landscape gaming.",
                 actions = actions,
                 topicId = "about",
                 jsonPayload = serializeActionsJson("about", actions)
@@ -542,7 +571,7 @@ object AyvaTalkEngine {
 
             val text = when {
                 missingPermissions.isEmpty() -> {
-                    "✅ **Diagnostic Check Passed: All System Permissions Granted!**\n\n• Usage Access: Granted\n• Display Overlay: Granted\n• Battery Optimization Exemption: Active\n• Notifications: Allowed\n• Exact Alarms: Allowed\n\nEverything is properly configured for instant app shielding and on-time task alarms. ⚡"
+                    "🔒 **Security & Permissions Diagnostic: All Permissions Granted!**\n\n• Usage Access: Granted\n• Display Overlay: Granted\n• Battery Optimization Exemption: Active\n• Notifications: Allowed\n• Exact Alarms: Allowed\n\nEverything is properly configured for instant app shielding and on-time task alarms. ⚡"
                 }
                 isAlarmSpecific -> {
                     "⏰ **Task Reminder Diagnostic:**\nTo ensure your alarms and task notifications trigger right on time without being delayed by system battery savers, the following need attention:\n\n" +
@@ -555,7 +584,7 @@ object AyvaTalkEngine {
                     "\n\n_Tap the buttons below to open the setup screen directly:_"
                 }
                 else -> {
-                    "🔧 **Self-Healing Diagnostics:**\nHere are the system permissions required for FocusByRj to function smoothly:\n\n" +
+                    "🔒 **Security & System Diagnostics:**\nHere are the system permissions required for FocusByRj to function smoothly:\n\n" +
                     missingPermissions.joinToString("\n") { "• **$it**" } +
                     "\n\n_Tap the buttons below to enable missing items:_"
                 }
@@ -1660,16 +1689,17 @@ object AyvaTalkEngine {
         // --- 5. SMART CONVERSATIONAL FALLBACK (ALWAYS ANSWERS) ---
         recordTurn(cleanQuery, "fallback")
         val fallbackActions = listOf(
+            TalkAction.NavigateAppScreen("preferences_hub", "Preferences Hub ⚙️", "⚙️"),
+            TalkAction.AskQuery("where is settings", "📍 Settings Hub"),
             TalkAction.AskQuery("vacation mode", "🏖️ Vacation Mode"),
             TalkAction.AskQuery("persistent reminders", "⏰ Reminders"),
             TalkAction.AskQuery("bubble auto hide", "🫧 Auto-Hide"),
             TalkAction.AskQuery("soft mode wait timer", "⏱️ Soft Delay"),
-            TalkAction.AskQuery("why apps not blocking", "🛡️ Troubleshoot"),
-            TalkAction.NavigateAppScreen("settings", "Settings ⚙️", "⚙️")
+            TalkAction.AskQuery("why apps not blocking", "🛡️ Troubleshoot")
         )
         val json = serializeActionsJson("fallback", fallbackActions)
         return TalkResponse(
-            formattedText = "💬 **Ayva**: I'm here to help with FocusByRj!\n\nI didn't find a direct match for *\"$trimmed\"*, but you can ask me about:\n\n• **Vacation Mode** — Freeze your daily streak & pause alerts\n• **Persistent Reminders** — Configure recurring task alarms\n• **Soft Mode Wait Timer** — Set mindful bypass delays\n• **Bubble Auto-Hide** — Auto-hide during video calls and landscape games\n• **Troubleshooting** — Verify permissions or blocked apps",
+            formattedText = "💬 **Ayva**: I'm here to help with FocusByRj!\n\nI didn't find a direct match for *\"$trimmed\"*, but you can ask me about:\n\n• **Settings & Preferences** — Tap your top header Avatar or ask *\"where is settings\"*\n• **Vacation Mode** — Freeze your daily streak & pause alerts\n• **Persistent Reminders** — Configure recurring task alarms\n• **Soft Mode Wait Timer** — Set mindful bypass delays\n• **Bubble Auto-Hide** — Auto-hide during video calls and landscape games\n• **Troubleshooting** — Verify permissions or blocked apps",
             actions = fallbackActions,
             topicId = "fallback",
             jsonPayload = json

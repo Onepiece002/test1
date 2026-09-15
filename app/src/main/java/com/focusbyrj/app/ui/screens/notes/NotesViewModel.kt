@@ -24,6 +24,7 @@ import androidx.lifecycle.viewModelScope
 import com.focusbyrj.app.data.note.ChecklistItem
 import com.focusbyrj.app.data.note.NoteDatabase
 import com.focusbyrj.app.data.note.NoteEntity
+import com.focusbyrj.app.data.note.NoteImageHelper
 import com.focusbyrj.app.data.note.NoteRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -45,19 +46,15 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
-import android.app.AlarmManager
-import android.app.PendingIntent
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
 import android.graphics.BitmapFactory
 import android.os.Build
 import android.widget.Toast
-import com.focusbyrj.app.receiver.NoteReminderReceiver
 
 enum class NoteFolder(val title: String) {
     NOTES("Notes"),
-    REMINDERS("Reminders"),
     ARCHIVE("Archive"),
     TRASH("Trash")
 }
@@ -67,7 +64,6 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository: NoteRepository
     private val prefs = application.getSharedPreferences("keep_notes_prefs", Context.MODE_PRIVATE)
-    private val alarmManager = application.getSystemService(Context.ALARM_SERVICE) as AlarmManager
     private val persistMutex = Mutex()
     private var autoSaveJob: Job? = null
 
@@ -143,7 +139,7 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
             val notes = displayedNotes.value.filter { it.id in ids }
             val anyUnpinned = notes.any { !it.isPinned }
             notes.forEach { note ->
-                repository.togglePin(note.id, !anyUnpinned)
+                repository.setPinned(note.id, anyUnpinned)
             }
         }
         clearSelection()
@@ -198,7 +194,6 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
             notes.forEach { note ->
                 deleteNoteMediaFiles(note)
                 repository.deletePermanently(note)
-                cancelReminderNotification(note.id)
             }
         }
         clearSelection()
@@ -209,6 +204,7 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
         if (ids.isEmpty()) return
         val notes = displayedNotes.value.filter { it.id in ids }
         if (notes.isEmpty()) return
+        val context = getApplication<Application>()
         viewModelScope.launch(Dispatchers.IO) {
             notes.forEach { note ->
                 val checklistJson = if (note.isChecklist) {
@@ -217,12 +213,19 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
                 } else {
                     note.checklistJson
                 }
+                val newImages = note.getImageUris().mapNotNull { path ->
+                    NoteImageHelper.copyImageFile(context, path) ?: path
+                }
+                val newAudios = note.getAudioUris().mapNotNull { path ->
+                    AudioMemoManager.copyAudioFile(context, path) ?: path
+                }
                 repository.saveNote(
                     note.copy(
                         id = 0,
                         title = if (note.title.isNotBlank()) "${note.title} (Copy)" else "",
                         checklistJson = checklistJson,
-                        reminderTimestamp = null,
+                        imageUrisJson = JSONArray(newImages).toString(),
+                        audioUrisJson = JSONArray(newAudios).toString(),
                         createdAt = System.currentTimeMillis(),
                         updatedAt = System.currentTimeMillis()
                     )
@@ -244,13 +247,16 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
                 } else {
                     currentLabels.add(label)
                 }
-                repository.saveNote(
-                    note.copy(
-                        labelsJson = org.json.JSONArray(currentLabels.toList()).toString(),
-                        updatedAt = System.currentTimeMillis()
-                    )
+                val updated = note.copy(
+                    labelsJson = org.json.JSONArray(currentLabels.toList()).toString(),
+                    updatedAt = System.currentTimeMillis()
                 )
+                repository.saveNote(updated)
+                latestNotesCache[updated.id] = updated
             }
+            try {
+                com.focusbyrj.app.widget.NoteWidgetProvider.updateAllWidgets(getApplication())
+            } catch (_: Exception) {}
         }
     }
 
@@ -260,27 +266,6 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
         ids.forEach { latestNotesCache.remove(it) }
         viewModelScope.launch(Dispatchers.IO) {
             ids.forEach { id -> repository.setColor(id, colorKey) }
-        }
-        clearSelection()
-    }
-
-    fun setSelectedNotesReminder(timestamp: Long?) {
-        val ids = _selectedNoteIds.value.toList()
-        if (ids.isEmpty()) return
-        ids.forEach { latestNotesCache.remove(it) }
-        viewModelScope.launch(Dispatchers.IO) {
-            ids.forEach { id ->
-                val note = displayedNotes.value.find { it.id == id }
-                if (note != null) {
-                    val updated = note.copy(reminderTimestamp = timestamp, updatedAt = System.currentTimeMillis())
-                    repository.saveNote(updated)
-                    if (timestamp != null && timestamp > System.currentTimeMillis()) {
-                        scheduleReminderNotification(id, note.title, note.content, timestamp)
-                    } else {
-                        cancelReminderNotification(id)
-                    }
-                }
-            }
         }
         clearSelection()
     }
@@ -320,15 +305,19 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
     fun renameCustomLabel(oldLabel: String, newLabel: String) {
         val trimmedOld = oldLabel.trim()
         val trimmedNew = newLabel.trim()
-        if (trimmedNew.isBlank()) return
+        if (trimmedNew.isBlank() || trimmedOld.equals(trimmedNew, ignoreCase = true)) return
         val updated = _customLabels.value.map { if (it.equals(trimmedOld, ignoreCase = true)) trimmedNew else it }.toSet()
         _customLabels.value = updated
         prefs.edit().putStringSet("custom_labels", updated).apply()
         if (_selectedLabelFilter.value.equals(trimmedOld, ignoreCase = true)) {
             _selectedLabelFilter.value = trimmedNew
         }
+        latestNotesCache.clear()
         viewModelScope.launch(Dispatchers.IO) {
             repository.renameLabel(trimmedOld, trimmedNew)
+            try {
+                com.focusbyrj.app.widget.NoteWidgetProvider.updateAllWidgets(getApplication())
+            } catch (_: Exception) {}
         }
     }
 
@@ -340,8 +329,12 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
         if (_selectedLabelFilter.value.equals(trimmed, ignoreCase = true)) {
             _selectedLabelFilter.value = null
         }
+        latestNotesCache.clear()
         viewModelScope.launch(Dispatchers.IO) {
             repository.deleteLabel(trimmed)
+            try {
+                com.focusbyrj.app.widget.NoteWidgetProvider.updateAllWidgets(getApplication())
+            } catch (_: Exception) {}
         }
     }
 
@@ -363,7 +356,6 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
     }.flatMapLatest { (folder, query) ->
         val folderFlow = when (folder) {
             NoteFolder.NOTES -> repository.getActiveNotes()
-            NoteFolder.REMINDERS -> repository.getActiveNotes() // will filter reminderTimestamp != null
             NoteFolder.ARCHIVE -> repository.getArchivedNotes()
             NoteFolder.TRASH -> repository.getTrashedNotes()
         }
@@ -418,14 +410,11 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
         _currentFolder,
         _selectedColorFilter,
         _selectedLabelFilter
-    ) { notes, folder, colorFilter, labelFilter ->
+    ) { notes, _, colorFilter, labelFilter ->
         notes.filter { note ->
-            val matchesFolder = if (folder == NoteFolder.REMINDERS) {
-                note.reminderTimestamp != null && !note.isTrashed && !note.isArchived
-            } else true
             val matchesColor = colorFilter == null || note.colorKey.equals(colorFilter, ignoreCase = true)
             val matchesLabel = labelFilter == null || note.getLabels().any { it.equals(labelFilter, ignoreCase = true) }
-            matchesFolder && matchesColor && matchesLabel
+            matchesColor && matchesLabel
         }
     }.stateIn(
         scope = viewModelScope,
@@ -464,7 +453,6 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
         val isArchived: Boolean = false,
         val isTrashed: Boolean = false,
         val labels: List<String> = emptyList(),
-        val reminderTimestamp: Long? = null,
         val imageUris: List<String> = emptyList(),
         val audioUris: List<String> = emptyList(),
         val createdAt: Long = System.currentTimeMillis(),
@@ -601,7 +589,6 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
             isArchived = resolvedNote.isArchived,
             isTrashed = resolvedNote.isTrashed,
             labels = resolvedNote.getLabels(),
-            reminderTimestamp = resolvedNote.reminderTimestamp,
             imageUris = resolvedNote.getImageUris(),
             audioUris = resolvedNote.getAudioUris(),
             createdAt = resolvedNote.createdAt,
@@ -626,7 +613,6 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
                                 isArchived = fresh.isArchived,
                                 isTrashed = fresh.isTrashed,
                                 labels = fresh.getLabels(),
-                                reminderTimestamp = fresh.reminderTimestamp,
                                 imageUris = fresh.getImageUris(),
                                 audioUris = fresh.getAudioUris(),
                                 updatedAt = fresh.updatedAt
@@ -808,41 +794,42 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
 
     fun duplicateCurrentNote() {
         val current = _editingState.value ?: return
+        val context = getApplication<Application>()
         viewModelScope.launch(Dispatchers.IO) {
             val copyTitle = if (current.title.isBlank()) "Note (copy)" else "${current.title} (copy)"
+            val newImages = current.imageUris.mapNotNull { path ->
+                NoteImageHelper.copyImageFile(context, path) ?: path
+            }
+            val newAudios = current.audioUris.mapNotNull { path ->
+                AudioMemoManager.copyAudioFile(context, path) ?: path
+            }
+            val newChecklistItems = current.checklistItems.map { it.copy(id = UUID.randomUUID().toString()) }
             val newNote = NoteEntity(
                 title = copyTitle,
                 content = current.content,
                 isChecklist = current.isChecklist,
-                checklistJson = current.checklistItems.map { it.copy(id = UUID.randomUUID().toString()) }.let { items ->
-                    val arr = JSONArray()
-                    items.forEach { item ->
-                        val obj = org.json.JSONObject()
-                        obj.put("id", item.id)
-                        obj.put("text", item.text)
-                        obj.put("isChecked", item.isChecked)
-                        arr.put(obj)
-                    }
-                    arr.toString()
-                },
+                checklistJson = ChecklistItem.listToJson(newChecklistItems),
                 colorKey = current.colorKey,
                 isPinned = false,
                 isArchived = false,
                 isTrashed = false,
                 labelsJson = JSONArray(current.labels).toString(),
-                reminderTimestamp = null,
-                imageUrisJson = JSONArray(current.imageUris).toString(),
-                audioUrisJson = JSONArray(current.audioUris).toString(),
+                imageUrisJson = JSONArray(newImages).toString(),
+                audioUrisJson = JSONArray(newAudios).toString(),
                 createdAt = System.currentTimeMillis(),
                 updatedAt = System.currentTimeMillis()
             )
             val newId = repository.saveNote(newNote)
+            val savedEntity = newNote.copy(id = newId)
+            latestNotesCache[newId] = savedEntity
             _editingState.value = current.copy(
                 originalId = newId,
                 title = copyTitle,
+                checklistItems = newChecklistItems,
+                imageUris = newImages,
+                audioUris = newAudios,
                 isPinned = false,
                 isArchived = false,
-                reminderTimestamp = null,
                 createdAt = System.currentTimeMillis(),
                 updatedAt = System.currentTimeMillis()
             )
@@ -1149,20 +1136,6 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
         persistCurrentEditorState()
     }
 
-    fun setEditorReminder(timestamp: Long?) {
-        val current = _editingState.value ?: return
-        _editingState.value = current.copy(reminderTimestamp = timestamp, updatedAt = System.currentTimeMillis())
-        persistCurrentEditorState()
-
-        if (current.originalId != 0L) {
-            if (timestamp != null && timestamp > System.currentTimeMillis()) {
-                scheduleReminderNotification(current.originalId, current.title, current.content, timestamp)
-            } else {
-                cancelReminderNotification(current.originalId)
-            }
-        }
-    }
-
     fun moveChecklistItem(fromIndex: Int, toIndex: Int) {
         val current = _editingState.value ?: return
         val items = current.checklistItems.toMutableList()
@@ -1171,42 +1144,6 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
         items.add(toIndex, item)
         _editingState.value = current.copy(checklistItems = items, updatedAt = System.currentTimeMillis())
         persistCurrentEditorState(immediate = true)
-    }
-
-    private fun scheduleReminderNotification(id: Long, title: String, content: String, timeMillis: Long) {
-        try {
-            val intent = Intent(getApplication(), NoteReminderReceiver::class.java).apply {
-                putExtra(NoteReminderReceiver.EXTRA_NOTE_ID, id)
-                putExtra(NoteReminderReceiver.EXTRA_NOTE_TITLE, title)
-                putExtra(NoteReminderReceiver.EXTRA_NOTE_CONTENT, content)
-            }
-            val pendingIntent = PendingIntent.getBroadcast(
-                getApplication(),
-                id.toInt(),
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, timeMillis, pendingIntent)
-            } else {
-                alarmManager.setExact(AlarmManager.RTC_WAKEUP, timeMillis, pendingIntent)
-            }
-        } catch (_: Exception) {
-        }
-    }
-
-    private fun cancelReminderNotification(id: Long) {
-        try {
-            val intent = Intent(getApplication(), NoteReminderReceiver::class.java)
-            val pendingIntent = PendingIntent.getBroadcast(
-                getApplication(),
-                id.toInt(),
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-            alarmManager.cancel(pendingIntent)
-        } catch (_: Exception) {
-        }
     }
 
     fun restoreNote(note: NoteEntity) {
@@ -1243,7 +1180,6 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             deleteNoteMediaFiles(note)
             repository.deletePermanently(note)
-            cancelReminderNotification(note.id)
         }
     }
 
@@ -1253,7 +1189,6 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
             val trashedNotes = repository.getTrashedNotesSync()
             trashedNotes.forEach { note ->
                 deleteNoteMediaFiles(note)
-                cancelReminderNotification(note.id)
             }
             repository.emptyTrash()
         }
@@ -1312,19 +1247,12 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
 
         viewModelScope.launch(Dispatchers.IO) {
             persistMutex.withLock {
-                val isEmpty = current.title.isBlank() &&
-                        current.imageUris.isEmpty() &&
-                        current.audioUris.isEmpty() &&
-                        ((!current.isChecklist && current.content.isBlank()) ||
-                                (current.isChecklist && current.checklistItems.none { it.text.isNotBlank() }))
-
                 val entity = buildEntityFromState(current)
-                if (isEmpty) {
+                if (entity.isEmptyNote()) {
                     if (entity.id != 0L) {
                         latestNotesCache.remove(entity.id)
                         deleteNoteMediaFiles(entity)
                         repository.deletePermanently(entity)
-                        cancelReminderNotification(entity.id)
                     }
                 } else {
                     val savedId = repository.saveNote(entity)
@@ -1337,12 +1265,8 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun persistCurrentEditorState(immediate: Boolean = false) {
         val current = _editingState.value ?: return
-        val isEmpty = current.title.isBlank() &&
-                current.imageUris.isEmpty() &&
-                current.audioUris.isEmpty() &&
-                ((!current.isChecklist && current.content.isBlank()) ||
-                        (current.isChecklist && current.checklistItems.none { it.text.isNotBlank() }))
-        if (isEmpty && current.originalId == 0L) return
+        val entityCandidate = buildEntityFromState(current)
+        if (entityCandidate.isEmptyNote() && current.originalId == 0L) return
 
         autoSaveJob?.cancel()
         autoSaveJob = viewModelScope.launch(Dispatchers.IO) {
@@ -1351,14 +1275,9 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
             }
             persistMutex.withLock {
                 val latest = _editingState.value ?: return@withLock
-                val isEmptyNow = latest.title.isBlank() &&
-                        latest.imageUris.isEmpty() &&
-                        latest.audioUris.isEmpty() &&
-                        ((!latest.isChecklist && latest.content.isBlank()) ||
-                                (latest.isChecklist && latest.checklistItems.none { it.text.isNotBlank() }))
-                if (isEmptyNow && latest.originalId == 0L) return@withLock
-
                 val entity = buildEntityFromState(latest)
+                if (entity.isEmptyNote() && latest.originalId == 0L) return@withLock
+
                 val savedId = repository.saveNote(entity)
                 val finalEntity = if (entity.id == 0L) entity.copy(id = savedId) else entity
                 latestNotesCache[savedId] = finalEntity
@@ -1393,7 +1312,6 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
             isArchived = state.isArchived,
             isTrashed = state.isTrashed,
             labelsJson = labelsArray.toString(),
-            reminderTimestamp = state.reminderTimestamp,
             imageUrisJson = imagesArray.toString(),
             audioUrisJson = audiosArray.toString(),
             createdAt = state.createdAt,

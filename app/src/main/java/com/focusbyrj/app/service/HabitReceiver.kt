@@ -133,10 +133,10 @@ class HabitReceiver : BroadcastReceiver() {
                     streakDays = currentStreak
                 )
 
-                // If it's ONCE_DAILY and already completed today, don't nag the user again today!
-                if (habit.type == HabitType.ONCE_DAILY && completedCount >= targetCount) {
-                    // Reschedule for tomorrow
-                    HabitAlarmScheduler.scheduleHabitReminder(appContext, habit)
+                // If daily target is already completed today, don't interrupt the user with popups/alarms!
+                if (completedCount >= targetCount) {
+                    // Reschedule for next day
+                    HabitAlarmScheduler.scheduleHabitReminder(appContext, habit, isGoalCompletedToday = true)
                     return@launch
                 }
 

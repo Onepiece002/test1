@@ -56,7 +56,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -181,7 +184,22 @@ fun AudioPlayerEditorItem(
     val actualDuration = if (durationMs > 0) durationMs.toLong() else estimatedDuration
     val currentPos = currentPositionMs.toLong()
 
-    val currentText = AudioMemoManager.formatDuration(currentPos)
+    var isDraggingSlider by remember { mutableStateOf(false) }
+    var dragProgressFraction by remember { mutableFloatStateOf(0f) }
+
+    val displayProgress = if (isDraggingSlider) {
+        dragProgressFraction
+    } else if (actualDuration > 0) {
+        (currentPos.toFloat() / actualDuration.toFloat()).coerceIn(0f, 1f)
+    } else 0f
+
+    val displayPosMs = if (isDraggingSlider) {
+        (dragProgressFraction * actualDuration).toLong()
+    } else {
+        currentPos
+    }
+
+    val currentText = AudioMemoManager.formatDuration(displayPosMs)
     val totalText = AudioMemoManager.formatDuration(actualDuration)
 
     Surface(
@@ -271,15 +289,16 @@ fun AudioPlayerEditorItem(
             }
 
             // Keep Style Track Slider
-            val progress = if (actualDuration > 0) {
-                (currentPos.toFloat() / actualDuration.toFloat()).coerceIn(0f, 1f)
-            } else 0f
-
             Slider(
-                value = progress,
+                value = displayProgress,
                 onValueChange = { frac ->
-                    val targetMs = (frac * actualDuration).toInt()
+                    isDraggingSlider = true
+                    dragProgressFraction = frac
+                },
+                onValueChangeFinished = {
+                    val targetMs = (dragProgressFraction * actualDuration).toInt()
                     onSeek(targetMs)
+                    isDraggingSlider = false
                 },
                 thumb = {
                     Box(

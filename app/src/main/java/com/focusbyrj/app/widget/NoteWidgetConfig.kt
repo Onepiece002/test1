@@ -138,40 +138,55 @@ object NoteWidgetConfigHelper {
     private const val KEY_SHOW_ACTION_BUTTONS = "show_action_buttons_"
     private const val KEY_SHOW_NAV_HEADER = "show_nav_header_"
     private const val KEY_ADAPTIVE_LAYOUT = "adaptive_layout_"
+    private const val KEY_DEFAULT_SUFFIX = "default"
 
     fun getConfig(context: Context, appWidgetId: Int): NoteWidgetConfig {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
-        val modeStr = prefs.getString(KEY_FILTER_MODE_PREFIX + appWidgetId, NoteWidgetFilterMode.ALL.name)
+        // Resolve which key suffix to read from:
+        // 1. If explicit widget ID has settings, use it
+        // 2. Otherwise fallback to the shared "default" settings
+        val keySuffix = if (appWidgetId > 0 && prefs.contains(KEY_TEXT_SIZE + appWidgetId)) {
+            appWidgetId.toString()
+        } else if (prefs.contains(KEY_TEXT_SIZE + KEY_DEFAULT_SUFFIX)) {
+            KEY_DEFAULT_SUFFIX
+        } else if (appWidgetId > 0) {
+            appWidgetId.toString()
+        } else {
+            KEY_DEFAULT_SUFFIX
+        }
+
+        val modeStr = prefs.getString(KEY_FILTER_MODE_PREFIX + keySuffix, NoteWidgetFilterMode.ALL.name)
         val filterMode = try {
             NoteWidgetFilterMode.valueOf(modeStr ?: NoteWidgetFilterMode.ALL.name)
         } catch (_: Exception) {
             NoteWidgetFilterMode.ALL
         }
 
-        val specificIdRaw = prefs.getLong(KEY_SPECIFIC_ID_PREFIX + appWidgetId, -1L)
+        val specificIdRaw = prefs.getLong(KEY_SPECIFIC_ID_PREFIX + keySuffix, -1L)
         val specificNoteId = if (specificIdRaw != -1L) specificIdRaw else null
 
-        val themeName = prefs.getString(KEY_THEME + appWidgetId, WidgetTheme.DARK.name) ?: WidgetTheme.DARK.name
-        val accentName = prefs.getString(KEY_ACCENT + appWidgetId, WidgetAccent.BLUE.name) ?: WidgetAccent.BLUE.name
-        val opacity = prefs.getInt(KEY_OPACITY + appWidgetId, 95)
-        val corner = prefs.getInt(KEY_CORNER + appWidgetId, 16)
-        val matchNote = prefs.getBoolean(KEY_MATCH_NOTE + appWidgetId, true)
+        val themeName = prefs.getString(KEY_THEME + keySuffix, WidgetTheme.DARK.name) ?: WidgetTheme.DARK.name
+        val accentName = prefs.getString(KEY_ACCENT + keySuffix, WidgetAccent.BLUE.name) ?: WidgetAccent.BLUE.name
+        val opacity = prefs.getInt(KEY_OPACITY + keySuffix, 95)
+        val corner = prefs.getInt(KEY_CORNER + keySuffix, 16)
+        val matchNote = prefs.getBoolean(KEY_MATCH_NOTE + keySuffix, true)
 
-        val sortStr = prefs.getString(KEY_SORT_BY + appWidgetId, NoteWidgetSortBy.RECENTLY_UPDATED.name)
+        val sortStr = prefs.getString(KEY_SORT_BY + keySuffix, NoteWidgetSortBy.RECENTLY_UPDATED.name)
         val sortBy = runCatching { NoteWidgetSortBy.valueOf(sortStr ?: "") }.getOrDefault(NoteWidgetSortBy.RECENTLY_UPDATED)
 
-        val textStr = prefs.getString(KEY_TEXT_SIZE + appWidgetId, NoteWidgetTextSize.SIZE_16.name)
+        val defaultTextStr = prefs.getString(KEY_TEXT_SIZE + KEY_DEFAULT_SUFFIX, NoteWidgetTextSize.SIZE_16.name)
+        val textStr = prefs.getString(KEY_TEXT_SIZE + keySuffix, defaultTextStr) ?: defaultTextStr
         val textSize = NoteWidgetTextSize.fromNameOrDefault(textStr)
 
-        val padStr = prefs.getString(KEY_PADDING + appWidgetId, NoteWidgetPadding.STANDARD.name)
+        val padStr = prefs.getString(KEY_PADDING + keySuffix, NoteWidgetPadding.STANDARD.name)
         val padding = runCatching { NoteWidgetPadding.valueOf(padStr ?: "") }.getOrDefault(NoteWidgetPadding.STANDARD)
 
-        val showTitle = prefs.getBoolean(KEY_SHOW_TITLE + appWidgetId, true)
-        val showQuickAdd = prefs.getBoolean(KEY_SHOW_QUICK_ADD + appWidgetId, true)
-        val showActionButtons = prefs.getBoolean(KEY_SHOW_ACTION_BUTTONS + appWidgetId, true)
-        val showNavHeader = prefs.getBoolean(KEY_SHOW_NAV_HEADER + appWidgetId, true)
-        val adaptiveLayout = prefs.getBoolean(KEY_ADAPTIVE_LAYOUT + appWidgetId, true)
+        val showTitle = prefs.getBoolean(KEY_SHOW_TITLE + keySuffix, true)
+        val showQuickAdd = prefs.getBoolean(KEY_SHOW_QUICK_ADD + keySuffix, true)
+        val showActionButtons = prefs.getBoolean(KEY_SHOW_ACTION_BUTTONS + keySuffix, true)
+        val showNavHeader = prefs.getBoolean(KEY_SHOW_NAV_HEADER + keySuffix, true)
+        val adaptiveLayout = prefs.getBoolean(KEY_ADAPTIVE_LAYOUT + keySuffix, true)
 
         val theme = runCatching { WidgetTheme.valueOf(themeName) }.getOrDefault(WidgetTheme.DARK)
         val accent = runCatching { WidgetAccent.valueOf(accentName) }.getOrDefault(WidgetAccent.BLUE)
@@ -197,24 +212,52 @@ object NoteWidgetConfigHelper {
 
     fun saveConfig(context: Context, appWidgetId: Int, config: NoteWidgetConfig) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit()
-            .putString(KEY_THEME + appWidgetId, config.theme.name)
-            .putString(KEY_ACCENT + appWidgetId, config.accent.name)
-            .putInt(KEY_OPACITY + appWidgetId, config.opacityPercent)
-            .putInt(KEY_CORNER + appWidgetId, config.cornerRadiusDp)
-            .putBoolean(KEY_MATCH_NOTE + appWidgetId, config.matchNoteColor)
-            .putString(KEY_FILTER_MODE_PREFIX + appWidgetId, config.filterMode.name)
-            .putLong(KEY_SPECIFIC_ID_PREFIX + appWidgetId, config.specificNoteId ?: -1L)
-            .putString(KEY_SORT_BY + appWidgetId, config.sortBy.name)
-            .putString(KEY_TEXT_SIZE + appWidgetId, config.textSize.name)
-            .putString(KEY_PADDING + appWidgetId, config.padding.name)
-            .putBoolean(KEY_SHOW_TITLE + appWidgetId, config.showTitle)
-            .putBoolean(KEY_SHOW_QUICK_ADD + appWidgetId, config.showQuickAddBar)
-            .putBoolean(KEY_SHOW_ACTION_BUTTONS + appWidgetId, config.showActionButtons)
-            .putBoolean(KEY_SHOW_NAV_HEADER + appWidgetId, config.showNavHeader)
-            .putBoolean(KEY_ADAPTIVE_LAYOUT + appWidgetId, config.adaptiveLayout)
-            .apply()
+        val editor = prefs.edit()
+
+        fun writeForSuffix(suffix: String) {
+            editor
+                .putString(KEY_THEME + suffix, config.theme.name)
+                .putString(KEY_ACCENT + suffix, config.accent.name)
+                .putInt(KEY_OPACITY + suffix, config.opacityPercent)
+                .putInt(KEY_CORNER + suffix, config.cornerRadiusDp)
+                .putBoolean(KEY_MATCH_NOTE + suffix, config.matchNoteColor)
+                .putString(KEY_FILTER_MODE_PREFIX + suffix, config.filterMode.name)
+                .putLong(KEY_SPECIFIC_ID_PREFIX + suffix, config.specificNoteId ?: -1L)
+                .putString(KEY_SORT_BY + suffix, config.sortBy.name)
+                .putString(KEY_TEXT_SIZE + suffix, config.textSize.name)
+                .putString(KEY_PADDING + suffix, config.padding.name)
+                .putBoolean(KEY_SHOW_TITLE + suffix, config.showTitle)
+                .putBoolean(KEY_SHOW_QUICK_ADD + suffix, config.showQuickAddBar)
+                .putBoolean(KEY_SHOW_ACTION_BUTTONS + suffix, config.showActionButtons)
+                .putBoolean(KEY_SHOW_NAV_HEADER + suffix, config.showNavHeader)
+                .putBoolean(KEY_ADAPTIVE_LAYOUT + suffix, config.adaptiveLayout)
+
+            if (config.filterMode == NoteWidgetFilterMode.SPECIFIC && config.specificNoteId != null && config.specificNoteId > 0) {
+                editor.putLong(KEY_CURRENT_NOTE_ID_PREFIX + suffix, config.specificNoteId)
+                editor.putInt(KEY_INDEX_PREFIX + suffix, 0)
+            }
+        }
+
+        // Always save to default so any un-keyed reads or new widgets share the latest user selection
+        writeForSuffix(KEY_DEFAULT_SUFFIX)
+
+        if (appWidgetId > 0) {
+            writeForSuffix(appWidgetId.toString())
+        } else {
+            // Also write for any currently active widgets
+            kotlin.runCatching {
+                val appWidgetManager = android.appwidget.AppWidgetManager.getInstance(context)
+                val ids = appWidgetManager.getAppWidgetIds(android.content.ComponentName(context, NoteWidgetProvider::class.java))
+                ids?.forEach { id ->
+                    if (id > 0) writeForSuffix(id.toString())
+                }
+            }
+        }
+
+        editor.apply()
     }
+
+    private const val KEY_CURRENT_NOTE_ID_PREFIX = "note_current_id_"
 
     fun getCurrentIndex(context: Context, appWidgetId: Int): Int {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -226,11 +269,27 @@ object NoteWidgetConfigHelper {
         prefs.edit().putInt(KEY_INDEX_PREFIX + appWidgetId, index.coerceAtLeast(0)).apply()
     }
 
+    fun getCurrentNoteId(context: Context, appWidgetId: Int): Long? {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val id = prefs.getLong(KEY_CURRENT_NOTE_ID_PREFIX + appWidgetId, -1L)
+        return if (id != -1L) id else null
+    }
+
+    fun setCurrentNoteId(context: Context, appWidgetId: Int, noteId: Long?) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        if (noteId != null && noteId > 0) {
+            prefs.edit().putLong(KEY_CURRENT_NOTE_ID_PREFIX + appWidgetId, noteId).apply()
+        } else {
+            prefs.edit().remove(KEY_CURRENT_NOTE_ID_PREFIX + appWidgetId).apply()
+        }
+    }
+
     fun setFilterMode(context: Context, appWidgetId: Int, mode: NoteWidgetFilterMode) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit()
             .putString(KEY_FILTER_MODE_PREFIX + appWidgetId, mode.name)
             .putInt(KEY_INDEX_PREFIX + appWidgetId, 0)
+            .remove(KEY_CURRENT_NOTE_ID_PREFIX + appWidgetId)
             .apply()
     }
 }

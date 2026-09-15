@@ -18,6 +18,7 @@
 package com.focusbyrj.app.widget
 
 import android.appwidget.AppWidgetManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
@@ -43,10 +44,23 @@ class NoteWidgetRemoteViewsFactory(
     private val intent: Intent
 ) : RemoteViewsService.RemoteViewsFactory {
 
-    private val appWidgetId: Int = intent.getIntExtra(
-        AppWidgetManager.EXTRA_APPWIDGET_ID,
-        AppWidgetManager.INVALID_APPWIDGET_ID
-    )
+    private val appWidgetId: Int = run {
+        val idFromExtra = intent.getIntExtra(
+            AppWidgetManager.EXTRA_APPWIDGET_ID,
+            AppWidgetManager.INVALID_APPWIDGET_ID
+        )
+        if (idFromExtra != AppWidgetManager.INVALID_APPWIDGET_ID && idFromExtra > 0) {
+            idFromExtra
+        } else {
+            intent.data?.host?.toIntOrNull()
+                ?: intent.data?.pathSegments?.firstOrNull()?.toIntOrNull()
+                ?: run {
+                    val mgr = AppWidgetManager.getInstance(context)
+                    val ids = mgr.getAppWidgetIds(ComponentName(context, NoteWidgetProvider::class.java))
+                    ids?.firstOrNull() ?: AppWidgetManager.INVALID_APPWIDGET_ID
+                }
+        }
+    }
 
     private var currentNote: NoteEntity? = null
     private var checklistItems: List<ChecklistItem> = emptyList()
@@ -70,32 +84,49 @@ class NoteWidgetRemoteViewsFactory(
                 if (widgetConfig.filterMode == NoteWidgetFilterMode.SPECIFIC && widgetConfig.specificNoteId != null) {
                     noteDao.getNoteByIdSync(widgetConfig.specificNoteId!!)
                 } else {
-                    val notes = when (widgetConfig.filterMode) {
+                    val rawNotes = when (widgetConfig.filterMode) {
                         NoteWidgetFilterMode.NOTES -> noteDao.getTextNotesSync()
                         NoteWidgetFilterMode.CHECKLISTS -> noteDao.getChecklistNotesSync()
                         NoteWidgetFilterMode.PINNED -> noteDao.getPinnedNotesSync()
                         else -> noteDao.getAllActiveNotesSync()
                     }
 
-                    if (notes.isNotEmpty()) {
-                        val index = NoteWidgetConfigHelper.getCurrentIndex(context, appWidgetId)
-                        val safeIndex = index % notes.size
-                        notes[safeIndex]
+                    // Apply the exact same sort order as NoteWidgetProvider to guarantee header/content sync
+                    val sortedNotes = when (widgetConfig.sortBy) {
+                        NoteWidgetSortBy.RECENTLY_UPDATED -> rawNotes.sortedByDescending { it.updatedAt }
+                        NoteWidgetSortBy.RECENTLY_CREATED -> rawNotes.sortedByDescending { it.createdAt }
+                        NoteWidgetSortBy.PINNED_FIRST -> rawNotes.sortedWith(compareByDescending<NoteEntity> { it.isPinned }.thenByDescending { it.updatedAt })
+                        NoteWidgetSortBy.ALPHABETICAL -> rawNotes.sortedBy { it.title.lowercase() }
+                    }
+
+                    if (sortedNotes.isNotEmpty()) {
+                        val currentNoteId = NoteWidgetConfigHelper.getCurrentNoteId(context, appWidgetId)
+                        val noteById = if (currentNoteId != null) sortedNotes.find { it.id == currentNoteId } else null
+                        if (noteById != null) {
+                            noteById
+                        } else {
+                            val index = NoteWidgetConfigHelper.getCurrentIndex(context, appWidgetId)
+                            val safeIndex = index % sortedNotes.size
+                            sortedNotes[safeIndex]
+                        }
                     } else {
                         null
                     }
                 }
             }
 
-            currentNote = targetNote
-            if (targetNote != null && targetNote.isChecklist) {
-                val rawItems = targetNote.getChecklistItems()
+            val cached = if (targetNote != null) com.focusbyrj.app.ui.screens.notes.NotesViewModel.latestNotesCache[targetNote.id] else null
+            val resolvedNote = if (cached != null && cached.updatedAt >= (targetNote?.updatedAt ?: 0L)) cached else targetNote
+
+            currentNote = resolvedNote
+            if (resolvedNote != null && resolvedNote.isChecklist) {
+                val rawItems = resolvedNote.getChecklistItems()
                 val (uncompleted, completed) = rawItems.partition { !it.isChecked }
                 checklistItems = uncompleted + completed
                 textParagraphs = emptyList()
-            } else if (targetNote != null) {
+            } else if (resolvedNote != null) {
                 checklistItems = emptyList()
-                val rawText = targetNote.content.ifBlank { "(Empty note - tap to write)" }
+                val rawText = resolvedNote.content.ifBlank { "(Empty note - tap to write)" }
                 textParagraphs = rawText.split("\n")
             } else {
                 checklistItems = emptyList()
@@ -235,6 +266,7 @@ class NoteWidgetRemoteViewsFactory(
                 putExtra(NoteWidgetProvider.EXTRA_NOTE_ID, note.id)
             }
             views.setOnClickFillInIntent(R.id.widget_note_text_item_root, editIntent)
+            views.setOnClickFillInIntent(R.id.widget_note_text_item_body, editIntent)
 
             return views
         }
@@ -246,5 +278,5 @@ class NoteWidgetRemoteViewsFactory(
 
     override fun getItemId(position: Int): Long = position.toLong()
 
-    override fun hasStableIds(): Boolean = true
+    override fun hasStableIds(): Boolean = false
 }

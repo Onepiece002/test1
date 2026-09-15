@@ -135,9 +135,8 @@ class NoteWidgetConfigureActivity : ComponentActivity() {
                         val appWidgetManager = AppWidgetManager.getInstance(this)
                         if (appWidgetId != 0) {
                             NoteWidgetProvider.updateWidget(this, appWidgetManager, appWidgetId)
-                        } else {
-                            NoteWidgetProvider.updateAllWidgets(this)
                         }
+                        NoteWidgetProvider.updateAllWidgets(this)
 
                         val resultValue = Intent().apply {
                             putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)

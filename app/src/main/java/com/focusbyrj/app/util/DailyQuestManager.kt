@@ -30,7 +30,9 @@ data class MysteryReward(
     val xp: Int,
     val gold: Int,
     val streakFreezeAwarded: Boolean,
-    val bonusGoldInsteadOfFreeze: Int = 0
+    val bonusGoldInsteadOfFreeze: Int = 0,
+    val rarityTitle: String = "QUANTUM",
+    val freezesCount: Int = 1
 )
 
 data class DailyQuestState(
