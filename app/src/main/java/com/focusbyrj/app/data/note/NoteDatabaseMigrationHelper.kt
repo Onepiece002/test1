@@ -53,37 +53,92 @@ object NoteDatabaseMigrationHelper {
                 return
             }
 
-            Log.i(TAG, "Legacy unencrypted notes database detected. Starting migration to SQLCipher vault...")
+            Log.i(TAG, "Legacy unencrypted notes database detected. Starting raw SQLite migration to SQLCipher vault...")
 
-            // Open temporary unencrypted Room instance to extract notes
-            val legacyDb = Room.databaseBuilder(
-                context.applicationContext,
-                NoteDatabase::class.java,
-                PLAINTEXT_DB_NAME
-            ).build()
+            val rawDb = try {
+                android.database.sqlite.SQLiteDatabase.openDatabase(
+                    dbFile.path,
+                    null,
+                    android.database.sqlite.SQLiteDatabase.OPEN_READONLY
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to open legacy database with raw SQLite", e)
+                null
+            } ?: return
 
-            // Read legacy notes on IO dispatcher safely
-            val allLegacyNotes = runBlocking(Dispatchers.IO) {
-                try {
-                    legacyDb.noteDao().getAllNotesList()
-                } catch (_: Exception) {
-                    val activeNotes = legacyDb.noteDao().getAllActiveNotes().first()
-                    val archivedNotes = legacyDb.noteDao().getArchivedNotes().first()
-                    val trashedNotes = legacyDb.noteDao().getTrashedNotes().first()
-                    (activeNotes + archivedNotes + trashedNotes).distinctBy { it.id }
-                }
-            }
+            val legacyNotes = mutableListOf<NoteEntity>()
+            try {
+                val cursor = rawDb.rawQuery("SELECT * FROM keep_notes", null)
+                cursor.use { c ->
+                    val idIdx = c.getColumnIndex("id")
+                    val titleIdx = c.getColumnIndex("title")
+                    val contentIdx = c.getColumnIndex("content")
+                    val isChecklistIdx = c.getColumnIndex("isChecklist")
+                    val checklistJsonIdx = c.getColumnIndex("checklistJson")
+                    val colorKeyIdx = c.getColumnIndex("colorKey")
+                    val isPinnedIdx = c.getColumnIndex("isPinned")
+                    val isArchivedIdx = c.getColumnIndex("isArchived")
+                    val isTrashedIdx = c.getColumnIndex("isTrashed")
+                    val labelsJsonIdx = c.getColumnIndex("labelsJson")
+                    val imageUrisJsonIdx = c.getColumnIndex("imageUrisJson")
+                    val audioUrisJsonIdx = c.getColumnIndex("audioUrisJson")
+                    val createdAtIdx = c.getColumnIndex("createdAt")
+                    val updatedAtIdx = c.getColumnIndex("updatedAt")
 
-            if (allLegacyNotes.isNotEmpty()) {
-                runBlocking(Dispatchers.IO) {
-                    for (note in allLegacyNotes) {
-                        encryptedDb.noteDao().insertNote(note)
+                    while (c.moveToNext()) {
+                        val id = if (idIdx != -1) c.getLong(idIdx) else 0L
+                        val title = if (titleIdx != -1) c.getString(titleIdx) ?: "" else ""
+                        val content = if (contentIdx != -1) c.getString(contentIdx) ?: "" else ""
+                        val isChecklist = if (isChecklistIdx != -1) c.getInt(isChecklistIdx) == 1 else false
+                        val checklistJson = if (checklistJsonIdx != -1) c.getString(checklistJsonIdx) ?: "[]" else "[]"
+                        val colorKey = if (colorKeyIdx != -1) c.getString(colorKeyIdx) ?: "default" else "default"
+                        val isPinned = if (isPinnedIdx != -1) c.getInt(isPinnedIdx) == 1 else false
+                        val isArchived = if (isArchivedIdx != -1) c.getInt(isArchivedIdx) == 1 else false
+                        val isTrashed = if (isTrashedIdx != -1) c.getInt(isTrashedIdx) == 1 else false
+                        val labelsJson = if (labelsJsonIdx != -1) c.getString(labelsJsonIdx) ?: "[]" else "[]"
+                        val imageUrisJson = if (imageUrisJsonIdx != -1) c.getString(imageUrisJsonIdx) ?: "[]" else "[]"
+                        val audioUrisJson = if (audioUrisJsonIdx != -1) c.getString(audioUrisJsonIdx) ?: "[]" else "[]"
+                        val createdAt = if (createdAtIdx != -1) c.getLong(createdAtIdx) else System.currentTimeMillis()
+                        val updatedAt = if (updatedAtIdx != -1) c.getLong(updatedAtIdx) else System.currentTimeMillis()
+
+                        legacyNotes.add(
+                            NoteEntity(
+                                id = id,
+                                title = title,
+                                content = content,
+                                isChecklist = isChecklist,
+                                checklistJson = checklistJson,
+                                colorKey = colorKey,
+                                isPinned = isPinned,
+                                isArchived = isArchived,
+                                isTrashed = isTrashed,
+                                labelsJson = labelsJson,
+                                imageUrisJson = imageUrisJson,
+                                audioUrisJson = audioUrisJson,
+                                createdAt = createdAt,
+                                updatedAt = updatedAt
+                            )
+                        )
                     }
                 }
-                Log.i(TAG, "Successfully migrated ${allLegacyNotes.size} legacy notes into encrypted SQLCipher database.")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error querying legacy keep_notes table via raw SQLite", e)
+            } finally {
+                try { rawDb.close() } catch (_: Exception) {}
             }
 
-            legacyDb.close()
+            if (legacyNotes.isNotEmpty()) {
+                runBlocking(Dispatchers.IO) {
+                    for (note in legacyNotes) {
+                        try {
+                            encryptedDb.noteDao().insertNote(note)
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Failed inserting migrated note ${note.id}", e)
+                        }
+                    }
+                }
+                Log.i(TAG, "Successfully migrated ${legacyNotes.size} legacy notes into encrypted SQLCipher database.")
+            }
 
             // Securely wipe and delete legacy plaintext db files
             val walFile = context.getDatabasePath("${PLAINTEXT_DB_NAME}-wal")

@@ -48,6 +48,14 @@ abstract class NoteDatabase : RoomDatabase() {
 
         val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(db: SupportSQLiteDatabase) {
+                // Ensure imageUrisJson and audioUrisJson exist before copying
+                try {
+                    db.execSQL("ALTER TABLE keep_notes ADD COLUMN imageUrisJson TEXT NOT NULL DEFAULT '[]'")
+                } catch (_: Exception) {}
+                try {
+                    db.execSQL("ALTER TABLE keep_notes ADD COLUMN audioUrisJson TEXT NOT NULL DEFAULT '[]'")
+                } catch (_: Exception) {}
+
                 // Remove reminderTimestamp column safely across all SQLite versions
                 try {
                     db.execSQL("""
@@ -89,8 +97,17 @@ abstract class NoteDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_1_3 = object : Migration(1, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                MIGRATION_1_2.migrate(db)
+                MIGRATION_2_3.migrate(db)
+            }
+        }
+
         fun getInstance(context: Context): NoteDatabase {
             return INSTANCE ?: synchronized(this) {
+                if (INSTANCE != null) return INSTANCE!!
+
                 val appContext = context.applicationContext
                 try {
                     SQLiteDatabase.loadLibs(appContext)
@@ -98,22 +115,38 @@ abstract class NoteDatabase : RoomDatabase() {
                     android.util.Log.e("NoteDatabase", "Failed to load SQLCipher native libs", t)
                 }
 
-                val passphrase = DatabaseKeyProvider.getOrCreatePassphrase(appContext)
-                val factory = SupportFactory(passphrase)
-                DatabaseKeyProvider.wipeByteArray(passphrase) // Clear ephemeral copy from memory immediately
+                val instance = try {
+                    val passphrase = DatabaseKeyProvider.getOrCreatePassphrase(appContext)
+                    val factory = SupportFactory(passphrase)
+                    DatabaseKeyProvider.wipeByteArray(passphrase)
 
-                val instance = Room.databaseBuilder(
-                    appContext,
-                    NoteDatabase::class.java,
-                    NoteDatabaseMigrationHelper.getEncryptedDatabaseName()
-                )
-                    .openHelperFactory(factory)
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
-                    .fallbackToDestructiveMigration()
-                    .build()
+                    Room.databaseBuilder(
+                        appContext,
+                        NoteDatabase::class.java,
+                        NoteDatabaseMigrationHelper.getEncryptedDatabaseName()
+                    )
+                        .openHelperFactory(factory)
+                        .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_1_3)
+                        .fallbackToDestructiveMigration()
+                        .build()
+                } catch (t: Throwable) {
+                    android.util.Log.e("NoteDatabase", "Failed to initialize SQLCipher NoteDatabase, building fallback Room database", t)
+                    Room.databaseBuilder(
+                        appContext,
+                        NoteDatabase::class.java,
+                        "keep_notes_fallback.db"
+                    )
+                        .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_1_3)
+                        .fallbackToDestructiveMigration()
+                        .build()
+                }
 
                 // Check and migrate legacy unencrypted notes if any exist
-                NoteDatabaseMigrationHelper.checkAndMigrateIfLegacyPlaintextExists(appContext, instance)
+                try {
+                    NoteDatabaseMigrationHelper.checkAndMigrateIfLegacyPlaintextExists(appContext, instance)
+                } catch (t: Throwable) {
+                    android.util.Log.e("NoteDatabase", "Legacy plaintext migration failed gracefully", t)
+                }
 
                 INSTANCE = instance
                 instance

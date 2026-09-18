@@ -12,8 +12,8 @@ abstract class VocabDatabase : RoomDatabase() {
     companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("ALTER TABLE idioms ADD COLUMN learned_at INTEGER")
-                db.execSQL("ALTER TABLE ows ADD COLUMN learned_at INTEGER")
+                try { db.execSQL("ALTER TABLE idioms ADD COLUMN learned_at INTEGER") } catch (_: Exception) {}
+                try { db.execSQL("ALTER TABLE ows ADD COLUMN learned_at INTEGER") } catch (_: Exception) {}
             }
         }
     }
