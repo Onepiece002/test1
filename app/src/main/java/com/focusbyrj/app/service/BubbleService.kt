@@ -721,7 +721,15 @@ class BubbleService : Service() {
                 lastPreviewedMessageId = latestMsg.id
                 val previewText = latestMsg.text.trim()
                 if (previewText.isNotEmpty()) {
-                    showNotificationPreviewPill(previewText)
+                    val category = com.focusbyrj.app.util.AyvaAlertCategory.infer(
+                        text = previewText,
+                        isMorning = latestMsg.isMorningBrief,
+                        isEvening = latestMsg.isEveningBrief,
+                        isDrill = latestMsg.isArithmetic || latestMsg.isDrillSummary,
+                        isStreakPrompt = latestMsg.isStreakPrompt,
+                        messageId = latestMsg.id
+                    )
+                    showNotificationPreviewPill(previewText, category)
                 }
             }
             return
@@ -744,8 +752,9 @@ class BubbleService : Service() {
         }
     }
 
-    private fun showNotificationPreviewPill(rawText: String) {
+    private fun showNotificationPreviewPill(rawText: String, category: com.focusbyrj.app.util.AyvaAlertCategory = com.focusbyrj.app.util.AyvaAlertCategory.infer(rawText)) {
         if (isChatOpen) return
+        if (!category.isEnabled(this)) return
         val currentBubbleView = bubbleView ?: return
         val currentLayoutParams = layoutParams ?: return
 
@@ -783,7 +792,7 @@ class BubbleService : Service() {
                 openChatWindow()
             }
         }
-        calloutView.bind(displayText, isLeft, isDark)
+        calloutView.bind(displayText, isLeft, isDark, category)
 
         val maxCalloutWidth = (screenWidth - bubbleSize - (24 * density).toInt()).coerceIn((170 * density).toInt(), (270 * density).toInt())
         calloutView.measure(
@@ -1366,15 +1375,21 @@ class MessengerBubbleNotificationView(context: Context) : FrameLayout(context) {
         addView(contentLayout)
     }
 
-    fun bind(text: String, isLeft: Boolean, isDark: Boolean) {
+    fun bind(
+        text: String, 
+        isLeft: Boolean, 
+        isDark: Boolean,
+        category: com.focusbyrj.app.util.AyvaAlertCategory = com.focusbyrj.app.util.AyvaAlertCategory.infer(text)
+    ) {
         val density = resources.displayMetrics.density
         bodyTextView.text = text
+        headerTextView.text = category.defaultTitle
 
-        // Facebook Messenger style solid blue theme
-        val bgColor = android.graphics.Color.parseColor("#0084FF")
-        val strokeColor = android.graphics.Color.parseColor("#0084FF")
-        val headerColor = android.graphics.Color.parseColor("#E0F2FE") // Light blue for title
-        val textColor = android.graphics.Color.parseColor("#FFFFFF") // Crisp white body
+        // Apply categorical aesthetic colors with high contrast that never drown text
+        val bgColor = category.getParsedBgColor(context)
+        val strokeColor = category.getParsedStrokeColor(context)
+        val headerColor = category.getParsedHeaderColor(context)
+        val textColor = category.getParsedBodyColor(context)
 
         headerTextView.setTextColor(headerColor)
         bodyTextView.setTextColor(textColor)

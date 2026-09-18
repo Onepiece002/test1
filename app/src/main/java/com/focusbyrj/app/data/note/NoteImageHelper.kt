@@ -63,7 +63,7 @@ object NoteImageHelper {
             if (origWidth > maxDim || origHeight > maxDim) {
                 val halfHeight = origHeight / 2
                 val halfWidth = origWidth / 2
-                while ((halfHeight / sampleSize) >= maxDim && (halfWidth / sampleSize) >= maxDim) {
+                while ((halfHeight / sampleSize) >= maxDim || (halfWidth / sampleSize) >= maxDim) {
                     sampleSize *= 2
                 }
             }
@@ -87,14 +87,27 @@ object NoteImageHelper {
                 else -> rawBitmap
             }
 
+            // Clamp max dimension to 2048 if sampleSize left it slightly larger
+            val finalBitmap = if (orientedBitmap.width > maxDim || orientedBitmap.height > maxDim) {
+                val ratio = minOf(maxDim.toFloat() / orientedBitmap.width, maxDim.toFloat() / orientedBitmap.height)
+                val targetW = (orientedBitmap.width * ratio).toInt().coerceAtLeast(1)
+                val targetH = (orientedBitmap.height * ratio).toInt().coerceAtLeast(1)
+                Bitmap.createScaledBitmap(orientedBitmap, targetW, targetH, true)
+            } else {
+                orientedBitmap
+            }
+
             // 5. Save as high-quality compressed JPEG (85%)
             FileOutputStream(outputFile).use { out ->
-                orientedBitmap.compress(Bitmap.CompressFormat.JPEG, 85, out)
+                finalBitmap.compress(Bitmap.CompressFormat.JPEG, 85, out)
             }
-            if (orientedBitmap != rawBitmap) {
+            if (rawBitmap != orientedBitmap && rawBitmap != finalBitmap) {
                 rawBitmap.recycle()
             }
-            orientedBitmap.recycle()
+            if (orientedBitmap != finalBitmap) {
+                orientedBitmap.recycle()
+            }
+            finalBitmap.recycle()
 
             outputFile.absolutePath
         } catch (e: Exception) {

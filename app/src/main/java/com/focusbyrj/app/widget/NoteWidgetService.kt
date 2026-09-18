@@ -25,6 +25,7 @@ import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.Paint
 import android.util.TypedValue
+import android.view.View
 import android.widget.RemoteViews
 import android.widget.RemoteViewsService
 import com.focusbyrj.app.R
@@ -82,7 +83,14 @@ class NoteWidgetRemoteViewsFactory(
 
             val targetNote = runBlocking {
                 if (widgetConfig.filterMode == NoteWidgetFilterMode.SPECIFIC && widgetConfig.specificNoteId != null) {
-                    noteDao.getNoteByIdSync(widgetConfig.specificNoteId!!)
+                    val specific = noteDao.getNoteByIdSync(widgetConfig.specificNoteId!!)
+                    if (specific != null && !specific.isArchived && !specific.isTrashed) {
+                        specific
+                    } else {
+                        // Fallback to active notes if specific note was deleted, trashed or archived
+                        val rawNotes = noteDao.getAllActiveNotesSync()
+                        if (rawNotes.isNotEmpty()) rawNotes.first() else null
+                    }
                 } else {
                     val rawNotes = when (widgetConfig.filterMode) {
                         NoteWidgetFilterMode.NOTES -> noteDao.getTextNotesSync()
@@ -105,7 +113,7 @@ class NoteWidgetRemoteViewsFactory(
                         if (noteById != null) {
                             noteById
                         } else {
-                            val index = NoteWidgetConfigHelper.getCurrentIndex(context, appWidgetId)
+                            val index = NoteWidgetConfigHelper.getCurrentIndex(context, appWidgetId).coerceAtLeast(0)
                             val safeIndex = index % sortedNotes.size
                             sortedNotes[safeIndex]
                         }
@@ -122,7 +130,12 @@ class NoteWidgetRemoteViewsFactory(
             if (resolvedNote != null && resolvedNote.isChecklist) {
                 val rawItems = resolvedNote.getChecklistItems()
                 val (uncompleted, completed) = rawItems.partition { !it.isChecked }
-                checklistItems = uncompleted + completed
+                val sorted = uncompleted + completed
+                checklistItems = if (sorted.isEmpty()) {
+                    listOf(ChecklistItem(id = "", text = "(Empty checklist - tap to add items)", isChecked = false))
+                } else {
+                    sorted
+                }
                 textParagraphs = emptyList()
             } else if (resolvedNote != null) {
                 checklistItems = emptyList()
@@ -204,30 +217,45 @@ class NoteWidgetRemoteViewsFactory(
                 )
             }
 
-            // Checkbox click intent (toggles item state)
-            val toggleIntent = Intent().apply {
-                putExtra(NoteWidgetProvider.EXTRA_ACTION_TYPE, NoteWidgetProvider.ACTION_TYPE_TOGGLE)
-                putExtra(NoteWidgetProvider.EXTRA_NOTE_ID, note.id)
-                putExtra(NoteWidgetProvider.EXTRA_ITEM_ID, item.id)
-            }
-            views.setOnClickFillInIntent(R.id.widget_note_item_checkbox, toggleIntent)
+            if (item.id.isEmpty()) {
+                // Placeholder item for empty checklist
+                views.setViewVisibility(R.id.widget_note_item_remove, View.GONE)
+                views.setViewVisibility(R.id.widget_note_item_drag_handle, View.GONE)
+                val editIntent = Intent().apply {
+                    putExtra(NoteWidgetProvider.EXTRA_ACTION_TYPE, NoteWidgetProvider.ACTION_TYPE_EDIT)
+                    putExtra(NoteWidgetProvider.EXTRA_NOTE_ID, note.id)
+                }
+                views.setOnClickFillInIntent(R.id.widget_note_item_checkbox, editIntent)
+                views.setOnClickFillInIntent(R.id.widget_note_item_text, editIntent)
+            } else {
+                views.setViewVisibility(R.id.widget_note_item_remove, View.VISIBLE)
+                views.setViewVisibility(R.id.widget_note_item_drag_handle, View.VISIBLE)
 
-            // Remove X click intent (deletes item directly from widget)
-            val removeIntent = Intent().apply {
-                putExtra(NoteWidgetProvider.EXTRA_ACTION_TYPE, NoteWidgetProvider.ACTION_TYPE_REMOVE)
-                putExtra(NoteWidgetProvider.EXTRA_NOTE_ID, note.id)
-                putExtra(NoteWidgetProvider.EXTRA_ITEM_ID, item.id)
-            }
-            views.setOnClickFillInIntent(R.id.widget_note_item_remove, removeIntent)
+                // Checkbox click intent (toggles item state)
+                val toggleIntent = Intent().apply {
+                    putExtra(NoteWidgetProvider.EXTRA_ACTION_TYPE, NoteWidgetProvider.ACTION_TYPE_TOGGLE)
+                    putExtra(NoteWidgetProvider.EXTRA_NOTE_ID, note.id)
+                    putExtra(NoteWidgetProvider.EXTRA_ITEM_ID, item.id)
+                }
+                views.setOnClickFillInIntent(R.id.widget_note_item_checkbox, toggleIntent)
 
-            // Drag handle & root text click intent (opens editor / reorder view)
-            val editIntent = Intent().apply {
-                putExtra(NoteWidgetProvider.EXTRA_ACTION_TYPE, NoteWidgetProvider.ACTION_TYPE_EDIT)
-                putExtra(NoteWidgetProvider.EXTRA_NOTE_ID, note.id)
-                putExtra(NoteWidgetProvider.EXTRA_ITEM_ID, item.id)
+                // Remove X click intent (deletes item directly from widget)
+                val removeIntent = Intent().apply {
+                    putExtra(NoteWidgetProvider.EXTRA_ACTION_TYPE, NoteWidgetProvider.ACTION_TYPE_REMOVE)
+                    putExtra(NoteWidgetProvider.EXTRA_NOTE_ID, note.id)
+                    putExtra(NoteWidgetProvider.EXTRA_ITEM_ID, item.id)
+                }
+                views.setOnClickFillInIntent(R.id.widget_note_item_remove, removeIntent)
+
+                // Drag handle & root text click intent (opens editor / reorder view)
+                val editIntent = Intent().apply {
+                    putExtra(NoteWidgetProvider.EXTRA_ACTION_TYPE, NoteWidgetProvider.ACTION_TYPE_EDIT)
+                    putExtra(NoteWidgetProvider.EXTRA_NOTE_ID, note.id)
+                    putExtra(NoteWidgetProvider.EXTRA_ITEM_ID, item.id)
+                }
+                views.setOnClickFillInIntent(R.id.widget_note_item_drag_handle, editIntent)
+                views.setOnClickFillInIntent(R.id.widget_note_item_text, editIntent)
             }
-            views.setOnClickFillInIntent(R.id.widget_note_item_drag_handle, editIntent)
-            views.setOnClickFillInIntent(R.id.widget_note_item_text, editIntent)
 
             return views
         } else {

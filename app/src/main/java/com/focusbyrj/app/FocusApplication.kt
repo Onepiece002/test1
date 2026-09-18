@@ -46,6 +46,7 @@ class FocusApplication : Application() {
         com.focusbyrj.app.util.StreakManager.init(this)
         com.focusbyrj.app.data.drill.DrillSessionRepository.init(this)
         com.focusbyrj.app.service.HabitReceiver.createHabitNotificationChannel(this)
+        com.focusbyrj.app.util.AyvaAlertCategory.createNotificationChannels(this)
 
         try {
             app.rive.runtime.kotlin.core.Rive.init(this)

@@ -358,22 +358,79 @@ object TaskReminderHelper {
                 } while (calendar.timeInMillis <= now)
             }
             RecurrencePattern.MONTHLY -> {
+                val originalDay = calendar.get(Calendar.DAY_OF_MONTH)
+                val originalHour = calendar.get(Calendar.HOUR_OF_DAY)
+                val originalMin = calendar.get(Calendar.MINUTE)
+                val originalSec = calendar.get(Calendar.SECOND)
+                
+                var targetMonth = calendar.get(Calendar.MONTH)
+                var targetYear = calendar.get(Calendar.YEAR)
+                
                 do {
-                    calendar.add(Calendar.MONTH, 1)
+                    targetMonth++
+                    if (targetMonth > Calendar.DECEMBER) {
+                        targetMonth = Calendar.JANUARY
+                        targetYear++
+                    }
+                    
+                    calendar.set(Calendar.YEAR, targetYear)
+                    calendar.set(Calendar.MONTH, targetMonth)
+                    calendar.set(Calendar.DAY_OF_MONTH, 1)
+                    val maxDayInMonth = calendar.getActualMaximum(Calendar.DAY_OF_MONTH)
+                    calendar.set(Calendar.DAY_OF_MONTH, originalDay.coerceAtMost(maxDayInMonth))
+                    calendar.set(Calendar.HOUR_OF_DAY, originalHour)
+                    calendar.set(Calendar.MINUTE, originalMin)
+                    calendar.set(Calendar.SECOND, originalSec)
+                    calendar.set(Calendar.MILLISECOND, 0)
                 } while (calendar.timeInMillis <= now)
             }
             RecurrencePattern.YEARLY -> {
+                val wasFeb29 = (calendar.get(Calendar.MONTH) == Calendar.FEBRUARY && calendar.get(Calendar.DAY_OF_MONTH) == 29) ||
+                        (calendar.get(Calendar.MONTH) == Calendar.FEBRUARY && calendar.get(Calendar.DAY_OF_MONTH) == 28 && 
+                         (completedTask.details.contains("29") || completedTask.title.contains("29", ignoreCase = true)))
+
+                val originalHour = calendar.get(Calendar.HOUR_OF_DAY)
+                val originalMin = calendar.get(Calendar.MINUTE)
+                val originalSec = calendar.get(Calendar.SECOND)
+
                 do {
-                    calendar.add(Calendar.YEAR, 1)
+                    val nextYear = calendar.get(Calendar.YEAR) + 1
+                    if (wasFeb29) {
+                        calendar.set(Calendar.YEAR, nextYear)
+                        calendar.set(Calendar.MONTH, Calendar.FEBRUARY)
+                        if (SmartDateParser.isLeapYear(nextYear)) {
+                            calendar.set(Calendar.DAY_OF_MONTH, 29)
+                        } else {
+                            calendar.set(Calendar.DAY_OF_MONTH, 28)
+                        }
+                        calendar.set(Calendar.HOUR_OF_DAY, originalHour)
+                        calendar.set(Calendar.MINUTE, originalMin)
+                        calendar.set(Calendar.SECOND, originalSec)
+                        calendar.set(Calendar.MILLISECOND, 0)
+                    } else {
+                        calendar.add(Calendar.YEAR, 1)
+                    }
                 } while (calendar.timeInMillis <= now)
             }
             RecurrencePattern.NONE -> return completedTask
+        }
+
+        val updatedDetails = if ((completedTask.recurrence == RecurrencePattern.YEARLY) && 
+            ((calendar.get(Calendar.MONTH) == Calendar.FEBRUARY && (calendar.get(Calendar.DAY_OF_MONTH) == 28 || calendar.get(Calendar.DAY_OF_MONTH) == 29))) &&
+            (completedTask.details.contains("29") || completedTask.title.contains("29", ignoreCase = true)) &&
+            !completedTask.details.contains("reminded on Feb 28th in non-leap years") &&
+            !SmartDateParser.isLeapYear(calendar.get(Calendar.YEAR))
+        ) {
+            if (completedTask.details.isBlank()) "Note: Event is on Feb 29th (reminded on Feb 28th in non-leap years)" else "${completedTask.details}\nNote: Event is on Feb 29th (reminded on Feb 28th in non-leap years)"
+        } else {
+            completedTask.details
         }
 
         return completedTask.copy(
             id = 0, // new task
             isCompleted = false,
             completedAt = null,
+            details = updatedDetails,
             dueDate = calendar.timeInMillis
         )
     }

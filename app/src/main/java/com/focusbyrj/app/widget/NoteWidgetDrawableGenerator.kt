@@ -147,12 +147,27 @@ object NoteWidgetDrawableGenerator {
         return colors.copy(bitmap = bitmap)
     }
 
+    private data class CheckboxKey(
+        val isChecked: Boolean,
+        val accentColor: Int,
+        val secondaryColor: Int,
+        val isDark: Boolean
+    )
+
+    private val checkboxCache = java.util.concurrent.ConcurrentHashMap<CheckboxKey, Bitmap>()
+
     fun createCheckboxBitmap(
         isChecked: Boolean,
         accentColorInt: Int,
         secondaryTextColorInt: Int,
         isDark: Boolean
     ): Bitmap {
+        val key = CheckboxKey(isChecked, accentColorInt, secondaryTextColorInt, isDark)
+        val cached = checkboxCache[key]
+        if (cached != null && !cached.isRecycled) {
+            return cached
+        }
+
         val size = 48
         val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
@@ -193,6 +208,7 @@ object NoteWidgetDrawableGenerator {
             canvas.drawRoundRect(rect, rx, rx, strokePaint)
         }
 
+        checkboxCache[key] = bitmap
         return bitmap
     }
 

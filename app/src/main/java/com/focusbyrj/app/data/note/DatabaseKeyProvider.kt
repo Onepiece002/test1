@@ -24,6 +24,7 @@ import android.util.Base64
 import android.util.Log
 import java.security.KeyStore
 import java.security.SecureRandom
+import java.util.Arrays
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -32,6 +33,11 @@ import javax.crypto.spec.GCMParameterSpec
 /**
  * Provides a hardware-backed 256-bit encryption passphrase for SQLCipher database encryption at rest.
  * Uses AndroidKeyStore (TEE / Secure Enclave) for key generation and GCM encryption.
+ * 
+ * Hardened for production:
+ * - Never overwrites an existing key if KeyStore encounters temporary unlock or busyness errors.
+ * - Automatic retry logic on intermittent KeyStore operational failures.
+ * - Zeroing utility for memory hygiene.
  */
 object DatabaseKeyProvider {
 
@@ -44,13 +50,14 @@ object DatabaseKeyProvider {
     private const val AES_GCM_TRANSFORMATION = "AES/GCM/NoPadding"
     private const val GCM_TAG_LENGTH = 128
     private const val PASSPHRASE_BYTE_LENGTH = 32 // 256 bits
+    private const val MAX_DECRYPT_RETRIES = 3
 
     @Volatile
     private var cachedPassphrase: ByteArray? = null
 
     @Synchronized
     fun getOrCreatePassphrase(context: Context): ByteArray {
-        cachedPassphrase?.let { return it }
+        cachedPassphrase?.let { return it.clone() }
 
         val appContext = context.applicationContext
         val prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -58,38 +65,64 @@ object DatabaseKeyProvider {
         val ivBase64 = prefs.getString(KEY_PASSPHRASE_IV, null)
 
         if (encryptedBase64 != null && ivBase64 != null) {
-            try {
-                val encryptedBytes = Base64.decode(encryptedBase64, Base64.NO_WRAP)
-                val iv = Base64.decode(ivBase64, Base64.NO_WRAP)
-                val decrypted = decryptPassphrase(encryptedBytes, iv)
-                if (decrypted != null && decrypted.size == PASSPHRASE_BYTE_LENGTH) {
-                    cachedPassphrase = decrypted
-                    return decrypted
+            var lastException: Exception? = null
+            for (attempt in 1..MAX_DECRYPT_RETRIES) {
+                try {
+                    val encryptedBytes = Base64.decode(encryptedBase64, Base64.NO_WRAP)
+                    val iv = Base64.decode(ivBase64, Base64.NO_WRAP)
+                    val decrypted = decryptPassphrase(encryptedBytes, iv)
+                    if (decrypted != null && decrypted.size == PASSPHRASE_BYTE_LENGTH) {
+                        cachedPassphrase = decrypted
+                        return decrypted.clone()
+                    }
+                } catch (e: Exception) {
+                    lastException = e
+                    Log.w(TAG, "KeyStore decryption attempt $attempt failed, retrying...", e)
+                    try {
+                        Thread.sleep(50L * attempt)
+                    } catch (_: InterruptedException) {}
                 }
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to decrypt existing database passphrase with KeyStore, generating fallback", e)
             }
+
+            // CRITICAL: If an existing key exists, DO NOT silently overwrite it with a new key!
+            // Overwriting would permanently lock out the user from their existing encrypted database.
+            Log.e(TAG, "Failed to decrypt existing database passphrase with KeyStore after retries", lastException)
+            throw SecurityException(
+                "Unable to securely unlock notes database key from Android KeyStore. Existing database is protected.",
+                lastException
+            )
         }
 
-        // Generate new random 256-bit passphrase
+        // Generate new random 256-bit passphrase for fresh install
         val newPassphrase = ByteArray(PASSPHRASE_BYTE_LENGTH)
         SecureRandom().nextBytes(newPassphrase)
 
         try {
             val (encryptedBytes, iv) = encryptPassphrase(newPassphrase)
-            prefs.edit()
+            val success = prefs.edit()
                 .putString(KEY_ENCRYPTED_PASSPHRASE, Base64.encodeToString(encryptedBytes, Base64.NO_WRAP))
                 .putString(KEY_PASSPHRASE_IV, Base64.encodeToString(iv, Base64.NO_WRAP))
-                .apply()
+                .commit() // Use synchronous commit for critical security state
+            if (!success) {
+                Log.w(TAG, "Failed to commit encrypted passphrase to SharedPreferences")
+            }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to encrypt database passphrase via KeyStore, storing locally securely", e)
-            // Save obfuscated fallback in private sandbox if KeyStore hardware unavailable
+            Log.e(TAG, "Failed to encrypt database passphrase via KeyStore, storing in private sandbox fallback", e)
             val fallbackKey = Base64.encodeToString(newPassphrase, Base64.NO_WRAP)
-            prefs.edit().putString(KEY_ENCRYPTED_PASSPHRASE, fallbackKey).apply()
+            prefs.edit().putString(KEY_ENCRYPTED_PASSPHRASE, fallbackKey).commit()
         }
 
         cachedPassphrase = newPassphrase
-        return newPassphrase
+        return newPassphrase.clone()
+    }
+
+    /**
+     * Wipes any sensitive key bytes in memory for security hygiene.
+     */
+    fun wipeByteArray(bytes: ByteArray?) {
+        if (bytes != null) {
+            Arrays.fill(bytes, 0.toByte())
+        }
     }
 
     private fun getOrCreateMasterKey(): SecretKey {

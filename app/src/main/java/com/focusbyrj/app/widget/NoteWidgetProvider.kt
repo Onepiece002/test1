@@ -70,31 +70,40 @@ class NoteWidgetProvider : AppWidgetProvider() {
         }
 
         fun updateWidget(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int) {
+            CoroutineScope(Dispatchers.IO).launch {
+                updateWidgetInternal(context, appWidgetManager, appWidgetId)
+            }
+        }
+
+        private suspend fun updateWidgetInternal(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int) {
             kotlin.runCatching {
                 val config = NoteWidgetConfigHelper.getConfig(context, appWidgetId)
                 val noteDao = NoteDatabase.getInstance(context).noteDao()
                 val isSystemDark = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
 
-                val allMatchingNotes: List<NoteEntity> = runBlocking {
-                    val rawNotes = if (config.filterMode == NoteWidgetFilterMode.SPECIFIC && config.specificNoteId != null) {
-                        val single = noteDao.getNoteByIdSync(config.specificNoteId!!)
-                        if (single != null) listOf(single) else emptyList()
+                val rawNotes = if (config.filterMode == NoteWidgetFilterMode.SPECIFIC && config.specificNoteId != null) {
+                    val single = noteDao.getNoteByIdSync(config.specificNoteId!!)
+                    if (single != null && !single.isArchived && !single.isTrashed) {
+                        listOf(single)
                     } else {
-                        when (config.filterMode) {
-                            NoteWidgetFilterMode.NOTES -> noteDao.getTextNotesSync()
-                            NoteWidgetFilterMode.CHECKLISTS -> noteDao.getChecklistNotesSync()
-                            NoteWidgetFilterMode.PINNED -> noteDao.getPinnedNotesSync()
-                            else -> noteDao.getAllActiveNotesSync()
-                        }
+                        // If specific note was deleted, trashed or archived, fallback to all active notes
+                        noteDao.getAllActiveNotesSync()
                     }
+                } else {
+                    when (config.filterMode) {
+                        NoteWidgetFilterMode.NOTES -> noteDao.getTextNotesSync()
+                        NoteWidgetFilterMode.CHECKLISTS -> noteDao.getChecklistNotesSync()
+                        NoteWidgetFilterMode.PINNED -> noteDao.getPinnedNotesSync()
+                        else -> noteDao.getAllActiveNotesSync()
+                    }
+                }
 
-                    // Apply configured sort order
-                    when (config.sortBy) {
-                        NoteWidgetSortBy.RECENTLY_UPDATED -> rawNotes.sortedByDescending { it.updatedAt }
-                        NoteWidgetSortBy.RECENTLY_CREATED -> rawNotes.sortedByDescending { it.createdAt }
-                        NoteWidgetSortBy.PINNED_FIRST -> rawNotes.sortedWith(compareByDescending<NoteEntity> { it.isPinned }.thenByDescending { it.updatedAt })
-                        NoteWidgetSortBy.ALPHABETICAL -> rawNotes.sortedBy { it.title.lowercase() }
-                    }
+                // Apply configured sort order
+                val allMatchingNotes: List<NoteEntity> = when (config.sortBy) {
+                    NoteWidgetSortBy.RECENTLY_UPDATED -> rawNotes.sortedByDescending { it.updatedAt }
+                    NoteWidgetSortBy.RECENTLY_CREATED -> rawNotes.sortedByDescending { it.createdAt }
+                    NoteWidgetSortBy.PINNED_FIRST -> rawNotes.sortedWith(compareByDescending<NoteEntity> { it.isPinned }.thenByDescending { it.updatedAt })
+                    NoteWidgetSortBy.ALPHABETICAL -> rawNotes.sortedBy { it.title.lowercase() }
                 }
 
                 val currentIndex = NoteWidgetConfigHelper.getCurrentIndex(context, appWidgetId)
@@ -109,7 +118,7 @@ class NoteWidgetProvider : AppWidgetProvider() {
                     safeIndex = if (foundIndex != -1) {
                         foundIndex
                     } else {
-                        currentIndex % allMatchingNotes.size
+                        (currentIndex.coerceAtLeast(0)) % allMatchingNotes.size
                     }
                     NoteWidgetConfigHelper.setCurrentIndex(context, appWidgetId, safeIndex)
                     val rawNote = allMatchingNotes[safeIndex]
@@ -154,17 +163,19 @@ class NoteWidgetProvider : AppWidgetProvider() {
                 views.setInt(R.id.widget_note_btn_settings, "setColorFilter", bgColors.secondaryTextColor)
                 views.setInt(R.id.widget_note_divider, "setColorFilter", bgColors.borderColor)
 
+                // Apply configured container padding
+                val padPx = (config.padding.dpValue * context.resources.displayMetrics.density).toInt()
+                val topPadPx = (padPx * 0.85f).toInt()
+                val bottomPadPx = (padPx * 0.75f).toInt()
+                views.setViewPadding(R.id.widget_note_main_container, padPx, topPadPx, padPx, bottomPadPx)
+
                 // Title visibility
                 views.setViewVisibility(R.id.widget_note_title, if (config.showTitle) View.VISIBLE else View.GONE)
 
                 // Visibility of Navigation / Header Controls
-                val showCarousel = if (!config.showNavHeader) {
-                    false
-                } else if (isVeryNarrow) {
-                    allMatchingNotes.size > 1
-                } else {
-                    allMatchingNotes.size > 1
-                }
+                val showCarousel = config.showNavHeader &&
+                        config.filterMode != NoteWidgetFilterMode.SPECIFIC &&
+                        allMatchingNotes.size > 1
                 views.setViewVisibility(R.id.widget_note_carousel_pill, if (showCarousel) View.VISIBLE else View.GONE)
 
                 val showFilterMode = config.showNavHeader && !isNarrow && !isVeryNarrow
@@ -181,6 +192,7 @@ class NoteWidgetProvider : AppWidgetProvider() {
                 // Add item hint and icon styling
                 val addHintText = if (currentNote == null) "Take a note..." else if (currentNote.isChecklist) "Tap to edit checklist..." else "Tap to edit note..."
                 views.setTextViewText(R.id.widget_note_add_hint, addHintText)
+                views.setTextViewTextSize(R.id.widget_note_add_hint, TypedValue.COMPLEX_UNIT_SP, (config.textSize.spValue - 2f).coerceAtLeast(12f))
                 views.setTextColor(R.id.widget_note_add_hint, bgColors.secondaryTextColor)
                 views.setInt(R.id.widget_note_add_icon, "setColorFilter", bgColors.accentColor)
                 views.setInt(R.id.widget_note_btn_voice, "setColorFilter", bgColors.primaryTextColor)
@@ -214,6 +226,7 @@ class NoteWidgetProvider : AppWidgetProvider() {
                     val displayTitle = if (currentNote.title.isNotBlank()) currentNote.title else if (currentNote.isChecklist) "Checklist" else "Note"
                     views.setTextViewText(R.id.widget_note_title, displayTitle)
                     views.setTextViewTextSize(R.id.widget_note_title, TypedValue.COMPLEX_UNIT_SP, (config.textSize.spValue + 2f).coerceAtLeast(14f))
+                    views.setTextViewTextSize(R.id.widget_note_text_content, TypedValue.COMPLEX_UNIT_SP, config.textSize.spValue)
 
                     // Pin badge
                     if (currentNote.isPinned) {
@@ -259,6 +272,7 @@ class NoteWidgetProvider : AppWidgetProvider() {
                     // Empty view click -> create new note directly on home screen
                     val emptyClickIntent = Intent(context, QuickEditNoteActivity::class.java).apply {
                         putExtra(QuickEditNoteActivity.EXTRA_CREATE_NEW, true)
+                        putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
                         flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                         data = Uri.parse("widget://$appWidgetId/empty_click")
                     }
@@ -330,13 +344,19 @@ class NoteWidgetProvider : AppWidgetProvider() {
                     } else {
                         putExtra(QuickEditNoteActivity.EXTRA_CREATE_NEW, true)
                     }
+                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                     data = Uri.parse("widget://$appWidgetId/open_header/${currentNote?.id ?: 0}")
                 }
-                views.setOnClickPendingIntent(
-                    R.id.widget_note_header_clickable,
-                    PendingIntent.getActivity(context, 5000 + appWidgetId, openNoteIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+                val openNotePendingIntent = PendingIntent.getActivity(
+                    context,
+                    5000 + appWidgetId,
+                    openNoteIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
+                views.setOnClickPendingIntent(R.id.widget_note_header_clickable, openNotePendingIntent)
+                views.setOnClickPendingIntent(R.id.widget_note_scroll_view, openNotePendingIntent)
+                views.setOnClickPendingIntent(R.id.widget_note_text_content, openNotePendingIntent)
 
                 // Direct note editing / add item bar -> opens QuickEditNoteActivity floating dialog right on home screen!
                 val editNoteIntent = Intent(context, QuickEditNoteActivity::class.java).apply {
@@ -346,6 +366,7 @@ class NoteWidgetProvider : AppWidgetProvider() {
                         putExtra(QuickEditNoteActivity.EXTRA_CREATE_NEW, true)
                         putExtra(QuickEditNoteActivity.EXTRA_IS_CHECKLIST, true)
                     }
+                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                     data = Uri.parse("widget://$appWidgetId/edit_note_direct/${currentNote?.id ?: 0}")
                 }
@@ -362,6 +383,7 @@ class NoteWidgetProvider : AppWidgetProvider() {
                         putExtra(QuickEditNoteActivity.EXTRA_CREATE_NEW, true)
                     }
                     putExtra(QuickEditNoteActivity.EXTRA_AUTO_VOICE, true)
+                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                     data = Uri.parse("widget://$appWidgetId/voice_direct")
                 }
@@ -373,6 +395,7 @@ class NoteWidgetProvider : AppWidgetProvider() {
                 // New note button -> opens QuickEditNoteActivity for a fresh note directly on home screen
                 val newNoteIntent = Intent(context, QuickEditNoteActivity::class.java).apply {
                     putExtra(QuickEditNoteActivity.EXTRA_CREATE_NEW, true)
+                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                     data = Uri.parse("widget://$appWidgetId/new_note_direct")
                 }
@@ -398,7 +421,7 @@ class NoteWidgetProvider : AppWidgetProvider() {
                     }
                     fallbackViews.setOnClickPendingIntent(
                         R.id.widget_note_empty_view,
-                        PendingIntent.getActivity(context, 9000 + appWidgetId, openIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+                        PendingIntent.getActivity(context, 9500 + appWidgetId, openIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
                     )
                     appWidgetManager.updateAppWidget(appWidgetId, fallbackViews)
                 }
@@ -437,6 +460,12 @@ class NoteWidgetProvider : AppWidgetProvider() {
                     if (noteId != -1L) {
                         val editIntent = Intent(context, QuickEditNoteActivity::class.java).apply {
                             putExtra(QuickEditNoteActivity.EXTRA_NOTE_ID, noteId)
+                            if (!itemId.isNullOrBlank()) {
+                                putExtra(QuickEditNoteActivity.EXTRA_TARGET_ITEM_ID, itemId)
+                            }
+                            if (appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+                                putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+                            }
                             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                         }
                         val options = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
@@ -477,6 +506,9 @@ class NoteWidgetProvider : AppWidgetProvider() {
 
                                     // Refresh all widgets cleanly
                                     updateAllWidgets(context)
+                                    if (appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+                                        updateWidgetInternal(context, appWidgetManager, appWidgetId)
+                                    }
                                 }
                             } finally {
                                 pendingResult.finish()
@@ -516,6 +548,9 @@ class NoteWidgetProvider : AppWidgetProvider() {
 
                                         // Refresh all widgets cleanly
                                         updateAllWidgets(context)
+                                        if (appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+                                            updateWidgetInternal(context, appWidgetManager, appWidgetId)
+                                        }
                                     }
                                 }
                             } finally {
@@ -535,7 +570,7 @@ class NoteWidgetProvider : AppWidgetProvider() {
                             val noteDao = NoteDatabase.getInstance(context).noteDao()
                             val rawNotes = if (config.filterMode == NoteWidgetFilterMode.SPECIFIC && config.specificNoteId != null) {
                                 val single = noteDao.getNoteByIdSync(config.specificNoteId!!)
-                                if (single != null) listOf(single) else emptyList()
+                                if (single != null && !single.isArchived && !single.isTrashed) listOf(single) else emptyList()
                             } else {
                                 when (config.filterMode) {
                                     NoteWidgetFilterMode.NOTES -> noteDao.getTextNotesSync()
@@ -562,7 +597,8 @@ class NoteWidgetProvider : AppWidgetProvider() {
                                 NoteWidgetConfigHelper.setCurrentIndex(context, appWidgetId, newIdx)
                                 NoteWidgetConfigHelper.setCurrentNoteId(context, appWidgetId, sortedNotes[newIdx].id)
                             }
-                            updateWidget(context, appWidgetManager, appWidgetId)
+                            appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.widget_note_list_view)
+                            updateWidgetInternal(context, appWidgetManager, appWidgetId)
                         } finally {
                             pendingResult.finish()
                         }
@@ -579,7 +615,7 @@ class NoteWidgetProvider : AppWidgetProvider() {
                             val noteDao = NoteDatabase.getInstance(context).noteDao()
                             val rawNotes = if (config.filterMode == NoteWidgetFilterMode.SPECIFIC && config.specificNoteId != null) {
                                 val single = noteDao.getNoteByIdSync(config.specificNoteId!!)
-                                if (single != null) listOf(single) else emptyList()
+                                if (single != null && !single.isArchived && !single.isTrashed) listOf(single) else emptyList()
                             } else {
                                 when (config.filterMode) {
                                     NoteWidgetFilterMode.NOTES -> noteDao.getTextNotesSync()
@@ -606,7 +642,8 @@ class NoteWidgetProvider : AppWidgetProvider() {
                                 NoteWidgetConfigHelper.setCurrentIndex(context, appWidgetId, newIdx)
                                 NoteWidgetConfigHelper.setCurrentNoteId(context, appWidgetId, sortedNotes[newIdx].id)
                             }
-                            updateWidget(context, appWidgetManager, appWidgetId)
+                            appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.widget_note_list_view)
+                            updateWidgetInternal(context, appWidgetManager, appWidgetId)
                         } finally {
                             pendingResult.finish()
                         }
@@ -624,7 +661,8 @@ class NoteWidgetProvider : AppWidgetProvider() {
                             NoteWidgetConfigHelper.setFilterMode(context, appWidgetId, nextMode)
                             NoteWidgetConfigHelper.setCurrentIndex(context, appWidgetId, 0)
                             NoteWidgetConfigHelper.setCurrentNoteId(context, appWidgetId, null)
-                            updateWidget(context, appWidgetManager, appWidgetId)
+                            appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.widget_note_list_view)
+                            updateWidgetInternal(context, appWidgetManager, appWidgetId)
                         } finally {
                             pendingResult.finish()
                         }

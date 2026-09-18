@@ -190,4 +190,47 @@ class SmartDateParserTest {
         val cal = Calendar.getInstance().apply { timeInMillis = result.timestamp!! }
         assertEquals(30, cal.get(Calendar.MINUTE))
     }
+
+    @Test
+    fun testFeb29InLeapYear2028() {
+        val result = SmartDateParser.parse("Anniversary on Feb 29 2028")
+        assertNotNull(result.timestamp)
+        val cal = Calendar.getInstance().apply { timeInMillis = result.timestamp!! }
+        assertEquals(2028, cal.get(Calendar.YEAR))
+        assertEquals(Calendar.FEBRUARY, cal.get(Calendar.MONTH))
+        assertEquals(29, cal.get(Calendar.DAY_OF_MONTH))
+    }
+
+    @Test
+    fun testFeb29InNonLeapYearClampsToFeb28WithNote() {
+        val result = SmartDateParser.parse("Anniversary on Feb 29 2027")
+        assertNotNull(result.timestamp)
+        val cal = Calendar.getInstance().apply { timeInMillis = result.timestamp!! }
+        assertEquals(2027, cal.get(Calendar.YEAR))
+        assertEquals(Calendar.FEBRUARY, cal.get(Calendar.MONTH))
+        assertEquals(28, cal.get(Calendar.DAY_OF_MONTH))
+        assertNotNull(result.note)
+        assertTrue(result.note!!.contains("29"))
+        assertTrue(result.note!!.contains("28"))
+    }
+
+    @Test
+    fun testMonthlyRecurrenceClampingOn31st() {
+        val baseCal = Calendar.getInstance().apply {
+            val currentYear = get(Calendar.YEAR)
+            set(currentYear + 1, Calendar.JANUARY, 31, 10, 0, 0)
+        }
+        val targetYear = baseCal.get(Calendar.YEAR)
+        val task = com.focusbyrj.app.data.Task(
+            title = "Pay bills",
+            dueDate = baseCal.timeInMillis,
+            recurrence = com.focusbyrj.app.data.RecurrencePattern.MONTHLY
+        )
+        val nextTask = com.focusbyrj.app.util.TaskReminderHelper.generateNextRecurringTask(task)
+        val nextCal = Calendar.getInstance().apply { timeInMillis = nextTask.dueDate!! }
+        assertEquals(targetYear, nextCal.get(Calendar.YEAR))
+        assertEquals(Calendar.FEBRUARY, nextCal.get(Calendar.MONTH))
+        val expectedFebDays = if (com.focusbyrj.app.util.SmartDateParser.isLeapYear(targetYear)) 29 else 28
+        assertEquals(expectedFebDays, nextCal.get(Calendar.DAY_OF_MONTH))
+    }
 }

@@ -170,6 +170,7 @@ fun NoteWidgetConfigScreen(
     var specificNoteId by remember { mutableStateOf(initialConfig.specificNoteId) }
     var sortBy by remember { mutableStateOf(initialConfig.sortBy) }
     var textSize by remember { mutableStateOf(initialConfig.textSize) }
+    var padding by remember { mutableStateOf(initialConfig.padding) }
     var showQuickAddBar by remember { mutableStateOf(initialConfig.showQuickAddBar) }
     var showActionButtons by remember { mutableStateOf(initialConfig.showActionButtons) }
     var showNavHeader by remember { mutableStateOf(initialConfig.showNavHeader) }
@@ -189,7 +190,7 @@ fun NoteWidgetConfigScreen(
 
     val currentConfig = remember(
         selectedTheme, selectedAccent, opacity, cornerRadius,
-        matchNoteColor, filterMode, specificNoteId, sortBy, textSize,
+        matchNoteColor, filterMode, specificNoteId, sortBy, textSize, padding,
         showQuickAddBar, showActionButtons, showNavHeader, showTitle, adaptiveLayout
     ) {
         NoteWidgetConfig(
@@ -202,6 +203,7 @@ fun NoteWidgetConfigScreen(
             specificNoteId = specificNoteId,
             sortBy = sortBy,
             textSize = textSize,
+            padding = padding,
             showQuickAddBar = showQuickAddBar,
             showActionButtons = showActionButtons,
             showNavHeader = showNavHeader,
@@ -701,6 +703,47 @@ fun NoteWidgetConfigScreen(
                                             )
                                         }
                                     } else null
+                                )
+                            }
+                        }
+                    }
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+
+                // Padding Selector
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = "Content Padding",
+                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        NoteWidgetPadding.values().forEach { padOption ->
+                            val isSelected = padding == padOption
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (isSelected) Color(currentConfig.accentColorInt).copy(alpha = 0.18f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                                border = BorderStroke(
+                                    if (isSelected) 1.5.dp else 0.8.dp,
+                                    if (isSelected) Color(currentConfig.accentColorInt) else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
+                                ),
+                                modifier = Modifier.clickable { padding = padOption }
+                            ) {
+                                Text(
+                                    text = padOption.displayName,
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontSize = 11.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                    ),
+                                    color = if (isSelected) Color(currentConfig.accentColorInt) else MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
                                 )
                             }
                         }

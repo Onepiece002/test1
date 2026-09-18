@@ -100,6 +100,7 @@ abstract class NoteDatabase : RoomDatabase() {
 
                 val passphrase = DatabaseKeyProvider.getOrCreatePassphrase(appContext)
                 val factory = SupportFactory(passphrase)
+                DatabaseKeyProvider.wipeByteArray(passphrase) // Clear ephemeral copy from memory immediately
 
                 val instance = Room.databaseBuilder(
                     appContext,

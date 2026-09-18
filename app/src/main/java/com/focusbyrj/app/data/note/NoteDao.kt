@@ -63,6 +63,14 @@ interface NoteDao {
     """)
     fun searchNotes(query: String): Flow<List<NoteEntity>>
 
+    @Query("""
+        SELECT * FROM keep_notes 
+        WHERE isTrashed = 0 AND isArchived = 0 
+        AND (title LIKE '%' || :query || '%' OR content LIKE '%' || :query || '%' OR checklistJson LIKE '%' || :query || '%' OR labelsJson LIKE '%' || :query || '%')
+        ORDER BY isPinned DESC, updatedAt DESC
+    """)
+    suspend fun searchNotesSync(query: String): List<NoteEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertNote(note: NoteEntity): Long
 

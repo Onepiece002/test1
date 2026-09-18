@@ -26,13 +26,13 @@ object AyvaTalkEngine {
     @Volatile
     var lastQueriedTopicId: String? = null
 
-    // Sliding window conversational memory (stores last 6 queries & responses for follow-up support)
+    // Sliding window conversational memory (stores last 12 queries & responses for follow-up support)
     data class ChatHistoryItem(val query: String, val topicId: String?, val timestamp: Long = System.currentTimeMillis())
     private val conversationHistory = java.util.concurrent.ConcurrentLinkedDeque<ChatHistoryItem>()
 
     fun recordTurn(query: String, topicId: String?) {
         conversationHistory.addLast(ChatHistoryItem(query, topicId))
-        while (conversationHistory.size > 6) {
+        while (conversationHistory.size > 12) {
             conversationHistory.pollFirst()
         }
     }
@@ -427,18 +427,18 @@ object AyvaTalkEngine {
         )
         if (isGeneralHelp) {
             val defaultActions = listOf(
+                TalkAction.AskQuery("/status", "⚡ Focus Status"),
+                TalkAction.AskQuery("/focus 25", "⏱️ 25m Focus Sprint"),
+                TalkAction.AskQuery("/breathe", "🫁 Guided Breathing"),
+                TalkAction.AskQuery("/drill", "⚡ Math Drill"),
+                TalkAction.AskQuery("push overdue to tomorrow", "🧹 Clean Overdue"),
                 TalkAction.NavigateAppScreen("preferences_hub", "Preferences Hub ⚙️", "⚙️"),
-                TalkAction.AskQuery("where is settings", "📍 Where is Settings?"),
                 TalkAction.AskQuery("vacation mode", "🏖️ Vacation Mode"),
-                TalkAction.AskQuery("persistent reminders", "⏰ Persistent Reminders"),
-                TalkAction.AskQuery("bubble auto hide", "🫧 Bubble Auto-Hide"),
-                TalkAction.AskQuery("soft mode wait timer", "⏱️ Soft Mode Delay"),
-                TalkAction.AskQuery("why apps not blocking", "🛡️ Troubleshooting"),
                 TalkAction.AskQuery("/summary", "📊 Daily Summary")
             )
             val json = serializeActionsJson("help", defaultActions)
             return TalkResponse(
-                formattedText = "💬 **Ayva Assistant** is ready to help!\n\nYou can ask me questions about any feature, diagnose settings, or manage your focus:\n\n• *\"where is settings?\"* (Preferences Hub location & guide)\n• *\"vacation mode on\"* (freeze streak & pause alerts)\n• *\"persistent reminders\"* (recurring task alarms)\n• *\"bubble auto hide\"* (video call auto-hiding & edge peeking)\n• *\"why are apps not blocking?\"* (troubleshooting permissions)\n• *\"soft mode vs strict mode\"*\n• *\"math drills\"* (mental warm-ups)\n• *\"reschedule all tasks to tomorrow\"*",
+                formattedText = "💬 **Ayva Assistant** is ready to help!\n\nYou can ask me questions about any feature, diagnose settings, or manage your focus:\n\n• *\"/status\"* (Comprehensive focus posture briefing)\n• *\"/focus 25\"* or *\"start pomodoro\"* (Deep work countdown sprint)\n• *\"/breathe\"* (Box breathing & physiological sigh protocol)\n• *\"/drill\"* (Neural warm-up math arithmetic)\n• *\"push overdue to tomorrow\"* or *\"clean overdue tasks\"* (Smart overdue triage)\n• *\"where is settings?\"* (Preferences Hub location & guide)\n• *\"vacation mode on\"* (freeze streak & pause alerts)\n• *\"why are apps not blocking?\"* (troubleshooting permissions)",
                 actions = defaultActions,
                 topicId = "help",
                 jsonPayload = json
@@ -662,6 +662,17 @@ object AyvaTalkEngine {
                         sb.append("\n📊 *__Daily Progress__*:\n")
                         sb.append("`[$progressBar]` *$percent%*")
 
+                        // Habits overview in summary
+                        val activeHabits = app.habitRepository.getAllActiveHabits().firstOrNull() ?: emptyList()
+                        if (activeHabits.isNotEmpty()) {
+                            val todayDateStr = app.habitRepository.getTodayDateString()
+                            val todayHabitLogs = app.habitRepository.getTodayLogs().firstOrNull() ?: emptyList()
+                            val completedHabitIds = todayHabitLogs.filter { it.date == todayDateStr }.map { it.habitId }.toSet()
+                            val completedHabitsCount = activeHabits.count { completedHabitIds.contains(it.id) }
+                            val habitPct = (completedHabitsCount * 100) / activeHabits.size
+                            sb.append("\n🌱 *__Daily Habits__*: $completedHabitsCount / ${activeHabits.size} checked in ($habitPct%)")
+                        }
+
                         val quote = if (hour < 15) {
                             com.focusbyrj.app.util.SummaryQuotes.getNextMorningQuote(context)
                         } else {
@@ -734,11 +745,20 @@ object AyvaTalkEngine {
                             0
                         }
 
+                        // Habits data for contextual advice
+                        val habits = app.habitRepository.getAllActiveHabits().firstOrNull() ?: emptyList()
+                        val todayDateStr = app.habitRepository.getTodayDateString()
+                        val todayHabitLogs = app.habitRepository.getTodayLogs().firstOrNull() ?: emptyList()
+                        val completedHabitIds = todayHabitLogs.filter { it.date == todayDateStr }.map { it.habitId }.toSet()
+                        val habitsCompletedCount = habits.count { completedHabitIds.contains(it.id) }
+
                         val adviceText = AyvaDialogueEngine.getContextualFocusAdvice(
                             context = context,
                             totalScreenTimeMins = totalScreenTimeMins,
                             pendingTasksCount = pending.size,
-                            overdueCount = overdueCount
+                            overdueCount = overdueCount,
+                            habitsCount = habits.size,
+                            habitsCompletedCount = habitsCompletedCount
                         )
 
                         val currentHour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
@@ -842,6 +862,101 @@ object AyvaTalkEngine {
                         )
                     }
 
+                    // --- MICRO-DRILL & MENTAL WARM-UP ---
+                    val isDrillQuery = cleanQuery in listOf(
+                        "drill", "/drill", "math drill", "mental drill", "mind drill", "arithmetic drill",
+                        "warm up", "brain warm up", "quick math", "math challenge"
+                    ) || cleanQuery.startsWith("/drill") || cleanQuery.startsWith("drill")
+                    if (isDrillQuery) {
+                        lastQueriedTopicId = "drill"
+                        val intro = AyvaDialogueEngine.getMicroDrillPrompt(context)
+                        
+                        // Deterministically generate a fast 2-term arithmetic challenge based on current time
+                        val seed = (System.currentTimeMillis() / 10000L).toInt()
+                        val a = 12 + (Math.abs(seed) % 35)
+                        val b = 7 + (Math.abs(seed * 3) % 28)
+                        val isMultiplication = (seed % 3 == 0)
+                        val (problemText, correctVal) = if (isMultiplication) {
+                            val smA = 6 + (Math.abs(seed) % 7)
+                            val smB = 6 + (Math.abs(seed * 2) % 8)
+                            Pair("$smA × $smB", smA * smB)
+                        } else {
+                            Pair("$a + $b", a + b)
+                        }
+
+                        // Generate 3 plausible options
+                        val opt1 = correctVal
+                        val opt2 = correctVal + (if (seed % 2 == 0) 2 else -2)
+                        val opt3 = correctVal + (if (seed % 2 == 0) -4 else 5)
+                        val options = listOf(opt1, opt2, opt3).shuffled()
+
+                        val formatted = "$intro\n\n🎯 **Question**: What is **$problemText**?"
+                        val actions = options.map { opt ->
+                            if (opt == correctVal) {
+                                TalkAction.AskQuery("/drill_answer correct $problemText = $opt", "⚡ $opt")
+                            } else {
+                                TalkAction.AskQuery("/drill_answer incorrect $problemText = $opt (Answer: $correctVal)", "⚡ $opt")
+                            }
+                        } + listOf(
+                            TalkAction.AskQuery("/focus 25", "⏱️ 25m Focus Block"),
+                            TalkAction.AskQuery("/tasks", "📋 My Tasks")
+                        )
+
+                        recordTurn(cleanQuery, "drill")
+                        return TalkResponse(formatted, actions, "drill", serializeActionsJson("drill", actions))
+                    }
+
+                    // Micro-drill answer resolution
+                    if (cleanQuery.startsWith("/drill_answer") || cleanQuery.startsWith("drill_answer")) {
+                        val isCorrect = cleanQuery.contains("correct")
+                        val praise = if (isCorrect) {
+                            AyvaDialogueEngine.getDrillFastCorrectPraise(context)
+                        } else {
+                            AyvaDialogueEngine.getDrillMissComfort(context)
+                        }
+                        val feedback = if (isCorrect) {
+                            "🎯 **Correct!** $praise\n\nYour neural focus is now primed. Channel this dopamine into your next deep work block!"
+                        } else {
+                            "💡 **Close!** $praise\n\nCognitive cobwebs shaken off. You're ready to dive into work."
+                        }
+                        val actions = listOf(
+                            TalkAction.AskQuery("/focus 25", "⏱️ 25m Sprint"),
+                            TalkAction.AskQuery("/drill", "⚡ Another Drill"),
+                            TalkAction.AskQuery("/tasks", "📋 Tasks")
+                        )
+                        recordTurn(cleanQuery, "drill")
+                        return TalkResponse(feedback, actions, "drill", serializeActionsJson("drill", actions))
+                    }
+
+                    // --- QUICK FOCUS & POMODORO ACTIVATION ---
+                    val isFocusSprintQuery = cleanQuery in listOf(
+                        "focus", "/focus", "pomodoro", "/pomodoro", "sprint", "deep work", "start pomodoro",
+                        "start focus", "focus block", "timer", "25m focus", "focus session"
+                    ) || cleanQuery.startsWith("/focus") || cleanQuery.startsWith("focus ") || cleanQuery.startsWith("pomodoro ")
+                    if (isFocusSprintQuery) {
+                        lastQueriedTopicId = "focus_sprint"
+                        var minutes = 25
+                        val numMatch = Regex("\\b(\\d+)\\b").find(cleanQuery)
+                        if (numMatch != null) {
+                            minutes = numMatch.groupValues[1].toIntOrNull()?.coerceIn(5, 120) ?: 25
+                        }
+
+                        // Check if there is an active top priority task
+                        val pending = app.taskRepository.allTasks.firstOrNull()?.filter { !it.isCompleted } ?: emptyList()
+                        val topTask = pending.find { it.isPriority } ?: pending.firstOrNull()
+                        val guidance = AyvaDialogueEngine.getFocusSprintGuidance(context, minutes, topTask?.title)
+
+                        val actions = mutableListOf<TalkAction>()
+                        actions.add(TalkAction.NavigateAppScreen("dashboard", "⚡ Go to Focus Dashboard", "⏱️"))
+                        if (topTask != null) {
+                            actions.add(TalkAction.AskQuery("complete ${topTask.title}", "✅ Finish '${topTask.title.take(20)}'"))
+                        }
+                        actions.add(TalkAction.AskQuery("/breathe", "🫁 1-Min Breath"))
+
+                        recordTurn(cleanQuery, "focus_sprint")
+                        return TalkResponse(guidance, actions, "focus_sprint", serializeActionsJson("focus_sprint", actions))
+                    }
+
                     // --- COMPREHENSIVE FOCUS POSTURE BRIEFING ---
                     val isFocusStatusQuery = cleanQuery in listOf(
                         "status", "/status", "focus status", "how am i doing", "check in", "checkin", "briefing",
@@ -904,6 +1019,27 @@ object AyvaTalkEngine {
                         val isVacation = AptitudeManager.isVacationMode(context)
                         val profile = AptitudeManager.profileFlow.value
 
+                        // Habits Data
+                        val activeHabits = app.habitRepository.getAllActiveHabits().firstOrNull() ?: emptyList()
+                        val todayDateStr = app.habitRepository.getTodayDateString()
+                        val todayHabitLogs = app.habitRepository.getTodayLogs().firstOrNull() ?: emptyList()
+                        val completedHabitIds = todayHabitLogs.filter { it.date == todayDateStr }.map { it.habitId }.toSet()
+                        val completedHabitsCount = activeHabits.count { completedHabitIds.contains(it.id) }
+
+                        // Notes Data
+                        val activeNotes = kotlin.runCatching {
+                            com.focusbyrj.app.data.note.NoteDatabase.getInstance(context).noteDao().getAllActiveNotesSync()
+                        }.getOrNull() ?: emptyList()
+                        val pinnedNotesCount = activeNotes.count { it.isPinned }
+
+                        // Battery Context
+                        val batteryIntent = context.registerReceiver(null, android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED))
+                        val batteryLevel = batteryIntent?.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1) ?: -1
+                        val batteryScale = batteryIntent?.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, -1) ?: -1
+                        val batteryPct = if (batteryLevel >= 0 && batteryScale > 0) (batteryLevel * 100) / batteryScale else null
+                        val batteryStatus = batteryIntent?.getIntExtra(android.os.BatteryManager.EXTRA_STATUS, -1) ?: -1
+                        val isCharging = batteryStatus == android.os.BatteryManager.BATTERY_STATUS_CHARGING || batteryStatus == android.os.BatteryManager.BATTERY_STATUS_FULL
+
                         val briefing = AyvaDialogueEngine.getFocusStatusBriefing(
                             context = context,
                             totalScreenTimeMins = totalScreenTimeMins,
@@ -917,15 +1053,24 @@ object AyvaTalkEngine {
                             isVacation = isVacation,
                             pendingCount = pending.size,
                             completedTodayCount = completedTodayCount,
-                            overdueCount = overdueCount
+                            overdueCount = overdueCount,
+                            totalHabitsCount = activeHabits.size,
+                            completedHabitsCount = completedHabitsCount,
+                            notesCount = activeNotes.size,
+                            pinnedNotesCount = pinnedNotesCount,
+                            batteryPct = batteryPct,
+                            isCharging = isCharging
                         )
 
-                        val actions = listOf(
-                            TalkAction.AskQuery("/advice", "💡 Focus Advice"),
-                            TalkAction.AskQuery("/tasks", "📋 My Tasks"),
-                            TalkAction.AskQuery("/breathe", "🫁 1-Min Breathe"),
-                            TalkAction.AskQuery("/drill", "⚡ Mind Drill")
-                        )
+                        val actions = mutableListOf<TalkAction>()
+                        if (overdueCount > 0) {
+                            actions.add(TalkAction.AskQuery("push overdue to tomorrow", "🧹 Clean Overdue ($overdueCount)"))
+                        }
+                        actions.add(TalkAction.AskQuery("/focus 25", "⏱️ 25m Focus Sprint"))
+                        actions.add(TalkAction.AskQuery("/tasks", "📋 My Tasks"))
+                        actions.add(TalkAction.AskQuery("/habits", "🌱 Habits (${completedHabitsCount}/${activeHabits.size})"))
+                        actions.add(TalkAction.AskQuery("/notes", "📝 Notes (${activeNotes.size})"))
+                        actions.add(TalkAction.AskQuery("/drill", "⚡ Mind Drill"))
 
                         recordTurn(cleanQuery, "status")
                         return TalkResponse(briefing, actions, "status", serializeActionsJson("status", actions))
@@ -981,6 +1126,154 @@ object AyvaTalkEngine {
                         return TalkResponse(text, actions, "lock_protocol", serializeActionsJson("lock_protocol", actions))
                     }
 
+                    // --- HABITS QUERIES & ACTIONS ---
+                    val isHabitsQuery = cleanQuery in listOf(
+                        "habit", "habits", "my habits", "show habits", "list habits",
+                        "habit tracker", "daily habits", "track habit", "track habits",
+                        "open habits", "habits list", "check habits"
+                    ) || cleanQuery.startsWith("habit ") || cleanQuery.startsWith("habits ") ||
+                       cleanQuery.startsWith("log habit") || cleanQuery.startsWith("done habit") ||
+                       cleanQuery.startsWith("complete habit") || cleanQuery.startsWith("check habit") ||
+                       cleanQuery.startsWith("finished habit") || cleanQuery.startsWith("did my habit") ||
+                       cleanQuery.startsWith("i drank water") || cleanQuery.startsWith("drank water") ||
+                       cleanQuery.startsWith("i completed") || cleanQuery.startsWith("i finished")
+                    if (isHabitsQuery) {
+                        lastQueriedTopicId = "habits"
+                        val activeHabits = app.habitRepository.getAllActiveHabits().firstOrNull() ?: emptyList()
+                        val todayDateStr = app.habitRepository.getTodayDateString()
+                        val todayHabitLogs = app.habitRepository.getTodayLogs().firstOrNull() ?: emptyList()
+                        val completedHabitIds = todayHabitLogs.filter { it.date == todayDateStr }.map { it.habitId }.toSet()
+                        val completedCount = activeHabits.count { completedHabitIds.contains(it.id) }
+
+                        // Check if user is asking to complete or check off a specific habit
+                        val completeMatch = Regex("(?i)^(?:complete|done|check|log|mark|finished|completed)\\s+(?:habit\\s+)?(.+)$").find(cleanQuery)
+                            ?: Regex("(?i)^(?:i\\s+)?(?:finished|completed|did|logged)\\s+(?:my\\s+)?(?:habit\\s+)?(.+)$").find(cleanQuery)
+                            ?: Regex("(?i)^habit\\s+(?:done|complete|check|log)\\s+(.+)$").find(cleanQuery)
+                        if (completeMatch != null) {
+                            var targetHabitTitle = completeMatch.groupValues[1].trim().lowercase()
+                            targetHabitTitle = targetHabitTitle.replace(Regex("(?i)^(?:today|my|the)\\s+"), "").replace(Regex("(?i)\\s+(?:today|done)$"), "").trim()
+                            val matchedHabit = activeHabits.find {
+                                val t = it.title.trim().lowercase()
+                                t == targetHabitTitle || t.contains(targetHabitTitle) || targetHabitTitle.contains(t) ||
+                                (targetHabitTitle.contains("water") && t.contains("water")) ||
+                                (targetHabitTitle.contains("read") && t.contains("read")) ||
+                                (targetHabitTitle.contains("workout") && (t.contains("workout") || t.contains("gym") || t.contains("exercise"))) ||
+                                (targetHabitTitle.contains("meditat") && t.contains("meditat"))
+                            }
+                            if (matchedHabit != null) {
+                                val log = app.habitRepository.incrementHabitProgress(matchedHabit.id)
+                                val praise = AyvaDialogueEngine.getHabitCompletedPraise(context, matchedHabit.title, log.completedCount)
+                                val actions = listOf(
+                                    TalkAction.AskQuery("/habits", "🌱 View Habits"),
+                                    TalkAction.NavigateAppScreen("habit", "Open Habit Tracker", "🌱")
+                                )
+                                recordTurn(cleanQuery, "habits")
+                                return TalkResponse(praise, actions, "habits", serializeActionsJson("habits", actions))
+                            }
+                        }
+
+                        val intro = AyvaDialogueEngine.getHabitListIntro(context, activeHabits.size, completedCount)
+                        val sb = StringBuilder(intro)
+                        if (activeHabits.isNotEmpty()) {
+                            sb.append("\n\n")
+                            activeHabits.forEachIndexed { idx, h ->
+                                val isDone = completedHabitIds.contains(h.id)
+                                val status = if (isDone) "✅" else "⭕"
+                                sb.append("${idx + 1}. $status **${h.title}**\n")
+                            }
+                        }
+                        val actions = mutableListOf<TalkAction>()
+                        actions.add(TalkAction.NavigateAppScreen("habit", "Open Habit Tracker", "🌱"))
+                        val uncompleted = activeHabits.filter { !completedHabitIds.contains(it.id) }
+                        uncompleted.take(2).forEach { h ->
+                            actions.add(TalkAction.AskQuery("/habit done ${h.title}", "✅ Log ${h.title.take(18)}"))
+                        }
+                        actions.add(TalkAction.AskQuery("/status", "⚡ Focus Status"))
+                        recordTurn(cleanQuery, "habits")
+                        return TalkResponse(sb.toString().trimEnd(), actions, "habits", serializeActionsJson("habits", actions))
+                    }
+
+                    // --- NOTES QUERIES (LIST, SEARCH, CREATE) ---
+                    val isNotesListQuery = cleanQuery in listOf(
+                        "notes", "my notes", "show notes", "list notes", "keep notes",
+                        "open notes", "view notes", "all notes", "notes list"
+                    )
+                    val searchNoteMatch = Regex("(?i)^(?:search\\s+notes?(?:\\s+for)?|find\\s+notes?(?:\\s+about)?|look\\s+for\\s+notes?)\\s+(.+)$").find(cleanQuery)
+                    val createNoteMatch = Regex("(?i)^(?:create\\s+note|add\\s+note|new\\s+note|take\\s+a?\\s*note|write\\s+note|jot\\s+down)\\s+(.+)$").find(cleanQuery)
+
+                    if (isNotesListQuery || searchNoteMatch != null || createNoteMatch != null) {
+                        lastQueriedTopicId = "notes"
+                        val noteDb = com.focusbyrj.app.data.note.NoteDatabase.getInstance(context)
+                        val noteDao = noteDb.noteDao()
+
+                        if (createNoteMatch != null) {
+                            val content = createNoteMatch.groupValues[1].trim()
+                            val parts = content.split(Regex("[:\\-]"), 2)
+                            val title = parts[0].trim().replaceFirstChar { it.uppercase() }
+                            val body = if (parts.size > 1) parts[1].trim() else ""
+                            val newNote = com.focusbyrj.app.data.note.NoteEntity(
+                                title = title,
+                                content = body,
+                                isPinned = false,
+                                createdAt = System.currentTimeMillis(),
+                                updatedAt = System.currentTimeMillis()
+                            )
+                            noteDao.insertNote(newNote)
+                            val quip = AyvaDialogueEngine.getNoteCreatedQuip(context, title)
+                            val actions = listOf(
+                                TalkAction.AskQuery("/notes", "📝 View Notes"),
+                                TalkAction.NavigateAppScreen("notes", "Open Keep Notes", "📝")
+                            )
+                            recordTurn(cleanQuery, "notes")
+                            return TalkResponse(quip, actions, "notes", serializeActionsJson("notes", actions))
+                        }
+
+                        if (searchNoteMatch != null) {
+                            val searchQuery = searchNoteMatch.groupValues[1].trim()
+                            val foundNotes: List<com.focusbyrj.app.data.note.NoteEntity> = noteDao.searchNotesSync(searchQuery)
+                            val intro = AyvaDialogueEngine.getNotesSearchIntro(context, searchQuery, foundNotes.size)
+                            val sb = StringBuilder(intro)
+                            if (foundNotes.isNotEmpty()) {
+                                sb.append("\n\n")
+                                foundNotes.take(6).forEachIndexed { idx, n ->
+                                    val pin = if (n.isPinned) "📌 " else ""
+                                    val snippet = if (n.content.isNotBlank()) " — _${n.content.take(45)}..._" else ""
+                                    sb.append("${idx + 1}. $pin**${n.title}**$snippet\n")
+                                }
+                            }
+                            val actions = listOf(
+                                TalkAction.AskQuery("/notes", "📝 All Notes"),
+                                TalkAction.NavigateAppScreen("notes", "Open Keep Notes", "📝")
+                            )
+                            recordTurn(cleanQuery, "notes")
+                            return TalkResponse(sb.toString().trimEnd(), actions, "notes", serializeActionsJson("notes", actions))
+                        }
+
+                        // Notes List
+                        val allActiveNotes: List<com.focusbyrj.app.data.note.NoteEntity> = noteDao.getAllActiveNotesSync()
+                        val pinnedCount = allActiveNotes.count { it.isPinned }
+                        val intro = AyvaDialogueEngine.getNotesListIntro(context, allActiveNotes.size, pinnedCount)
+                        val sb = StringBuilder(intro)
+                        if (allActiveNotes.isNotEmpty()) {
+                            sb.append("\n\n")
+                            allActiveNotes.take(6).forEachIndexed { idx, n ->
+                                val pin = if (n.isPinned) "📌 " else ""
+                                val snippet = if (n.content.isNotBlank()) " — _${n.content.take(40)}..._" else ""
+                                sb.append("${idx + 1}. $pin**${n.title}**$snippet\n")
+                            }
+                            if (allActiveNotes.size > 6) {
+                                sb.append("• _...and ${allActiveNotes.size - 6} more in Keep Notes._\n")
+                            }
+                        }
+                        val actions = listOf(
+                            TalkAction.NavigateAppScreen("notes", "Open Keep Notes", "📝"),
+                            TalkAction.AskQuery("/tasks", "📋 Tasks"),
+                            TalkAction.AskQuery("/status", "⚡ Focus Status")
+                        )
+                        recordTurn(cleanQuery, "notes")
+                        return TalkResponse(sb.toString().trimEnd(), actions, "notes", serializeActionsJson("notes", actions))
+                    }
+
                     // Check if performing imperative task operations (ONLY IF NOT A QUESTION)
                     if (!isQuestionQuery) {
                         val nluResult = OfflineNluEngine.parse(cleanQuery, app.taskRepository.allTasks.firstOrNull()?.filter { !it.isCompleted } ?: emptyList())
@@ -1028,6 +1321,56 @@ object AyvaTalkEngine {
                             }
 
                             if (nluResult.intent == NluIntent.RESCHEDULE || nluResult.intent == NluIntent.COMPLETE || nluResult.intent == NluIntent.DELETE) {
+                                val now = System.currentTimeMillis()
+                                val isOverdueTriage = cleanQuery.contains("overdue")
+
+                                if (isOverdueTriage) {
+                                    val overdueTasks = pending.filter { it.dueDate != null && it.dueDate < now }
+                                    if (overdueTasks.isEmpty()) {
+                                        val actions = listOf(
+                                            TalkAction.AskQuery("/tasks", "📋 View Tasks"),
+                                            TalkAction.AskQuery("/status", "⚡ Focus Status")
+                                        )
+                                        return TalkResponse(
+                                            formattedText = "✨ **Radar is pristine!** You have zero overdue tasks right now. Great job keeping on schedule!",
+                                            actions = actions,
+                                            topicId = "tasks",
+                                            jsonPayload = serializeActionsJson("tasks", actions)
+                                        )
+                                    }
+
+                                    if (nluResult.intent == NluIntent.DELETE) {
+                                        // User wants to clean/clear overdue tasks
+                                        overdueTasks.forEach { 
+                                            app.taskRepository.deleteTask(it)
+                                            TaskReminderHelper.cancelReminder(context, it)
+                                        }
+                                        TodoWidgetProvider.updateAllWidgets(context)
+                                        val praise = AyvaDialogueEngine.getOverdueCleanPraise(context, overdueTasks.size)
+                                        val actions = listOf(
+                                            TalkAction.AskQuery("/tasks", "📋 View Remaining Tasks"),
+                                            TalkAction.AskQuery("/focus 25", "⏱️ 25m Focus Block")
+                                        )
+                                        return TalkResponse(praise, actions, "tasks", serializeActionsJson("tasks", actions))
+                                    } else {
+                                        // User wants to push/reschedule overdue tasks
+                                        val targetDate = nluResult.targetDateMs ?: (now + 86400000L)
+                                        overdueTasks.forEach {
+                                            val updated = it.copy(dueDate = targetDate)
+                                            app.taskRepository.updateTask(updated)
+                                            TaskReminderHelper.scheduleReminder(context, updated)
+                                        }
+                                        TodoWidgetProvider.updateAllWidgets(context)
+                                        val timeStr = SmartDateParser.formatDueDate(targetDate)
+                                        val praise = AyvaDialogueEngine.getOverdueTriagePraise(context, overdueTasks.size, timeStr)
+                                        val actions = listOf(
+                                            TalkAction.AskQuery("/tasks", "📋 View Tasks"),
+                                            TalkAction.AskQuery("/focus 25", "⏱️ 25m Focus Block")
+                                        )
+                                        return TalkResponse(praise, actions, "tasks", serializeActionsJson("tasks", actions))
+                                    }
+                                }
+
                                 if (nluResult.isAllTasks) {
                                     if (nluResult.intent == NluIntent.RESCHEDULE) {
                                         val newDate = nluResult.targetDateMs ?: (System.currentTimeMillis() + 86400000L)
@@ -1686,20 +2029,48 @@ object AyvaTalkEngine {
             return TalkResponse(bestTopic.formatResponse(context), actions, bestTopic.id, json)
         }
 
-        // --- 5. SMART CONVERSATIONAL FALLBACK (ALWAYS ANSWERS) ---
+        // --- 5. SMART CONVERSATIONAL FALLBACK (ALWAYS ANSWERS CONVERSATIONALLY) ---
         recordTurn(cleanQuery, "fallback")
+        val isConversationalQuery = cleanQuery in listOf(
+            "hi", "hello", "hey", "ayva", "hey ayva", "hi ayva", "good morning", "good evening", "good afternoon",
+            "how are you", "how're you", "how are you doing", "what's up", "whats up",
+            "thank you", "thanks", "thanks ayva", "thank you ayva",
+            "who are you", "what can you do", "what are you", "help me", "joke", "tell me a joke",
+            "tired", "i am tired", "exhausted", "burnout", "stressed", "overwhelmed", "motivate me", "inspire me",
+            "quote", "pomodoro", "how to focus", "adhd", "sleep", "insomnia", "habit", "routine"
+        ) || cleanQuery.startsWith("hi ") || cleanQuery.startsWith("hello ") || cleanQuery.contains("thank") ||
+           cleanQuery.contains("tired") || cleanQuery.contains("exhaust") || cleanQuery.contains("stress") ||
+           cleanQuery.contains("overwhelm") || cleanQuery.contains("motivat") || cleanQuery.contains("pomodoro") ||
+           cleanQuery.contains("adhd") || cleanQuery.contains("distract") || cleanQuery.contains("sleep") ||
+           cleanQuery.contains("insomnia") || cleanQuery.contains("habit") || cleanQuery.contains("routine") ||
+           cleanQuery.contains("joke")
+        
+        if (isConversationalQuery) {
+            val replyText = AyvaDialogueEngine.getConversationalChatReply(context, cleanQuery)
+            val actions = listOf(
+                TalkAction.AskQuery("/status", "⚡ Focus Status"),
+                TalkAction.AskQuery("/tasks", "📋 My Tasks"),
+                TalkAction.AskQuery("/habits", "🌱 Habits"),
+                TalkAction.AskQuery("/notes", "📝 Notes")
+            )
+            val json = serializeActionsJson("chat", actions)
+            return TalkResponse(replyText, actions, "chat", json)
+        }
+
         val fallbackActions = listOf(
+            TalkAction.AskQuery("/status", "⚡ Focus Status"),
+            TalkAction.AskQuery("/tasks", "📋 My Tasks"),
+            TalkAction.AskQuery("/habits", "🌱 Daily Habits"),
+            TalkAction.AskQuery("/notes", "📝 Keep Notes"),
             TalkAction.NavigateAppScreen("preferences_hub", "Preferences Hub ⚙️", "⚙️"),
-            TalkAction.AskQuery("where is settings", "📍 Settings Hub"),
             TalkAction.AskQuery("vacation mode", "🏖️ Vacation Mode"),
-            TalkAction.AskQuery("persistent reminders", "⏰ Reminders"),
-            TalkAction.AskQuery("bubble auto hide", "🫧 Auto-Hide"),
-            TalkAction.AskQuery("soft mode wait timer", "⏱️ Soft Delay"),
             TalkAction.AskQuery("why apps not blocking", "🛡️ Troubleshoot")
         )
         val json = serializeActionsJson("fallback", fallbackActions)
+        val conversationalGreeting = AyvaDialogueEngine.getConversationalChatReply(context, cleanQuery)
+        val fullText = "$conversationalGreeting\n\nI'm ready to help! You can ask me to:\n• **Add / search tasks** (e.g. *\"create finish presentation tomorrow 4pm\"*)\n• **Review notes** (e.g. *\"search notes meeting\"* or *\"add note Ideas: new project\"*)\n• **Track daily habits** (e.g. *\"log habit reading\"* or *\"my habits\"*)\n• **Check focus status** (e.g. *\"status\"* or *\"today's summary\"*)\n• **Lock distracting apps** (e.g. *\"lock instagram in strict mode\"*)"
         return TalkResponse(
-            formattedText = "💬 **Ayva**: I'm here to help with FocusByRj!\n\nI didn't find a direct match for *\"$trimmed\"*, but you can ask me about:\n\n• **Settings & Preferences** — Tap your top header Avatar or ask *\"where is settings\"*\n• **Vacation Mode** — Freeze your daily streak & pause alerts\n• **Persistent Reminders** — Configure recurring task alarms\n• **Soft Mode Wait Timer** — Set mindful bypass delays\n• **Bubble Auto-Hide** — Auto-hide during video calls and landscape games\n• **Troubleshooting** — Verify permissions or blocked apps",
+            formattedText = fullText,
             actions = fallbackActions,
             topicId = "fallback",
             jsonPayload = json
@@ -1719,12 +2090,19 @@ object AyvaTalkEngine {
                 lower == "why" ||
                 lower == "where" ||
                 lower == "how" ||
+                lower == "tell me more" ||
+                lower == "explain" ||
+                lower == "more" ||
+                lower == "details" ||
+                lower == "what next" ||
                 lower.contains("change it") ||
                 lower.contains("how to change it") ||
                 lower.contains("where is it") ||
                 lower.contains("what about it") ||
                 lower.contains("how do i change it") ||
-                lower.contains("how to adjust it")
+                lower.contains("how to adjust it") ||
+                lower.contains("tell me more about it") ||
+                lower.contains("how does it work")
     }
 
     fun serializeActionsJson(topicId: String, actions: List<TalkAction>): String? {

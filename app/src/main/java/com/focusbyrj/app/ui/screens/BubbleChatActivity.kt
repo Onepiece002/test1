@@ -423,6 +423,7 @@ fun ChatInterface() {
     }
     var showMenu by remember { mutableStateOf(false) }
     var showFontSizeDialog by remember { mutableStateOf(false) }
+    var showNotificationColorsDialog by remember { mutableStateOf(false) }
     var chatFontSizeSp by remember { mutableStateOf(prefs.getFloat("chat_font_size_sp", 15f)) }
     var activeDrillSession by remember { mutableStateOf<DrillSession?>(null) }
     var showDrillSummaryMessage by remember { mutableStateOf<ChatMessage?>(null) }
@@ -814,11 +815,25 @@ fun ChatInterface() {
                                     val (extractedTitle, extractedDueDate) = com.focusbyrj.app.util.OfflineNluEngine.extractTaskCreationDetails(sentText)
                                     val titleToUse = nluResult.createdTaskTitle?.takeIf { it.isNotBlank() } ?: extractedTitle
                                     val dueDateToUse = nluResult.targetDateMs ?: extractedDueDate
+                                    val lowerText = sentText.lowercase()
+                                    val detectedType = when {
+                                        lowerText.contains("birthday") || lowerText.contains("bday") -> com.focusbyrj.app.data.TaskType.BIRTHDAY
+                                        lowerText.contains("anniversary") -> com.focusbyrj.app.data.TaskType.ANNIVERSARY
+                                        else -> com.focusbyrj.app.data.TaskType.TASK
+                                    }
+                                    val finalRecurrence = if (detectedRecurrence == com.focusbyrj.app.data.RecurrencePattern.NONE && (detectedType == com.focusbyrj.app.data.TaskType.BIRTHDAY || detectedType == com.focusbyrj.app.data.TaskType.ANNIVERSARY)) {
+                                        com.focusbyrj.app.data.RecurrencePattern.YEARLY
+                                    } else {
+                                        detectedRecurrence
+                                    }
+                                    val parsedNote = SmartDateParser.parse(sentText).note
                                     val newTask = Task(
                                         title = titleToUse.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() },
+                                        details = parsedNote ?: "",
+                                        type = detectedType,
                                         isPriority = wasPriority,
                                         isPersistent = wasPersistent,
-                                        recurrence = detectedRecurrence,
+                                        recurrence = finalRecurrence,
                                         dueDate = dueDateToUse
                                     )
                                     val newId = repo.insertTask(newTask)
@@ -1061,9 +1076,21 @@ fun ChatInterface() {
                                     val parsed = SmartDateParser.parse(rawTaskContent)
                                     val taskTitle = parsed.cleanText.ifBlank { rawTaskContent }
                                     val tDueDate = parsed.timestamp
-                                    val tRecurrence = parsed.recurrence
+                                    val lowerContent = rawTaskContent.lowercase()
+                                    val tType = when {
+                                        lowerContent.contains("birthday") || lowerContent.contains("bday") -> com.focusbyrj.app.data.TaskType.BIRTHDAY
+                                        lowerContent.contains("anniversary") -> com.focusbyrj.app.data.TaskType.ANNIVERSARY
+                                        else -> com.focusbyrj.app.data.TaskType.TASK
+                                    }
+                                    val tRecurrence = if (parsed.recurrence == com.focusbyrj.app.data.RecurrencePattern.NONE && (tType == com.focusbyrj.app.data.TaskType.BIRTHDAY || tType == com.focusbyrj.app.data.TaskType.ANNIVERSARY)) {
+                                        com.focusbyrj.app.data.RecurrencePattern.YEARLY
+                                    } else {
+                                        parsed.recurrence
+                                    }
                                     val tTask = Task(
                                         title = taskTitle,
+                                        details = parsed.note ?: "",
+                                        type = tType,
                                         isPriority = wasPriority,
                                         isPersistent = wasPersistent,
                                         recurrence = tRecurrence,
@@ -1640,11 +1667,24 @@ fun ChatInterface() {
                     return@launch
                 }
                 
+                val lowerTitle = finalTitle.lowercase()
+                val detectedType = when {
+                    lowerTitle.contains("birthday") || lowerTitle.contains("bday") -> com.focusbyrj.app.data.TaskType.BIRTHDAY
+                    lowerTitle.contains("anniversary") -> com.focusbyrj.app.data.TaskType.ANNIVERSARY
+                    else -> com.focusbyrj.app.data.TaskType.TASK
+                }
+                val finalRecurrence = if (detectedRecurrence == com.focusbyrj.app.data.RecurrencePattern.NONE && (detectedType == com.focusbyrj.app.data.TaskType.BIRTHDAY || detectedType == com.focusbyrj.app.data.TaskType.ANNIVERSARY)) {
+                    com.focusbyrj.app.data.RecurrencePattern.YEARLY
+                } else {
+                    detectedRecurrence
+                }
                 val newTask = Task(
                     title = finalTitle,
+                    details = effectiveParsed.note ?: "",
+                    type = detectedType,
                     isPriority = wasPriority,
                     isPersistent = wasPersistent,
-                    recurrence = detectedRecurrence,
+                    recurrence = finalRecurrence,
                     dueDate = dueDate
                 )
                 val newId = repo.insertTask(newTask)
@@ -1958,6 +1998,16 @@ fun ChatInterface() {
                         expanded = showMenu,
                         onDismissRequest = { showMenu = false }
                     ) {
+                        DropdownMenuItem(
+                            text = { Text("Notification Colors") },
+                            leadingIcon = {
+                                Icon(Icons.Filled.AutoFixHigh, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+                            },
+                            onClick = {
+                                showMenu = false
+                                showNotificationColorsDialog = true
+                            }
+                        )
                         DropdownMenuItem(
                             text = { Text("Text Size") },
                             leadingIcon = {
@@ -2522,6 +2572,12 @@ fun ChatInterface() {
         }
     }
 
+        if (showNotificationColorsDialog) {
+            com.focusbyrj.app.ui.components.AyvaNotificationColorsDialog(
+                onDismiss = { showNotificationColorsDialog = false }
+            )
+        }
+
         if (showFontSizeDialog) {
             ChatTextSizeDialog(
                 fontSizeSp = chatFontSizeSp,
@@ -2822,6 +2878,17 @@ fun ChatBubble(
     val df = remember { SimpleDateFormat("hh:mm a", Locale.getDefault()) }
     val timeString = df.format(Date(message.timestamp))
 
+    val category = remember(message.text, message.isMorningBrief, message.isEveningBrief, message.isArithmetic, message.isStreakPrompt, message.id) {
+        com.focusbyrj.app.util.AyvaAlertCategory.infer(
+            text = message.text,
+            isMorning = isMorning,
+            isEvening = isEvening,
+            isDrill = message.isArithmetic || message.isDrillSummary,
+            isStreakPrompt = message.isStreakPrompt,
+            messageId = message.id
+        )
+    }
+
     Column(
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         horizontalAlignment = if (message.isUser) Alignment.End else Alignment.Start
@@ -2836,7 +2903,7 @@ fun ChatBubble(
                         .size(28.dp)
                         .clip(CircleShape)
                         .background(Color.Black)
-                        .border(1.dp, Color(0x33FFFFFF), CircleShape),
+                        .border(1.5.dp, category.getComposeNotificationAccent(context).copy(alpha = 0.85f), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     androidx.compose.foundation.Image(

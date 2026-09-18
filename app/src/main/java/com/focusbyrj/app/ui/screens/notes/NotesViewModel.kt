@@ -25,6 +25,7 @@ import com.focusbyrj.app.data.note.ChecklistItem
 import com.focusbyrj.app.data.note.NoteDatabase
 import com.focusbyrj.app.data.note.NoteEntity
 import com.focusbyrj.app.data.note.NoteImageHelper
+import com.focusbyrj.app.data.note.NoteMediaManager
 import com.focusbyrj.app.data.note.NoteRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -79,6 +80,11 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
             repository.getActiveNotes().collect {
                 com.focusbyrj.app.widget.NoteWidgetProvider.updateAllWidgets(application)
             }
+        }
+
+        // Clean any orphaned media files asynchronously on startup
+        viewModelScope.launch(Dispatchers.IO) {
+            NoteMediaManager.cleanOrphanedMedia(application, db.noteDao())
         }
     }
 
@@ -686,10 +692,7 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
         val updated = current.imageUris.filter { it != imageUri }
         _editingState.value = current.copy(imageUris = updated, updatedAt = System.currentTimeMillis())
         persistCurrentEditorState()
-        try {
-            val file = java.io.File(imageUri)
-            if (file.exists() && file.isFile) file.delete()
-        } catch (_: Exception) {}
+        NoteMediaManager.secureDeleteMediaFile(imageUri)
     }
 
     fun updateEditorTitle(title: String) {
@@ -744,7 +747,12 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
         if (afterIndex != null && afterIndex in updated.indices) {
             updated.add(afterIndex + 1, newItem)
         } else {
-            updated.add(newItem)
+            val firstChecked = updated.indexOfFirst { it.isChecked }
+            if (firstChecked != -1) {
+                updated.add(firstChecked, newItem)
+            } else {
+                updated.add(newItem)
+            }
         }
         _editingState.value = current.copy(checklistItems = updated, updatedAt = System.currentTimeMillis())
         persistCurrentEditorState(immediate = true)
@@ -1023,10 +1031,7 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
         if (playbackState.value.currentPath == audioUri) {
             audioMemoManager.stopPlayback()
         }
-        try {
-            val file = java.io.File(audioUri)
-            if (file.exists()) file.delete()
-        } catch (_: Exception) {}
+        NoteMediaManager.secureDeleteMediaFile(audioUri)
     }
 
     fun toggleAudioPlayback(audioUri: String) {
@@ -1159,20 +1164,7 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun deleteNoteMediaFiles(note: NoteEntity) {
-        try {
-            note.getImageUris().forEach { path ->
-                try {
-                    val f = java.io.File(path)
-                    if (f.exists() && f.isFile) f.delete()
-                } catch (_: Exception) {}
-            }
-            note.getAudioUris().forEach { path ->
-                try {
-                    val f = java.io.File(path)
-                    if (f.exists() && f.isFile) f.delete()
-                } catch (_: Exception) {}
-            }
-        } catch (_: Exception) {}
+        NoteMediaManager.deleteNoteMediaFiles(note)
     }
 
     fun deletePermanently(note: NoteEntity) {

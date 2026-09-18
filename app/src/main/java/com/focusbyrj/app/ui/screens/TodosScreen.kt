@@ -310,6 +310,7 @@ fun TodosScreen(
     if (showAddDialog || editingTask != null) {
         AddTaskDialog(
             initialTask = editingTask,
+            defaultType = if (selectedTab == 3) TaskType.BIRTHDAY else TaskType.TASK,
             onDismiss = { 
                 showAddDialog = false
                 editingTask = null
@@ -616,21 +617,24 @@ fun TaskItem(
                             }
 
                             if (task.isPersistent) {
+                                val showPersistText = task.dueDate == null || task.recurrence == RecurrencePattern.NONE
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
                                     Icon(
                                         imageVector = Icons.Outlined.PushPin,
-                                        contentDescription = null,
+                                        contentDescription = "Persistent reminder",
                                         tint = metadataColor,
                                         modifier = Modifier.size(14.dp)
                                     )
-                                    Text(
-                                        text = "Persist",
-                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 13.sp, fontWeight = FontWeight.Normal),
-                                        color = metadataColor
-                                    )
+                                    if (showPersistText) {
+                                        Text(
+                                            text = "Persist",
+                                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 13.sp, fontWeight = FontWeight.Normal),
+                                            color = metadataColor
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -664,15 +668,24 @@ fun TaskItem(
 @Composable
 fun AddTaskDialog(
     initialTask: Task? = null, 
+    defaultType: TaskType = TaskType.TASK,
     onDismiss: () -> Unit, 
     onSave: (Task) -> Unit,
     onDelete: ((Task) -> Unit)? = null
 ) {
+    val initialEffectiveType = initialTask?.type ?: defaultType
     var title by remember(initialTask) { mutableStateOf(initialTask?.title ?: "") }
     var details by remember(initialTask) { mutableStateOf(initialTask?.details ?: "") }
-    var type by remember(initialTask) { mutableStateOf(initialTask?.type ?: TaskType.TASK) }
-    var recurrence by remember(initialTask) { mutableStateOf(initialTask?.recurrence ?: RecurrencePattern.NONE) }
-    var userManuallySetRecurrence by remember(initialTask) { mutableStateOf(initialTask?.recurrence != null && initialTask.recurrence != RecurrencePattern.NONE) }
+    var type by remember(initialTask, defaultType) { mutableStateOf(initialEffectiveType) }
+    var userManuallySelectedType by remember(initialTask) { mutableStateOf(initialTask != null) }
+    var recurrence by remember(initialTask, defaultType) { 
+        mutableStateOf(
+            initialTask?.recurrence ?: if (initialEffectiveType == TaskType.BIRTHDAY || initialEffectiveType == TaskType.ANNIVERSARY) RecurrencePattern.YEARLY else RecurrencePattern.NONE
+        ) 
+    }
+    var userManuallySetRecurrence by remember(initialTask) { 
+        mutableStateOf(initialTask?.recurrence != null && initialTask.recurrence != RecurrencePattern.NONE) 
+    }
     var isPersistent by remember(initialTask) { mutableStateOf(initialTask?.isPersistent ?: false) }
     var isPriority by remember(initialTask) { mutableStateOf(initialTask?.isPriority ?: false) }
     var manualDueDate by remember(initialTask) { mutableStateOf<Long?>(initialTask?.dueDate) }
@@ -681,10 +694,35 @@ fun AddTaskDialog(
     val parsedResult = remember(title, userManuallySetDate) {
         if (!userManuallySetDate && title.isNotBlank()) SmartDateParser.parse(title) else null
     }
+
+    LaunchedEffect(title) {
+        if (!userManuallySelectedType && initialTask == null && title.isNotBlank()) {
+            val lower = title.lowercase()
+            if (lower.contains("birthday") || lower.contains("bday")) {
+                type = TaskType.BIRTHDAY
+                if (!userManuallySetRecurrence) {
+                    recurrence = RecurrencePattern.YEARLY
+                }
+            } else if (lower.contains("anniversary")) {
+                type = TaskType.ANNIVERSARY
+                if (!userManuallySetRecurrence) {
+                    recurrence = RecurrencePattern.YEARLY
+                }
+            }
+        }
+    }
+
+    LaunchedEffect(parsedResult?.note) {
+        if (parsedResult?.note != null && details.isBlank() && initialTask == null) {
+            details = parsedResult.note
+        }
+    }
     
     val effectiveDueDate = parsedResult?.timestamp ?: manualDueDate
     val effectiveRecurrence = if (!userManuallySetRecurrence && parsedResult?.recurrence != null && parsedResult.recurrence != RecurrencePattern.NONE) {
         parsedResult.recurrence
+    } else if (!userManuallySetRecurrence && (type == TaskType.BIRTHDAY || type == TaskType.ANNIVERSARY)) {
+        RecurrencePattern.YEARLY
     } else {
         recurrence
     }
@@ -724,11 +762,26 @@ fun AddTaskDialog(
                     onClick = {
                         val finalTitle = parsedResult?.cleanText?.takeIf { it.isNotBlank() } ?: title
                         if (finalTitle.isNotBlank()) {
+                            val finalDetails = if (details.isBlank() && parsedResult?.note != null) {
+                                parsedResult.note
+                            } else if (parsedResult?.note != null && !details.contains("29")) {
+                                "$details\n${parsedResult.note}"
+                            } else if (effectiveDueDate != null && (type == TaskType.BIRTHDAY || type == TaskType.ANNIVERSARY) && (title.contains("29") || details.contains("29"))) {
+                                val checkCal = Calendar.getInstance().apply { timeInMillis = effectiveDueDate }
+                                if (checkCal.get(Calendar.MONTH) == Calendar.FEBRUARY && checkCal.get(Calendar.DAY_OF_MONTH) == 28 && !SmartDateParser.isLeapYear(checkCal.get(Calendar.YEAR)) && !details.contains("reminded on Feb 28th")) {
+                                    if (details.isBlank()) "Note: Event is on Feb 29th (reminded on Feb 28th in non-leap years)" else "$details\nNote: Event is on Feb 29th (reminded on Feb 28th in non-leap years)"
+                                } else {
+                                    details
+                                }
+                            } else {
+                                details
+                            }
+
                             val base = initialTask ?: Task(title = finalTitle)
                             onSave(
                                 base.copy(
                                     title = finalTitle, 
-                                    details = details, 
+                                    details = finalDetails, 
                                     dueDate = effectiveDueDate, 
                                     type = type, 
                                     recurrence = effectiveRecurrence, 
@@ -805,19 +858,37 @@ fun AddTaskDialog(
             ) {
                 FilterChip(
                     selected = type == TaskType.TASK,
-                    onClick = { type = TaskType.TASK },
+                    onClick = { 
+                        type = TaskType.TASK
+                        userManuallySelectedType = true
+                        if (!userManuallySetRecurrence) {
+                            recurrence = RecurrencePattern.NONE
+                        }
+                    },
                     label = { Text("Task") },
                     shape = RoundedCornerShape(12.dp)
                 )
                 FilterChip(
                     selected = type == TaskType.BIRTHDAY,
-                    onClick = { type = TaskType.BIRTHDAY },
+                    onClick = { 
+                        type = TaskType.BIRTHDAY
+                        userManuallySelectedType = true
+                        if (!userManuallySetRecurrence) {
+                            recurrence = RecurrencePattern.YEARLY
+                        }
+                    },
                     label = { Text("Birthday") },
                     shape = RoundedCornerShape(12.dp)
                 )
                 FilterChip(
                     selected = type == TaskType.ANNIVERSARY,
-                    onClick = { type = TaskType.ANNIVERSARY },
+                    onClick = { 
+                        type = TaskType.ANNIVERSARY
+                        userManuallySelectedType = true
+                        if (!userManuallySetRecurrence) {
+                            recurrence = RecurrencePattern.YEARLY
+                        }
+                    },
                     label = { Text("Anniversary") },
                     shape = RoundedCornerShape(12.dp)
                 )

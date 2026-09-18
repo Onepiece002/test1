@@ -399,16 +399,23 @@ class FocusBlockerService : Service() {
         if (!notifyEnabled) return
 
         kotlin.runCatching {
-            val channelId = "routine_alerts"
+            val category = com.focusbyrj.app.util.AyvaAlertCategory.infer(
+                text = "$title $message"
+            )
+            if (!category.isEnabled(this)) return
+
+            val channelId = category.channelId
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                val channel = NotificationChannel(channelId, "Routine Alerts", NotificationManager.IMPORTANCE_DEFAULT)
+                val channel = NotificationChannel(channelId, category.channelName, NotificationManager.IMPORTANCE_DEFAULT)
                 notificationManager.createNotificationChannel(channel)
             }
             val notification = NotificationCompat.Builder(this, channelId)
                 .setContentTitle(title)
                 .setContentText(message)
-                .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+                .setSmallIcon(R.drawable.ic_app_logo)
+                .setColor(category.getParsedNotificationAccent(this))
+                .setColorized(false)
                 .setAutoCancel(true)
                 .build()
             notificationManager.notify(ROUTINE_ALERT_NOTIFICATION_ID, notification)

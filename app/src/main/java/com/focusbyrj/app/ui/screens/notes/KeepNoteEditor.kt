@@ -1217,6 +1217,7 @@ private fun ChecklistRow(
 ) {
     val focusRequester = remember { FocusRequester() }
     val bringIntoViewRequester = remember { BringIntoViewRequester() }
+    val textFieldBringIntoViewRequester = remember { BringIntoViewRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
     val coroutineScope = rememberCoroutineScope()
     var isDragging by remember { mutableStateOf(false) }
@@ -1233,6 +1234,7 @@ private fun ChecklistRow(
     LaunchedEffect(isTargetFocus) {
         if (isTargetFocus) {
             bringIntoViewRequester.bringIntoView()
+            textFieldBringIntoViewRequester.bringIntoView()
             kotlinx.coroutines.delay(40)
             try {
                 focusRequester.requestFocus()
@@ -1242,6 +1244,7 @@ private fun ChecklistRow(
                 kotlinx.coroutines.delay(80)
                 runCatching {
                     bringIntoViewRequester.bringIntoView()
+                    textFieldBringIntoViewRequester.bringIntoView()
                     focusRequester.requestFocus()
                     keyboardController?.show()
                     onFocused()
@@ -1345,7 +1348,7 @@ private fun ChecklistRow(
                     onTextChange(newText)
                 }
                 coroutineScope.launch {
-                    bringIntoViewRequester.bringIntoView()
+                    textFieldBringIntoViewRequester.bringIntoView()
                 }
             },
             onTextLayout = { textLayoutResult ->
@@ -1357,9 +1360,9 @@ private fun ChecklistRow(
                         null
                     }
                     if (cursorRect != null) {
-                        bringIntoViewRequester.bringIntoView(cursorRect)
+                        textFieldBringIntoViewRequester.bringIntoView(cursorRect)
                     } else {
-                        bringIntoViewRequester.bringIntoView()
+                        textFieldBringIntoViewRequester.bringIntoView()
                     }
                 }
             },
@@ -1367,6 +1370,7 @@ private fun ChecklistRow(
             maxLines = 20,
             modifier = Modifier
                 .weight(1f)
+                .bringIntoViewRequester(textFieldBringIntoViewRequester)
                 .focusRequester(focusRequester)
                 .onKeyEvent { keyEvent ->
                     if (keyEvent.type == KeyEventType.KeyDown) {

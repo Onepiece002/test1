@@ -30,10 +30,15 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -45,17 +50,21 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
@@ -64,6 +73,8 @@ import androidx.compose.material.icons.filled.CheckBoxOutlineBlank
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DragIndicator
 import androidx.compose.material.icons.filled.FormatListBulleted
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Notes
 import androidx.compose.material.icons.filled.Palette
@@ -82,10 +93,13 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -94,17 +108,25 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import com.focusbyrj.app.data.note.ChecklistItem
 import com.focusbyrj.app.data.note.NoteDatabase
 import com.focusbyrj.app.data.note.NoteEntity
@@ -123,6 +145,8 @@ class QuickEditNoteActivity : ComponentActivity() {
         const val EXTRA_CREATE_NEW = "extra_create_new"
         const val EXTRA_AUTO_VOICE = "extra_auto_voice"
         const val EXTRA_IS_CHECKLIST = "extra_is_checklist"
+        const val EXTRA_TARGET_ITEM_ID = "extra_target_item_id"
+        const val EXTRA_APPWIDGET_ID = "extra_appwidget_id"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -132,6 +156,9 @@ class QuickEditNoteActivity : ComponentActivity() {
         val createNew = intent.getBooleanExtra(EXTRA_CREATE_NEW, false)
         val autoVoice = intent.getBooleanExtra(EXTRA_AUTO_VOICE, false)
         val isChecklist = intent.getBooleanExtra(EXTRA_IS_CHECKLIST, false)
+        val targetItemId = intent.getStringExtra(EXTRA_TARGET_ITEM_ID)
+        val appWidgetId = intent.getIntExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_ID, android.appwidget.AppWidgetManager.INVALID_APPWIDGET_ID).takeIf { it != android.appwidget.AppWidgetManager.INVALID_APPWIDGET_ID }
+            ?: intent.getIntExtra(EXTRA_APPWIDGET_ID, android.appwidget.AppWidgetManager.INVALID_APPWIDGET_ID).takeIf { it != android.appwidget.AppWidgetManager.INVALID_APPWIDGET_ID }
 
         setContent {
             FocusByRjTheme {
@@ -140,6 +167,8 @@ class QuickEditNoteActivity : ComponentActivity() {
                     createNew = createNew || (noteId == null),
                     autoVoice = autoVoice,
                     initialIsChecklist = isChecklist,
+                    initialTargetItemId = targetItemId,
+                    appWidgetId = appWidgetId,
                     onDismiss = {
                         finish()
                     },
@@ -153,12 +182,15 @@ class QuickEditNoteActivity : ComponentActivity() {
     }
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun QuickEditNoteOverlay(
     noteId: Long?,
     createNew: Boolean,
     autoVoice: Boolean,
     initialIsChecklist: Boolean,
+    initialTargetItemId: String? = null,
+    appWidgetId: Int? = null,
     onDismiss: () -> Unit,
     onSaved: () -> Unit
 ) {
@@ -175,7 +207,18 @@ fun QuickEditNoteOverlay(
     var colorKey by remember { mutableStateOf("default") }
     var isPinned by remember { mutableStateOf(false) }
     var showColorPicker by remember { mutableStateOf(false) }
-    var targetFocusItemId by remember { mutableStateOf<String?>(null) }
+    var targetFocusItemId by remember { mutableStateOf<String?>(initialTargetItemId) }
+    val checklistListState = rememberLazyListState()
+
+    // Auto-scroll to newly added or targeted item
+    LaunchedEffect(targetFocusItemId) {
+        val id = targetFocusItemId ?: return@LaunchedEffect
+        kotlinx.coroutines.delay(40)
+        val idx = checklistItems.indexOfFirst { it.id == id }
+        if (idx != -1) {
+            checklistListState.animateScrollToItem(idx)
+        }
+    }
 
     val titleFocusRequester = remember { FocusRequester() }
     val contentFocusRequester = remember { FocusRequester() }
@@ -215,7 +258,14 @@ fun QuickEditNoteOverlay(
             val spoken = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
             if (!spoken.isNullOrBlank()) {
                 if (isChecklistMode) {
-                    checklistItems.add(ChecklistItem(id = UUID.randomUUID().toString(), text = spoken, isChecked = false))
+                    val firstChecked = checklistItems.indexOfFirst { it.isChecked }
+                    val insIdx = if (firstChecked != -1) firstChecked else checklistItems.size
+                    val newId = UUID.randomUUID().toString()
+                    targetFocusItemId = newId
+                    checklistItems.add(insIdx, ChecklistItem(id = newId, text = spoken, isChecked = false))
+                    scope.launch {
+                        checklistListState.animateScrollToItem(insIdx)
+                    }
                 } else {
                     content = if (content.isBlank()) spoken else "$content $spoken"
                 }
@@ -271,16 +321,7 @@ fun QuickEditNoteOverlay(
                 // If it was already in DB and completely empty (no text, checklist, images, audio, labels), delete it
                 if (loadedNote != null && loadedNote!!.id > 0) {
                     val toDelete = loadedNote!!
-                    try {
-                        toDelete.getImageUris().forEach { path ->
-                            val f = java.io.File(path)
-                            if (f.exists() && f.isFile) f.delete()
-                        }
-                        toDelete.getAudioUris().forEach { path ->
-                            val f = java.io.File(path)
-                            if (f.exists() && f.isFile) f.delete()
-                        }
-                    } catch (_: Exception) {}
+                    com.focusbyrj.app.data.note.NoteMediaManager.deleteNoteMediaFiles(toDelete)
                     noteDao.deleteNote(toDelete)
                     NotesViewModel.latestNotesCache.remove(toDelete.id)
                     loadedNote = null
@@ -297,6 +338,13 @@ fun QuickEditNoteOverlay(
                     NotesViewModel.latestNotesCache[newId] = inserted
                 }
             }
+            if (appWidgetId != null && appWidgetId != android.appwidget.AppWidgetManager.INVALID_APPWIDGET_ID) {
+                val finalId = loadedNote?.id
+                if (finalId != null && finalId > 0) {
+                    NoteWidgetConfigHelper.setCurrentNoteId(context, appWidgetId, finalId)
+                    NoteWidgetConfigHelper.setCurrentIndex(context, appWidgetId, 0)
+                }
+            }
             try {
                 NoteWidgetProvider.updateAllWidgets(context)
             } catch (_: Exception) {}
@@ -305,6 +353,19 @@ fun QuickEditNoteOverlay(
                     onSaved()
                 }
             }
+        }
+    }
+
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_PAUSE) {
+                saveNote(andFinish = false)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
 
@@ -583,6 +644,7 @@ fun QuickEditNoteOverlay(
                             .heightIn(min = 120.dp, max = 340.dp)
                     ) {
                         LazyColumn(
+                            state = checklistListState,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .weight(1f, fill = false)
@@ -594,6 +656,37 @@ fun QuickEditNoteOverlay(
                                     secondaryTextColor = secondaryTextColor,
                                     isTargetFocus = item.id == targetFocusItemId,
                                     onFocused = { if (targetFocusItemId == item.id) targetFocusItemId = null },
+                                    onHeightOrLineChanged = {
+                                        scope.launch {
+                                            kotlinx.coroutines.delay(16)
+                                            val layoutInfo = checklistListState.layoutInfo
+                                            val itemInfo = layoutInfo.visibleItemsInfo.firstOrNull { it.index == index }
+                                            if (itemInfo != null) {
+                                                val itemBottom = itemInfo.offset + itemInfo.size
+                                                val viewportEnd = layoutInfo.viewportEndOffset - layoutInfo.afterContentPadding
+                                                if (itemBottom > viewportEnd) {
+                                                    val scrollDelta = (itemBottom - viewportEnd + 36).toFloat()
+                                                    checklistListState.animateScrollBy(scrollDelta)
+                                                }
+                                            } else {
+                                                checklistListState.animateScrollToItem(index)
+                                            }
+                                        }
+                                    },
+                                    onMoveUp = {
+                                        if (index > 0) {
+                                            val moved = checklistItems.removeAt(index)
+                                            checklistItems.add(index - 1, moved)
+                                            saveNote(andFinish = false)
+                                        }
+                                    },
+                                    onMoveDown = {
+                                        if (index < checklistItems.size - 1) {
+                                            val moved = checklistItems.removeAt(index)
+                                            checklistItems.add(index + 1, moved)
+                                            saveNote(andFinish = false)
+                                        }
+                                    },
                                     onToggle = {
                                         checklistItems[index] = item.copy(isChecked = !item.isChecked)
                                         val (uncompleted, completed) = checklistItems.partition { !it.isChecked }
@@ -607,14 +700,23 @@ fun QuickEditNoteOverlay(
                                     onEnterPressed = { extraText ->
                                         val newId = UUID.randomUUID().toString()
                                         targetFocusItemId = newId
+                                        val firstCheckedIndex = checklistItems.indexOfFirst { it.isChecked }
+                                        val insertIndex = if (firstCheckedIndex != -1 && index >= firstCheckedIndex) {
+                                            firstCheckedIndex
+                                        } else {
+                                            (index + 1).coerceAtMost(if (firstCheckedIndex != -1) firstCheckedIndex else checklistItems.size)
+                                        }
                                         checklistItems.add(
-                                            index + 1,
+                                            insertIndex,
                                             ChecklistItem(
                                                 id = newId,
                                                 text = extraText,
                                                 isChecked = false
                                             )
                                         )
+                                        scope.launch {
+                                            checklistListState.animateScrollToItem(insertIndex)
+                                        }
                                     },
                                     onDelete = {
                                         if (checklistItems.size > 1) {
@@ -637,9 +739,12 @@ fun QuickEditNoteOverlay(
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(8.dp))
                                 .clickable {
+                                    val firstCheckedIndex = checklistItems.indexOfFirst { it.isChecked }
+                                    val insertIndex = if (firstCheckedIndex != -1) firstCheckedIndex else checklistItems.size
                                     val newId = UUID.randomUUID().toString()
                                     targetFocusItemId = newId
                                     checklistItems.add(
+                                        insertIndex,
                                         ChecklistItem(
                                             id = newId,
                                             text = "",
@@ -647,6 +752,9 @@ fun QuickEditNoteOverlay(
                                         )
                                     )
                                     saveNote(andFinish = false)
+                                    scope.launch {
+                                        checklistListState.animateScrollToItem(insertIndex)
+                                    }
                                 }
                                 .padding(vertical = 8.dp, horizontal = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -731,6 +839,7 @@ fun QuickEditNoteOverlay(
     }
 }
 
+@androidx.compose.foundation.ExperimentalFoundationApi
 @Composable
 private fun QuickEditChecklistRow(
     item: ChecklistItem,
@@ -738,23 +847,42 @@ private fun QuickEditChecklistRow(
     secondaryTextColor: Color,
     isTargetFocus: Boolean,
     onFocused: () -> Unit,
+    onHeightOrLineChanged: () -> Unit,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit,
     onToggle: () -> Unit,
     onTextChange: (String) -> Unit,
     onEnterPressed: (String) -> Unit,
     onDelete: () -> Unit
 ) {
     val focusRequester = remember { FocusRequester() }
+    val rowBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val textFieldBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val coroutineScope = rememberCoroutineScope()
+    val haptic = LocalHapticFeedback.current
+
+    var lineCount by remember { mutableIntStateOf(1) }
+    var isDragging by remember { mutableStateOf(false) }
+    var dragOffsetY by remember { mutableFloatStateOf(0f) }
+    val density = LocalDensity.current
+    val rowThresholdPx = remember(density) { with(density) { 44.dp.toPx() } }
+
+    val currentOnMoveUp by rememberUpdatedState(onMoveUp)
+    val currentOnMoveDown by rememberUpdatedState(onMoveDown)
+    val currentOnHeightOrLineChanged by rememberUpdatedState(onHeightOrLineChanged)
 
     LaunchedEffect(isTargetFocus) {
         if (isTargetFocus) {
             kotlinx.coroutines.delay(40)
             try {
                 focusRequester.requestFocus()
+                textFieldBringIntoViewRequester.bringIntoView()
                 onFocused()
             } catch (e: Exception) {
                 kotlinx.coroutines.delay(80)
                 runCatching {
                     focusRequester.requestFocus()
+                    textFieldBringIntoViewRequester.bringIntoView()
                     onFocused()
                 }
             }
@@ -764,18 +892,68 @@ private fun QuickEditChecklistRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 3.dp),
+            .bringIntoViewRequester(rowBringIntoViewRequester)
+            .offset { IntOffset(0, dragOffsetY.toInt()) }
+            .zIndex(if (isDragging) 10f else 0f)
+            .background(
+                if (isDragging) primaryTextColor.copy(alpha = 0.08f) else Color.Transparent,
+                shape = RoundedCornerShape(8.dp)
+            )
+            .padding(vertical = 3.dp, horizontal = 2.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Drag Indicator (6 dots)
-        Icon(
-            imageVector = Icons.Filled.DragIndicator,
-            contentDescription = "Reorder",
-            tint = secondaryTextColor.copy(alpha = 0.38f),
-            modifier = Modifier.size(20.dp)
-        )
+        // Drag Indicator Handle with interactive vertical drag gestures
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .pointerInput(item.id) {
+                    detectVerticalDragGestures(
+                        onDragStart = {
+                            isDragging = true
+                            dragOffsetY = 0f
+                            try {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            } catch (_: Exception) {}
+                        },
+                        onDragEnd = {
+                            isDragging = false
+                            dragOffsetY = 0f
+                        },
+                        onDragCancel = {
+                            isDragging = false
+                            dragOffsetY = 0f
+                        },
+                        onVerticalDrag = { change, dragAmount ->
+                            change.consume()
+                            dragOffsetY += dragAmount
 
-        Spacer(modifier = Modifier.width(4.dp))
+                            if (dragOffsetY > rowThresholdPx) {
+                                currentOnMoveDown()
+                                dragOffsetY -= rowThresholdPx
+                                try {
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                } catch (_: Exception) {}
+                            } else if (dragOffsetY < -rowThresholdPx) {
+                                currentOnMoveUp()
+                                dragOffsetY += rowThresholdPx
+                                try {
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                } catch (_: Exception) {}
+                            }
+                        }
+                    )
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Filled.DragIndicator,
+                contentDescription = "Drag to reorder",
+                tint = if (isDragging) Color(0xFF8AB4F8) else secondaryTextColor.copy(alpha = 0.45f),
+                modifier = Modifier.size(20.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.width(2.dp))
 
         // Square Checkbox
         IconButton(
@@ -784,7 +962,7 @@ private fun QuickEditChecklistRow(
         ) {
             Icon(
                 imageVector = if (item.isChecked) Icons.Default.CheckBox else Icons.Default.CheckBoxOutlineBlank,
-                contentDescription = null,
+                contentDescription = if (item.isChecked) "Completed" else "Incomplete",
                 tint = if (item.isChecked) Color(0xFF8AB4F8) else secondaryTextColor.copy(alpha = 0.7f),
                 modifier = Modifier.size(20.dp)
             )
@@ -803,6 +981,30 @@ private fun QuickEditChecklistRow(
                     onEnterPressed(nextItemText)
                 } else {
                     onTextChange(newTxt)
+                }
+                coroutineScope.launch {
+                    textFieldBringIntoViewRequester.bringIntoView()
+                }
+                currentOnHeightOrLineChanged()
+            },
+            onTextLayout = { textLayoutResult ->
+                val lines = textLayoutResult.lineCount
+                if (lines != lineCount) {
+                    lineCount = lines
+                    currentOnHeightOrLineChanged()
+                }
+                coroutineScope.launch {
+                    val cursorOffset = textLayoutResult.layoutInput.text.length
+                    val cursorRect = try {
+                        textLayoutResult.getCursorRect(cursorOffset)
+                    } catch (_: Exception) {
+                        null
+                    }
+                    if (cursorRect != null) {
+                        textFieldBringIntoViewRequester.bringIntoView(cursorRect)
+                    } else {
+                        textFieldBringIntoViewRequester.bringIntoView()
+                    }
                 }
             },
             textStyle = TextStyle(
@@ -828,6 +1030,7 @@ private fun QuickEditChecklistRow(
             },
             modifier = Modifier
                 .weight(1f)
+                .bringIntoViewRequester(textFieldBringIntoViewRequester)
                 .focusRequester(focusRequester)
                 .onKeyEvent { keyEvent ->
                     if (keyEvent.type == KeyEventType.KeyDown) {

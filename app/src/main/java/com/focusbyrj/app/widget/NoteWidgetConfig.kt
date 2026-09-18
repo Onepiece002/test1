@@ -146,11 +146,12 @@ object NoteWidgetConfigHelper {
         // Resolve which key suffix to read from:
         // 1. If explicit widget ID has settings, use it
         // 2. Otherwise fallback to the shared "default" settings
-        val keySuffix = if (appWidgetId > 0 && prefs.contains(KEY_TEXT_SIZE + appWidgetId)) {
-            appWidgetId.toString()
-        } else if (prefs.contains(KEY_TEXT_SIZE + KEY_DEFAULT_SUFFIX)) {
-            KEY_DEFAULT_SUFFIX
-        } else if (appWidgetId > 0) {
+        val hasSpecificConfig = appWidgetId > 0 && (
+            prefs.contains(KEY_TEXT_SIZE + appWidgetId) ||
+            prefs.contains(KEY_THEME + appWidgetId) ||
+            prefs.contains(KEY_FILTER_MODE_PREFIX + appWidgetId)
+        )
+        val keySuffix = if (hasSpecificConfig) {
             appWidgetId.toString()
         } else {
             KEY_DEFAULT_SUFFIX
@@ -175,7 +176,7 @@ object NoteWidgetConfigHelper {
         val sortStr = prefs.getString(KEY_SORT_BY + keySuffix, NoteWidgetSortBy.RECENTLY_UPDATED.name)
         val sortBy = runCatching { NoteWidgetSortBy.valueOf(sortStr ?: "") }.getOrDefault(NoteWidgetSortBy.RECENTLY_UPDATED)
 
-        val defaultTextStr = prefs.getString(KEY_TEXT_SIZE + KEY_DEFAULT_SUFFIX, NoteWidgetTextSize.SIZE_16.name)
+        val defaultTextStr = prefs.getString(KEY_TEXT_SIZE + KEY_DEFAULT_SUFFIX, NoteWidgetTextSize.SIZE_16.name) ?: NoteWidgetTextSize.SIZE_16.name
         val textStr = prefs.getString(KEY_TEXT_SIZE + keySuffix, defaultTextStr) ?: defaultTextStr
         val textSize = NoteWidgetTextSize.fromNameOrDefault(textStr)
 
@@ -191,7 +192,7 @@ object NoteWidgetConfigHelper {
         val theme = runCatching { WidgetTheme.valueOf(themeName) }.getOrDefault(WidgetTheme.DARK)
         val accent = runCatching { WidgetAccent.valueOf(accentName) }.getOrDefault(WidgetAccent.BLUE)
 
-        return NoteWidgetConfig(
+        val resolvedConfig = NoteWidgetConfig(
             theme = theme,
             accent = accent,
             opacityPercent = opacity,
@@ -208,6 +209,14 @@ object NoteWidgetConfigHelper {
             showNavHeader = showNavHeader,
             adaptiveLayout = adaptiveLayout
         )
+
+        // If an explicit widget ID didn't have its own keys yet, snapshot the resolved default config
+        // under the widget's own ID so subsequent independent operations maintain stability.
+        if (appWidgetId > 0 && !hasSpecificConfig) {
+            saveConfig(context, appWidgetId, resolvedConfig)
+        }
+
+        return resolvedConfig
     }
 
     fun saveConfig(context: Context, appWidgetId: Int, config: NoteWidgetConfig) {

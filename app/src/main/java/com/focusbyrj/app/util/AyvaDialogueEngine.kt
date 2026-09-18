@@ -50,8 +50,9 @@ object AyvaDialogueEngine {
     }
 
     // --- NON-REPEATING SHUFFLE DECK LOGIC ---
-    private fun getNextFromDeck(context: Context, categoryKey: String, pool: List<String>): String {
+    private fun getNextFromDeck(context: Context?, categoryKey: String, pool: List<String>): String {
         if (pool.isEmpty()) return ""
+        if (context == null) return pool.first()
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val storedJson = prefs.getString("deck_$categoryKey", null)
         val remainingIndices = mutableListOf<Int>()
@@ -424,10 +425,26 @@ object AyvaDialogueEngine {
         }
     }
 
+    fun getMicroDrillPrompt(context: Context): String {
+        val pool = listOf(
+            "⚡ **Micro-Drill Challenge: Mental Arithmetic**\n\nSharpening your working memory with high-speed calculations triggers dopamine and cuts through procrastination brain fog.\n\n_Answer correctly below to lock in a quick cognitive win!_",
+            "🧠 **Neural Warm-Up Activated!**\n\nA 30-second arithmetic sprint engages your prefrontal cortex, priming you for intense, high-friction deep work.\n\n_Calculate swiftly:_",
+            "🔥 **Rapid Brain Calisthenics**\n\nClear mental cobwebs and re-center your alertness before your next focus block.\n\n_Solve this drill:_"
+        )
+        return getNextFromDeck(context, "micro_drill_prompt", pool)
+    }
+
     // =========================================================================
     // 6. CONTEXTUAL FOCUS ADVICE & MINDFUL COACHING
     // =========================================================================
-    fun getContextualFocusAdvice(context: Context, totalScreenTimeMins: Int, pendingTasksCount: Int, overdueCount: Int): String {
+    fun getContextualFocusAdvice(
+        context: Context,
+        totalScreenTimeMins: Int,
+        pendingTasksCount: Int,
+        overdueCount: Int,
+        habitsCount: Int = 0,
+        habitsCompletedCount: Int = 0
+    ): String {
         val cal = Calendar.getInstance()
         val hour = cal.get(Calendar.HOUR_OF_DAY)
 
@@ -442,11 +459,19 @@ object AyvaDialogueEngine {
         }
 
         return when {
+            habitsCount > 0 && habitsCompletedCount == 0 && hour in 9..19 -> {
+                val habitPool = listOf(
+                    "🌱 *Daily Keystone Habit*: You have $habitsCount daily habit(s) awaiting check-in. Completing even just one micro-habit (like hydration or a 2-min stretch) kickstarts immediate cognitive momentum! ⚡",
+                    "✨ *Habit Ignition*: Your habit streak is ready for action today! Checking off one habit now lowers resistance for all subsequent tasks.",
+                    "🌊 *Consistency First*: Small daily actions compound into life-changing results. Knock out your easiest habit to build today's focus flow!"
+                )
+                getNextFromDeck(context, "advice_habits", habitPool)
+            }
             overdueCount > 0 -> {
                 val overduePool = listOf(
-                    "⚠️ *Triage Suggestion*: You have $overdueCount overdue task(s). To keep things manageable, pick just the smallest one to finish or postpone the rest so you don't feel burdened.",
-                    "🎯 *Single Focus*: Rather than tackling everything at once, focus gently on just one item. Taking it one step at a time removes the stress.",
-                    "🌿 *Small Step*: When energy feels low, doing just 2 minutes on a task is enough to get moving without overwhelming yourself."
+                    "🧹 *Smart Triage Available*: You have $overdueCount overdue task(s). Say *\"push overdue to tomorrow\"* or *\"clean overdue tasks\"* to instantly clear your radar and reset your mental slate! 🌿",
+                    "🎯 *Single Focus*: You have $overdueCount overdue task(s). Rather than tackling everything at once, say *\"push overdue to tomorrow\"* or tackle just one 25-minute sprint.",
+                    "⚡ *Action Dissolves Anxiety*: Clear out stale tasks with *\"push overdue to tomorrow\"*, then pick your single highest priority objective."
                 )
                 getNextFromDeck(context, "advice_overdue", overduePool)
             }
@@ -487,6 +512,16 @@ object AyvaDialogueEngine {
         return getNextFromDeck(context, "breathing_pool", breathingPool)
     }
 
+    fun getFocusSprintGuidance(context: Context, minutes: Int = 25, taskTitle: String? = null): String {
+        val taskStr = if (taskTitle != null) " on **$taskTitle**" else ""
+        val pool = listOf(
+            "⏱️ **$minutes-Minute Deep Focus Sprint Initiated!**$taskStr\n\n1. 🎯 **Single Objective**: Zero tab/app switching until the block completes.\n2. 🛡️ **App Armor**: Keep distracting apps locked.\n3. 🌊 **Cognitive Flow**: Friction in the first 3 minutes is normal. Breathe through it and momentum will take over.",
+            "🔥 **Laser Mode Activated: $minutes Minutes**$taskStr\n\n• Turn device face-down or enable Do Not Disturb.\n• Eliminate all background audio except binaural beats or brown noise.\n• Lock in until the timer expires!",
+            "⚡ **High-Performance Focus Block ($minutes mins)**$taskStr\n\n\"The ability to perform deep work is becoming increasingly rare at exactly the same time it is becoming increasingly valuable in our economy.\"\nDive in now—you've got this!"
+        )
+        return getNextFromDeck(context, "focus_sprint_pool", pool)
+    }
+
     // =========================================================================
     // 7. COMPREHENSIVE FOCUS STATUS BRIEFING
     // =========================================================================
@@ -503,10 +538,23 @@ object AyvaDialogueEngine {
         isVacation: Boolean,
         pendingCount: Int,
         completedTodayCount: Int,
-        overdueCount: Int
+        overdueCount: Int,
+        totalHabitsCount: Int = 0,
+        completedHabitsCount: Int = 0,
+        notesCount: Int = 0,
+        pinnedNotesCount: Int = 0,
+        batteryPct: Int? = null,
+        isCharging: Boolean = false
     ): String {
         val sb = StringBuilder()
         sb.append("⚡ *__Ayva's Focus Posture Report__*\n\n")
+
+        // Battery telemetry if available
+        if (batteryPct != null) {
+            val chargeIcon = if (isCharging) "🔌" else if (batteryPct <= 20) "🪫" else "🔋"
+            val chargeState = if (isCharging) "Charging" else if (batteryPct <= 20) "Low battery" else "Discharging"
+            sb.append("$chargeIcon **Device Battery**: $batteryPct% ($chargeState)\n")
+        }
 
         // 1. Routine status
         if (activeRoutineName != null) {
@@ -537,7 +585,20 @@ object AyvaDialogueEngine {
         val overdueWarning = if (overdueCount > 0) " (⚠️ $overdueCount overdue!)" else ""
         sb.append("📋 **Tasks**: $completedTodayCount completed today, $pendingCount pending$overdueWarning\n")
 
-        // 5. Screen Time
+        // 5. Habits (if any tracked)
+        if (totalHabitsCount > 0) {
+            val habitPct = (completedHabitsCount * 100) / totalHabitsCount
+            val habitIcon = if (completedHabitsCount >= totalHabitsCount) "🌟" else "🌱"
+            sb.append("$habitIcon **Habits**: $completedHabitsCount / $totalHabitsCount completed today ($habitPct%)\n")
+        }
+
+        // 6. Notes Overview (if any stored)
+        if (notesCount > 0) {
+            val pinnedStr = if (pinnedNotesCount > 0) " ($pinnedNotesCount pinned 📌)" else ""
+            sb.append("📝 **Notes**: $notesCount notes stored$pinnedStr\n")
+        }
+
+        // 7. Screen Time
         val hrs = totalScreenTimeMins / 60
         val mins = totalScreenTimeMins % 60
         val timeStr = if (hrs > 0) "${hrs}h ${mins}m" else "${mins}m"
@@ -549,17 +610,44 @@ object AyvaDialogueEngine {
         } else ""
         sb.append("📱 **Screen Time**: $timeStr$topAppStr\n\n")
 
-        // 6. Ayva Verdict
+        // 8. Ayva Verdict
         val cal = Calendar.getInstance()
         val hour = cal.get(Calendar.HOUR_OF_DAY)
-        val verdict = when {
-            hour >= 22 || hour < 5 -> "🌙 _Suggestion: It's late into the evening. Be gentle on yourself tonight and wind down whenever you're ready._"
-            overdueCount > 0 -> "💡 _Suggestion: If you have energy, picking just one overdue item or postponing the rest can bring immediate mental clarity._"
-            activeRoutineName != null -> "🛡️ _Status: Routine active. Apps are gently shielded so you can focus peacefully._"
-            restrictedAppsCount == 0 && totalScreenTimeMins > 180 -> "🌿 _Suggestion: Screen time has been high today. If you find yourself switching apps often, taking a short break or locking your top distractor might help._"
-            pendingCount == 0 -> "✨ _Status: All tasks clear for now. Great pace today—enjoy your free time!_"
-            else -> "🎯 _Suggestion: Pick your single most meaningful task and take it step by step._"
+        val verdictPool = when {
+            hour >= 22 || hour < 5 -> listOf(
+                "🌙 _Suggestion: It's late into the evening. Be gentle on yourself tonight and wind down whenever you're ready._",
+                "🍵 _Suggestion: Late night hours! Rest is cognitive fuel for tomorrow—feel free to rest your eyes and recharge._",
+                "🌌 _Suggestion: Time to wind down. Great work navigating today—tomorrow brings a clean slate._"
+            )
+            overdueCount > 0 -> listOf(
+                "🧹 _Suggestion: $overdueCount overdue items detected. Tap **Clean Overdue** below or say \"push overdue to tomorrow\" to clear your radar!_",
+                "🎯 _Suggestion: Don't let overdue items weigh on you. Postpone them with smart triage and lock in a 25-minute focus block!_",
+                "⚡ _Suggestion: Action dissolves overwhelm. Clean overdue items or tackle your top priority with laser focus._"
+            )
+            totalHabitsCount > 0 && completedHabitsCount < totalHabitsCount -> listOf(
+                "✨ _Status: You have active habits waiting today. Checking even one off builds great daily flow!_",
+                "🌱 _Status: Keep your daily chain intact! Log one habit now to lock in your daily streak._",
+                "🔥 _Status: Habit progress at ${(completedHabitsCount * 100) / totalHabitsCount}%. A quick check-in will keep your momentum soaring._"
+            )
+            activeRoutineName != null -> listOf(
+                "🛡️ _Status: Routine active ($activeRoutineName). Apps are gently shielded so you can focus peacefully._",
+                "⚔️ _Status: Deep Work armor on! Your apps are protected under '$activeRoutineName'._"
+            )
+            restrictedAppsCount == 0 && totalScreenTimeMins > 180 -> listOf(
+                "🌿 _Suggestion: Screen time has been high today. If you find yourself switching apps often, taking a short break or locking your top distractor might help._",
+                "🚶 _Suggestion: Over 3 hours of screen time. Consider stepping away for 5 minutes, hydrating, or stretching your eyes._"
+            )
+            pendingCount == 0 -> listOf(
+                "✨ _Status: All tasks clear for now. Great pace today—enjoy your free time!_",
+                "🎉 _Status: Zero pending tasks! Outstanding focus today—relax or sharpen your mind with a mental drill._"
+            )
+            else -> listOf(
+                "🎯 _Suggestion: Pick your single most meaningful task and take it step by step._",
+                "⚡ _Suggestion: Focus on the next 20 minutes. One dedicated sprint moves mountains._",
+                "🌿 _Suggestion: Protect your attention, work calmly on one objective, and ignore the noise._"
+            )
         }
+        val verdict = getNextFromDeck(context, "briefing_verdict", verdictPool)
         sb.append(verdict)
         return sb.toString()
     }
@@ -577,6 +665,24 @@ object AyvaDialogueEngine {
             "⚡ *Zero Friction!* Completed \"$taskTitle\". $remainingStr One step closer to total victory."
         )
         return getNextFromDeck(context, "task_complete_praise", pool)
+    }
+
+    fun getOverdueTriagePraise(context: Context, count: Int, targetTimeStr: String): String {
+        val pool = listOf(
+            "🧹 *Radar Cleaned!* Successfully pushed $count overdue task${if (count > 1) "s" else ""} to **$targetTimeStr**. Mental slate wiped clean! 🌿",
+            "✨ *Triage Complete!* Rescheduled $count overdue item${if (count > 1) "s" else ""} to **$targetTimeStr**. Breathe easy—take them one at a time.",
+            "⏰ *Forward Momentum!* Adjusted $count overdue task${if (count > 1) "s" else ""} for **$targetTimeStr**. Overwhelm dissolved."
+        )
+        return getNextFromDeck(context, "overdue_triage_praise", pool)
+    }
+
+    fun getOverdueCleanPraise(context: Context, count: Int): String {
+        val pool = listOf(
+            "🧹 *Slate Wiped Clean!* Removed $count overdue task${if (count > 1) "s" else ""} from your radar. Fresh start ahead! ✨",
+            "✨ *Overdue Clutter Cleared!* Purged $count stale task${if (count > 1) "s" else ""}. Zero mental baggage—focus only on what matters right now.",
+            "🕊️ *Peace of Mind Restored!* Dismissed $count overdue item${if (count > 1) "s" else ""}. Your radar is reset."
+        )
+        return getNextFromDeck(context, "overdue_clean_praise", pool)
     }
 
     // =========================================================================
@@ -613,6 +719,158 @@ object AyvaDialogueEngine {
             "☕ You've been active on your phone for 2 hours straight. Unplug for a brief walk—your clarity and vitality will reset beautifully."
         )
         return getNextFromDeck(context, "day_total_screen_break", pool)
+    }
+
+    // =========================================================================
+    // 8. HABITS & NOTES CONVERSATIONAL FEEDBACK
+    // =========================================================================
+    fun getHabitCompletedPraise(context: Context, habitTitle: String, currentStreak: Int): String {
+        val streakText = if (currentStreak > 1) " Streak is at **$currentStreak days**! 🔥" else " That's day 1 locked in! 🌱"
+        val pool = listOf(
+            "🌟 *Habit Check!* Logged \"$habitTitle\".$streakText Consistency builds champions.",
+            "🌱 *Progress logged!* Marked \"$habitTitle\" complete.$streakText Keep building this habit!",
+            "🔥 *Boom!* Completed \"$habitTitle\".$streakText Your daily momentum is unstoppable.",
+            "✨ *Nailed it!* \"$habitTitle\" is checked off today.$streakText Future you will be proud."
+        )
+        return getNextFromDeck(context, "habit_complete_praise", pool)
+    }
+
+    fun getNoteCreatedQuip(context: Context, noteTitle: String): String {
+        val pool = listOf(
+            "📝 *Penned down!* Created note \"$noteTitle\". Safely stored and easy to find whenever you need it. ✨",
+            "💡 *Captured!* Stored \"$noteTitle\" in your Keep Notes. Great ideas deserve a safe haven.",
+            "📌 *Noted!* \"$noteTitle\" is secured in your notes. Ask me to search or read it anytime! 🌿"
+        )
+        return getNextFromDeck(context, "note_create_quip", pool)
+    }
+
+    fun getNotesSearchIntro(context: Context, query: String, count: Int): String {
+        val pool = if (count == 0) {
+            listOf(
+                "🔍 *No notes found matching \"$query\".* Try a different keyword or create a new note with `/note <title>`!",
+                "📝 Looked through your notes for \"$query\", but came up empty. Want to jot down a new note for it?",
+                "💡 Couldn't find any notes mentioning \"$query\". Let me know if you'd like to create one!"
+            )
+        } else {
+            listOf(
+                "📝 *Found $count note${if (count > 1) "s" else ""} matching \"$query\":*",
+                "🔍 *Here are the notes matching \"$query\":*",
+                "📌 *Notes search results for \"$query\":*"
+            )
+        }
+        return getNextFromDeck(context, "notes_search_intro", pool)
+    }
+
+    fun getNotesListIntro(context: Context, count: Int, pinnedCount: Int): String {
+        val pool = if (count == 0) {
+            listOf(
+                "📝 *Your notes vault is currently empty.* Tap the button below or type `/note <title>` to write your first note! ✨",
+                "💡 No notes stored yet. Jot down your thoughts or checklists anytime with `/note <title>`!"
+            )
+        } else {
+            val pinnedText = if (pinnedCount > 0) " ($pinnedCount pinned 📌)" else ""
+            listOf(
+                "📝 *Here are your Keep Notes ($count total$pinnedText):*",
+                "📌 *Your Stored Notes ($count total$pinnedText):*",
+                "💡 *Notes Vault ($count stored$pinnedText):*"
+            )
+        }
+        return getNextFromDeck(context, "notes_list_intro", pool)
+    }
+
+    fun getHabitListIntro(context: Context, count: Int, completedToday: Int): String {
+        val pool = if (count == 0) {
+            listOf(
+                "🌱 *No habits tracked yet.* Building positive micro-habits transforms daily focus. Tap below to create your first habit!",
+                "✨ You haven't added any habits to your tracker yet. Start with one simple daily goal like hydration or reading."
+            )
+        } else if (completedToday >= count) {
+            listOf(
+                "🌟 *Unstoppable!* You've completed all $count habits for today! Outstanding daily consistency. 🔥",
+                "🏆 *All habits checked off today!* You're building ironclad momentum.",
+                "✨ 100% habit completion today ($completedToday/$count). Enjoy this victory!"
+            )
+        } else {
+            listOf(
+                "🌱 *Your Daily Habit Tracker* ($completedToday/$count checked in today):",
+                "⚡ *Today's Habits* ($completedToday of $count completed):",
+                "🔥 *Habit Momentum* ($completedToday/$count checked off):"
+            )
+        }
+        return getNextFromDeck(context, "habit_list_intro", pool)
+    }
+
+    fun getConversationalChatReply(context: Context?, userQuery: String): String {
+        val clean = userQuery.lowercase().trim()
+        val pool = when {
+            clean in listOf("hi", "hello", "hey", "ayva", "hey ayva", "hi ayva", "good morning", "good evening", "good afternoon", "greetings", "yo", "sup") -> listOf(
+                "✨ Hey there! I'm Ayva, your personal focus & productivity companion. How can I help you conquer today?",
+                "👋 Hello! Ready to dive into your tasks, lock distracting apps, or do a quick mental sharpen?",
+                "🌟 Greetings! What would you like to focus on right now? I'm here to support your flow.",
+                "🌱 Welcome back! Let's protect your flow and make today meaningful. What's on your agenda?"
+            )
+            clean.contains("how are you") || clean.contains("how're you") || clean.contains("how r u") -> listOf(
+                "🌿 I'm running smoothly and always ready to guard your flow state! How is your focus feeling today?",
+                "⚡ Fully charged and ready for action! What are we conquering next?",
+                "✨ Doing great! Looking forward to helping you make today focused, calm, and productive."
+            )
+            clean.contains("thank") -> listOf(
+                "🙏 Always a pleasure! You're doing the hard work—I'm just here to keep the road clear.",
+                "✨ Anytime! Keep that momentum going strong.",
+                "🌱 You've got this! Let me know whenever you need anything else."
+            )
+            clean.contains("who are you") || clean.contains("what can you do") || clean.contains("what are you") -> listOf(
+                "🛡️ I am **Ayva**, your built-in offline focus coach & assistant.\n\nI help you:\n• 🔒 Shield distracting apps with strict or soft app armor\n• 📋 Capture and schedule tasks with natural language\n• 🌱 Build streaks with daily habit tracking\n• 📝 Jot, search, and pin Keep Notes\n• 🧮 Sharpen mental clarity with interactive arithmetic drills\n• 🫁 Recharge with guided breathwork loops",
+                "✨ I'm **Ayva**—an offline-first assistant designed to protect your attention, organize your tasks & notes, and keep your daily habits thriving with zero cloud reliance!"
+            )
+            clean.contains("joke") || clean.contains("tell me a joke") -> listOf(
+                "😄 Why do programmers prefer dark mode? Because light attracts bugs! 🐛",
+                "💻 Why did the smartphone wear glasses? Because it lost its contacts! 👓",
+                "⏳ Procrastination is like a credit card: a lot of fun until you get the bill! Let's tackle that first task. 😉",
+                "☕ Why don't programmers like nature? It has too many bugs and not enough coffee."
+            )
+            clean.contains("tired") || clean.contains("exhausted") || clean.contains("burnout") || clean.contains("sleepy") || clean.contains("no energy") -> listOf(
+                "🍵 Energy ebbs and flows naturally. If you're feeling depleted, try a 5-minute break away from screens, drink a tall glass of cold water, or try our 4-7-8 breathing protocol. Be kind to yourself today.",
+                "🌿 Your well-being comes first. High cognitive work requires deep recovery. Consider picking just one small, low-friction task or postponing heavy deadlines to tomorrow morning.",
+                "🫁 When exhaustion hits, pushing harder often backfires. Take three slow physiological sighs (two quick sniffs in, one long slow exhale out) and let your body reset."
+            )
+            clean.contains("overwhelm") || clean.contains("stressed") || clean.contains("anxious") || clean.contains("panic") || clean.contains("too much") -> listOf(
+                "🌊 Take a deep breath. Overwhelm happens when we try to hold tomorrow's problems in today's mind. What is the single smallest thing you can finish in the next 3 minutes?",
+                "🎯 Break the spiral: Close your eyes for 30 seconds. Pick *just one* single task from your radar and ignore everything else. Action cures anxiety.",
+                "🛡️ You don't have to do it all right now. Triage mode: let's reschedule non-urgent tasks and lock out social media so you have breathing room."
+            )
+            clean.contains("motivat") || clean.contains("inspire") || clean.contains("quote") || clean.contains("give me a boost") -> listOf(
+                "🔥 \"Action doesn't come from motivation; motivation comes from action.\" Start with just 120 seconds on your task—momentum will carry you forward.",
+                "⚡ \"You do not rise to the level of your goals. You fall to the level of your systems.\" — James Clear. Trust your routines today!",
+                "🌱 \"Small disciplines repeated with consistency every day lead to great achievements gained slowly over time.\" Keep showing up!"
+            )
+            clean.contains("pomodoro") || clean.contains("technique") || clean.contains("how to focus") || clean.contains("study tips") -> listOf(
+                "⏱️ **The Classic Pomodoro Flow**:\n1. Choose 1 single task.\n2. Set a timer for **25 minutes** and lock all distracting apps.\n3. Work with zero interruptions until the chime.\n4. Take a **5-minute screen-free break**.\n5. After 4 cycles, take a long 20-minute rest.",
+                "🧠 **Deep Work Principles**:\n• **Single-tasking**: Context switching burns up to 40% of your cognitive energy.\n• **Friction rule**: Make distractions 20 seconds harder to reach (lock them in Strict Mode!).\n• **Protected windows**: Block 90-minute blocks during your peak circadian hours."
+            )
+            clean.contains("breath") || clean.contains("breathe") || clean.contains("calm down") || clean.contains("relax") || clean.contains("4-7-8") -> listOf(
+                "🫁 **4-7-8 Parasympathetic Reset Protocol**:\n1. **Inhale quietly** through your nose for **4 seconds**.\n2. **Hold your breath** gently for **7 seconds**.\n3. **Exhale completely** through your mouth with a soft whoosh for **8 seconds**.\nRepeat 4 times to instantly down-regulate nervous system arousal.",
+                "🌬️ **Physiological Sigh (Fastest Stress Reliever)**:\n1. Take two consecutive inhales through your nose: one deep breath, followed by an immediate sharp top-off sniff.\n2. One long, slow, effortless exhale through your mouth.\nRepeat 2-3 times to pop open collapsed alveoli and lower heart rate."
+            )
+            clean.contains("adhd") || clean.contains("distract") || clean.contains("can't focus") || clean.contains("cant focus") || clean.contains("procrastinat") -> listOf(
+                "🧠 **ADHD & Dopamine Friction Strategies**:\n\n• **Body Doubling**: Put a 25-minute timer on or work alongside someone.\n• **The 2-Minute Rule**: Don't commit to finishing the task; only commit to 120 seconds of engagement.\n• **Friction Barrier**: Put your phone in another room or turn on Ayva's Strict Lock.\n• **Novelty Switch**: Change your physical workstation (standing, different desk, or outside).",
+                "⚡ **Dopamine Priming for High-Friction Tasks**:\n1. Do a 30-second math drill (`/drill`) to wake up working memory.\n2. Clear out mental clutter with `/breathe`.\n3. Write down only **ONE** single micro-step on a piece of paper.\n4. Dive in with `/focus 25`!"
+            )
+            clean.contains("sleep") || clean.contains("insomnia") || clean.contains("night routine") || clean.contains("cant sleep") || clean.contains("can't sleep") -> listOf(
+                "🌙 **Neuroscience Sleep Hygiene Protocol**:\n\n1. **No blue screens 60m before bed**: Melatonin suppression delays sleep onset by up to 90 minutes.\n2. **Cool temperature**: Keep your sleep environment slightly cool (around 18-20°C / 65-68°F).\n3. **Brain Dump**: Write down all lingering thoughts with `/note Tomorrow Ideas` so your subconscious can relax.\n4. **Physiological Sighs**: Take 5 slow sighs in bed to trigger drowsiness.",
+                "🍵 **Nighttime Wind-Down Checklist**:\n• Turn on Do Not Disturb / Night Mode.\n• Sip chamomile or warm caffeine-free herbal tea.\n• Read a physical book or listen to calming audio.\n• Rest your eyes and allow your brain to clear metabolic waste through deep sleep."
+            )
+            clean.contains("habit") || clean.contains("routine") || clean.contains("atomic") || clean.contains("streak") -> listOf(
+                "🌱 **Atomic Habits Blueprint (James Clear)**:\n\n1. **Make it obvious**: Cue your habit with an existing routine (e.g., *After I brew morning coffee, I review Ayva tasks*).\n2. **Make it attractive**: Pair habits with positive rewards.\n3. **Make it easy**: Reduce the friction down to 2 minutes.\n4. **Make it satisfying**: Track it immediately in Ayva Habit Tracker to lock in the dopamine checkmark!",
+                "🔥 **The Power of Streaks**:\nNever miss twice! If you miss a single day, treat the next day as a top priority keystone check-in to preserve your neurological momentum."
+            )
+            else -> listOf(
+                "💭 I'm listening! You can ask me to add tasks, search notes, check habits, lock apps, or view today's focus posture.",
+                "🎯 Every small step counts. Tell me what you'd like to work on or organize today!",
+                "✨ Ayva here. Feel free to check `/status`, review `/tasks`, search `/notes`, or start a quick `/drill`."
+            )
+        }
+        return getNextFromDeck(context, "conversational_reply", pool)
     }
 }
 

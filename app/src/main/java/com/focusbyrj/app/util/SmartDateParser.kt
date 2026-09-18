@@ -10,10 +10,13 @@ data class ParseResult(
     val cleanText: String,
     val timestamp: Long?,
     val hasTime: Boolean,
-    val recurrence: RecurrencePattern = RecurrencePattern.NONE
+    val recurrence: RecurrencePattern = RecurrencePattern.NONE,
+    val note: String? = null
 )
 
 object SmartDateParser {
+
+    fun isLeapYear(year: Int): Boolean = (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)
 
     fun formatDueDate(timestamp: Long?): String {
         if (timestamp == null) return ""
@@ -46,6 +49,33 @@ object SmartDateParser {
         var hasExplicitDate = false
         var hasExplicitTime = false
         var detectedRecurrence = RecurrencePattern.NONE
+        var detectedNote: String? = null
+
+        fun applyDate(year: Int, month0Based: Int, day: Int) {
+            val targetYear = year
+            val targetMonth = month0Based
+            var targetDay = day
+
+            if (month0Based == Calendar.FEBRUARY && day >= 29) {
+                if (!isLeapYear(targetYear)) {
+                    targetDay = 28
+                    detectedNote = "Note: Event is on Feb 29th (reminded on Feb 28th in non-leap years)"
+                } else {
+                    targetDay = 29
+                    detectedNote = "Note: Event is on Feb 29th"
+                }
+            } else {
+                cal.set(Calendar.YEAR, targetYear)
+                cal.set(Calendar.MONTH, targetMonth)
+                cal.set(Calendar.DAY_OF_MONTH, 1)
+                val maxDay = cal.getActualMaximum(Calendar.DAY_OF_MONTH)
+                targetDay = targetDay.coerceAtMost(maxDay)
+            }
+
+            cal.set(Calendar.YEAR, targetYear)
+            cal.set(Calendar.MONTH, targetMonth)
+            cal.set(Calendar.DAY_OF_MONTH, targetDay)
+        }
 
         fun removeMatch(match: MatchResult): String {
             return text.removeRange(match.range).trim().replace("\\s+".toRegex(), " ")
@@ -80,6 +110,11 @@ object SmartDateParser {
         yearlyRegex.find(text)?.let { match ->
             detectedRecurrence = RecurrencePattern.YEARLY
             text = removeMatch(match)
+        }
+
+        // Auto-detect yearly recurrence if birthday or anniversary is mentioned and no other recurrence pattern was found
+        if (detectedRecurrence == RecurrencePattern.NONE && Regex("(?i)\\b(?:birthday|anniversary|bday)\\b").containsMatchIn(text)) {
+            detectedRecurrence = RecurrencePattern.YEARLY
         }
 
         val everyDowRegex = Regex("(?i)\\b(?:every)\\s+(mon|tue|wed|thu|fri|sat|sun)(?:day|nes)?(?:day)?\\b")
@@ -167,9 +202,7 @@ object SmartDateParser {
                 val month = match.groupValues[2].toIntOrNull()
                 val day = match.groupValues[3].toIntOrNull()
                 if (year != null && month != null && day != null) {
-                    cal.set(Calendar.YEAR, year)
-                    cal.set(Calendar.MONTH, month - 1)
-                    cal.set(Calendar.DAY_OF_MONTH, day)
+                    applyDate(year, month - 1, day)
                     hasExplicitDate = true
                     text = removeMatch(match)
                 }
@@ -180,16 +213,12 @@ object SmartDateParser {
                     val num2 = match.groupValues[2].toIntOrNull() ?: 1
                     val year = match.groupValues[3].toIntOrNull()
                     if (year != null) {
-                        cal.set(Calendar.YEAR, year)
                         if (num1 > 12) {
-                            cal.set(Calendar.MONTH, (num2 - 1).coerceIn(0, 11))
-                            cal.set(Calendar.DAY_OF_MONTH, num1)
+                            applyDate(year, (num2 - 1).coerceIn(0, 11), num1)
                         } else if (num2 > 12) {
-                            cal.set(Calendar.MONTH, (num1 - 1).coerceIn(0, 11))
-                            cal.set(Calendar.DAY_OF_MONTH, num2)
+                            applyDate(year, (num1 - 1).coerceIn(0, 11), num2)
                         } else {
-                            cal.set(Calendar.MONTH, (num1 - 1).coerceIn(0, 11))
-                            cal.set(Calendar.DAY_OF_MONTH, num2)
+                            applyDate(year, (num1 - 1).coerceIn(0, 11), num2)
                         }
                         hasExplicitDate = true
                         text = removeMatch(match)
@@ -208,17 +237,18 @@ object SmartDateParser {
                 val yearStr = match.groupValues[3]
                 val monthIdx = monthNames.indexOf(monthStr)
                 if (monthIdx != -1) {
-                    if (yearStr.isNotBlank()) {
-                        val year = yearStr.toIntOrNull()
-                        if (year != null) {
-                            cal.set(Calendar.YEAR, year)
+                    var targetYear = yearStr.toIntOrNull() ?: cal.get(Calendar.YEAR)
+                    if (yearStr.isBlank()) {
+                        val testCal = Calendar.getInstance().apply {
+                            set(Calendar.YEAR, targetYear)
+                            set(Calendar.MONTH, monthIdx)
+                            set(Calendar.DAY_OF_MONTH, if (monthIdx == Calendar.FEBRUARY && day >= 29 && !isLeapYear(targetYear)) 28 else day)
+                        }
+                        if (testCal.timeInMillis < System.currentTimeMillis() - 86400000L) {
+                            targetYear += 1
                         }
                     }
-                    cal.set(Calendar.MONTH, monthIdx)
-                    cal.set(Calendar.DAY_OF_MONTH, day)
-                    if (yearStr.isBlank() && cal.timeInMillis < System.currentTimeMillis() - 86400000L) {
-                        cal.add(Calendar.YEAR, 1)
-                    }
+                    applyDate(targetYear, monthIdx, day)
                     hasExplicitDate = true
                     text = removeMatch(match)
                 }
@@ -230,17 +260,18 @@ object SmartDateParser {
                     val yearStr = match.groupValues[3]
                     val monthIdx = monthNames.indexOf(monthStr)
                     if (monthIdx != -1) {
-                        if (yearStr.isNotBlank()) {
-                            val year = yearStr.toIntOrNull()
-                            if (year != null) {
-                                cal.set(Calendar.YEAR, year)
+                        var targetYear = yearStr.toIntOrNull() ?: cal.get(Calendar.YEAR)
+                        if (yearStr.isBlank()) {
+                            val testCal = Calendar.getInstance().apply {
+                                set(Calendar.YEAR, targetYear)
+                                set(Calendar.MONTH, monthIdx)
+                                set(Calendar.DAY_OF_MONTH, if (monthIdx == Calendar.FEBRUARY && day >= 29 && !isLeapYear(targetYear)) 28 else day)
+                            }
+                            if (testCal.timeInMillis < System.currentTimeMillis() - 86400000L) {
+                                targetYear += 1
                             }
                         }
-                        cal.set(Calendar.MONTH, monthIdx)
-                        cal.set(Calendar.DAY_OF_MONTH, day)
-                        if (yearStr.isBlank() && cal.timeInMillis < System.currentTimeMillis() - 86400000L) {
-                            cal.add(Calendar.YEAR, 1)
-                        }
+                        applyDate(targetYear, monthIdx, day)
                         hasExplicitDate = true
                         text = removeMatch(match)
                     }
@@ -287,10 +318,16 @@ object SmartDateParser {
                 val day = m.groupValues[1].toIntOrNull() ?: 1
                 if (day in 1..31) {
                     val nowDay = nowCal.get(Calendar.DAY_OF_MONTH)
-                    cal.set(Calendar.DAY_OF_MONTH, day)
+                    var targetMonth = nowCal.get(Calendar.MONTH)
+                    var targetYear = nowCal.get(Calendar.YEAR)
                     if (day < nowDay) {
-                        cal.add(Calendar.MONTH, 1)
+                        targetMonth++
+                        if (targetMonth > Calendar.DECEMBER) {
+                            targetMonth = Calendar.JANUARY
+                            targetYear++
+                        }
                     }
+                    applyDate(targetYear, targetMonth, day)
                     hasExplicitDate = true
                     text = removeMatch(m)
                 }
@@ -467,6 +504,11 @@ object SmartDateParser {
             hasExplicitDate = true
         }
 
-        return ParseResult(clean, cal.timeInMillis, hasExplicitTime, detectedRecurrence)
+        if (detectedNote == null && Regex("(?i)\\b(?:feb(?:ruary)?\\s*29(?:th)?|29(?:th)?\\s*(?:of\\s*)?feb(?:ruary)?)\\b").containsMatchIn(input)) {
+            val curYear = cal.get(Calendar.YEAR)
+            detectedNote = if (isLeapYear(curYear)) "Note: Event is on Feb 29th" else "Note: Event is on Feb 29th (reminded on Feb 28th in non-leap years)"
+        }
+
+        return ParseResult(clean, cal.timeInMillis, hasExplicitTime, detectedRecurrence, detectedNote)
     }
 }

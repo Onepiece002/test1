@@ -79,7 +79,8 @@ object OfflineNluEngine {
         val lower = query.lowercase().trim()
         val isRoutine = lower.contains("routine") || lower.contains("schedule routine")
         val isAppOrBlock = lower.contains("block") || lower.contains("app") || lower.contains("filter")
-        if (isRoutine || isAppOrBlock) return false
+        val isNoteOrHabit = lower.contains("note") || lower.contains("notes") || lower.contains("habit") || lower.contains("habits")
+        if (isRoutine || isAppOrBlock || isNoteOrHabit) return false
 
         // Common action verbs at sentence start (e.g. "check ac prices", "buy groceries", "call dentist", "pay rent")
         val actionVerbPrefix = Regex("^(?:check|call|buy|email|clean|fix|read|write|order|pay|cook|meet|send|visit|book|study|prep|prepare|get|make|wash|inspect|verify|pick\\s+up|drop\\s+off)\\b\\s+[a-zA-Z0-9]")
@@ -134,8 +135,8 @@ object OfflineNluEngine {
         if (isStopRoutine) return NluIntent.STOP_ROUTINE
         if (isListRoutines) return NluIntent.LIST_ROUTINES
 
-        val isBlock = matchesAnyFuzzy(tokens, listOf("block", "lock", "restrict")) && (lower.contains("app") || lower.contains("apps") || lower.contains("filter") || lower.contains("category") || lower.contains("mode") || lower.contains("site") || lower.contains("instagram") || lower.contains("youtube"))
-        val isUnblock = matchesAnyFuzzy(tokens, listOf("unblock", "unlock", "allow")) && (lower.contains("app") || lower.contains("apps") || lower.contains("filter") || lower.contains("category") || lower.contains("mode") || lower.contains("site") || lower.contains("instagram") || lower.contains("youtube"))
+        val isBlock = matchesAnyFuzzy(tokens, listOf("block", "lock", "restrict", "shield")) && (lower.contains("app") || lower.contains("apps") || lower.contains("filter") || lower.contains("category") || lower.contains("mode") || lower.contains("site") || lower.contains("instagram") || lower.contains("youtube") || lower.contains("social") || lower.contains("game") || lower.contains("games"))
+        val isUnblock = matchesAnyFuzzy(tokens, listOf("unblock", "unlock", "allow", "unshield")) && (lower.contains("app") || lower.contains("apps") || lower.contains("filter") || lower.contains("category") || lower.contains("mode") || lower.contains("site") || lower.contains("instagram") || lower.contains("youtube") || lower.contains("social") || lower.contains("game") || lower.contains("games"))
         if (isBlock) return if (lower.contains("filter") || lower.contains("category")) NluIntent.BLOCK_FILTER else NluIntent.BLOCK_APP
         if (isUnblock) return NluIntent.UNBLOCK
 
@@ -157,10 +158,13 @@ object OfflineNluEngine {
         val isExplicitRescheduleWord = matchesAnyFuzzy(tokens, listOf("reschedule", "postpone", "bump")) ||
                                        (lower.contains("change") && (lower.contains("due date") || lower.contains("deadline") || lower.contains("due time"))) ||
                                        (lower.contains("move") && (lower.contains("due date") || lower.contains("deadline"))) ||
-                                       (lower.contains("push") && (lower.contains("due date") || lower.contains("deadline"))) ||
-                                       (lower.contains("delay") && (lower.contains("task") || lower.contains("due")))
+                                       (lower.contains("push") && (lower.contains("due date") || lower.contains("deadline") || lower.contains("overdue"))) ||
+                                       (lower.contains("delay") && (lower.contains("task") || lower.contains("due"))) ||
+                                       (lower.contains("overdue") && (lower.contains("tomorrow") || lower.contains("tonight") || lower.contains("next week") || lower.contains("to ")))
 
-        val isDelete = matchesAnyFuzzy(tokens, listOf("delete", "remove", "trash", "cancel")) && (lower.contains("task") || pendingTasks.isNotEmpty())
+        val isDelete = (matchesAnyFuzzy(tokens, listOf("delete", "remove", "trash", "cancel")) && (lower.contains("task") || pendingTasks.isNotEmpty())) ||
+                       (lower.contains("clean") && (lower.contains("overdue") || lower.contains("tasks"))) ||
+                       (lower.contains("clear") && lower.contains("overdue"))
 
         return when {
             isDelete -> NluIntent.DELETE
@@ -242,7 +246,8 @@ object OfflineNluEngine {
     // 5. Target Entity Extraction (Which task?)
     fun extractTargetTaskInfo(query: String, pendingTasks: List<Task>): TargetTaskResult {
         val lower = query.lowercase().trim()
-        val isAll = lower.contains("all") || lower.contains("everything")
+        val isAll = lower.contains("all") || lower.contains("everything") || 
+                    (lower.contains("overdue") && (lower.contains("clean") || lower.contains("clear") || lower.contains("tasks") || lower.contains("push") || lower.contains("postpone") || lower.contains("reschedule") || lower.contains("move") || lower.contains("triage")))
         if (isAll) return TargetTaskResult(targetTask = null, isAll = true)
 
         if (pendingTasks.isEmpty()) return TargetTaskResult(targetTask = null, isAll = false)
@@ -404,7 +409,7 @@ object OfflineNluEngine {
         val lower = query.lowercase()
         val mode = if (lower.contains("soft block") || lower.contains("soft mode") || lower.contains("soft lock") || lower.contains("soft")) "SOFT" else "HARD"
         
-        val match = Regex("\\b(block|lock|restrict|unblock|unlock|allow)\\b\\s+(.*)").find(lower)
+        val match = Regex("\\b(block|lock|restrict|shield|unblock|unlock|allow|unshield)\\b\\s+(.*)").find(lower)
         var targetName = match?.groupValues?.get(2) ?: lower
         targetName = targetName.replace(Regex("\\b(soft|hard|in|mode|filter|category|apps|app|the|a|an)\\b"), " ")
         targetName = targetName.replace(Regex("\\s+"), " ").trim()

@@ -85,17 +85,42 @@ object NoteDatabaseMigrationHelper {
 
             legacyDb.close()
 
-            // Rename or delete plaintext db files safely
-            val backupFile = context.getDatabasePath("${PLAINTEXT_DB_NAME}.migrated")
-            if (backupFile.exists()) backupFile.delete()
-            dbFile.renameTo(backupFile)
-            context.getDatabasePath("${PLAINTEXT_DB_NAME}-wal").delete()
-            context.getDatabasePath("${PLAINTEXT_DB_NAME}-shm").delete()
-            backupFile.delete()
+            // Securely wipe and delete legacy plaintext db files
+            val walFile = context.getDatabasePath("${PLAINTEXT_DB_NAME}-wal")
+            val shmFile = context.getDatabasePath("${PLAINTEXT_DB_NAME}-shm")
+            secureWipeAndDelete(dbFile)
+            secureWipeAndDelete(walFile)
+            secureWipeAndDelete(shmFile)
 
-            Log.i(TAG, "Plaintext database cleanup completed.")
+            Log.i(TAG, "Plaintext database secure zero-wipe and cleanup completed.")
         } catch (e: Exception) {
             Log.e(TAG, "Error during plaintext to encrypted notes migration", e)
+        }
+    }
+
+    /**
+     * Overwrites file contents with zeros before unlinking/deleting, preventing forensic recovery.
+     */
+    private fun secureWipeAndDelete(file: File) {
+        if (!file.exists()) return
+        try {
+            val length = file.length()
+            if (length > 0) {
+                java.io.RandomAccessFile(file, "rws").use { raf ->
+                    val buffer = ByteArray(4096)
+                    var remaining = length
+                    while (remaining > 0) {
+                        val toWrite = minOf(remaining, buffer.size.toLong()).toInt()
+                        raf.write(buffer, 0, toWrite)
+                        remaining -= toWrite
+                    }
+                    raf.fd.sync()
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to zero-overwrite file ${file.name} before deletion", e)
+        } finally {
+            file.delete()
         }
     }
 
