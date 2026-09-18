@@ -464,21 +464,6 @@ fun KeepNoteEditor(
                                 contentBringIntoViewRequester.bringIntoView()
                             }
                         },
-                        onTextLayout = { textLayoutResult ->
-                            coroutineScope.launch {
-                                val cursorOffset = textLayoutResult.layoutInput.text.length
-                                val cursorRect = try {
-                                    textLayoutResult.getCursorRect(cursorOffset)
-                                } catch (_: Exception) {
-                                    null
-                                }
-                                if (cursorRect != null) {
-                                    contentBringIntoViewRequester.bringIntoView(cursorRect)
-                                } else {
-                                    contentBringIntoViewRequester.bringIntoView()
-                                }
-                            }
-                        },
                         modifier = Modifier
                             .fillMaxWidth()
                             .defaultMinSize(minHeight = 260.dp)
@@ -1349,21 +1334,6 @@ private fun ChecklistRow(
                 }
                 coroutineScope.launch {
                     textFieldBringIntoViewRequester.bringIntoView()
-                }
-            },
-            onTextLayout = { textLayoutResult ->
-                coroutineScope.launch {
-                    val cursorOffset = textLayoutResult.layoutInput.text.length
-                    val cursorRect = try {
-                        textLayoutResult.getCursorRect(cursorOffset)
-                    } catch (_: Exception) {
-                        null
-                    }
-                    if (cursorRect != null) {
-                        textFieldBringIntoViewRequester.bringIntoView(cursorRect)
-                    } else {
-                        textFieldBringIntoViewRequester.bringIntoView()
-                    }
                 }
             },
             singleLine = false,

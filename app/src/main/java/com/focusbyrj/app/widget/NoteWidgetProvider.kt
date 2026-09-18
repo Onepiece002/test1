@@ -58,28 +58,31 @@ class NoteWidgetProvider : AppWidgetProvider() {
 
         fun updateAllWidgets(context: Context) {
             kotlin.runCatching {
-                val appWidgetManager = AppWidgetManager.getInstance(context)
-                val componentName = ComponentName(context, NoteWidgetProvider::class.java)
+                val appContext = context.applicationContext
+                val appWidgetManager = AppWidgetManager.getInstance(appContext)
+                val componentName = ComponentName(appContext, NoteWidgetProvider::class.java)
                 val appWidgetIds = appWidgetManager.getAppWidgetIds(componentName)
                 if (appWidgetIds != null && appWidgetIds.isNotEmpty()) {
                     for (widgetId in appWidgetIds) {
-                        updateWidget(context, appWidgetManager, widgetId)
+                        updateWidget(appContext, appWidgetManager, widgetId)
                     }
                 }
             }
         }
 
         fun updateWidget(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int) {
+            val appContext = context.applicationContext
             CoroutineScope(Dispatchers.IO).launch {
-                updateWidgetInternal(context, appWidgetManager, appWidgetId)
+                updateWidgetInternal(appContext, appWidgetManager, appWidgetId)
             }
         }
 
         private suspend fun updateWidgetInternal(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int) {
+            val appContext = context.applicationContext
             kotlin.runCatching {
-                val config = NoteWidgetConfigHelper.getConfig(context, appWidgetId)
-                val noteDao = NoteDatabase.getInstance(context).noteDao()
-                val isSystemDark = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+                val config = NoteWidgetConfigHelper.getConfig(appContext, appWidgetId)
+                val noteDao = NoteDatabase.getInstance(appContext).noteDao()
+                val isSystemDark = (appContext.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
 
                 val rawNotes = if (config.filterMode == NoteWidgetFilterMode.SPECIFIC && config.specificNoteId != null) {
                     val single = noteDao.getNoteByIdSync(config.specificNoteId!!)

@@ -56,6 +56,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.relocation.BringIntoViewRequester
@@ -173,7 +174,7 @@ class QuickEditNoteActivity : ComponentActivity() {
                         finish()
                     },
                     onSaved = {
-                        NoteWidgetProvider.updateAllWidgets(this@QuickEditNoteActivity)
+                        NoteWidgetProvider.updateAllWidgets(this@QuickEditNoteActivity.applicationContext)
                         finish()
                     }
                 )
@@ -195,8 +196,9 @@ fun QuickEditNoteOverlay(
     onSaved: () -> Unit
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
+    val appContext = remember { context.applicationContext }
     val scope = rememberCoroutineScope()
-    val noteDao = remember { NoteDatabase.getInstance(context).noteDao() }
+    val noteDao = remember { NoteDatabase.getInstance(appContext).noteDao() }
     val isSystemDark = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
 
     var loadedNote by remember { mutableStateOf<NoteEntity?>(null) }
@@ -341,12 +343,12 @@ fun QuickEditNoteOverlay(
             if (appWidgetId != null && appWidgetId != android.appwidget.AppWidgetManager.INVALID_APPWIDGET_ID) {
                 val finalId = loadedNote?.id
                 if (finalId != null && finalId > 0) {
-                    NoteWidgetConfigHelper.setCurrentNoteId(context, appWidgetId, finalId)
-                    NoteWidgetConfigHelper.setCurrentIndex(context, appWidgetId, 0)
+                    NoteWidgetConfigHelper.setCurrentNoteId(appContext, appWidgetId, finalId)
+                    NoteWidgetConfigHelper.setCurrentIndex(appContext, appWidgetId, 0)
                 }
             }
             try {
-                NoteWidgetProvider.updateAllWidgets(context)
+                NoteWidgetProvider.updateAllWidgets(appContext)
             } catch (_: Exception) {}
             withContext(Dispatchers.Main) {
                 if (andFinish) {
@@ -638,139 +640,240 @@ fun QuickEditNoteOverlay(
                     }
                 } else {
                     // Checklist Items
-                    Column(
+                    var completedExpanded by remember { mutableStateOf(true) }
+                    val uncompletedItems = checklistItems.filter { !it.isChecked }
+                    val completedItems = checklistItems.filter { it.isChecked }
+
+                    LazyColumn(
+                        state = checklistListState,
                         modifier = Modifier
                             .weight(1f, fill = false)
-                            .heightIn(min = 120.dp, max = 340.dp)
+                            .heightIn(min = 140.dp, max = 380.dp)
+                            .fillMaxWidth()
                     ) {
-                        LazyColumn(
-                            state = checklistListState,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f, fill = false)
-                        ) {
-                            itemsIndexed(checklistItems, key = { _, item -> item.id }) { index, item ->
-                                QuickEditChecklistRow(
-                                    item = item,
-                                    primaryTextColor = primaryTextColor,
-                                    secondaryTextColor = secondaryTextColor,
-                                    isTargetFocus = item.id == targetFocusItemId,
-                                    onFocused = { if (targetFocusItemId == item.id) targetFocusItemId = null },
-                                    onHeightOrLineChanged = {
-                                        scope.launch {
-                                            kotlinx.coroutines.delay(16)
-                                            val layoutInfo = checklistListState.layoutInfo
-                                            val itemInfo = layoutInfo.visibleItemsInfo.firstOrNull { it.index == index }
-                                            if (itemInfo != null) {
-                                                val itemBottom = itemInfo.offset + itemInfo.size
-                                                val viewportEnd = layoutInfo.viewportEndOffset - layoutInfo.afterContentPadding
-                                                if (itemBottom > viewportEnd) {
-                                                    val scrollDelta = (itemBottom - viewportEnd + 36).toFloat()
-                                                    checklistListState.animateScrollBy(scrollDelta)
-                                                }
-                                            } else {
-                                                checklistListState.animateScrollToItem(index)
-                                            }
-                                        }
-                                    },
-                                    onMoveUp = {
-                                        if (index > 0) {
-                                            val moved = checklistItems.removeAt(index)
-                                            checklistItems.add(index - 1, moved)
-                                            saveNote(andFinish = false)
-                                        }
-                                    },
-                                    onMoveDown = {
-                                        if (index < checklistItems.size - 1) {
-                                            val moved = checklistItems.removeAt(index)
-                                            checklistItems.add(index + 1, moved)
-                                            saveNote(andFinish = false)
-                                        }
-                                    },
-                                    onToggle = {
-                                        checklistItems[index] = item.copy(isChecked = !item.isChecked)
-                                        val (uncompleted, completed) = checklistItems.partition { !it.isChecked }
+                        items(
+                            items = uncompletedItems,
+                            key = { it.id }
+                        ) { item ->
+                            QuickEditChecklistRow(
+                                item = item,
+                                primaryTextColor = primaryTextColor,
+                                secondaryTextColor = secondaryTextColor,
+                                isTargetFocus = item.id == targetFocusItemId,
+                                onFocused = { if (targetFocusItemId == item.id) targetFocusItemId = null },
+                                onMoveUp = {
+                                    val idx = checklistItems.indexOfFirst { it.id == item.id }
+                                    if (idx > 0) {
+                                        val moved = checklistItems.removeAt(idx)
+                                        checklistItems.add(idx - 1, moved)
+                                        saveNote(andFinish = false)
+                                    }
+                                },
+                                onMoveDown = {
+                                    val idx = checklistItems.indexOfFirst { it.id == item.id }
+                                    if (idx != -1 && idx < checklistItems.size - 1) {
+                                        val moved = checklistItems.removeAt(idx)
+                                        checklistItems.add(idx + 1, moved)
+                                        saveNote(andFinish = false)
+                                    }
+                                },
+                                onToggle = {
+                                    val idx = checklistItems.indexOfFirst { it.id == item.id }
+                                    if (idx != -1) {
+                                        checklistItems[idx] = item.copy(isChecked = true)
+                                        val uncompleted = checklistItems.filter { !it.isChecked }
+                                        val completed = checklistItems.filter { it.isChecked }
                                         checklistItems.clear()
                                         checklistItems.addAll(uncompleted + completed)
                                         saveNote(andFinish = false)
-                                    },
-                                    onTextChange = { newTxt ->
-                                        checklistItems[index] = item.copy(text = newTxt)
-                                    },
-                                    onEnterPressed = { extraText ->
-                                        val newId = UUID.randomUUID().toString()
-                                        targetFocusItemId = newId
-                                        val firstCheckedIndex = checklistItems.indexOfFirst { it.isChecked }
-                                        val insertIndex = if (firstCheckedIndex != -1 && index >= firstCheckedIndex) {
-                                            firstCheckedIndex
-                                        } else {
-                                            (index + 1).coerceAtMost(if (firstCheckedIndex != -1) firstCheckedIndex else checklistItems.size)
-                                        }
-                                        checklistItems.add(
-                                            insertIndex,
-                                            ChecklistItem(
-                                                id = newId,
-                                                text = extraText,
-                                                isChecked = false
-                                            )
+                                    }
+                                },
+                                onTextChange = { newTxt ->
+                                    val idx = checklistItems.indexOfFirst { it.id == item.id }
+                                    if (idx != -1) {
+                                        checklistItems[idx] = item.copy(text = newTxt)
+                                    }
+                                },
+                                onEnterPressed = { extraText ->
+                                    val newId = UUID.randomUUID().toString()
+                                    targetFocusItemId = newId
+                                    val currentIdx = checklistItems.indexOfFirst { it.id == item.id }
+                                    val uncompletedCount = checklistItems.count { !it.isChecked }
+                                    val insertIdx = if (currentIdx != -1) (currentIdx + 1).coerceAtMost(uncompletedCount) else uncompletedCount
+                                    checklistItems.add(
+                                        insertIdx,
+                                        ChecklistItem(
+                                            id = newId,
+                                            text = extraText,
+                                            isChecked = false
                                         )
-                                        scope.launch {
-                                            checklistListState.animateScrollToItem(insertIndex)
-                                        }
-                                    },
-                                    onDelete = {
+                                    )
+                                    saveNote(andFinish = false)
+                                    scope.launch {
+                                        checklistListState.animateScrollToItem(insertIdx)
+                                    }
+                                },
+                                onDelete = {
+                                    val idx = checklistItems.indexOfFirst { it.id == item.id }
+                                    if (idx != -1) {
                                         if (checklistItems.size > 1) {
-                                            checklistItems.removeAt(index)
+                                            checklistItems.removeAt(idx)
                                             saveNote(andFinish = false)
                                         } else if (checklistItems.size == 1) {
                                             checklistItems[0] = checklistItems[0].copy(text = "")
                                             saveNote(andFinish = false)
                                         }
                                     }
+                                }
+                            )
+                        }
+
+                        item(key = "add_list_item_button") {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable {
+                                        val uncompletedCount = checklistItems.count { !it.isChecked }
+                                        val newId = UUID.randomUUID().toString()
+                                        targetFocusItemId = newId
+                                        checklistItems.add(
+                                            uncompletedCount,
+                                            ChecklistItem(
+                                                id = newId,
+                                                text = "",
+                                                isChecked = false
+                                            )
+                                        )
+                                        saveNote(andFinish = false)
+                                        scope.launch {
+                                            checklistListState.animateScrollToItem(uncompletedCount)
+                                        }
+                                    }
+                                    .padding(vertical = 8.dp, horizontal = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Add,
+                                    contentDescription = "Add list item",
+                                    tint = primaryTextColor.copy(alpha = 0.6f),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(
+                                    text = "List item",
+                                    fontSize = 15.sp,
+                                    color = primaryTextColor.copy(alpha = 0.6f)
                                 )
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(6.dp))
-
-                        // + List item clickable row (Matches Image 2)
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
-                                .clickable {
-                                    val firstCheckedIndex = checklistItems.indexOfFirst { it.isChecked }
-                                    val insertIndex = if (firstCheckedIndex != -1) firstCheckedIndex else checklistItems.size
-                                    val newId = UUID.randomUUID().toString()
-                                    targetFocusItemId = newId
-                                    checklistItems.add(
-                                        insertIndex,
-                                        ChecklistItem(
-                                            id = newId,
-                                            text = "",
-                                            isChecked = false
+                        if (completedItems.isNotEmpty()) {
+                            item(key = "completed_section_header") {
+                                Column {
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    HorizontalDivider(thickness = 0.8.dp, color = borderColor)
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .clickable { completedExpanded = !completedExpanded }
+                                            .padding(vertical = 6.dp, horizontal = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = if (completedExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                            contentDescription = if (completedExpanded) "Collapse completed" else "Expand completed",
+                                            tint = secondaryTextColor,
+                                            modifier = Modifier.size(20.dp)
                                         )
-                                    )
-                                    saveNote(andFinish = false)
-                                    scope.launch {
-                                        checklistListState.animateScrollToItem(insertIndex)
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "${completedItems.size} Completed items",
+                                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                                            color = secondaryTextColor
+                                        )
                                     }
                                 }
-                                .padding(vertical = 8.dp, horizontal = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Add,
-                                contentDescription = "Add list item",
-                                tint = primaryTextColor.copy(alpha = 0.6f),
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text(
-                                text = "List item",
-                                fontSize = 15.sp,
-                                color = primaryTextColor.copy(alpha = 0.6f)
-                            )
+                            }
+
+                            if (completedExpanded) {
+                                items(
+                                    items = completedItems,
+                                    key = { it.id }
+                                ) { item ->
+                                    QuickEditChecklistRow(
+                                        item = item,
+                                        primaryTextColor = primaryTextColor,
+                                        secondaryTextColor = secondaryTextColor,
+                                        isTargetFocus = item.id == targetFocusItemId,
+                                        onFocused = { if (targetFocusItemId == item.id) targetFocusItemId = null },
+                                        onMoveUp = {
+                                            val idx = checklistItems.indexOfFirst { it.id == item.id }
+                                            if (idx > 0) {
+                                                val moved = checklistItems.removeAt(idx)
+                                                checklistItems.add(idx - 1, moved)
+                                                saveNote(andFinish = false)
+                                            }
+                                        },
+                                        onMoveDown = {
+                                            val idx = checklistItems.indexOfFirst { it.id == item.id }
+                                            if (idx != -1 && idx < checklistItems.size - 1) {
+                                                val moved = checklistItems.removeAt(idx)
+                                                checklistItems.add(idx + 1, moved)
+                                                saveNote(andFinish = false)
+                                            }
+                                        },
+                                        onToggle = {
+                                            val idx = checklistItems.indexOfFirst { it.id == item.id }
+                                            if (idx != -1) {
+                                                checklistItems[idx] = item.copy(isChecked = false)
+                                                val uncompleted = checklistItems.filter { !it.isChecked }
+                                                val completed = checklistItems.filter { it.isChecked }
+                                                checklistItems.clear()
+                                                checklistItems.addAll(uncompleted + completed)
+                                                saveNote(andFinish = false)
+                                            }
+                                        },
+                                        onTextChange = { newTxt ->
+                                            val idx = checklistItems.indexOfFirst { it.id == item.id }
+                                            if (idx != -1) {
+                                                checklistItems[idx] = item.copy(text = newTxt)
+                                            }
+                                        },
+                                        onEnterPressed = { extraText ->
+                                            val newId = UUID.randomUUID().toString()
+                                            targetFocusItemId = newId
+                                            val uncompletedCount = checklistItems.count { !it.isChecked }
+                                            checklistItems.add(
+                                                uncompletedCount,
+                                                ChecklistItem(
+                                                    id = newId,
+                                                    text = extraText,
+                                                    isChecked = false
+                                                )
+                                            )
+                                            saveNote(andFinish = false)
+                                            scope.launch {
+                                                checklistListState.animateScrollToItem(uncompletedCount)
+                                            }
+                                        },
+                                        onDelete = {
+                                            val idx = checklistItems.indexOfFirst { it.id == item.id }
+                                            if (idx != -1) {
+                                                if (checklistItems.size > 1) {
+                                                    checklistItems.removeAt(idx)
+                                                    saveNote(andFinish = false)
+                                                } else if (checklistItems.size == 1) {
+                                                    checklistItems[0] = checklistItems[0].copy(text = "")
+                                                    saveNote(andFinish = false)
+                                                }
+                                            }
+                                        }
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -847,7 +950,6 @@ private fun QuickEditChecklistRow(
     secondaryTextColor: Color,
     isTargetFocus: Boolean,
     onFocused: () -> Unit,
-    onHeightOrLineChanged: () -> Unit,
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
     onToggle: () -> Unit,
@@ -856,12 +958,8 @@ private fun QuickEditChecklistRow(
     onDelete: () -> Unit
 ) {
     val focusRequester = remember { FocusRequester() }
-    val rowBringIntoViewRequester = remember { BringIntoViewRequester() }
-    val textFieldBringIntoViewRequester = remember { BringIntoViewRequester() }
-    val coroutineScope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
 
-    var lineCount by remember { mutableIntStateOf(1) }
     var isDragging by remember { mutableStateOf(false) }
     var dragOffsetY by remember { mutableFloatStateOf(0f) }
     val density = LocalDensity.current
@@ -869,20 +967,17 @@ private fun QuickEditChecklistRow(
 
     val currentOnMoveUp by rememberUpdatedState(onMoveUp)
     val currentOnMoveDown by rememberUpdatedState(onMoveDown)
-    val currentOnHeightOrLineChanged by rememberUpdatedState(onHeightOrLineChanged)
 
     LaunchedEffect(isTargetFocus) {
         if (isTargetFocus) {
             kotlinx.coroutines.delay(40)
             try {
                 focusRequester.requestFocus()
-                textFieldBringIntoViewRequester.bringIntoView()
                 onFocused()
             } catch (e: Exception) {
                 kotlinx.coroutines.delay(80)
                 runCatching {
                     focusRequester.requestFocus()
-                    textFieldBringIntoViewRequester.bringIntoView()
                     onFocused()
                 }
             }
@@ -892,7 +987,6 @@ private fun QuickEditChecklistRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .bringIntoViewRequester(rowBringIntoViewRequester)
             .offset { IntOffset(0, dragOffsetY.toInt()) }
             .zIndex(if (isDragging) 10f else 0f)
             .background(
@@ -982,30 +1076,6 @@ private fun QuickEditChecklistRow(
                 } else {
                     onTextChange(newTxt)
                 }
-                coroutineScope.launch {
-                    textFieldBringIntoViewRequester.bringIntoView()
-                }
-                currentOnHeightOrLineChanged()
-            },
-            onTextLayout = { textLayoutResult ->
-                val lines = textLayoutResult.lineCount
-                if (lines != lineCount) {
-                    lineCount = lines
-                    currentOnHeightOrLineChanged()
-                }
-                coroutineScope.launch {
-                    val cursorOffset = textLayoutResult.layoutInput.text.length
-                    val cursorRect = try {
-                        textLayoutResult.getCursorRect(cursorOffset)
-                    } catch (_: Exception) {
-                        null
-                    }
-                    if (cursorRect != null) {
-                        textFieldBringIntoViewRequester.bringIntoView(cursorRect)
-                    } else {
-                        textFieldBringIntoViewRequester.bringIntoView()
-                    }
-                }
             },
             textStyle = TextStyle(
                 fontSize = 15.sp,
@@ -1030,7 +1100,6 @@ private fun QuickEditChecklistRow(
             },
             modifier = Modifier
                 .weight(1f)
-                .bringIntoViewRequester(textFieldBringIntoViewRequester)
                 .focusRequester(focusRequester)
                 .onKeyEvent { keyEvent ->
                     if (keyEvent.type == KeyEventType.KeyDown) {
