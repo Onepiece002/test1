@@ -128,19 +128,21 @@ object NoteDatabaseMigrationHelper {
             }
 
             if (legacyNotes.isNotEmpty()) {
+                var insertSuccessCount = 0
                 runBlocking(Dispatchers.IO) {
                     for (note in legacyNotes) {
                         try {
                             encryptedDb.noteDao().insertNote(note)
+                            insertSuccessCount++
                         } catch (e: Exception) {
                             Log.e(TAG, "Failed inserting migrated note ${note.id}", e)
                         }
                     }
                 }
-                Log.i(TAG, "Successfully migrated ${legacyNotes.size} legacy notes into encrypted SQLCipher database.")
+                Log.i(TAG, "Successfully migrated $insertSuccessCount of ${legacyNotes.size} legacy notes into encrypted SQLCipher database.")
             }
 
-            // Securely wipe and delete legacy plaintext db files
+            // Securely wipe and delete legacy plaintext db files after migration
             val walFile = context.getDatabasePath("${PLAINTEXT_DB_NAME}-wal")
             val shmFile = context.getDatabasePath("${PLAINTEXT_DB_NAME}-shm")
             secureWipeAndDelete(dbFile)

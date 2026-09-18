@@ -17,93 +17,169 @@
 
 package com.focusbyrj.app.data.note
 
+import android.util.Log
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 
 class NoteRepository(private val noteDao: NoteDao) {
 
-    fun getActiveNotes(): Flow<List<NoteEntity>> = noteDao.getAllActiveNotes()
+    private val TAG = "NoteRepository"
 
-    fun getArchivedNotes(): Flow<List<NoteEntity>> = noteDao.getArchivedNotes()
+    fun getActiveNotes(): Flow<List<NoteEntity>> = noteDao.getAllActiveNotes().catch { e ->
+        Log.e(TAG, "Error collecting active notes", e)
+        emit(emptyList())
+    }
 
-    fun getTrashedNotes(): Flow<List<NoteEntity>> = noteDao.getTrashedNotes()
+    fun getArchivedNotes(): Flow<List<NoteEntity>> = noteDao.getArchivedNotes().catch { e ->
+        Log.e(TAG, "Error collecting archived notes", e)
+        emit(emptyList())
+    }
 
-    fun searchNotes(query: String): Flow<List<NoteEntity>> = noteDao.searchNotes(query)
+    fun getTrashedNotes(): Flow<List<NoteEntity>> = noteDao.getTrashedNotes().catch { e ->
+        Log.e(TAG, "Error collecting trashed notes", e)
+        emit(emptyList())
+    }
 
-    fun getNoteById(id: Long): Flow<NoteEntity?> = noteDao.getNoteById(id)
+    fun searchNotes(query: String): Flow<List<NoteEntity>> = noteDao.searchNotes(query).catch { e ->
+        Log.e(TAG, "Error searching notes", e)
+        emit(emptyList())
+    }
 
-    suspend fun getNoteByIdSync(id: Long): NoteEntity? = noteDao.getNoteByIdSync(id)
+    fun getNoteById(id: Long): Flow<NoteEntity?> = noteDao.getNoteById(id).catch { e ->
+        Log.e(TAG, "Error getting note by id $id", e)
+        emit(null)
+    }
 
-    suspend fun saveNote(note: NoteEntity): Long {
-        return if (note.id == 0L) {
+    suspend fun getNoteByIdSync(id: Long): NoteEntity? = try {
+        noteDao.getNoteByIdSync(id)
+    } catch (e: Exception) {
+        Log.e(TAG, "Error in getNoteByIdSync $id", e)
+        null
+    }
+
+    suspend fun saveNote(note: NoteEntity): Long = try {
+        if (note.id == 0L) {
             noteDao.insertNote(note)
         } else {
             noteDao.updateNote(note)
             note.id
         }
+    } catch (e: Exception) {
+        Log.e(TAG, "Error in saveNote", e)
+        0L
     }
 
     suspend fun updateNoteOrder(id: Long, updatedAt: Long) {
-        noteDao.updateNoteOrder(id, updatedAt)
+        try {
+            noteDao.updateNoteOrder(id, updatedAt)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in updateNoteOrder", e)
+        }
     }
 
     suspend fun deletePermanently(note: NoteEntity) {
-        noteDao.deleteNote(note)
+        try {
+            noteDao.deleteNote(note)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in deletePermanently", e)
+        }
     }
 
     suspend fun togglePin(id: Long, currentPinned: Boolean) {
-        noteDao.updatePinStatus(id, !currentPinned)
+        try {
+            noteDao.updatePinStatus(id, !currentPinned)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in togglePin", e)
+        }
     }
 
     suspend fun setPinned(id: Long, isPinned: Boolean) {
-        noteDao.updatePinStatus(id, isPinned)
+        try {
+            noteDao.updatePinStatus(id, isPinned)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in setPinned", e)
+        }
     }
 
     suspend fun setArchived(id: Long, isArchived: Boolean) {
-        noteDao.updateArchiveStatus(id, isArchived)
+        try {
+            noteDao.updateArchiveStatus(id, isArchived)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in setArchived", e)
+        }
     }
 
     suspend fun moveToTrash(id: Long) {
-        noteDao.updateTrashStatus(id, true)
+        try {
+            noteDao.updateTrashStatus(id, true)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in moveToTrash", e)
+        }
     }
 
     suspend fun restoreFromTrash(id: Long) {
-        noteDao.updateTrashStatus(id, false)
+        try {
+            noteDao.updateTrashStatus(id, false)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in restoreFromTrash", e)
+        }
     }
 
     suspend fun setColor(id: Long, colorKey: String) {
-        noteDao.updateColor(id, colorKey)
+        try {
+            noteDao.updateColor(id, colorKey)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in setColor", e)
+        }
     }
 
-    suspend fun getTrashedNotesSync(): List<NoteEntity> = noteDao.getTrashedNotesSync()
+    suspend fun getTrashedNotesSync(): List<NoteEntity> = try {
+        noteDao.getTrashedNotesSync()
+    } catch (e: Exception) {
+        Log.e(TAG, "Error in getTrashedNotesSync", e)
+        emptyList()
+    }
 
     suspend fun emptyTrash() {
-        noteDao.emptyTrash()
+        try {
+            noteDao.emptyTrash()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in emptyTrash", e)
+        }
     }
 
     suspend fun renameLabel(oldLabel: String, newLabel: String) {
-        val allNotes = noteDao.getAllNotesList()
-        allNotes.forEach { note ->
-            val labels = note.getLabels().toMutableList()
-            val index = labels.indexOfFirst { it.equals(oldLabel, ignoreCase = true) }
-            if (index != -1) {
-                labels[index] = newLabel.trim()
-                val array = org.json.JSONArray()
-                labels.distinct().forEach { array.put(it) }
-                noteDao.updateNote(note.copy(labelsJson = array.toString(), updatedAt = System.currentTimeMillis()))
+        try {
+            val allNotes = noteDao.getAllNotesList()
+            allNotes.forEach { note ->
+                val labels = note.getLabels().toMutableList()
+                val index = labels.indexOfFirst { it.equals(oldLabel, ignoreCase = true) }
+                if (index != -1) {
+                    labels[index] = newLabel.trim()
+                    val array = org.json.JSONArray()
+                    labels.distinct().forEach { array.put(it) }
+                    noteDao.updateNote(note.copy(labelsJson = array.toString(), updatedAt = System.currentTimeMillis()))
+                }
             }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in renameLabel", e)
         }
     }
 
     suspend fun deleteLabel(label: String) {
-        val allNotes = noteDao.getAllNotesList()
-        allNotes.forEach { note ->
-            val labels = note.getLabels().toMutableList()
-            val removed = labels.removeAll { it.equals(label, ignoreCase = true) }
-            if (removed) {
-                val array = org.json.JSONArray()
-                labels.distinct().forEach { array.put(it) }
-                noteDao.updateNote(note.copy(labelsJson = array.toString(), updatedAt = System.currentTimeMillis()))
+        try {
+            val allNotes = noteDao.getAllNotesList()
+            allNotes.forEach { note ->
+                val labels = note.getLabels().toMutableList()
+                val removed = labels.removeAll { it.equals(label, ignoreCase = true) }
+                if (removed) {
+                    val array = org.json.JSONArray()
+                    labels.distinct().forEach { array.put(it) }
+                    noteDao.updateNote(note.copy(labelsJson = array.toString(), updatedAt = System.currentTimeMillis()))
+                }
             }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in deleteLabel", e)
         }
     }
 }

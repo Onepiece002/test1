@@ -57,7 +57,7 @@ object DatabaseKeyProvider {
 
     @Synchronized
     fun getOrCreatePassphrase(context: Context): ByteArray {
-        cachedPassphrase?.let { return it.clone() }
+        cachedPassphrase?.let { return it }
 
         val appContext = context.applicationContext
         val prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -74,7 +74,7 @@ object DatabaseKeyProvider {
                         val decrypted = decryptPassphrase(encryptedBytes, iv)
                         if (decrypted != null && decrypted.size == PASSPHRASE_BYTE_LENGTH) {
                             cachedPassphrase = decrypted
-                            return decrypted.clone()
+                            return decrypted
                         }
                     } catch (e: Exception) {
                         lastException = e
@@ -91,7 +91,7 @@ object DatabaseKeyProvider {
                     val fallbackBytes = Base64.decode(encryptedBase64, Base64.NO_WRAP)
                     if (fallbackBytes != null && fallbackBytes.size == PASSPHRASE_BYTE_LENGTH) {
                         cachedPassphrase = fallbackBytes
-                        return fallbackBytes.clone()
+                        return fallbackBytes
                     }
                 } catch (e: Exception) {
                     Log.w(TAG, "Failed to decode fallback passphrase", e)
@@ -101,7 +101,7 @@ object DatabaseKeyProvider {
             // Fallback for extreme KeyStore invalidation cases: derive deterministic key so database remains accessible
             val deviceFallbackKey = getDeviceFallbackKey(appContext)
             cachedPassphrase = deviceFallbackKey
-            return deviceFallbackKey.clone()
+            return deviceFallbackKey
         }
 
         // Generate new random 256-bit passphrase for fresh install
@@ -127,7 +127,7 @@ object DatabaseKeyProvider {
         }
 
         cachedPassphrase = newPassphrase
-        return newPassphrase.clone()
+        return newPassphrase
     }
 
     private fun getDeviceFallbackKey(context: Context): ByteArray {

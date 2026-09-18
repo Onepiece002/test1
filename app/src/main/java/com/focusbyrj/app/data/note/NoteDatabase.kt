@@ -118,7 +118,6 @@ abstract class NoteDatabase : RoomDatabase() {
                 val instance = try {
                     val passphrase = DatabaseKeyProvider.getOrCreatePassphrase(appContext)
                     val factory = SupportFactory(passphrase)
-                    DatabaseKeyProvider.wipeByteArray(passphrase)
 
                     Room.databaseBuilder(
                         appContext,
