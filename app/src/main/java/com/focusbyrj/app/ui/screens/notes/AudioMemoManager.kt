@@ -23,9 +23,12 @@ import android.media.MediaPlayer
 import android.media.MediaRecorder
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
+import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -62,18 +65,58 @@ class AudioMemoManager(private val context: Context) {
     private val scope = CoroutineScope(Dispatchers.Main)
     private val accumulatedTranscript = StringBuilder()
     private var onTranscriptCallback: ((String) -> Unit)? = null
-    private var consecutiveSpeechErrors = 0
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     fun startRecording(onTranscriptUpdate: (String) -> Unit = {}) {
         stopPlayback()
         cancelRecording()
-        consecutiveSpeechErrors = 0
 
-        try {
-            val audioDir = File(context.filesDir, "keep_audio").apply { if (!exists()) mkdirs() }
-            val file = File(audioDir, "audio_${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(6)}.m4a")
+        accumulatedTranscript.clear()
+        onTranscriptCallback = onTranscriptUpdate
+
+        val audioDir = File(context.filesDir, "keep_audio").apply { if (!exists()) mkdirs() }
+        val file = File(audioDir, "audio_${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(6)}.m4a")
+        currentOutputFile = file
+
+        _recordingState.value = RecordingState(
+            isRecording = true,
+            elapsedSeconds = 0,
+            currentAmplitude = 0.1f,
+            liveTranscript = "",
             currentOutputFile = file
+        )
 
+        // 1. Start Continuous Speech-to-Text Recognition on Main Looper
+        mainHandler.post {
+            startSpeechRecognitionSession()
+        }
+
+        // 2. High-precision live timer and amplitude tracker
+        val startTimeMs = System.currentTimeMillis()
+        recordingJob = scope.launch {
+            while (isActive && _recordingState.value.isRecording) {
+                delay(80)
+                val elapsed = ((System.currentTimeMillis() - startTimeMs) / 1000).toInt()
+                val recorderAmp = try {
+                    val maxAmp = mediaRecorder?.maxAmplitude ?: 0
+                    (maxAmp / 32767f).coerceIn(0f, 1f)
+                } catch (_: Exception) {
+                    0f
+                }
+
+                // Decay or retain current speech amplitude smoothly
+                val current = _recordingState.value.currentAmplitude
+                val smoothAmp = if (recorderAmp > current) recorderAmp else (current * 0.85f).coerceAtLeast(0.05f)
+
+                _recordingState.value = _recordingState.value.copy(
+                    elapsedSeconds = elapsed,
+                    currentAmplitude = smoothAmp
+                )
+            }
+        }
+
+        // 3. Attempt audio capture without blocking speech recognition
+        try {
             val recorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 MediaRecorder(context)
             } else {
@@ -92,91 +135,69 @@ class AudioMemoManager(private val context: Context) {
                 start()
             }
             mediaRecorder = recorder
-
-            _recordingState.value = RecordingState(
-                isRecording = true,
-                elapsedSeconds = 0,
-                currentAmplitude = 0f,
-                liveTranscript = "",
-                currentOutputFile = file
-            )
-
-            // High-precision live timer and amplitude poller
-            val startTimeMs = System.currentTimeMillis()
-            recordingJob = scope.launch {
-                while (isActive && _recordingState.value.isRecording) {
-                    delay(60)
-                    val elapsed = ((System.currentTimeMillis() - startTimeMs) / 1000).toInt()
-                    val maxAmp = try {
-                        mediaRecorder?.maxAmplitude ?: 0
-                    } catch (_: Exception) {
-                        0
-                    }
-                    val normalizedAmp = (maxAmp / 32767f).coerceIn(0f, 1f)
-
-                    _recordingState.value = _recordingState.value.copy(
-                        elapsedSeconds = elapsed,
-                        currentAmplitude = normalizedAmp
-                    )
-                }
-            }
-
-            // Continuous On-Device Speech Recognition
-            initSpeechRecognizer(onTranscriptUpdate)
-
         } catch (e: Exception) {
-            e.printStackTrace()
-            cancelRecording()
+            Log.w("AudioMemoManager", "MediaRecorder concurrent init warning (SpeechRecognizer has priority): ${e.message}")
+            mediaRecorder = null
         }
-    }
-
-    private fun initSpeechRecognizer(onTranscriptUpdate: (String) -> Unit) {
-        if (!SpeechRecognizer.isRecognitionAvailable(context)) return
-        accumulatedTranscript.clear()
-        onTranscriptCallback = onTranscriptUpdate
-        startSpeechRecognitionSession()
     }
 
     private fun startSpeechRecognitionSession() {
         if (!_recordingState.value.isRecording) return
+
         try {
             speechRecognizer?.destroy()
+            speechRecognizer = null
+
+            if (!SpeechRecognizer.isRecognitionAvailable(context)) {
+                Log.w("AudioMemoManager", "Speech recognition is not available on this device")
+                return
+            }
+
             speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context).apply {
                 setRecognitionListener(object : RecognitionListener {
-                    override fun onReadyForSpeech(params: Bundle?) {}
-                    override fun onBeginningOfSpeech() {}
-                    override fun onRmsChanged(rmsdB: Float) {
-                        if (rmsdB > 0) {
-                            val speechAmp = (rmsdB / 10f).coerceIn(0f, 1f)
-                            val current = _recordingState.value.currentAmplitude
-                            _recordingState.value = _recordingState.value.copy(
-                                currentAmplitude = maxOf(current, speechAmp)
-                            )
-                        }
+                    override fun onReadyForSpeech(params: Bundle?) {
+                        Log.d("AudioMemoManager", "SpeechRecognizer: Ready for speech")
                     }
+
+                    override fun onBeginningOfSpeech() {
+                        Log.d("AudioMemoManager", "SpeechRecognizer: Beginning of speech")
+                    }
+
+                    override fun onRmsChanged(rmsdB: Float) {
+                        // Normalize RMS dB to 0.0 .. 1.0
+                        val speechAmp = ((rmsdB + 2f) / 12f).coerceIn(0.1f, 1f)
+                        _recordingState.value = _recordingState.value.copy(
+                            currentAmplitude = speechAmp
+                        )
+                    }
+
                     override fun onBufferReceived(buffer: ByteArray?) {}
-                    override fun onEndOfSpeech() {}
+
+                    override fun onEndOfSpeech() {
+                        Log.d("AudioMemoManager", "SpeechRecognizer: End of speech chunk")
+                    }
+
                     override fun onError(error: Int) {
-                        consecutiveSpeechErrors++
-                        if (error == SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS ||
-                            error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY ||
-                            consecutiveSpeechErrors >= 3) {
+                        Log.w("AudioMemoManager", "SpeechRecognizer onError: $error")
+                        if (error == SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS) {
                             return
                         }
-                        // In Android SpeechRecognizer, brief silences or timeouts trigger onError.
-                        // Seamlessly restart recognition if user is still actively recording.
+
+                        // Seamlessly reconnect session if user is still actively recording
                         if (_recordingState.value.isRecording) {
-                            scope.launch(Dispatchers.Main) {
-                                delay(300)
-                                startSpeechRecognitionSession()
-                            }
+                            mainHandler.postDelayed({
+                                if (_recordingState.value.isRecording) {
+                                    startSpeechRecognitionSession()
+                                }
+                            }, 250)
                         }
                     }
 
                     override fun onResults(results: Bundle?) {
-                        consecutiveSpeechErrors = 0
                         val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                         val text = matches?.firstOrNull()?.trim() ?: ""
+                        Log.d("AudioMemoManager", "SpeechRecognizer onResults: $text")
+
                         if (text.isNotBlank()) {
                             if (accumulatedTranscript.isNotEmpty()) {
                                 accumulatedTranscript.append(" ")
@@ -192,10 +213,14 @@ class AudioMemoManager(private val context: Context) {
                             _recordingState.value = _recordingState.value.copy(liveTranscript = full)
                             onTranscriptCallback?.invoke(full)
                         }
+
+                        // Seamlessly continue listening for next sentence
                         if (_recordingState.value.isRecording) {
-                            scope.launch(Dispatchers.Main) {
-                                startSpeechRecognitionSession()
-                            }
+                            mainHandler.postDelayed({
+                                if (_recordingState.value.isRecording) {
+                                    startSpeechRecognitionSession()
+                                }
+                            }, 150)
                         }
                     }
 
@@ -218,19 +243,21 @@ class AudioMemoManager(private val context: Context) {
 
                 val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                     putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault().toString())
                     putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-                    putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
+                    putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, context.packageName)
                     putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
+                    putExtra("android.speech.extra.DICTATION_MODE", true)
                 }
                 startListening(intent)
             }
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            Log.e("AudioMemoManager", "Exception starting SpeechRecognizer: ${e.message}", e)
+        }
     }
 
     fun stopRecording(): Pair<String?, String> {
         val file = currentOutputFile
-        val transcript = _recordingState.value.liveTranscript
+        val transcript = _recordingState.value.liveTranscript.trim()
 
         recordingJob?.cancel()
         recordingJob = null
@@ -247,7 +274,7 @@ class AudioMemoManager(private val context: Context) {
                 release()
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.w("AudioMemoManager", "MediaRecorder stop note: ${e.message}")
         } finally {
             mediaRecorder = null
         }
@@ -267,6 +294,7 @@ class AudioMemoManager(private val context: Context) {
         recordingJob = null
 
         try {
+            speechRecognizer?.stopListening()
             speechRecognizer?.destroy()
             speechRecognizer = null
         } catch (_: Exception) {}
